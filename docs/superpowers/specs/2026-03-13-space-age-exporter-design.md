@@ -21,7 +21,7 @@ must pass "itemFluidSignalRecipeEntityName" keyword validation
 
 ## What Does NOT Need to Change
 
-The Lua extractor (`data-final-fixes.lua`) already iterates generically over `data.raw` - it will automatically include Space Age items, recipes, and entities once they are present. No changes are needed to the schema validator, factorioData.ts, or the HTTP server.
+The Lua extractor (`data-final-fixes.lua`) already iterates generically over `data.raw` - it will automatically include Space Age items, recipes, and entities once they are present. Locale generation also continues unchanged - it scans `factorio_data` generically and picks up Space Age locale files automatically. No changes are needed to the schema validator, factorioData.ts, or the HTTP server.
 
 ---
 
@@ -37,46 +37,70 @@ Add a `FACTORIO_DIR` environment variable. When set, the exporter skips the down
 
 | Variable | Required | Description |
 |---|---|---|
-| `FACTORIO_DIR` | No | Path to local Factorio installation. When set, skips download and uses local executable. |
+| `FACTORIO_DIR` | No | Path to the local Factorio installation root (see platform notes). When set, skips download. |
 | `FACTORIO_USERNAME` | Only when `FACTORIO_DIR` is unset | Existing credential for download flow. |
 | `FACTORIO_TOKEN` | Only when `FACTORIO_DIR` is unset | Existing credential for download flow. |
 
-### Executable Path Resolution
+The `.env` file in `packages/exporter/` is the standard mechanism for setting these (loaded via `dotenvy` at startup).
 
-When `FACTORIO_DIR` is set, the executable path is derived per platform:
+### Platform Path Layout
 
-| Platform | Path |
-|---|---|
-| macOS | `{FACTORIO_DIR}/factorio.app/Contents/MacOS/factorio` |
-| Linux | `{FACTORIO_DIR}/bin/x64/factorio` |
-| Windows | `{FACTORIO_DIR}/bin/x64/factorio.exe` |
+`FACTORIO_DIR` is the Factorio installation root. Platform-specific paths derived from it:
+
+| Platform | `FACTORIO_DIR` example | Executable | Game data dir |
+|---|---|---|---|
+| macOS | `/Applications/Factorio` or Steam path | `{FACTORIO_DIR}/factorio.app/Contents/MacOS/factorio` | `{FACTORIO_DIR}/factorio.app/Contents/data/` |
+| Linux | `~/.steam/steam/steamapps/common/Factorio` | `{FACTORIO_DIR}/bin/x64/factorio` | `{FACTORIO_DIR}/data/` |
+| Windows | `C:\Program Files\Factorio` | `{FACTORIO_DIR}\bin\x64\factorio.exe` | `{FACTORIO_DIR}\data\` |
+
+On macOS the game's `data/` directory is inside the app bundle. All sprite path resolution and locale generation must use the platform-specific game data dir, not a simple `{FACTORIO_DIR}/data/` join.
+
+**Steam on macOS:** `FACTORIO_DIR` would be set to `/Users/<user>/Library/Application Support/Steam/steamapps/common/Factorio`.
 
 ### User Data Directory
 
-The Factorio user data directory (where mods and `script-output/` live) is auto-detected per platform with no additional env var required:
+The Factorio user data directory (where mods and `script-output/` live) is auto-detected per platform. No env var is needed.
 
-| Platform | Path |
-|---|---|
-| macOS | `~/Library/Application Support/factorio` |
-| Linux | `~/.factorio` |
-| Windows | `%APPDATA%\Factorio` |
+| Platform | User data dir | Resolution in Rust |
+|---|---|---|
+| macOS | `~/Library/Application Support/factorio` | `dirs::data_dir()` + `"factorio"` or hardcoded platform path |
+| Linux | `~/.factorio` | `dirs::home_dir()` + `".factorio"` |
+| Windows | `%APPDATA%\Factorio` | `std::env::var("APPDATA")` + `"Factorio"` |
+
+### Validation
+
+Before proceeding, when `FACTORIO_DIR` is set, the implementation must validate:
+
+1. The resolved executable path exists and is a file.
+2. The resolved game data directory exists.
+
+If either check fails, exit with a human-readable error such as:
+
+```
+FACTORIO_DIR is set to "/path/to/factorio" but executable not found at "/path/to/factorio/factorio.app/Contents/MacOS/factorio".
+Check that FACTORIO_DIR points to your Factorio installation root.
+```
 
 ### Modified Export Flow
 
 **When `FACTORIO_DIR` is set (new local flow):**
 
 ```
-1. Resolve executable path from FACTORIO_DIR + platform
+1. Resolve + validate executable path and game data dir from FACTORIO_DIR + platform
 2. Auto-detect user data directory from platform
-3. Write export-data mod to {user_data_dir}/mods/export-data/
-4. Run local Factorio executable with scenario
+3. Write export-data mod → {user_data_dir}/mods/export-data/
+   (fail with clear error if mods directory is not writable)
+4. Write scenario → {user_data_dir}/scenarios/export-data/control.lua
+5. Run local Factorio executable with scenario
    → data.raw includes Space Age (bundled in game install)
    → data-final-fixes.lua exports all content (no changes needed)
-   → control.lua writes {user_data_dir}/script-output/data.json
-5. Read data.json
-6. Process sprites: resolve paths against FACTORIO_DIR
-7. Convert PNGs to .basis, serve via HTTP on :8081
-8. Clean up export-data mod from mods directory
+   → control.lua writes to {user_data_dir}/script-output/data.json
+6. Read {user_data_dir}/script-output/data.json
+7. Process sprites: resolve __modname__ paths against game data dir
+8. Convert PNGs to .basis, serve via HTTP on :8081
+9. Clean up: remove {user_data_dir}/mods/export-data/ and
+             {user_data_dir}/scenarios/export-data/
+   (log warning if cleanup fails; do not treat as fatal error)
 ```
 
 **When `FACTORIO_DIR` is unset (existing download flow):**
@@ -84,11 +108,30 @@ No change. Existing behavior is preserved exactly.
 
 ### Sprite Path Resolution
 
-The exporter currently resolves sprite file paths against the downloaded Factorio directory. When using a local install, sprite paths must be resolved against `FACTORIO_DIR` instead. This requires passing the Factorio root path through to the sprite processing step, which currently receives it implicitly from the download location.
+The current code substitutes only `__core__` and `__base__` prefixes when resolving sprite file paths. Space Age sprites use `__space-age__`, quality uses `__quality__`, and so on. The substitution must be generalized:
 
-### Cleanup
+**Current (handles only base game):**
+```rust
+let in_path = factorio_data.join(
+    s.replace("__core__", "core").replace("__base__", "base")
+);
+```
 
-The `export-data` mod is written to the user's mods directory before the run and removed after. This avoids permanently polluting the user's mod list.
+**Required (handles any mod prefix):**
+Strip `__modname__` delimiters and join to the game data dir:
+```
+__<modname>__/path/to/sprite.png  →  {game_data_dir}/<modname>/path/to/sprite.png
+```
+
+This generalization is required regardless of which flow is used - it is an existing gap that blocks Space Age sprites even in the download flow if DLC data were somehow present. The fix belongs in the sprite processing step in `setup.rs`.
+
+### Cleanup Behavior
+
+| Scenario | Behavior |
+|---|---|
+| Mods dir not writable | Fail immediately with clear error before running Factorio |
+| Factorio run fails | Still attempt cleanup, then surface Factorio error |
+| Cleanup fails | Log warning, do not fail the overall export |
 
 ---
 
@@ -96,8 +139,8 @@ The `export-data` mod is written to the user's mods directory before the run and
 
 | File | Change |
 |---|---|
-| `packages/exporter/src/setup.rs` | Main changes: add `FACTORIO_DIR` branch, platform executable resolution, user data dir detection, cleanup |
-| `packages/exporter/src/main.rs` | Remove macOS panic; pass Factorio root path to sprite processing |
+| `packages/exporter/src/setup.rs` | Add `FACTORIO_DIR` branch; platform-specific path resolution; user data dir detection; validation; generalized sprite prefix substitution; cleanup with warning-on-failure |
+| `packages/exporter/src/main.rs` | Remove macOS panic; pass game data dir (not download dir) to sprite processing |
 
 No changes to Lua scripts, schema, TypeScript, or website package.
 
@@ -107,8 +150,8 @@ No changes to Lua scripts, schema, TypeScript, or website package.
 
 For a maintainer to update the production site's data with Space Age content:
 
-1. Set `FACTORIO_DIR` to the local Factorio installation (with Space Age owned and installed)
-2. Run the exporter: `cargo run --release`
+1. Add `FACTORIO_DIR=<path to Factorio install>` to `packages/exporter/.env`
+2. Run the exporter: `cargo run --release` from `packages/exporter/`
 3. The resulting `data.json` and sprite files will include Space Age content
 4. Commit the updated data and redeploy
 
