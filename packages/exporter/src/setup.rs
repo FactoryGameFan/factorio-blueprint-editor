@@ -280,8 +280,12 @@ pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), 
     let file_paths = file_paths
         .into_iter()
         .map(|s| {
-            let in_path =
-                factorio_data.join(s.replace("__core__", "core").replace("__base__", "base"));
+            // Replace __modname__/ prefix with the mod's directory under factorio_data.
+            // e.g. __space-age__/graphics/foo.png -> {factorio_data}/space-age/graphics/foo.png
+            let resolved = MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| {
+                format!("{}/", &caps[1])
+            });
+            let in_path = factorio_data.join(resolved.as_ref());
             let out_path = output_dir.join(s.replace(".png", ".basis").as_str());
             (in_path, out_path)
         })
