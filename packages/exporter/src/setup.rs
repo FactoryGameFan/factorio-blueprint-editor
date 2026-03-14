@@ -17,6 +17,98 @@ macro_rules! get_env_var {
     };
 }
 
+lazy_static! {
+    // Matches __modname__/ at the start of a sprite path.
+    // Handles names with hyphens (space-age) and internal underscores (some_mod).
+    // Uses a negative lookahead so a single _ inside the name does not consume the closing __.
+    static ref MOD_PREFIX_REGEX: Regex =
+        Regex::new(r"^__((?:[^_]|_(?!_))+)__/").unwrap();
+}
+
+/// Returns the path to the Factorio executable given the install root.
+/// - macOS: {dir}/factorio.app/Contents/MacOS/factorio
+/// - Linux: {dir}/bin/x64/factorio
+/// - Windows: {dir}\bin\x64\factorio.exe
+pub fn local_executable_path(factorio_dir: &Path) -> PathBuf {
+    match std::env::consts::OS {
+        "macos" => factorio_dir
+            .join("factorio.app")
+            .join("Contents")
+            .join("MacOS")
+            .join("factorio"),
+        "linux" => factorio_dir.join("bin").join("x64").join("factorio"),
+        "windows" => factorio_dir.join("bin").join("x64").join("factorio.exe"),
+        os => panic!("unsupported OS: {}", os),
+    }
+}
+
+/// Returns the path to Factorio's game data directory given the install root.
+/// - macOS: {dir}/factorio.app/Contents/data
+/// - Linux: {dir}/data
+/// - Windows: {dir}\data
+pub fn local_game_data_path(factorio_dir: &Path) -> PathBuf {
+    match std::env::consts::OS {
+        "macos" => factorio_dir
+            .join("factorio.app")
+            .join("Contents")
+            .join("data"),
+        _ => factorio_dir.join("data"),
+    }
+}
+
+/// Returns the Factorio user data directory (where mods/ and script-output/ live).
+/// - macOS: ~/Library/Application Support/factorio
+/// - Linux: ~/.factorio
+/// - Windows: %APPDATA%\Factorio
+pub fn user_data_dir() -> Result<PathBuf, Box<dyn Error>> {
+    match std::env::consts::OS {
+        "macos" | "linux" => {
+            let home = get_env_var!("HOME")?;
+            let path = match std::env::consts::OS {
+                "macos" => PathBuf::from(home)
+                    .join("Library")
+                    .join("Application Support")
+                    .join("factorio"),
+                _ => PathBuf::from(home).join(".factorio"),
+            };
+            Ok(path)
+        }
+        "windows" => {
+            let appdata = get_env_var!("APPDATA")?;
+            Ok(PathBuf::from(appdata).join("Factorio"))
+        }
+        os => Err(format!("unsupported OS: {}", os).into()),
+    }
+}
+
+/// Validates that FACTORIO_DIR points to a usable Factorio installation.
+/// Returns clear error messages if the executable or data dir are missing.
+pub fn validate_local_install(factorio_dir: &Path) -> Result<(), Box<dyn Error>> {
+    let exe = local_executable_path(factorio_dir);
+    if !exe.is_file() {
+        return Err(format!(
+            "FACTORIO_DIR is set to \"{}\" but executable not found at \"{}\".\n\
+             Check that FACTORIO_DIR points to your Factorio installation root.",
+            factorio_dir.display(),
+            exe.display()
+        )
+        .into());
+    }
+
+    let data = local_game_data_path(factorio_dir);
+    if !data.is_dir() {
+        return Err(format!(
+            "FACTORIO_DIR is set to \"{}\" but game data directory not found at \"{}\".\n\
+             Check that FACTORIO_DIR points to your Factorio installation root.",
+            factorio_dir.display(),
+            data.display()
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
 #[derive(Deserialize)]
 struct Info {
     // name: String,
