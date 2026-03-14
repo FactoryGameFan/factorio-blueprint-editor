@@ -331,6 +331,139 @@ pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), 
     Ok(())
 }
 
+pub async fn extract_local(
+    output_dir: &Path,
+    factorio_dir: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let factorio_executable = local_executable_path(factorio_dir);
+    let factorio_data = local_game_data_path(factorio_dir);
+    let user_data = user_data_dir()?;
+
+    let mod_dir = user_data.join("mods").join("export-data");
+    let scenario_dir = user_data.join("scenarios").join("export-data");
+    let extracted_data_path = user_data.join("script-output").join("data.json");
+
+    let info = include_str!("export-data/info.json");
+    let script = include_str!("export-data/control.lua");
+    let data = include_str!("export-data/data-final-fixes.lua");
+    let locale = generate_locale(&factorio_data).await?;
+
+    // Write export-data mod files
+    tokio::fs::create_dir_all(&mod_dir).await.map_err(|e| {
+        format!(
+            "Failed to write to mods directory \"{}\": {}. \
+             Check that the directory is writable.",
+            mod_dir.display(),
+            e
+        )
+    })?;
+    tokio::fs::create_dir_all(&scenario_dir).await?;
+
+    tokio::fs::write(mod_dir.join("info.json"), info).await?;
+    tokio::fs::write(mod_dir.join("locale.lua"), locale).await?;
+    tokio::fs::write(mod_dir.join("data-final-fixes.lua"), data).await?;
+    tokio::fs::write(scenario_dir.join("control.lua"), script).await?;
+
+    println!("Running Factorio to generate data...");
+
+    Command::new(&factorio_executable)
+        .args(&["--start-server-load-scenario", "export-data/export-data"])
+        .stdout(std::process::Stdio::null())
+        .spawn()?
+        .wait()
+        .await?;
+
+    let content = tokio::fs::read_to_string(&extracted_data_path).await?;
+    tokio::fs::create_dir_all(&output_dir).await?;
+    tokio::fs::write(output_dir.join("data.json"), &content).await?;
+
+    // Process sprites using game data dir from local install
+    let metadata_path = output_dir.join("metadata.json");
+    let res = tokio::fs::read_to_string(&metadata_path).await;
+    let old_metadata: HashMap<String, (u64, u64)> = match res {
+        Ok(buffer) => serde_json::from_str(&buffer)?,
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => HashMap::new(),
+            _ => return Err(Box::new(e)),
+        },
+    };
+    let new_metadata = Arc::new(Mutex::new(HashMap::new()));
+
+    lazy_static! {
+        static ref IMG_REGEX_LOCAL: Regex = Regex::new(r#""([^"]+?\.png)""#).unwrap();
+    }
+
+    let file_paths: HashSet<String> = IMG_REGEX_LOCAL
+        .captures_iter(&content)
+        .map(|cap| cap[1].to_string())
+        .collect();
+
+    let file_paths = file_paths
+        .into_iter()
+        .map(|s| {
+            let resolved = MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| {
+                format!("{}/", &caps[1])
+            });
+            let in_path = factorio_data.join(resolved.as_ref());
+            let out_path = output_dir.join(s.replace(".png", ".basis").as_str());
+            (in_path, out_path)
+        })
+        .collect::<Vec<(PathBuf, PathBuf)>>();
+
+    let progress = ProgressBar::new(file_paths.len() as u64);
+    progress.set_style(
+        ProgressStyle::default_bar()
+            .template("{wide_bar} {pos}/{len} ({elapsed})")
+            .unwrap(),
+    );
+
+    let file_paths = Arc::new(Mutex::new(file_paths));
+    let tmp_dir = std::env::temp_dir().join("__FBE__");
+    tokio::fs::create_dir_all(&tmp_dir).await?;
+
+    let available_parallelism =
+        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+
+    futures::future::try_join_all((0..available_parallelism).map(|_| {
+        compress_next_img(
+            file_paths.clone(),
+            &tmp_dir,
+            progress.clone(),
+            &old_metadata,
+            new_metadata.clone(),
+        )
+    }))
+    .await?;
+
+    let new_metadata = {
+        let new_metadata = new_metadata.lock().unwrap();
+        serde_json::to_vec(&*new_metadata)?
+    };
+    tokio::fs::write(metadata_path, new_metadata).await?;
+
+    progress.finish();
+    tokio::fs::remove_dir_all(&tmp_dir).await?;
+
+    // Clean up export-data mod and scenario from user data dir
+    if let Err(e) = tokio::fs::remove_dir_all(&mod_dir).await {
+        eprintln!(
+            "Warning: failed to clean up mod directory \"{}\": {}",
+            mod_dir.display(),
+            e
+        );
+    }
+    if let Err(e) = tokio::fs::remove_dir_all(&scenario_dir).await {
+        eprintln!(
+            "Warning: failed to clean up scenario directory \"{}\": {}",
+            scenario_dir.display(),
+            e
+        );
+    }
+
+    println!("DONE!");
+    Ok(())
+}
+
 async fn get_len_and_mtime(path: &Path) -> Result<(u64, u64), Box<dyn Error>> {
     let file = tokio::fs::File::open(path).await?;
     let metadata = file.metadata().await?;
