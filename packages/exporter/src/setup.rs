@@ -498,7 +498,6 @@ async fn compress_next_img(
 
             tokio::fs::create_dir_all(out_path.parent().unwrap()).await?;
 
-            // TODO: bundled basisu is Linux x86-64 only; on macOS use `brew install basis_universal` and change to "basisu"
             let basisu_executable = "./basisu";
             let status = Command::new(basisu_executable)
                 // .args(&["-comp_level", "2"])
