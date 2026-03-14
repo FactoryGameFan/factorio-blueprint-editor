@@ -5,3 +5,4 @@ packages/exporter/data/*
 packages/exporter/data/output/metadata.json
 packages/exporter/target
 .env
+.DS_Store
