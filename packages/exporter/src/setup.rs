@@ -19,10 +19,10 @@ macro_rules! get_env_var {
 
 lazy_static! {
     // Matches __modname__/ at the start of a sprite path.
-    // Handles names with hyphens (space-age) and internal underscores (some_mod).
-    // Uses a negative lookahead so a single _ inside the name does not consume the closing __.
+    // Uses lazy (.+?) so it stops at the first __ delimiter, correctly handling
+    // names with hyphens (space-age) and underscores (some_mod).
     static ref MOD_PREFIX_REGEX: Regex =
-        Regex::new(r"^__((?:[^_]|_(?!_))+)__/").unwrap();
+        Regex::new(r"^__(.+?)__/").unwrap();
 }
 
 /// Returns the path to the Factorio executable given the install root.
@@ -340,7 +340,7 @@ pub async fn extract_local(
     let user_data = user_data_dir()?;
 
     let mod_dir = user_data.join("mods").join("export-data");
-    let scenario_dir = user_data.join("scenarios").join("export-data");
+    let scenario_dir = mod_dir.join("scenarios").join("export-data");
     let extracted_data_path = user_data.join("script-output").join("data.json");
 
     let info = include_str!("export-data/info.json");
