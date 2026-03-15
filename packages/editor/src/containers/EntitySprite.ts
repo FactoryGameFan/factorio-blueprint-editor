@@ -138,6 +138,9 @@ export class EntitySprite extends Sprite {
             const data = spriteData[i]
             if (!data) continue
             if (data.draw_as_shadow) continue
+            if (!data.filename && data.filenames) {
+                data.filename = data.filenames[0]
+            }
             if (!data.filename) continue
 
             const texture = G.getTexture(

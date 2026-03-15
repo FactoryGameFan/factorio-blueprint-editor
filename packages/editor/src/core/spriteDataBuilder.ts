@@ -824,7 +824,7 @@ function draw_accumulator(e: AccumulatorPrototype): (data: IDrawData) => readonl
 function draw_agricultural_tower(
     e: AgriculturalTowerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).graphics_set.animation.layers
 }
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
@@ -906,7 +906,26 @@ function draw_artillery_turret(
 function draw_artillery_wagon(
     e: ArtilleryWagonPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const d = data.dir / 4
+        const layers: SpriteData[] = []
+        for (const layer of (e as any).pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        for (const layer of (e as any).cannon_barrel_pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        for (const layer of (e as any).cannon_base_pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        return layers
+    }
 }
 function draw_assembling_machine(
     e: AssemblingMachinePrototype
@@ -934,10 +953,14 @@ function draw_assembling_machine(
                         continue
 
                     const dir = (data.dir + conn.direction) % 16
+                    // pipe_picture can be a directional map {north, east, south, west}
+                    // or a single sprite object (e.g. foundry)
+                    const pipePic = fb.pipe_picture[util.getDirName(dir)] || fb.pipe_picture
+                    if (!pipePic || !pipePic.filename) continue
                     out.push(
                         addToShift(
                             util.rotatePointBasedOnDir([0, -2], dir),
-                            util.duplicate(fb.pipe_picture[util.getDirName(dir)])
+                            util.duplicate(pipePic)
                         )
                     )
                 }
@@ -950,7 +973,7 @@ function draw_assembling_machine(
 function draw_asteroid_collector(
     e: AsteroidCollectorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => getAnimation((e as any).graphics_set.animation, data.dir).layers
 }
 function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1027,18 +1050,27 @@ function draw_boiler(e: BoilerPrototype): (data: IDrawData) => readonly SpriteDa
 function draw_burner_generator(
     e: BurnerGeneratorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => getAnimation((e as any).animation, data.dir).layers
 }
 function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
 }
 function draw_cargo_landing_pad(
     e: CargoLandingPadPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
 }
 function draw_cargo_wagon(e: CargoWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const d = data.dir / 4
+        const layers: SpriteData[] = []
+        for (const layer of (e as any).pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        return layers
+    }
 }
 function draw_constant_combinator(
     e: ConstantCombinatorPrototype
@@ -1133,25 +1165,35 @@ function draw_electric_turret(
         duplicateAndSetPropertyUsing(e.folded_animation.layers[2], 'y', 'height', data.dir / 4),
     ]
 }
+function draw_elevated_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
+    return (data: IDrawData) => {
+        const dir = data.dir
+        let ps = e.pictures[util.getDirName8Way(dir)]
+        if (Object.entries(ps).length === 0) {
+            ps = e.pictures[util.getDirName8Way(dir % 8)]
+        }
+        return [ps.stone_path_background, ps.stone_path, ps.backplates, ps.metals].filter(Boolean)
+    }
+}
 function draw_elevated_curved_rail_a(
     e: ElevatedCurvedRailAPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return draw_elevated_rail(e as unknown as RailPrototype)
 }
 function draw_elevated_curved_rail_b(
     e: ElevatedCurvedRailBPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return draw_elevated_rail(e as unknown as RailPrototype)
 }
 function draw_elevated_half_diagonal_rail(
     e: ElevatedHalfDiagonalRailPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return draw_elevated_rail(e as unknown as RailPrototype)
 }
 function draw_elevated_straight_rail(
     e: ElevatedStraightRailPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return draw_elevated_rail(e as unknown as RailPrototype)
 }
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
@@ -1160,7 +1202,16 @@ function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readon
     ]
 }
 function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const d = data.dir / 4
+        const layers: SpriteData[] = []
+        for (const layer of (e as any).pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        return layers
+    }
 }
 function draw_furnace(e: FurnacePrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => e.graphics_set.animation.layers
@@ -1168,12 +1219,22 @@ function draw_furnace(e: FurnacePrototype): (data: IDrawData) => readonly Sprite
 function draw_fusion_generator(
     e: FusionGeneratorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const gs = (e as any).graphics_set
+        const dirMap: Record<string, any> = {
+            north: gs.north_graphics_set,
+            east: gs.east_graphics_set,
+            south: gs.south_graphics_set,
+            west: gs.west_graphics_set,
+        }
+        const dirSet = dirMap[util.getDirName(data.dir)]
+        return dirSet?.animation?.layers || []
+    }
 }
 function draw_fusion_reactor(
     e: FusionReactorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).graphics_set.structure.layers
 }
 function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1293,7 +1354,16 @@ function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly Spr
 function draw_infinity_cargo_wagon(
     e: InfinityCargoWagonPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const d = data.dir / 4
+        const layers: SpriteData[] = []
+        for (const layer of (e as any).pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        return layers
+    }
 }
 function draw_infinity_container(
     e: InfinityContainerPrototype
@@ -1433,7 +1503,15 @@ function draw_land_mine(e: LandMinePrototype): (data: IDrawData) => readonly Spr
     return () => [e.picture_set]
 }
 function draw_lane_splitter(e: LaneSplitterPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const dir = util.getDirName(data.dir)
+        const out: SpriteData[] = []
+        const structure = (e as any).structure
+        const structurePatch = (e as any).structure_patch
+        if (structurePatch?.[dir]) out.push(structurePatch[dir])
+        if (structure?.[dir]) out.push(structure[dir])
+        return out
+    }
 }
 function draw_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1495,15 +1573,21 @@ function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
 function draw_lightning_attractor(
     e: LightningAttractorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).chargable_graphics.picture.layers
 }
 function draw_linked_belt(e: LinkedBeltPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const isInput = data.dirType === 'input'
+        const dir = isInput ? data.dir : (data.dir + 8) % 16
+        const structure = (e as any).structure
+        const sheet = isInput ? structure.direction_in.sheet : structure.direction_out.sheet
+        return [duplicateAndSetPropertyUsing(sheet, 'x', 'width', dir / 4)]
+    }
 }
 function draw_linked_container(
     e: LinkedContainerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).picture.layers
 }
 function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1563,7 +1647,16 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
     }
 }
 function draw_locomotive(e: LocomotivePrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const d = data.dir / 4
+        const layers: SpriteData[] = []
+        for (const layer of (e as any).pictures.rotated.layers) {
+            const l = util.duplicate(layer)
+            if (l.filenames) l.filename = l.filenames[d]
+            layers.push(l)
+        }
+        return layers
+    }
 }
 function draw_logistic_container(
     e: LogisticContainerPrototype
@@ -1678,7 +1771,7 @@ function draw_programmable_speaker(
 function draw_proxy_container(
     e: ProxyContainerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).picture.layers
 }
 function draw_pump(e: PumpPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [e.animations[util.getDirName(data.dir)]]
@@ -1687,7 +1780,15 @@ function draw_radar(e: RadarPrototype): (data: IDrawData) => readonly SpriteData
     return () => e.pictures.layers
 }
 function draw_rail_ramp(e: RailRampPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const dir = data.dir
+        let ps = (e as any).pictures[util.getDirName8Way(dir)]
+        if (!ps || Object.entries(ps).length === 0) {
+            ps = (e as any).pictures[util.getDirName8Way(dir % 8)]
+        }
+        if (!ps) return []
+        return [ps.stone_path_background, ps.stone_path, ps.ties].filter(Boolean)
+    }
 }
 function draw_rail_signal_base(
     e: RailSignalBasePrototype
@@ -1718,7 +1819,11 @@ function draw_rail_signal_base(
     }
 }
 function draw_rail_support(e: RailSupportPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        const layers = (e as any).graphics_set.structure.layers
+        if (!layers || layers.length === 0) return []
+        return [duplicateAndSetPropertyUsing(layers[0], 'x', 'width', data.dir / 4)]
+    }
 }
 function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1800,7 +1905,7 @@ function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
 }
 function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1843,7 +1948,14 @@ function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readon
     ]
 }
 function draw_thruster(e: ThrusterPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return () => {
+        const gs = (e as any).graphics_set
+        const out: SpriteData[] = []
+        if (gs.integration_patch) out.push(gs.integration_patch)
+        if (gs.animation?.layers) out.push(...gs.animation.layers)
+        else if (gs.animation) out.push(gs.animation)
+        return out
+    }
 }
 function draw_train_stop(e: TrainStopPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1900,7 +2012,12 @@ function draw_transport_belt(
     }
 }
 function draw_turret(e: TurretPrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => {
+        if (e.folded_animation?.layers?.[0]) {
+            return [duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4)]
+        }
+        return []
+    }
 }
 function draw_underground_belt(
     e: UndergroundBeltPrototype
@@ -2008,7 +2125,7 @@ function draw_underground_belt(
     }
 }
 function draw_valve(e: ValvePrototype): (data: IDrawData) => readonly SpriteData[] {
-    throw new Error('Not implemented!')
+    return (data: IDrawData) => [(e as any).animations[util.getDirName(data.dir)]]
 }
 function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {

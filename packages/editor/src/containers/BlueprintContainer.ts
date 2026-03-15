@@ -814,6 +814,7 @@ export class BlueprintContainer extends Container {
     }
 
     public addEntitySprites(entitySprites: EntitySprite[], sort = true): void {
+        if (entitySprites.length === 0) return
         this.entitySprites.addChild(...entitySprites)
         if (sort) {
             this.sortEntities()
@@ -821,6 +822,7 @@ export class BlueprintContainer extends Container {
     }
 
     public addTileSprites(tileSprites: EntitySprite[]): void {
+        if (tileSprites.length === 0) return
         this.tileSprites.addChild(...tileSprites)
     }
 
@@ -901,29 +903,41 @@ export class BlueprintContainer extends Container {
         this.setMode(EditorMode.PAINT)
         this.cursor = 'pointer'
 
-        if (typeof itemNameOrEntities === 'string') {
-            const itemData = FD.items[itemNameOrEntities]
-            const wireResult = WiresPanel.Wires.includes(itemNameOrEntities) && itemNameOrEntities
-            const tileResult = itemData.place_as_tile && itemData.place_as_tile.result
-            const placeResult = itemData.place_result || tileResult || wireResult
+        try {
+            if (typeof itemNameOrEntities === 'string') {
+                const itemData = FD.items[itemNameOrEntities]
+                if (!itemData) throw new Error(`Item data not found: ${itemNameOrEntities}`)
 
-            if (wireResult) {
-                this.paintContainer = this.wirePaintSlot.addChild(
-                    new PaintWireContainer(this, placeResult)
-                )
-            } else if (tileResult) {
-                this.paintContainer = this.tilePaintSlot.addChild(
-                    new PaintTileContainer(this, placeResult)
-                )
+                const wireResult =
+                    WiresPanel.Wires.includes(itemNameOrEntities) && itemNameOrEntities
+                const tileResult = itemData.place_as_tile && itemData.place_as_tile.result
+                const placeResult = itemData.place_result || tileResult || wireResult
+
+                if (!placeResult) throw new Error(`No place result for item: ${itemNameOrEntities}`)
+
+                if (wireResult) {
+                    this.paintContainer = this.wirePaintSlot.addChild(
+                        new PaintWireContainer(this, placeResult)
+                    )
+                } else if (tileResult) {
+                    this.paintContainer = this.tilePaintSlot.addChild(
+                        new PaintTileContainer(this, placeResult)
+                    )
+                } else {
+                    this.paintContainer = this.entityPaintSlot.addChild(
+                        new PaintEntityContainer(this, placeResult, direction)
+                    )
+                }
             } else {
                 this.paintContainer = this.entityPaintSlot.addChild(
-                    new PaintEntityContainer(this, placeResult, direction)
+                    new PaintBlueprintContainer(this, itemNameOrEntities)
                 )
             }
-        } else {
-            this.paintContainer = this.entityPaintSlot.addChild(
-                new PaintBlueprintContainer(this, itemNameOrEntities)
-            )
+        } catch (e) {
+            console.error('Failed to create paint container:', e)
+            this.setMode(EditorMode.NONE)
+            this.cursor = 'inherit'
+            return
         }
 
         if (!this.isPointerInside) {

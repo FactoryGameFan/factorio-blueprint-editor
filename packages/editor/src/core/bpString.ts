@@ -65,8 +65,7 @@ const keywords: KeywordDefinition[] = [
     },
     {
         keyword: 'itemFluidSignalRecipeEntityName',
-        validate: (data: string) =>
-            !!FD.items[data] || !!FD.fluids[data] || !!FD.signals[data] || !!FD.recipes[data],
+        validate: () => true,
         errors: false,
         schema: false,
     },
@@ -123,6 +122,37 @@ const nameMigrations: Record<string, string> = {
 }
 const nameMigrationsRegex = new RegExp(Object.keys(nameMigrations).join('|'), 'g')
 
+function stripUnknownEntities(data: StringData): void {
+    const stripBlueprint = (bp: IBlueprint): void => {
+        if (bp.entities) {
+            const before = bp.entities.length
+            bp.entities = bp.entities.filter(e => {
+                if (!FD.entities[e.name]) {
+                    console.warn(`Stripping unknown entity: ${e.name}`)
+                    return false
+                }
+                return true
+            })
+            if (bp.entities.length < before) {
+                console.warn(`Stripped ${before - bp.entities.length} unknown entities`)
+            }
+        }
+    }
+
+    const stripBook = (entries: IBlueprintBookEntry[] = []): void => {
+        for (const entry of entries) {
+            if (entry.blueprint) stripBlueprint(entry.blueprint)
+            if (entry.blueprint_book) stripBook(entry.blueprint_book.blueprints)
+        }
+    }
+
+    if (data.blueprint) {
+        stripBlueprint(data.blueprint)
+    } else if (data.blueprint_book) {
+        stripBook(data.blueprint_book.blueprints)
+    }
+}
+
 function decode(str: string): Promise<Blueprint | Book> {
     return new Promise((resolve, reject) => {
         try {
@@ -137,35 +167,33 @@ function decode(str: string): Promise<Blueprint | Book> {
         }
     }).then(data => {
         console.log(data)
-        if (validate(data)) {
-            if (data.blueprint_book === undefined) {
-                return new Blueprint(data.blueprint)
-            } else {
-                const hasBlueprint = (entries: IBlueprintBookEntry[] = []): boolean => {
-                    for (const entry of entries) {
-                        if (entry.blueprint) return true
-                        if (entry.blueprint_book && hasBlueprint(entry.blueprint_book.blueprints))
-                            return true
-                    }
-                    return false
-                }
-                if (hasBlueprint(data.blueprint_book.blueprints)) {
-                    return new Book(data.blueprint_book)
-                } else {
-                    throw new BookWithNoBlueprintsError()
-                }
-            }
-        } else {
+        if (!validate(data)) {
             const errors = validate.errors
-            const trainEntityNames = new Set(['locomotive', 'cargo-wagon', 'fluid-wagon'])
-            const hasTrain = (): boolean => errors.some(e => trainEntityNames.has(e.data as string))
-            const isModded = (): boolean =>
-                errors.some(e => !!keywords.find(k => k.keyword === e.keyword))
-            throw hasTrain()
-                ? new TrainBlueprintError(errors)
-                : isModded()
-                  ? new ModdedBlueprintError(errors)
-                  : errors
+            // Log validation warnings but try to load the blueprint anyway
+            // Unknown entities are stripped so they don't crash during rendering
+            console.warn('Blueprint validation warnings (loading anyway):', errors)
+            if (errors.some(e => e.keyword === 'entityName')) {
+                stripUnknownEntities(data as StringData)
+            }
+        }
+
+        const bpData = data as StringData
+        if (bpData.blueprint_book === undefined) {
+            return new Blueprint(bpData.blueprint)
+        } else {
+            const hasBlueprint = (entries: IBlueprintBookEntry[] = []): boolean => {
+                for (const entry of entries) {
+                    if (entry.blueprint) return true
+                    if (entry.blueprint_book && hasBlueprint(entry.blueprint_book.blueprints))
+                        return true
+                }
+                return false
+            }
+            if (hasBlueprint(bpData.blueprint_book.blueprints)) {
+                return new Book(bpData.blueprint_book)
+            } else {
+                throw new BookWithNoBlueprintsError()
+            }
         }
     })
 }

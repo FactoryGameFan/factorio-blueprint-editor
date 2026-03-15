@@ -197,6 +197,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                                 let stack = 0
                                 for (const [name, count] of Object.entries(e.items)) {
                                     const item = FD.items[name]
+                                    if (!item) continue
                                     if (item.type === 'module') {
                                         const inventory = getModuleInventoryIndex(
                                             FD.entities[e.name]
