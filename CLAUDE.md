@@ -14,7 +14,7 @@ Web-based Factorio blueprint viewer/editor using PixiJS. Fork adding Space Age D
 
 ```fish
 # Dev server (from packages/website/)
-npm run start:website
+npm run start
 
 # Static file server for sprite data (separate terminal, from repo root)
 npx serve packages/exporter/data/output -l 8081 --cors
