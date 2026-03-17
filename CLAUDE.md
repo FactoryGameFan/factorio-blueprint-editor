@@ -74,8 +74,7 @@ Common patterns for `draw_*` functions:
 
 ## Version Constraints
 
-- **PixiJS pinned at 8.13.2** - v8.17.0 has breaking Graphics API changes
-- **basisu v1.16.4** encoder/transcoder must match - v2.10.0 is incompatible with PixiJS 8.13.2
+- **basisu v1.16.4** encoder/transcoder must match - bundled transcoder at `packages/editor/src/basis/transcoder.1.16.4.js`
 - **Current basisu binary** is macOS ARM64 (`packages/exporter/basisu`) - needs cross-platform support (see TODO in exporter)
 
 ## Testing
