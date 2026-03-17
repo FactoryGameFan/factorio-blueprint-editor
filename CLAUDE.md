@@ -9,6 +9,7 @@ Web-based Factorio blueprint viewer/editor using PixiJS. Fork adding Space Age D
 - `packages/editor/` - Core editor library (PixiJS rendering, blueprint parsing, entity logic)
 - `packages/exporter/` - Extracts entity data and sprites from Factorio install
 - `packages/website/` - Vite-based web frontend that hosts the editor
+- `packages/worker/` - Cloudflare Worker for deploying the editor as a static site
 
 ## Key Commands
 
@@ -73,6 +74,25 @@ Common patterns for `draw_*` functions:
 - **Array-form base_visualisation**: Some Space Age turrets (tesla-turret) have `graphics_set.base_visualisation` as an array instead of a direct object. `draw_electric_turret` handles both formats.
 - **Blueprint validation**: Made lenient to handle Space Age content. Unknown entity names are stripped; other validation failures (unknown signals, new enum values) are logged as warnings but don't block loading.
 
+## Cloudflare Deployment
+
+The editor is deployed to Cloudflare Workers at https://fbeworkeyman.wormeyman.workers.dev
+
+```fish
+# Build the website first (from packages/website/)
+npx vite build
+
+# Deploy to Cloudflare (from packages/worker/)
+cd packages/worker && npx wrangler deploy
+```
+
+The worker uses `run_worker_first` with an `ASSETS` binding to serve static files from the Vite build output (`packages/website/dist`). A `/corsproxy?url=` fetch handler proxies requests to external services (factorio.school, pastebin, etc.) for loading blueprints, adding CORS headers.
+
+To authenticate with Cloudflare (first time or expired session):
+```fish
+cd packages/worker && npx wrangler login
+```
+
 ## Version Constraints
 
 - **basisu v1.16.4** encoder/transcoder must match - bundled transcoder at `packages/editor/src/basis/transcoder.1.16.4.js`
@@ -91,6 +111,10 @@ Key things to test:
 - Entities with complex sprite formats (foundry, trains, elevated rails) render
 - Copy/paste blueprint strings (Ctrl+C/V with canvas focused)
 
+## Mobile Support
+
+Mobile devices get a read-only viewer with touch gestures (single-finger pan, pinch-to-zoom). The mobile check (`isMobile.any` from pixi.js) shows a dismissable warning instead of blocking the app. Touch handling is in `BlueprintContainer.ts` using native `touchstart`/`touchmove`/`touchend` events on the canvas. Editing features (inventory, entity placement, wiring, keyboard shortcuts) are not available on mobile.
+
 ## Known Limitations
 
 - Train entity sprites use 256-direction spritesheets mapped to 4 cardinal directions - orientation is approximate
@@ -98,3 +122,4 @@ Key things to test:
 - Blueprint book icons using planet names show no icon
 - Some entity types may have missing or incorrectly mapped textures
 - TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json)
+- Mobile is view-only - no editing, inventory, or keyboard shortcuts

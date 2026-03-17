@@ -7,6 +7,7 @@ import {
     EventBoundary,
     FederatedPointerEvent,
     Ticker,
+    isMobile,
 } from 'pixi.js'
 import FD from '../core/factorioData'
 import G from '../common/globals'
@@ -390,6 +391,85 @@ export class BlueprintContainer extends Container {
         this.on('destroyed', () => {
             this.removeEventListener('wheel', onWheel)
         })
+
+        if (isMobile.any) {
+            let prevTouches: Map<number, { x: number; y: number }> = new Map()
+            let lastPinchDist = 0
+            let lastPinchCenter = { x: 0, y: 0 }
+
+            const onTouchStart = (e: TouchEvent): void => {
+                e.preventDefault()
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i]
+                    prevTouches.set(t.identifier, { x: t.clientX, y: t.clientY })
+                }
+                if (prevTouches.size === 2) {
+                    const pts = [...prevTouches.values()]
+                    lastPinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+                    lastPinchCenter = {
+                        x: (pts[0].x + pts[1].x) / 2,
+                        y: (pts[0].y + pts[1].y) / 2,
+                    }
+                }
+            }
+
+            const onTouchMove = (e: TouchEvent): void => {
+                e.preventDefault()
+
+                if (prevTouches.size === 1 && e.touches.length === 1) {
+                    // Single finger pan
+                    const t = e.touches[0]
+                    const prev = prevTouches.get(t.identifier)
+                    if (prev) {
+                        this.viewport.translateBy(t.clientX - prev.x, t.clientY - prev.y)
+                    }
+                    prevTouches.set(t.identifier, { x: t.clientX, y: t.clientY })
+                } else if (e.touches.length === 2) {
+                    // Pinch to zoom + two-finger pan
+                    const t0 = e.touches[0]
+                    const t1 = e.touches[1]
+                    const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY)
+                    const center = {
+                        x: (t0.clientX + t1.clientX) / 2,
+                        y: (t0.clientY + t1.clientY) / 2,
+                    }
+
+                    if (lastPinchDist > 0) {
+                        const scaleDelta = (dist - lastPinchDist) / lastPinchDist
+                        this.viewport.setScaleCenter(center.x, center.y)
+                        this.viewport.zoomBy(scaleDelta)
+                        this.viewport.translateBy(
+                            center.x - lastPinchCenter.x,
+                            center.y - lastPinchCenter.y
+                        )
+                    }
+
+                    lastPinchDist = dist
+                    lastPinchCenter = center
+                    prevTouches.set(t0.identifier, { x: t0.clientX, y: t0.clientY })
+                    prevTouches.set(t1.identifier, { x: t1.clientX, y: t1.clientY })
+                }
+            }
+
+            const onTouchEnd = (e: TouchEvent): void => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    prevTouches.delete(e.changedTouches[i].identifier)
+                }
+                lastPinchDist = 0
+            }
+
+            const canvas = G.app.canvas
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+            canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+            canvas.addEventListener('touchend', onTouchEnd)
+            canvas.addEventListener('touchcancel', onTouchEnd)
+            this.on('destroyed', () => {
+                canvas.removeEventListener('touchstart', onTouchStart)
+                canvas.removeEventListener('touchmove', onTouchMove)
+                canvas.removeEventListener('touchend', onTouchEnd)
+                canvas.removeEventListener('touchcancel', onTouchEnd)
+            })
+        }
 
         this.addEventListener('pointerdown', G.actions.pressButton.bind(G.actions))
         this.on('destroyed', () => {

@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "fbeworkeyman",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-01",
+  "assets": {
+    "directory": "../website/dist",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}
