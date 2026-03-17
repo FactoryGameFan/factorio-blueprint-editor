@@ -187,6 +187,12 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     getBlueprintOrBookFromSource,
     loadBp,
     loadingScreen,
+    getBook: () => book,
+    selectBookIndex: async (index: number) => {
+        if (!book) throw new Error('No book loaded')
+        bp = book.selectBlueprint(index)
+        await editor.loadBlueprint(bp)
+    },
 }
 
 function registerActions(): void {

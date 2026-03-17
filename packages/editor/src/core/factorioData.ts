@@ -509,8 +509,12 @@ export function getEntitySize(e: EntityWithOwnerPrototype, dir: number = 0): IPo
     if (w === h) {
         return { x: w, y: h }
     } else {
+        // Normalize direction to nearest cardinal (0, 4, 8, 12) for size calculation
+        // Curved rails use a 2-way swap; other entities round to nearest cardinal
         if (e.type === 'curved-rail-a' || e.type === 'curved-rail-b') {
             dir = Math.floor((dir % 8) / 4) * 4
+        } else {
+            dir = Math.round(dir / 4) * 4 % 16
         }
         switch (dir) {
             case 0:
@@ -520,7 +524,7 @@ export function getEntitySize(e: EntityWithOwnerPrototype, dir: number = 0): IPo
             case 12:
                 return { x: h, y: w }
             default:
-                throw new Error("Can't swap size based on dir!")
+                return { x: w, y: h }
         }
     }
 }
