@@ -137,6 +137,8 @@ export interface ExtendedSpriteData extends SpriteData {
     rotAngle?: number
 }
 
+export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
+
 const generatorCache = new Map<string, (data: IDrawData) => readonly ExtendedSpriteData[]>()
 
 function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
@@ -147,9 +149,9 @@ function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
     const entity = FD.entities[data.name]
     if (!entity) {
         console.warn(`Entity '${data.name}' not found in FD.entities`)
-        const emptyGenerator = () => [] as readonly ExtendedSpriteData[]
-        generatorCache.set(data.name, emptyGenerator)
-        return emptyGenerator()
+        const failedGenerator = () => SPRITE_GENERATION_FAILED as any
+        generatorCache.set(data.name, failedGenerator)
+        return SPRITE_GENERATION_FAILED as any
     }
     const graphicsFn = generateGraphics(entity)
     const generator = (data: IDrawData): readonly ExtendedSpriteData[] => {
@@ -161,7 +163,7 @@ function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
             ]
         } catch (err) {
             console.warn(`Error generating sprites for '${data.name}' (type: ${entity.type}):`, err)
-            return []
+            return SPRITE_GENERATION_FAILED as any
         }
     }
     generatorCache.set(data.name, generator)
@@ -1101,13 +1103,71 @@ function draw_container(e: ContainerPrototype): (data: IDrawData) => readonly Sp
     return () => e.picture.layers
 }
 function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] {
-    return () => {
-        if (e.picture?.layers) return e.picture.layers
-        if (e.picture) return [e.picture]
-        if (e.pictures?.layers) return e.pictures.layers
-        if (e.animations?.layers) return e.animations.layers
-        if ((e as any).graphics_set?.animation?.layers) return (e as any).graphics_set.animation.layers
-        return []
+    return (data: IDrawData) => {
+        let layers: SpriteData[]
+
+        // Try various property paths that Factorio prototypes use for graphics
+        if (e.picture?.layers) {
+            layers = e.picture.layers.map(l => util.duplicate(l))
+        } else if (e.picture) {
+            layers = [util.duplicate(e.picture)]
+        } else if (e.pictures?.layers) {
+            layers = e.pictures.layers.map(l => util.duplicate(l))
+        } else if (e.pictures && Array.isArray(e.pictures)) {
+            // Array of sprite variants (e.g., SpriteVariations) - pick first
+            const first = e.pictures[0]
+            layers = first?.layers
+                ? first.layers.map(l => util.duplicate(l))
+                : [util.duplicate(first)]
+        } else if (e.animations?.layers) {
+            layers = e.animations.layers.map(l => util.duplicate(l))
+        } else if (e.animations && !e.animations.layers) {
+            // 4-way animation - use direction
+            const dirName = util.getDirName(data.dir || 0)
+            const anim = e.animations[dirName] || e.animations.north || e.animations
+            layers = anim?.layers
+                ? anim.layers.map(l => util.duplicate(l))
+                : [util.duplicate(anim)]
+        } else if (e.graphics_set?.animation?.layers) {
+            layers = e.graphics_set.animation.layers.map(l => util.duplicate(l))
+        } else if (e.graphics_set?.animation) {
+            // 4-way animation in graphics_set
+            const anim = e.graphics_set.animation
+            const dirName = util.getDirName(data.dir || 0)
+            if (anim[dirName]) {
+                const dirAnim = anim[dirName]
+                layers = dirAnim.layers
+                    ? dirAnim.layers.map(l => util.duplicate(l))
+                    : [util.duplicate(dirAnim)]
+            } else if (anim.layers) {
+                layers = anim.layers.map(l => util.duplicate(l))
+            } else {
+                layers = [util.duplicate(anim)]
+            }
+        } else if (e.graphics_set?.picture?.layers) {
+            layers = e.graphics_set.picture.layers.map(l => util.duplicate(l))
+        } else if (e.graphics_set?.picture && Array.isArray(e.graphics_set.picture)) {
+            // Flat array of pictures (e.g., cargo-bay)
+            layers = e.graphics_set.picture.flatMap(p =>
+                p.layers ? p.layers.map(l => util.duplicate(l)) : [util.duplicate(p)]
+            )
+        } else if (e.chargable_graphics?.picture?.layers) {
+            layers = e.chargable_graphics.picture.layers.map(l => util.duplicate(l))
+        } else if (e.folded_animation?.layers) {
+            layers = e.folded_animation.layers.map(l => util.duplicate(l))
+        } else {
+            return []
+        }
+
+        // Apply direction-based filenames indexing
+        const d = data.dir !== undefined ? Math.floor(data.dir / 4) : 0
+        for (const l of layers) {
+            if ((l as any).filenames && !(l as any).filename) {
+                const filenames = (l as any).filenames as string[]
+                ;(l as any).filename = filenames[Math.min(d, filenames.length - 1)]
+            }
+        }
+        return layers
     }
 }
 function draw_decider_combinator(
@@ -1760,14 +1820,40 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
                 return [pictures.t_left]
             }
             if (conn[0] && conn[2]) {
-                return Math.floor(data.position.y) % 2 === 0
-                    ? [pictures.straight_vertical]
-                    : [pictures.vertical_window_background, pictures.straight_vertical_window]
+                // Only show window variant in continuous straight runs (3+ pipes)
+                let useWindow = false
+                if (data.positionGrid) {
+                    const above = { x: data.position.x, y: Math.floor(data.position.y) - 1 }
+                    const below = { x: data.position.x, y: Math.floor(data.position.y) + 1 }
+                    const aboveConn = getFluidConnections(above, data.positionGrid)
+                    const belowConn = getFluidConnections(below, data.positionGrid)
+                    // Both neighbors must also be vertical straight pipes
+                    const aboveIsStraightV = aboveConn[0] && aboveConn[2] && !aboveConn[1] && !aboveConn[3]
+                    const belowIsStraightV = belowConn[0] && belowConn[2] && !belowConn[1] && !belowConn[3]
+                    if (aboveIsStraightV && belowIsStraightV) {
+                        useWindow = Math.floor(data.position.y) % 2 !== 0
+                    }
+                }
+                return useWindow
+                    ? [pictures.vertical_window_background, pictures.straight_vertical_window]
+                    : [pictures.straight_vertical]
             }
             if (conn[1] && conn[3]) {
-                return Math.floor(data.position.x) % 2 === 0
-                    ? [pictures.straight_horizontal]
-                    : [pictures.horizontal_window_background, pictures.straight_horizontal_window]
+                let useWindow = false
+                if (data.positionGrid) {
+                    const left = { x: Math.floor(data.position.x) - 1, y: data.position.y }
+                    const right = { x: Math.floor(data.position.x) + 1, y: data.position.y }
+                    const leftConn = getFluidConnections(left, data.positionGrid)
+                    const rightConn = getFluidConnections(right, data.positionGrid)
+                    const leftIsStraightH = leftConn[1] && leftConn[3] && !leftConn[0] && !leftConn[2]
+                    const rightIsStraightH = rightConn[1] && rightConn[3] && !rightConn[0] && !rightConn[2]
+                    if (leftIsStraightH && rightIsStraightH) {
+                        useWindow = Math.floor(data.position.x) % 2 !== 0
+                    }
+                }
+                return useWindow
+                    ? [pictures.horizontal_window_background, pictures.straight_horizontal_window]
+                    : [pictures.straight_horizontal]
             }
             if (conn[0] && conn[1]) {
                 return [pictures.corner_up_right]
