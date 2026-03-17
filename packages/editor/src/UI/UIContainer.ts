@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js'
+import { Container, isMobile } from 'pixi.js'
 import { Entity } from '../core/Entity'
 import { DebugContainer } from './DebugContainer'
 import { QuickbarPanel } from './QuickbarPanel'
@@ -25,14 +25,11 @@ export class UIContainer extends Container {
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
 
-        this.addChild(
-            this.debugContainer,
-            this.quickbarPanel,
-            this.wiresPanel,
-            this.entityInfoPanel,
-            this.dialogsContainer,
-            this.paintIconContainer
-        )
+        this.addChild(this.debugContainer, this.entityInfoPanel, this.dialogsContainer, this.paintIconContainer)
+
+        if (!isMobile.any) {
+            this.addChild(this.quickbarPanel, this.wiresPanel)
+        }
     }
 
     public updateEntityInfoPanel(entity: Entity): void {
