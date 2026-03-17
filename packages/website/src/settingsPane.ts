@@ -40,6 +40,21 @@ export function initSettingsPane(
         .name('BP Book Index')
         .onFinishChange(changeBookIndex)
 
+    // Allow arrow keys to increment/decrement the BP Book Index input
+    const bpIndexInput = guiBPIndex.domElement.querySelector('input')
+    if (bpIndexInput) {
+        bpIndexInput.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                const current = Number(bpIndexInput.value) || 0
+                const delta = e.key === 'ArrowUp' ? 1 : -1
+                const newVal = Math.max(guiBPIndex.__min, Math.min(guiBPIndex.__max, current + delta))
+                guiBPIndex.setValue(newVal)
+                changeBookIndex(newVal)
+            }
+        })
+    }
+
     const changeBook = (bpOrBook: Book | Blueprint): void => {
         if (bpOrBook instanceof Book) {
             guiBPIndex.max(bpOrBook.lastBookIndex).setValue(bpOrBook.activeIndex)
