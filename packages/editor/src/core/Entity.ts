@@ -385,7 +385,8 @@ export class Entity extends EventEmitter<EntityEvents> {
         switch (this.name) {
             case 'splitter':
             case 'fast-splitter':
-            case 'express-splitter': {
+            case 'express-splitter':
+            case 'turbo-splitter': {
                 return this.splitterFilter
             }
             case 'burner-inserter':
@@ -415,7 +416,8 @@ export class Entity extends EventEmitter<EntityEvents> {
         switch (this.name) {
             case 'splitter':
             case 'fast-splitter':
-            case 'express-splitter': {
+            case 'express-splitter':
+            case 'turbo-splitter': {
                 this.splitterFilter = FILTERS
                 return
             }

@@ -52,7 +52,8 @@ export function createEditor(entity: Entity): Editor {
         // Splitters
         case 'splitter':
         case 'fast-splitter':
-        case 'express-splitter': {
+        case 'express-splitter':
+        case 'turbo-splitter': {
             editor = new SplitterEditor(entity)
             break
         }

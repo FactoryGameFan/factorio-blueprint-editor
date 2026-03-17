@@ -251,7 +251,7 @@ export class OverlayContainer extends Container {
                 filterInfo.addChild(arrow)
             }
 
-            if (entity.filters.length > 0) {
+            if (entity.filters && entity.filters.length > 0) {
                 createIconWithBackground(
                     filterInfo,
                     entity.filters[0].name,
