@@ -31,6 +31,9 @@ npx playwright test
 
 # List discovered test blueprints without running
 npx playwright test --list
+
+# Bundle size analysis (from packages/website/) - opens treemap in browser
+cd packages/website && npm run build:analyze
 ```
 
 ## Dev Server Setup

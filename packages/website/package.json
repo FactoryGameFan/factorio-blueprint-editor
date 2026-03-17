@@ -5,6 +5,7 @@
     "scripts": {
         "start": "vite",
         "build": "vite build",
+        "build:analyze": "VISUALIZE=1 vite build",
         "preview": "vite preview"
     },
     "dependencies": {

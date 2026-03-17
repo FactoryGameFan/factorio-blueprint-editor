@@ -9,10 +9,19 @@ const fullReloadAlways = {
     },
 }
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(async ({ command, mode }) => {
+    const visualizerPlugin = process.env.VISUALIZE
+        ? (await import('rollup-plugin-visualizer')).visualizer({
+              open: true,
+              gzipSize: true,
+              brotliSize: true,
+              filename: 'dist/stats.html',
+              title: 'FBE Bundle Analysis',
+          })
+        : null
     const proxy = {
         '/corsproxy': {
-            target: 'https://fbe.teoxoy.com',
+            target: 'https://fbeworkeyman.wormeyman.workers.dev',
             changeOrigin: true,
         },
     }
@@ -52,6 +61,7 @@ export default defineConfig(({ command, mode }) => {
                       ],
                   })
                 : fullReloadAlways,
+            ...(visualizerPlugin ? [visualizerPlugin] : []),
         ],
     }
 })
