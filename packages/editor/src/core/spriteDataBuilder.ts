@@ -1159,11 +1159,15 @@ function draw_electric_pole(e: ElectricPolePrototype): (data: IDrawData) => read
 function draw_electric_turret(
     e: ElectricTurretPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => [
-        ...e.graphics_set.base_visualisation.animation.layers,
-        duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
-        duplicateAndSetPropertyUsing(e.folded_animation.layers[2], 'y', 'height', data.dir / 4),
-    ]
+    return (data: IDrawData) => {
+        const bv = (e as any).graphics_set.base_visualisation
+        const baseLayers = Array.isArray(bv) ? bv[0].animation.layers : bv.animation.layers
+        return [
+            ...baseLayers,
+            duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
+            duplicateAndSetPropertyUsing(e.folded_animation.layers[2], 'y', 'height', data.dir / 4),
+        ]
+    }
 }
 function draw_elevated_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {

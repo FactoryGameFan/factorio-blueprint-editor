@@ -24,6 +24,18 @@ export default defineConfig(({ command, mode }) => {
     }
     return {
         build: { sourcemap: true },
+        optimizeDeps: {
+            include: [
+                'pixi.js',
+                'pixi.js/app',
+                'pixi.js/events',
+                'pixi.js/filters',
+                'pixi.js/sprite-tiling',
+                'pixi.js/text',
+                'pixi.js/graphics',
+                'pixi.js/basis',
+            ],
+        },
         preview: { port: 8080 },
         server: {
             port: 8080,
