@@ -182,6 +182,13 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         })
 })
 
+// Expose loading functions for Playwright test automation
+;(window as any).__fbe_test = {
+    getBlueprintOrBookFromSource,
+    loadBp,
+    loadingScreen,
+}
+
 function registerActions(): void {
     EDITOR.registerAction('clear', {
         trigger: { code: 'KeyN' },

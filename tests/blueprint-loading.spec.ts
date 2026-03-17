@@ -2,33 +2,52 @@ import { test } from '@playwright/test'
 import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint-files'
 import { BlueprintDiagnostic, generateReport } from './helpers/report-generator'
 
+// Warnings from headless Chromium's Canvas2D fallback - not blueprint issues
+const IGNORED_WARNINGS = [
+    'No available adapters.',
+    'CanvasRenderer: filter "_AlphaFilter" is not supported in Canvas2D and will be skipped.',
+]
+
 const blueprintFiles = discoverBlueprintFiles()
 const allDiagnostics: BlueprintDiagnostic[] = []
 
 for (const bp of blueprintFiles) {
-    test(`load blueprint: ${bp.name}`, async ({ page, context }) => {
+    test(`load blueprint: ${bp.name}`, async ({ page }) => {
         const warnings: string[] = []
         const errors: string[] = []
         const jsErrors: string[] = []
         let loadTimeMs: number | null = null
 
-        // Grant clipboard permissions for paste simulation
-        await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-
-        // Listen for console messages
-        page.on('console', msg => {
+        // Listen for console messages (filtering headless renderer noise)
+        page.on('console', async msg => {
             const text = msg.text()
             if (msg.type() === 'warning') {
-                warnings.push(text)
-                console.log(`  WARN: ${text}`)
+                if (IGNORED_WARNINGS.some(iw => text.includes(iw))) return
+                // Try to serialize object args for better reporting
+                let fullText = text
+                if (text.includes('[Object]') || text.includes('[Array]')) {
+                    try {
+                        const args = await Promise.all(
+                            msg.args().map(a => a.jsonValue().catch(() => a.toString()))
+                        )
+                        fullText = args
+                            .map(a => (typeof a === 'string' ? a : JSON.stringify(a)))
+                            .join(' ')
+                    } catch {
+                        // Keep original text
+                    }
+                }
+                warnings.push(fullText)
+                console.log(`  WARN: ${fullText.split('\n')[0]}`)
             } else if (msg.type() === 'error') {
                 errors.push(text)
                 console.log(`  ERROR: ${text}`)
             }
         })
 
-        // Listen for uncaught JS errors
+        // Listen for uncaught JS errors (filtering headless Canvas2D noise)
         page.on('pageerror', error => {
+            if (error.message.includes("Failed to execute 'drawImage'")) return
             jsErrors.push(error.message)
             console.log(`  JS ERROR: ${error.message}`)
         })
@@ -49,94 +68,24 @@ for (const bp of blueprintFiles) {
             { timeout: 30_000 }
         )
 
-        // Focus the canvas (required for paste handler)
-        await page.click('#editor')
-
-        // Try clipboard paste approach first, fall back to page.evaluate() injection
+        // Use the exposed test API to load the blueprint directly
         const startTime = Date.now()
-        let pasteWorked = false
 
         try {
             await page.evaluate(async (bpStr) => {
-                await navigator.clipboard.writeText(bpStr)
+                const fbe = (window as any).__fbe_test
+                fbe.loadingScreen.show()
+                const bpOrBook = await fbe.getBlueprintOrBookFromSource(bpStr)
+                await fbe.loadBp(bpOrBook)
             }, bpString)
 
-            // Dispatch paste via keyboard shortcut (Ctrl+V)
-            await page.keyboard.down('Control')
-            await page.keyboard.press('v')
-            await page.keyboard.up('Control')
-
-            // Check if loading screen appeared within 3 seconds
-            await page.waitForFunction(
-                () => {
-                    const el = document.getElementById('loadingScreen')
-                    return el && el.classList.contains('active')
-                },
-                { timeout: 3_000 }
-            )
-            pasteWorked = true
-        } catch {
-            // Clipboard paste didn't work in headless - use direct function injection
-            console.log('  Clipboard paste failed, using direct function injection')
-
-            await page.evaluate(async (bpStr) => {
-                // Access the app's internal modules via the editor instance on window
-                // We need to trigger the same flow as the paste handler
-                const loadingScreen = document.getElementById('loadingScreen')
-                if (loadingScreen) loadingScreen.classList.add('active')
-
-                // Dispatch a custom event that we'll catch, or directly manipulate
-                // Create and dispatch a paste event with the blueprint string
-                const clipboardData = new DataTransfer()
-                clipboardData.setData('text/plain', bpStr)
-                const pasteEvent = new ClipboardEvent('paste', {
-                    clipboardData,
-                    bubbles: true,
-                    cancelable: true,
-                })
-
-                // Override clipboard.readText to return our string
-                const origReadText = navigator.clipboard.readText
-                navigator.clipboard.readText = async () => bpStr
-                document.dispatchEvent(pasteEvent)
-                // Restore after a tick
-                setTimeout(() => {
-                    navigator.clipboard.readText = origReadText
-                }, 100)
-            }, bpString)
-
-            // Wait a moment for the paste handler to fire
-            await page.waitForTimeout(500)
-
-            // Check if loading started
-            const loadingStarted = await page.evaluate(() => {
-                const el = document.getElementById('loadingScreen')
-                return el && el.classList.contains('active')
-            })
-
-            if (loadingStarted) {
-                pasteWorked = true
-            } else {
-                console.log('  Direct paste dispatch also failed - blueprint may not have loaded')
-            }
-        }
-
-        if (pasteWorked) {
-            // Wait for loading to complete or error
-            try {
-                await page.waitForFunction(
-                    () => {
-                        const el = document.getElementById('loadingScreen')
-                        return el && (!el.classList.contains('active') || el.classList.contains('error'))
-                    },
-                    { timeout: 90_000 }
-                )
-                loadTimeMs = Date.now() - startTime
-                console.log(`  Loaded in ${loadTimeMs}ms`)
-            } catch {
-                loadTimeMs = Date.now() - startTime
-                console.log(`  TIMEOUT after ${loadTimeMs}ms - loading screen still active`)
-            }
+            loadTimeMs = Date.now() - startTime
+            console.log(`  Loaded in ${loadTimeMs}ms`)
+        } catch (err: any) {
+            loadTimeMs = Date.now() - startTime
+            const msg = err.message?.split('\n')[0] || String(err)
+            jsErrors.push(msg)
+            console.log(`  LOAD ERROR (${loadTimeMs}ms): ${msg}`)
         }
 
         // Wait for toasts and async warnings to appear
