@@ -145,12 +145,24 @@ function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
     }
 
     const entity = FD.entities[data.name]
+    if (!entity) {
+        console.warn(`Entity '${data.name}' not found in FD.entities`)
+        const emptyGenerator = () => [] as readonly ExtendedSpriteData[]
+        generatorCache.set(data.name, emptyGenerator)
+        return emptyGenerator()
+    }
+    const graphicsFn = generateGraphics(entity)
     const generator = (data: IDrawData): readonly ExtendedSpriteData[] => {
-        return [
-            ...generateGraphics(entity)(data),
-            ...generateCovers(entity, data),
-            ...generateConnection(entity, data),
-        ]
+        try {
+            return [
+                ...graphicsFn(data),
+                ...generateCovers(entity, data),
+                ...generateConnection(entity, data),
+            ]
+        } catch (err) {
+            console.warn(`Error generating sprites for '${data.name}' (type: ${entity.type}):`, err)
+            return []
+        }
     }
     generatorCache.set(data.name, generator)
 
@@ -813,8 +825,14 @@ function generateGraphics(e: EntityWithOwnerPrototype): (data: IDrawData) => rea
             return draw_valve(e as ValvePrototype)
         case 'wall':
             return draw_wall(e as WallPrototype)
+        case 'market':
+        case 'simple-entity-with-owner':
+        case 'simple-entity-with-force':
+        case 'temporary-container':
+            return draw_simple_entity(e)
         default:
-            throw new Error(`Missing draw function for: '${e.type}'`)
+            console.warn(`Missing draw function for: '${e.type}' - rendering with fallback`)
+            return draw_simple_entity(e)
     }
 }
 
@@ -1082,6 +1100,16 @@ function draw_constant_combinator(
 function draw_container(e: ContainerPrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => e.picture.layers
 }
+function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] {
+    return () => {
+        if (e.picture?.layers) return e.picture.layers
+        if (e.picture) return [e.picture]
+        if (e.pictures?.layers) return e.pictures.layers
+        if (e.animations?.layers) return e.animations.layers
+        if ((e as any).graphics_set?.animation?.layers) return (e as any).graphics_set.animation.layers
+        return []
+    }
+}
 function draw_decider_combinator(
     e: DeciderCombinatorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
@@ -1218,7 +1246,15 @@ function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly
     }
 }
 function draw_furnace(e: FurnacePrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.graphics_set.animation.layers
+    const anim = e.graphics_set.animation as any
+    if (anim.layers) {
+        return () => anim.layers
+    }
+    // Directional animation (e.g. recycler has {north, east, south, west})
+    return (data: IDrawData) => {
+        const dirAnim = anim[util.getDirName(data.dir)]
+        return dirAnim?.layers || []
+    }
 }
 function draw_fusion_generator(
     e: FusionGeneratorPrototype

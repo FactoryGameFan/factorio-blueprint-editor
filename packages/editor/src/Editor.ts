@@ -143,7 +143,12 @@ export class Editor {
 
     public async loadBlueprint(bp: Blueprint): Promise<void> {
         const last = G.BPC
-        const i = G.app.stage.getChildIndex(last)
+        let i = 0
+        try {
+            i = G.app.stage.getChildIndex(last)
+        } catch {
+            i = G.app.stage.children.length
+        }
 
         G.bp = bp
 
@@ -151,7 +156,9 @@ export class Editor {
         G.BPC.initBP()
         Dialog.closeAll()
         G.app.stage.addChildAt(G.BPC, i)
-        last.destroy()
+        if (last.parent) {
+            last.destroy()
+        }
     }
 
     private initActions(): void {
