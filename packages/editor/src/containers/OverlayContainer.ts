@@ -70,12 +70,14 @@ export class OverlayContainer extends Container {
                 let filter = fb.filter
                 if (isCraftingMachine(entity.entityData)) {
                     const recipe = FD.recipes[entity.recipe]
-                    const items =
-                        fb.production_type === 'input' ? recipe.ingredients : recipe.results
-                    const fluids = items
-                        .filter(item => item.type === 'fluid')
-                        .map(fluid => fluid.name)
-                    filter = fluids[i >= fluids.length ? 0 : i]
+                    if (recipe) {
+                        const items =
+                            fb.production_type === 'input' ? recipe.ingredients : recipe.results
+                        const fluids = items
+                            .filter(item => item.type === 'fluid')
+                            .map(fluid => fluid.name)
+                        filter = fluids[i >= fluids.length ? 0 : i]
+                    }
                 }
 
                 for (const connection of fb.pipe_connections) {
@@ -371,10 +373,14 @@ export class OverlayContainer extends Container {
     }
 
     public createEntityInfo(entity: Entity, position: IPoint): Container {
-        const entityInfo = OverlayContainer.createEntityInfo(entity, position)
-        if (entityInfo !== undefined) {
-            this.entityInfos.addChild(entityInfo)
-            return entityInfo
+        try {
+            const entityInfo = OverlayContainer.createEntityInfo(entity, position)
+            if (entityInfo !== undefined) {
+                this.entityInfos.addChild(entityInfo)
+                return entityInfo
+            }
+        } catch (e) {
+            console.warn(`Failed to create entity info for ${entity.name}:`, e)
         }
     }
 
