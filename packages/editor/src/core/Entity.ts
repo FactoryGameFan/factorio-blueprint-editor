@@ -1010,12 +1010,14 @@ export class Entity extends EventEmitter<EntityEvents> {
     public get assemblerHasFluidInputs(): boolean {
         if (!this.recipe) return false
         const recipe = FD.recipes[this.recipe]
+        if (!recipe || !recipe.ingredients) return false
         return !!recipe.ingredients.find(ingredient => ingredient.type === 'fluid')
     }
 
     public get assemblerHasFluidOutputs(): boolean {
         if (!this.recipe) return false
         const recipe = FD.recipes[this.recipe]
+        if (!recipe || !recipe.results) return false
         return !!recipe.results.find(result => result.type === 'fluid')
     }
 

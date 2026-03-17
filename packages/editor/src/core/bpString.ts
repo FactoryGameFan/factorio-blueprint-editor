@@ -77,6 +77,7 @@ const validate = new Ajv({
     keywords,
     verbose: true,
     strict: true,
+    allowUnionTypes: true,
 }).compile<StringData>(blueprintSchema)
 
 const nameMigrations: Record<string, string> = {
@@ -181,7 +182,7 @@ function decode(str: string): Promise<Blueprint | Book> {
         if (!validate(data)) {
             const errors = validate.errors
             // Log validation warnings but try to load the blueprint anyway
-            console.warn('Blueprint validation warnings (loading anyway):', errors)
+            console.warn('Blueprint validation warnings (loading anyway):', JSON.stringify(errors))
             loadWarnings.push('Blueprint had validation warnings (loaded anyway)')
         }
         // Always strip unknown entities - they crash during rendering if they
