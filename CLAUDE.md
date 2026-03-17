@@ -25,6 +25,12 @@ cd packages/website && npx vite build
 
 # Type check (has pre-existing errors from Space Age work)
 npx tsc --noEmit -p packages/editor/tsconfig.json
+
+# Run Playwright blueprint diagnostic tests (requires dev servers running)
+npx playwright test
+
+# List discovered test blueprints without running
+npx playwright test --list
 ```
 
 ## Dev Server Setup
@@ -101,7 +107,27 @@ cd packages/worker && npx wrangler login
 - **basisu v1.16.4** encoder/transcoder must match - bundled transcoder at `packages/editor/src/basis/transcoder.1.16.4.js`
 - **Current basisu binary** is macOS ARM64 (`packages/exporter/basisu`) - needs cross-platform support (see TODO in exporter)
 
-## Testing
+## Playwright Blueprint Diagnostics
+
+Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against the running dev server, capture console warnings/errors, and generate diagnostic reports.
+
+**Structure:**
+- `playwright.config.ts` - Config (base URL localhost:8080, 120s timeout, single worker)
+- `tests/blueprint-loading.spec.ts` - Main test file - iterates blueprints, uses `window.__fbe_test` API to load directly
+- `tests/helpers/blueprint-files.ts` - Discovers `.txt` files from `wormeyman-tests/{collection}/`
+- `tests/helpers/report-generator.ts` - Generates JSON + markdown reports to `diagnostic-reports/`
+
+**Test blueprints** are organized by collection in `wormeyman-tests/` (EARN, AVADII, etc.). Each `.txt` file contains a raw Factorio blueprint string.
+
+**How it works:** Tests navigate to the editor, wait for init, then call `window.__fbe_test.getBlueprintOrBookFromSource()` and `loadBp()` via `page.evaluate()` to inject blueprints directly (avoiding URL length limits). Console warnings/errors and JS exceptions are captured per blueprint.
+
+**Prerequisites:** Both dev servers must be running before tests:
+- Terminal 1: `cd packages/website && npm run start` (Vite on port 8080)
+- Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
+
+**Reports** are written to `diagnostic-reports/blueprint-diagnostics.json` and `diagnostic-reports/blueprint-diagnostics.md` (gitignored).
+
+## Manual Testing
 
 Load blueprints from factorio.school to test:
 
