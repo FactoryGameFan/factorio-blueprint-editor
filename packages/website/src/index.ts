@@ -14,7 +14,6 @@ import EDITOR, {
     getBlueprintOrBookFromSource,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
-import { initFeedbackButton } from './feedbackButton'
 import { initSettingsPane } from './settingsPane'
 
 document.addEventListener('contextmenu', e => e.preventDefault())
@@ -48,7 +47,6 @@ console.log(
     'color: #1f79aa; font-weight: bold'
 )
 
-initFeedbackButton()
 const createToast = initToasts()
 
 if (isMobile.any) {
