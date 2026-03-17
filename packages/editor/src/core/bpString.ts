@@ -170,12 +170,11 @@ function decode(str: string): Promise<Blueprint | Book> {
         if (!validate(data)) {
             const errors = validate.errors
             // Log validation warnings but try to load the blueprint anyway
-            // Unknown entities are stripped so they don't crash during rendering
             console.warn('Blueprint validation warnings (loading anyway):', errors)
-            if (errors.some(e => e.keyword === 'entityName')) {
-                stripUnknownEntities(data as StringData)
-            }
         }
+        // Always strip unknown entities - they crash during rendering if they
+        // reach Blueprint.ts (e.g., mod entities like ee-infinity-loader)
+        stripUnknownEntities(data as StringData)
 
         const bpData = data as StringData
         if (bpData.blueprint_book === undefined) {
