@@ -12,13 +12,13 @@
         "ajv": "8.18.0",
         "dat.gui": "0.7.9",
         "file-saver": "2.0.5",
-        "pixi.js": "8.13.2"
+        "pixi.js": "^8.17.1"
     },
     "devDependencies": {
         "@types/dat.gui": "0.7.13",
         "@types/file-saver": "2.0.7",
         "stylus": "0.64.0",
-        "vite": "^7.3.1",
+        "vite": "^8.0.0",
         "vite-plugin-static-copy": "^3.3.0"
     }
 }
