@@ -28,7 +28,7 @@ npx tsc --noEmit -p packages/editor/tsconfig.json
 
 ## Dev Server Setup
 
-Vite dev server runs on port 8080. In dev mode, `/data` is proxied to `http://127.0.0.1:8081` (the static file server serving sprite data). In production builds, `vite-plugin-static-copy` copies sprite data into the build output.
+Vite dev server runs on port 8080. In dev mode, `/data` is proxied to `http://127.0.0.1:8081` (the static file server serving sprite data). In production builds, `vite-plugin-static-copy` copies sprite data into the build output. Vite 8's dev server requires `optimizeDeps.include` for pixi.js subpath imports (e.g. `pixi.js/app`) - these are configured in `vite.config.js`.
 
 ## Architecture
 
@@ -70,6 +70,7 @@ Common patterns for `draw_*` functions:
 - **Multi-file sprites**: Space Age entities (especially foundry) use `filenames: string[]` instead of single `filename`. `EntitySprite.getParts` handles this with a `filenames[0]` fallback.
 - **Non-directional pipe_picture**: Foundry's `pipe_picture` is a single sprite object, not a `{north, east, south, west}` map. `spriteDataBuilder.ts` handles this with a fallback.
 - **Signal types**: Space Age adds `space-location`, `asteroid-chunk`, `quality` signal types beyond the base `item`, `virtual`, `fluid`, `recipe`, `entity`.
+- **Array-form base_visualisation**: Some Space Age turrets (tesla-turret) have `graphics_set.base_visualisation` as an array instead of a direct object. `draw_electric_turret` handles both formats.
 - **Blueprint validation**: Made lenient to handle Space Age content. Unknown entity names are stripped; other validation failures (unknown signals, new enum values) are logged as warnings but don't block loading.
 
 ## Version Constraints
