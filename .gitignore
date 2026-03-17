@@ -7,3 +7,4 @@ packages/exporter/target
 .env
 .DS_Store
 *.log
+/wormeyman-tests
