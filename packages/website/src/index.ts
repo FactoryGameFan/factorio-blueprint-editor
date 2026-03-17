@@ -12,6 +12,7 @@ import EDITOR, {
     BookWithNoBlueprintsError,
     encode,
     getBlueprintOrBookFromSource,
+    getAndClearLoadWarnings,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
@@ -136,6 +137,12 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
     const bpIsEmpty = bpOrBook instanceof Blueprint && bpOrBook.isEmpty()
     if (!bpIsEmpty) {
         createToast({ text: 'Blueprint string loaded successfully', type: 'success' })
+    }
+
+    const warnings = getAndClearLoadWarnings()
+    for (const warning of warnings) {
+        console.warn(warning)
+        createToast({ text: warning, type: 'warning', timeout: 10000 })
     }
 }
 

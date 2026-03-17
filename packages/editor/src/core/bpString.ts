@@ -122,13 +122,22 @@ const nameMigrations: Record<string, string> = {
 }
 const nameMigrationsRegex = new RegExp(Object.keys(nameMigrations).join('|'), 'g')
 
-function stripUnknownEntities(data: StringData): void {
+let loadWarnings: string[] = []
+
+function getAndClearLoadWarnings(): string[] {
+    const warnings = loadWarnings
+    loadWarnings = []
+    return warnings
+}
+
+function stripUnknownEntities(data: StringData): string[] {
+    const strippedNames = new Set<string>()
     const stripBlueprint = (bp: IBlueprint): void => {
         if (bp.entities) {
             const before = bp.entities.length
             bp.entities = bp.entities.filter(e => {
                 if (!FD.entities[e.name]) {
-                    console.warn(`Stripping unknown entity: ${e.name}`)
+                    strippedNames.add(e.name)
                     return false
                 }
                 return true
@@ -151,6 +160,7 @@ function stripUnknownEntities(data: StringData): void {
     } else if (data.blueprint_book) {
         stripBook(data.blueprint_book.blueprints)
     }
+    return [...strippedNames]
 }
 
 function decode(str: string): Promise<Blueprint | Book> {
@@ -167,14 +177,21 @@ function decode(str: string): Promise<Blueprint | Book> {
         }
     }).then(data => {
         console.log(data)
+        loadWarnings = []
         if (!validate(data)) {
             const errors = validate.errors
             // Log validation warnings but try to load the blueprint anyway
             console.warn('Blueprint validation warnings (loading anyway):', errors)
+            loadWarnings.push('Blueprint had validation warnings (loaded anyway)')
         }
         // Always strip unknown entities - they crash during rendering if they
         // reach Blueprint.ts (e.g., mod entities like ee-infinity-loader)
-        stripUnknownEntities(data as StringData)
+        const strippedNames = stripUnknownEntities(data as StringData)
+        if (strippedNames.length > 0) {
+            loadWarnings.push(
+                `Skipped ${strippedNames.length} unknown entit${strippedNames.length === 1 ? 'y' : 'ies'}: ${strippedNames.join(', ')}`
+            )
+        }
 
         const bpData = data as StringData
         if (bpData.blueprint_book === undefined) {
@@ -285,4 +302,5 @@ export {
     BookWithNoBlueprintsError,
     encode,
     getBlueprintOrBookFromSource,
+    getAndClearLoadWarnings,
 }
