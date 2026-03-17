@@ -802,8 +802,8 @@
                                     },
                                     "circuit_contents_read_mode": {
                                         "type": "integer",
-                                        "enum": [0, 1],
-                                        "$comment": "0 = pulse, 1 = hold, only present if entity is of type transport-belt and circuit_read_hand_contents is true"
+                                        "enum": [0, 1, 2],
+                                        "$comment": "0 = pulse, 1 = hold, 2 = entire belt contents, only present if entity is of type transport-belt and circuit_read_hand_contents is true"
                                     },
 
                                     "circuit_mode_of_operation": {
