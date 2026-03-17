@@ -13,10 +13,13 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "format": "prettier . --check",
-        "format:fix": "prettier . --write"
+        "format:fix": "prettier . --write",
+        "test": "npx playwright test",
+        "test:report": "npx playwright test --reporter=list"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.58.2",
         "eslint": "^10.0.3",
         "prettier": "^3.8.1",
         "typescript": "^5.9.3",

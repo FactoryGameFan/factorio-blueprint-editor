@@ -8,3 +8,6 @@ packages/exporter/target
 .DS_Store
 *.log
 /wormeyman-tests
+diagnostic-reports/
+playwright-report/
+test-results/
