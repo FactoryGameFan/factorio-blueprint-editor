@@ -212,6 +212,11 @@ export class Entity extends EventEmitter<EntityEvents> {
             .commit()
     }
 
+    /** Rail layer (elevated) for rail signals on raised rails */
+    public get railLayer(): string | undefined {
+        return this.m_rawEntity.rail_layer
+    }
+
     /** Direction Type (input|output) for underground belts */
     public get directionType(): DirectionType {
         return this.m_rawEntity.type

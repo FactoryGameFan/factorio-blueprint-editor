@@ -126,6 +126,7 @@ interface IDrawData {
     dirType: string
     selectorCombinatorSelectMax: boolean
     operator: undefined | ComparatorString | ArithmeticOperation | SelectorCombinatorOperation
+    railLayer: string | undefined
     trainStopColor: ColorWithAlpha
     modules: (string | undefined)[]
 }
@@ -1921,25 +1922,27 @@ function draw_rail_signal_base(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = data.dir
-        let rp = duplicateAndSetPropertyUsing(
-            e.ground_picture_set.rail_piece.sprites,
-            'x',
-            'width',
-            dir % e.ground_picture_set.rail_piece.sprites.line_length
-        )
-        rp = setPropertyUsing(
-            rp,
-            'y',
-            'height',
-            Math.floor(dir / e.ground_picture_set.rail_piece.sprites.line_length)
-        )
+        const pictureSet =
+            data.railLayer === 'elevated' && (e as any).elevated_picture_set
+                ? (e as any).elevated_picture_set
+                : e.ground_picture_set
+
+        // Rail piece sprites - elevated uses layers array, ground is flat
+        const rpSprites = pictureSet.rail_piece.sprites.layers
+            ? pictureSet.rail_piece.sprites.layers[0]
+            : pictureSet.rail_piece.sprites
+        const rpLineLength = rpSprites.line_length || 1
+        let rp = duplicateAndSetPropertyUsing(rpSprites, 'x', 'width', dir % rpLineLength)
+        rp = setPropertyUsing(rp, 'y', 'height', Math.floor(dir / rpLineLength))
+
+        // Structure (signal body)
         let a = duplicateAndSetPropertyUsing(
-            e.ground_picture_set.structure.layers[0],
+            pictureSet.structure.layers[0],
             'y',
             'height',
             dir
         )
-        const structure_index = e.ground_picture_set.signal_color_to_structure_frame_index.green
+        const structure_index = pictureSet.signal_color_to_structure_frame_index.green
         a = setPropertyUsing(a, 'x', 'width', structure_index)
         return [rp, a]
     }

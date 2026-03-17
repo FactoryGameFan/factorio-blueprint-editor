@@ -367,6 +367,9 @@ export interface IEntity {
         remove_unfiltered_items?: boolean
     }
 
+    /** only present if entity is rail-signal or rail-chain-signal on elevated rails */
+    rail_layer?: string
+
     /** pre 2.0 - power pole wire connections */
     neighbours?: number[]
 

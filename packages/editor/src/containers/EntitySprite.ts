@@ -27,6 +27,7 @@ interface IEntityData {
     displayPanelIcon?: undefined | ISignal
     assemblerHasFluidInputs?: boolean
     assemblerHasFluidOutputs?: boolean
+    railLayer?: string
     trainStopColor?: ColorWithAlpha
     modules?: string[]
 }
@@ -147,6 +148,7 @@ export class EntitySprite extends Sprite {
             displayPanelIcon: entity.displayPanelIcon,
             assemblerHasFluidInputs: entity.assemblerHasFluidInputs,
             assemblerHasFluidOutputs: entity.assemblerHasFluidOutputs,
+            railLayer: entity.railLayer,
             trainStopColor: entity.trainStopColor,
             modules: entity.modules,
         })
