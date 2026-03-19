@@ -29,6 +29,7 @@ interface IEntityData {
     assemblerHasFluidOutputs?: boolean
     railLayer?: string
     trainStopColor?: ColorWithAlpha
+    entityColor?: ColorWithAlpha
     modules?: string[]
 }
 
@@ -153,6 +154,8 @@ export class EntitySprite extends Sprite {
             modules: entity.modules,
         })
 
+        const entityColor = entity instanceof Entity ? entity.trainStopColor : (entity as IEntityData).entityColor
+
         if ((spriteData as any) === SPRITE_GENERATION_FAILED || spriteData.length === 0) {
             const fdEntity = FD.entities[entity.name]
             const size = fdEntity ? getEntitySize(fdEntity, entity.direction || 0) : { x: 1, y: 1 }
@@ -249,6 +252,10 @@ export class EntitySprite extends Sprite {
                 sprite.__zIndex = LAYER.ENTITY_BASE
             }
             sprite.zOrder = i
+
+            if (entityColor && !data.tint && !data.draw_as_shadow) {
+                F.applyTint(sprite, getColor(entityColor))
+            }
 
             parts.push(sprite)
         }
