@@ -1073,13 +1073,96 @@ function draw_burner_generator(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => getAnimation((e as any).animation, data.dir).layers
 }
+function isCargoBayLike(entity: { type: string } | undefined): boolean {
+    return (
+        entity !== undefined &&
+        (entity.type === 'cargo-bay' || entity.type === 'cargo-landing-pad')
+    )
+}
+
+function getCargoBayConnectionSprites(
+    connections: any,
+    position: IPoint,
+    positionGrid: PositionGrid
+): SpriteData[] {
+    if (!connections || !positionGrid) return []
+
+    // Cargo bays are 4x4 tiles. Check tiles just outside the boundary for adjacent cargo bays.
+    const x0 = Math.round(position.x - 2)
+    const y0 = Math.round(position.y - 2)
+
+    const hasN = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 1, y: y0 - 1 }))
+    const hasS = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 1, y: y0 + 4 }))
+    const hasW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 + 1 }))
+    const hasE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 + 1 }))
+
+    const hasNW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 - 1 }))
+    const hasNE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 - 1 }))
+    const hasSW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 + 4 }))
+    const hasSE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 + 4 }))
+
+    const sprites: SpriteData[] = []
+
+    const addConnectionSprites = (key: string): void => {
+        const variants = connections[key]
+        if (!variants || variants.length === 0) return
+        const variant = variants[0]
+        for (const rendition of variant) {
+            if (rendition.layers) {
+                for (const layer of rendition.layers) {
+                    sprites.push(util.duplicate(layer))
+                }
+            } else {
+                const { render_layer, ...spriteData } = rendition
+                sprites.push(util.duplicate(spriteData))
+            }
+        }
+    }
+
+    // Exterior walls: drawn on edges WITHOUT a neighbor
+    if (!hasN) addConnectionSprites('top_wall')
+    if (!hasS) addConnectionSprites('bottom_wall')
+    if (!hasW) addConnectionSprites('left_wall')
+    if (!hasE) addConnectionSprites('right_wall')
+
+    // Outer corners: convex corners where two exterior walls meet
+    if (!hasN && !hasW) addConnectionSprites('top_left_outer_corner')
+    if (!hasN && !hasE) addConnectionSprites('top_right_outer_corner')
+    if (!hasS && !hasW) addConnectionSprites('bottom_left_outer_corner')
+    if (!hasS && !hasE) addConnectionSprites('bottom_right_outer_corner')
+
+    // Inner corners: concave notch where two connected sides meet but diagonal is missing
+    if (hasN && hasW && !hasNW) addConnectionSprites('top_left_inner_corner')
+    if (hasN && hasE && !hasNE) addConnectionSprites('top_right_inner_corner')
+    if (hasS && hasW && !hasSW) addConnectionSprites('bottom_left_inner_corner')
+    if (hasS && hasE && !hasSE) addConnectionSprites('bottom_right_inner_corner')
+
+    return sprites
+}
+
 function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+    return (data: IDrawData) => {
+        const base = (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+        const connections = getCargoBayConnectionSprites(
+            (e as any).graphics_set.connections,
+            data.position,
+            data.positionGrid
+        )
+        return [...connections, ...base]
+    }
 }
 function draw_cargo_landing_pad(
     e: CargoLandingPadPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+    return (data: IDrawData) => {
+        const base = (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+        const connections = getCargoBayConnectionSprites(
+            (e as any).graphics_set.connections,
+            data.position,
+            data.positionGrid
+        )
+        return [...connections, ...base]
+    }
 }
 function draw_cargo_wagon(e: CargoWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
