@@ -243,6 +243,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
         ) {
             continue
         }
+        if (!fb.pipe_covers) continue
         for (const connection of fb.pipe_connections) {
             if (
                 !(
@@ -674,6 +675,9 @@ function generateGraphics(e: EntityWithOwnerPrototype): (data: IDrawData) => rea
         case 'agricultural-tower':
             return draw_agricultural_tower(e as AgriculturalTowerPrototype)
         case 'ammo-turret':
+            if (e.name === 'railgun-turret') {
+                return draw_railgun_turret(e as AmmoTurretPrototype)
+            }
             return draw_ammo_turret(e as AmmoTurretPrototype)
         case 'arithmetic-combinator':
             return draw_arithmetic_combinator(e as ArithmeticCombinatorPrototype)
@@ -853,6 +857,14 @@ function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly
         duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
         duplicateAndSetPropertyUsing(e.folded_animation.layers[1], 'y', 'height', data.dir / 4),
     ]
+}
+function draw_railgun_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
+    return (data: IDrawData) => {
+        const dirName = util.getDirName(data.dir)
+        const base = (e as any).graphics_set.base_visualisation.animation[dirName]?.layers || []
+        const folded = (e as any).folded_animation[dirName]?.layers || []
+        return [...base, ...folded]
+    }
 }
 function draw_arithmetic_combinator(
     e: ArithmeticCombinatorPrototype
