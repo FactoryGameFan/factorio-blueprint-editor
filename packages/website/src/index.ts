@@ -77,7 +77,7 @@ let bpSource: string
 let bpIndex = 0
 for (const p of params) {
     if (p.includes('source')) {
-        bpSource = p.split('=')[1]
+        bpSource = decodeURIComponent(p.split('=')[1])
     }
     if (p.includes('index')) {
         bpIndex = Number(p.split('=')[1])
