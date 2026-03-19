@@ -670,7 +670,10 @@
                             "priority-list": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "blueprintSchema.json#/definitions/SlotFilter"
+                                    "oneOf": [
+                                        { "$ref": "blueprintSchema.json#/definitions/SlotFilter" },
+                                        { "type": "string" }
+                                    ]
                                 }
                             },
                             "ignore-unprioritised": {
