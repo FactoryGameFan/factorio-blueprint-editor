@@ -7,10 +7,10 @@ import {
     CanvasTextMetrics,
     RenderTexture,
 } from 'pixi.js'
-import FD, { Color, ColorWithAlpha, getColor } from '../../core/factorioData'
+import FD, { ColorWithAlpha, getColor } from '../../core/factorioData'
 import { styles } from '../style'
 import G from '../../common/globals'
-import { IngredientPrototype, IconData, ProductPrototype, ItemPrototype } from 'factorio:prototype'
+import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
 
 /**
  * Shade Color

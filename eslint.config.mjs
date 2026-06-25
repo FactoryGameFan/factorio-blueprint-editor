@@ -3,11 +3,29 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
     eslint.configs.recommended,
-    tseslint.configs.recommended, // TODO: try strict & strictTypeChecked
+    tseslint.configs.strict, // TODO: try strictTypeChecked (blocked on replacing `as any` data.json casts)
     {
         rules: {
             '@typescript-eslint/ban-ts-comment': 'off', // TODO: remove
             '@typescript-eslint/no-explicit-any': 'off', // TODO: remove
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                {
+                    argsIgnorePattern: '^_',
+                    varsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                    ignoreRestSiblings: true,
+                },
+            ],
+        },
+    },
+    {
+        // Vite config runs in Node, so it needs Node globals.
+        files: ['**/vite.config.js'],
+        languageOptions: {
+            globals: {
+                process: 'readonly',
+            },
         },
     },
     {

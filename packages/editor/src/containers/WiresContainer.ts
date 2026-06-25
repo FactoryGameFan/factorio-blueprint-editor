@@ -68,7 +68,7 @@ export class WiresContainer extends Container {
             alpha: connectionsReach ? 1 : 0.3,
         })
 
-        let bounds = wire.bounds
+        const bounds = wire.bounds
 
         const renderTexture = RenderTexture.create({
             width: bounds.width,

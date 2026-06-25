@@ -270,7 +270,6 @@ export class EntityInfoPanel extends Panel {
                 getBeltSpeed(entity.entityData.speed)
             )} items/s`
             this.m_entityInfo.position.set(10, nextY)
-            nextY = this.m_entityInfo.position.y + this.m_entityInfo.height + 20
         }
     }
 

@@ -18,13 +18,10 @@ import FD, {
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
 import {
-    CircuitConnectorDefinition,
-    RailPieceLayers,
     SpriteVariations,
     EntityWithOwnerPrototype,
     TransportBeltAnimationSetWithCorners,
     Sprite as SpriteData,
-    CombinatorPrototype,
     HeatConnection,
     Sprite4Way,
     AccumulatorPrototype,
@@ -43,8 +40,6 @@ import {
     CargoWagonPrototype,
     ConstantCombinatorPrototype,
     ContainerPrototype,
-    CurvedRailAPrototype,
-    CurvedRailBPrototype,
     DeciderCombinatorPrototype,
     DisplayPanelPrototype,
     ElectricEnergyInterfacePrototype,
@@ -61,7 +56,6 @@ import {
     FusionReactorPrototype,
     GatePrototype,
     GeneratorPrototype,
-    HalfDiagonalRailPrototype,
     HeatInterfacePrototype,
     HeatPipePrototype,
     InfinityCargoWagonPrototype,
@@ -71,8 +65,6 @@ import {
     LampPrototype,
     LandMinePrototype,
     LaneSplitterPrototype,
-    LegacyCurvedRailPrototype,
-    LegacyStraightRailPrototype,
     LightningAttractorPrototype,
     LinkedBeltPrototype,
     LinkedContainerPrototype,
@@ -99,7 +91,6 @@ import {
     SpacePlatformHubPrototype,
     SplitterPrototype,
     StorageTankPrototype,
-    StraightRailPrototype,
     ThrusterPrototype,
     TrainStopPrototype,
     TransportBeltPrototype,
@@ -232,7 +223,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
 
     const output = []
     for (const fb of fbs) {
-        let force_cover =
+        const force_cover =
             isCraftingMachine(e) &&
             ((fb.production_type === 'input' && !data.assemblerHasFluidInputs) ||
                 (fb.production_type === 'output' && !data.assemblerHasFluidOutputs))
@@ -272,7 +263,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
                 return ent && checkFluidConnection(pos.x, pos.y, ent, dir)
             }
 
-            let needs_cover = force_cover || !isConnected()
+            const needs_cover = force_cover || !isConnected()
             if (needs_cover) {
                 let temp = fb.pipe_covers[util.getDirName(dir)].layers[0]
                 temp = addToShift(offset, util.duplicate(temp))
@@ -1050,7 +1041,7 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
 function draw_boiler(e: BoilerPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const patches = []
-        let energy_source = getEnergySource(e)
+        const energy_source = getEnergySource(e)
         if (energy_source.type === 'heat') {
             for (const conn of energy_source.connections) {
                 let needsEnding = true

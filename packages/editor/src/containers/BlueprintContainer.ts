@@ -267,7 +267,7 @@ export class BlueprintContainer extends Container {
                     const WSXOR = moveTracker.directions.up !== moveTracker.directions.down
                     const ADXOR = moveTracker.directions.left !== moveTracker.directions.right
                     if (WSXOR || ADXOR) {
-                        let mult = ticker.elapsedMS / 16.66
+                        const mult = ticker.elapsedMS / 16.66
                         const finalSpeed = (this.moveSpeed / (WSXOR && ADXOR ? 1.4142 : 1)) * mult
                         this.viewport.translateBy(
                             (ADXOR ? (moveTracker.directions.left ? 1 : -1) : 0) * finalSpeed,
@@ -393,7 +393,7 @@ export class BlueprintContainer extends Container {
         })
 
         if (isMobile.any) {
-            let prevTouches: Map<number, { x: number; y: number }> = new Map()
+            const prevTouches: Map<number, { x: number; y: number }> = new Map()
             let lastPinchDist = 0
             let lastPinchCenter = { x: 0, y: 0 }
 

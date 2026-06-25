@@ -30,11 +30,13 @@ const logger: Logger = msg => {
     }
 }
 
+/* eslint-disable no-unassigned-vars -- type placeholders for the exported globals object; values are set on its properties at runtime */
 let app: Application<Renderer<HTMLCanvasElement>>
 let BPC: BlueprintContainer
 let UI: UIContainer
 let bp: Blueprint
 let actions: ActionRegistry
+/* eslint-enable no-unassigned-vars */
 
 const started = new Map<string, Promise<Texture>>()
 const textureCache = new Map<string, Texture>()

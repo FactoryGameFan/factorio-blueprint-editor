@@ -28,14 +28,14 @@ export class TileContainer {
 
         const variants = FD.tiles[name].variants
         if (variants.material_background === undefined) {
-            let variant = variants.main.find(v => (v.size || 1) === 1)
+            const variant = variants.main.find(v => (v.size || 1) === 1)
             filename = variant.picture
             countX = variant.count
             countY = 1
             X = Math.floor(Math.random() * (countX - 1))
             Y = Math.floor(Math.random() * (countY - 1))
         } else {
-            let variant = variants.material_background
+            const variant = variants.material_background
             filename = variant.picture
             countX = 8
             countY = 8

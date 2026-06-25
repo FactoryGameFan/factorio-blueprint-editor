@@ -16,7 +16,7 @@ for (const bp of blueprintFiles) {
         const warnings: string[] = []
         const errors: string[] = []
         const jsErrors: string[] = []
-        let loadTimeMs: number | null = null
+        let loadTimeMs: number | null
 
         // Listen for console messages (filtering headless renderer noise)
         page.on('console', async msg => {

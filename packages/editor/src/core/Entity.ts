@@ -773,7 +773,7 @@ export class Entity extends EventEmitter<EntityEvents> {
 
     private constrainDirection(direction: number): number {
         const pr = this.possibleRotations
-        let canRotate = pr.length !== 0
+        const canRotate = pr.length !== 0
 
         if (canRotate) {
             if (!pr.includes(direction)) {
@@ -1110,7 +1110,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         return bbox
     }
 
-    public serialize(entNrWhitelist?: Set<number>): IEntity {
+    public serialize(_entNrWhitelist?: Set<number>): IEntity {
         return util.duplicate({
             ...this.m_rawEntity,
             // ...this.m_BP.wireConnections.serializeConnectionData(this.entityNumber, entNrWhitelist),

@@ -163,12 +163,6 @@ interface IAction {
     modifierCallbacks?: Callbacks
 }
 
-const objectMap = <InValue, OutValue>(
-    obj: Record<string, InValue>,
-    fn: (key: string, value: InValue, index: number) => OutValue
-): Record<string, OutValue> =>
-    Object.fromEntries(Object.entries(obj).map(([k, v], i) => [k, fn(k, v, i)]))
-
 export class ActionRegistry {
     private actions: Map<string, Action>
     private sortedActions: Action[]

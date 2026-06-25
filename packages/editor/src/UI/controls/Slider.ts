@@ -121,7 +121,7 @@ export class Slider extends Container {
 
     /** Update button position */
     private updateButtonPosition(): void {
-        let x = 0
+        let x: number
         if (this.value >= 20000) {
             x = Slider.SLIDER_WIDTH / 4
         } else if (this.value >= 10000) {

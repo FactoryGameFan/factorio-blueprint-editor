@@ -5,7 +5,6 @@ import { InserterEditor } from './InserterEditor'
 import { MachineEditor } from './MachineEditor'
 import { MiningEditor } from './MiningEditor'
 import { SplitterEditor } from './SplitterEditor'
-import { ChestEditor } from './ChestEditor'
 import { TempEditor } from './TempEditor'
 import { TrainStopEditor } from './TrainStopEditor'
 

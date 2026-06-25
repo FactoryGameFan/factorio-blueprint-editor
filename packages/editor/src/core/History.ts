@@ -347,6 +347,7 @@ export class History {
 
     /** Deletes the value of the `Array` or `Object` at the specified key  */
     private DeleteValue<T, K extends keyof T>(obj: T, key: K): void {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- generic undo/redo helper; key is type-constrained to keyof T
         delete obj[key]
     }
 }

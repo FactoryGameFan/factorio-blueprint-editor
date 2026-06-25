@@ -1,7 +1,6 @@
-import { Graphics, Text } from 'pixi.js'
+import { Text } from 'pixi.js'
 import G from '../../common/globals'
 import { colors, styles } from '../style'
-import F from './functions'
 import { Panel } from './Panel'
 
 /**

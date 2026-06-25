@@ -143,7 +143,7 @@ export class Editor {
 
     public async loadBlueprint(bp: Blueprint): Promise<void> {
         const last = G.BPC
-        let i = 0
+        let i: number
         try {
             i = G.app.stage.getChildIndex(last)
         } catch {
