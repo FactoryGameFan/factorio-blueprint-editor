@@ -55,8 +55,11 @@ export default defineConfig(async ({ command, mode }) => {
                 ? viteStaticCopy({
                       targets: [
                           {
-                              src: '../exporter/data/output/*',
+                              src: '../exporter/data/output/**/*',
                               dest: 'data',
+                              // v4 preserves the full source path (exporter/data/output/...);
+                              // strip those 3 segments so files land at dist/data/<name>.
+                              rename: { stripBase: 3 },
                           },
                       ],
                   })
