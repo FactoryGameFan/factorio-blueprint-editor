@@ -76,7 +76,14 @@ let bpSource: string
 let bpIndex = 0
 for (const p of params) {
     if (p.includes('source')) {
-        bpSource = decodeURIComponent(p.split('=')[1])
+        const raw = p.split('=')[1]
+        // decodeURIComponent throws URIError on malformed input (e.g. ?source=%);
+        // fall back to the raw value so a bad param can't abort app init.
+        try {
+            bpSource = decodeURIComponent(raw)
+        } catch {
+            bpSource = raw
+        }
     }
     if (p.includes('index')) {
         bpIndex = Number(p.split('=')[1])

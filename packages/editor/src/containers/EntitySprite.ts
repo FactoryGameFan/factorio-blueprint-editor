@@ -258,7 +258,10 @@ export class EntitySprite extends Sprite {
             }
             sprite.zOrder = i
 
-            if (entityColor && !data.tint && !data.draw_as_shadow) {
+            // Only tint the colorable mask layers (those flagged apply_runtime_tint),
+            // matching Factorio's runtime tinting. Tinting every layer washes the
+            // whole entity (e.g. over-tints train stop posts and locomotive bodies).
+            if (entityColor && data.apply_runtime_tint) {
                 F.applyTint(sprite, getColor(entityColor))
             }
 
