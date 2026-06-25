@@ -182,6 +182,10 @@ export class EntityContainer {
                 is: ['stone-wall', 'gate', 'legacy-straight-rail', 'straight-rail'],
                 updates: ['stone-wall', 'gate', 'legacy-straight-rail', 'straight-rail'],
             },
+            {
+                is: ['cargo-bay', 'cargo-landing-pad'],
+                updates: ['cargo-bay', 'cargo-landing-pad'],
+            },
         ]
 
         return mappigs
