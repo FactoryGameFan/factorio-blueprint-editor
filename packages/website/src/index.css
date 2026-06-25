@@ -1,0 +1,374 @@
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 300;
+  src: local('Roboto Light'), local('Roboto-Light'), url("/fonts/roboto-v20-latin/300.woff2") format('woff2'), url("/fonts/roboto-v20-latin/300.woff") format('woff');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Roboto'), local('Roboto-Regular'), url("/fonts/roboto-v20-latin/400.woff2") format('woff2'), url("/fonts/roboto-v20-latin/400.woff") format('woff');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  src: local('Roboto Medium'), local('Roboto-Medium'), url("/fonts/roboto-v20-latin/500.woff2") format('woff2'), url("/fonts/roboto-v20-latin/500.woff") format('woff');
+}
+@font-face {
+  font-family: 'Titillium Web';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Titillium Web Regular'), local('TitilliumWeb-Regular'), url("/fonts/titillium-web-v8-latin/400.woff2") format('woff2'), url("/fonts/titillium-web-v8-latin/400.woff") format('woff');
+}
+body {
+  margin: 0;
+  overflow: hidden;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+}
+html {
+  font-family: 'Roboto', sans-serif;
+  user-select: none;
+}
+* {
+  box-sizing: border-box;
+}
+#loadingScreen {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #303030;
+}
+#loadingScreen.active {
+  z-index: 10;
+}
+#loadingScreen.active .loadingWheel {
+  animation: rotating 2s linear infinite;
+}
+#loadingScreen.error {
+  z-index: 4;
+  cursor: default;
+}
+#loadingScreen.error .loadingWheel {
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+#corner-panel {
+  z-index: 5;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background-color: #303030;
+  border-bottom-right-radius: 10px;
+  padding: 5px 10px;
+  width: 140px;
+  height: 80px;
+  border-color: #888;
+  border-style: solid;
+  border-width: 0 1px 1px 0;
+}
+#corner-panel span {
+  color: #fff;
+}
+.loadingWheel {
+  width: 60px;
+  height: 60px;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+}
+#logo {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 50%;
+}
+.dg {
+  font: 12px 'Roboto', sans-serif !important;
+}
+.dg.main {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+}
+.dg .slider {
+  margin-left: 0 !important;
+  width: 65% !important;
+}
+.dg .c select {
+  width: 100%;
+}
+#editor {
+  position: fixed;
+  outline: none;
+}
+#buttons {
+  position: absolute;
+  z-index: 5;
+  top: 80px;
+  left: 0;
+}
+#buttons a,
+#buttons button {
+  position: relative;
+  height: 35px;
+  display: block;
+  border-bottom-right-radius: 5px;
+  padding: 4px 8px;
+  color: #fff;
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.6px;
+  line-height: 30px;
+  text-decoration: none;
+  transition: 0.3s all linear;
+  transform: translateX(-5px);
+}
+#buttons a span,
+#buttons button span {
+  position: absolute;
+  margin-left: 25px;
+}
+#buttons a img,
+#buttons button img {
+  position: absolute;
+  top: 0;
+  left: 17px;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 100%;
+}
+#buttons a:hover,
+#buttons button:hover,
+#buttons a:active,
+#buttons button:active,
+#buttons a:focus,
+#buttons button:focus {
+  transform: translateX(0);
+}
+#buttons .github-button {
+  width: 105px;
+  border-left: 5px solid #31383f;
+  background-color: #31383f;
+}
+#buttons .github-button img {
+  width: 20px;
+}
+#info-panel {
+  display: none;
+  position: fixed;
+  top: 50vh;
+  left: 50vw;
+  transform: translate(-50%, -50%);
+  width: 40vw;
+  max-width: 640px;
+  z-index: 100;
+  color: #fff;
+  background-color: #303030;
+  border-radius: 10px;
+  padding: 4px 16px;
+  border: 1px solid #888;
+}
+#info-panel.active {
+  display: block;
+}
+#info-panel ul {
+  position: relative;
+  list-style: none;
+  padding-left: 1em;
+  margin-left: 0.5em;
+}
+#info-panel ul li:before {
+  color: #ffe6c0;
+  content: "-";
+  position: absolute;
+  left: 0;
+}
+#info-panel h1 {
+  color: #ffe6c0;
+  text-align: center;
+  font-size: 1.8em;
+  font-weight: 500;
+}
+#info-panel h2 {
+  font-size: 1.6em;
+  font-weight: 500;
+}
+#info-panel h3 {
+  font-size: 1.2em;
+  font-weight: 500;
+}
+#info-panel .info-list {
+  font-size: 1.1em;
+}
+#info-panel .info-list li mark {
+  background-color: transparent;
+  color: #ffe6c0;
+}
+#info-panel .info-list li:before {
+  content: ">";
+}
+#info-panel .copyright-notice {
+  font-size: 0.9em;
+  text-align: center;
+}
+/* TOASTS */
+.toasts-container {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 320px;
+  z-index: 20;
+}
+.toasts-toast {
+  position: relative;
+  padding: 12px 16px;
+  margin: 8px 0 5px 0;
+  background: #303030;
+  cursor: pointer;
+  box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+  border-radius: 5px 0 0 0;
+  border-style: solid;
+  border-width: 1px 0 2px 1px;
+  border-color: #888;
+  animation-name: toastsFadeIn;
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  transition-delay: 0.3s;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(0.47, 0, 0.745, 0.715);
+  transition-property: max-height margin border padding;
+}
+.toasts-toast-fadeOut {
+  animation-name: toastsFadeOut;
+  animation-fill-mode: forwards;
+  max-height: 0 !important;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.toasts-text {
+  font-size: 14px;
+  color: #fff;
+}
+.toasts-success {
+  border-bottom-color: #51c625;
+}
+.toasts-warning {
+  border-bottom-color: #db9215;
+}
+.toasts-error {
+  border-bottom-color: #db2b1d;
+}
+.toasts-info {
+  border-bottom-color: #27abdb;
+}
+@-moz-keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@-webkit-keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@-o-keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@-moz-keyframes toastsFadeIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@-webkit-keyframes toastsFadeIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@-o-keyframes toastsFadeIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes toastsFadeIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@-moz-keyframes toastsFadeOut {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@-webkit-keyframes toastsFadeOut {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@-o-keyframes toastsFadeOut {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes toastsFadeOut {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
