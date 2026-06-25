@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript, PixiJS v8, Factorio prototype data (`data.json`)
 
 **Reference codebase:** `/Users/ericjohnson/Documents/GitHub/Factorio-FBSR` - Java blueprint renderer with more accurate sprite rendering. Key files:
+
 - `FactorioBlueprintStringRenderer/src/com/demod/fbsr/entity/` - per-entity rendering classes
 - `FactorioBlueprintStringRenderer/src/com/demod/fbsr/fp/FPRotatedSprite.java` - multi-file spritesheet indexing
 - `FactorioBlueprintStringRenderer/src/com/demod/fbsr/entity/UnknownEntityRendering.java` - unknown entity placeholders
@@ -27,6 +28,7 @@
 **Our existing pattern:** The `draw_locomotive`, `draw_cargo_wagon`, `draw_fluid_wagon`, `draw_artillery_wagon`, and `draw_infinity_cargo_wagon` functions already do `if (l.filenames) l.filename = l.filenames[d]` where `d = data.dir / 4`. This is the correct pattern for 4-way cardinal entities. The problem is entities that fall through to the `EntitySprite.ts` fallback without direction-based file selection.
 
 **Files:**
+
 - Modify: `packages/editor/src/core/spriteDataBuilder.ts:1103-1111` (enhance `draw_simple_entity`)
 - Modify: `packages/editor/src/containers/EntitySprite.ts:141-143` (improve fallback)
 
@@ -44,7 +46,8 @@ function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] 
         else if (e.picture) layers = [util.duplicate(e.picture)]
         else if (e.pictures?.layers) layers = e.pictures.layers.map(l => util.duplicate(l))
         else if (e.animations?.layers) layers = e.animations.layers.map(l => util.duplicate(l))
-        else if (e.graphics_set?.animation?.layers) layers = e.graphics_set.animation.layers.map(l => util.duplicate(l))
+        else if (e.graphics_set?.animation?.layers)
+            layers = e.graphics_set.animation.layers.map(l => util.duplicate(l))
         else return []
 
         // Apply direction-based filenames indexing (same pattern as draw_locomotive)
@@ -71,6 +74,7 @@ Note: We must `util.duplicate()` layers before mutating them since the original 
 In `packages/editor/src/containers/EntitySprite.ts`, the fallback at line 141-143 always uses `filenames[0]`. Update it to use a direction-based index when the entity data includes direction info. This catches any sprites that slip past `draw_simple_entity`.
 
 Currently:
+
 ```typescript
 if (!data.filename && data.filenames) {
     data.filename = data.filenames[0]
@@ -78,6 +82,7 @@ if (!data.filename && data.filenames) {
 ```
 
 Change to:
+
 ```typescript
 if (!data.filename && data.filenames) {
     // Use direction-based index if entity has direction, otherwise first file
@@ -92,6 +97,7 @@ Note: `entity` is the `IEntityData | Entity` parameter already available in `get
 - [ ] **Step 3: Manual test**
 
 Start dev server and static file server:
+
 ```fish
 cd packages/website && npm run start
 # In separate terminal:
@@ -120,12 +126,14 @@ functions. Fixes Space Age entities always showing first-direction sprite."
 **How FBSR does it:** `UnknownEntityRendering.java` renders a colored circle with diagonal stripes and a "?" character, plus the entity name as text. Color is deterministically generated from `name.hashCode()` so the same entity always gets the same color.
 
 **Our approach:** Render a simple colored rectangle with the entity name using PixiJS Graphics. This is simpler than FBSR's approach but gives clear visual feedback. We'll handle two cases:
+
 1. Entities in FD.entities whose draw function fails - show placeholder in `spriteDataBuilder.ts`
 2. Entities stripped during validation - show placeholder in the Blueprint (requires changes to `bpString.ts` and `Blueprint.ts`)
 
 For this task, we'll focus on case 1 (draw function failures) since case 2 requires deeper changes to the entity creation pipeline.
 
 **Files:**
+
 - Create: `packages/editor/src/containers/UnknownEntitySprite.ts`
 - Modify: `packages/editor/src/containers/EntitySprite.ts:110-203` (add unknown entity rendering path)
 - Modify: `packages/editor/src/core/spriteDataBuilder.ts:142-169` (tag failed sprites)
@@ -155,12 +163,31 @@ function hashStringToColor(str: string): number {
     const x = c * (1 - Math.abs(((hue / 60) % 2) - 1))
     const m = l - c / 2
     let r: number, g: number, b: number
-    if (hue < 60) { r = c; g = x; b = 0 }
-    else if (hue < 120) { r = x; g = c; b = 0 }
-    else if (hue < 180) { r = 0; g = c; b = x }
-    else if (hue < 240) { r = 0; g = x; b = c }
-    else if (hue < 300) { r = x; g = 0; b = c }
-    else { r = c; g = 0; b = x }
+    if (hue < 60) {
+        r = c
+        g = x
+        b = 0
+    } else if (hue < 120) {
+        r = x
+        g = c
+        b = 0
+    } else if (hue < 180) {
+        r = 0
+        g = c
+        b = x
+    } else if (hue < 240) {
+        r = 0
+        g = x
+        b = c
+    } else if (hue < 300) {
+        r = x
+        g = 0
+        b = c
+    } else {
+        r = c
+        g = 0
+        b = x
+    }
     const ri = Math.round((r + m) * 255)
     const gi = Math.round((g + m) * 255)
     const bi = Math.round((b + m) * 255)
@@ -214,13 +241,16 @@ export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
 ```
 
 Then update the `getSpriteData` function. Change the error catch block (lines 162-164) from:
+
 ```typescript
 } catch (err) {
     console.warn(`Error generating sprites for '${data.name}' (type: ${entity.type}):`, err)
     return []
 }
 ```
+
 To:
+
 ```typescript
 } catch (err) {
     console.warn(`Error generating sprites for '${data.name}' (type: ${entity.type}):`, err)
@@ -229,6 +259,7 @@ To:
 ```
 
 And update the entity-not-found case (lines 149-152) similarly:
+
 ```typescript
 if (!entity) {
     console.warn(`Entity '${data.name}' not found in FD.entities`)
@@ -243,11 +274,17 @@ if (!entity) {
 In `packages/editor/src/containers/EntitySprite.ts`, import the marker and `UnknownEntitySprite`, and add handling after the `getSpriteData` call.
 
 Update the existing import from `spriteDataBuilder` to include `SPRITE_GENERATION_FAILED`:
+
 ```typescript
-import { getSpriteData, ExtendedSpriteData, SPRITE_GENERATION_FAILED } from '../core/spriteDataBuilder'
+import {
+    getSpriteData,
+    ExtendedSpriteData,
+    SPRITE_GENERATION_FAILED,
+} from '../core/spriteDataBuilder'
 ```
 
 Add new imports:
+
 ```typescript
 import { UnknownEntitySprite } from './UnknownEntitySprite'
 import FD, { ColorWithAlpha, getColor, getEntitySize } from '../core/factorioData'
@@ -278,10 +315,13 @@ Note: We return `UnknownEntitySprite` cast through `any` because the return type
 At the bottom of `packages/editor/src/core/spriteDataBuilder.ts` (line 2274), update the export statement:
 
 From:
+
 ```typescript
 export { getSpriteData, getBeltWireConnectionIndex }
 ```
+
 To:
+
 ```typescript
 export { getSpriteData, getBeltWireConnectionIndex, SPRITE_GENERATION_FAILED }
 ```
@@ -289,6 +329,7 @@ export { getSpriteData, getBeltWireConnectionIndex, SPRITE_GENERATION_FAILED }
 - [ ] **Step 5: Manual test**
 
 Load a blueprint containing a mix of known and unknown entities (e.g., a modded blueprint with entities not in vanilla+Space Age data). Verify:
+
 - Known entities render normally (no regression)
 - Unknown/failed entities show as colored rectangles with name text
 - Console warnings still appear for unknown entities
@@ -314,6 +355,7 @@ rendering concept. Color is deterministic per entity name."
 **Our approach:** We can't adopt FBSR's full 80-layer system without major refactoring, but we can add more z-index granularity for commonly-overlapping entity types. The key insight from FBSR is that entity types should have consistent layer assignments rather than relying on sprite index position.
 
 **Files:**
+
 - Modify: `packages/editor/src/containers/EntitySprite.ts:155-196` (z-index assignment logic)
 
 ### Steps
@@ -332,12 +374,12 @@ const LAYER = {
     RAIL_METAL: -7,
     TRANSPORT_BELT: -6,
     TRANSPORT_BELT_ABOVE: -5,
-    FLOOR_ENTITY: -4,        // pipes, underground belt entrances
+    FLOOR_ENTITY: -4, // pipes, underground belt entrances
     PIPE: -3,
     ENTITY_BASE: 0,
     CIRCUIT_CONNECTOR: 1,
     ARTILLERY_BARREL: 2,
-    INSERTER: 3,             // inserters should render above most entities
+    INSERTER: 3, // inserters should render above most entities
     ELEVATED_RAIL_STONE: 4,
     ELEVATED_RAIL_TIE: 5,
     ELEVATED_RAIL_METAL: 6,
@@ -351,10 +393,7 @@ if (data.filename.includes('circuit-connector')) {
     sprite.__zIndex = LAYER.CIRCUIT_CONNECTOR
 } else if (entity.type === 'artillery-turret' && i > 0) {
     sprite.__zIndex = LAYER.ARTILLERY_BARREL
-} else if (
-    (entity.type === 'rail-signal' || entity.type === 'rail-chain-signal') &&
-    i === 0
-) {
+} else if ((entity.type === 'rail-signal' || entity.type === 'rail-chain-signal') && i === 0) {
     sprite.__zIndex = LAYER.RAIL_SIGNAL
 } else if (
     entity.type === 'legacy-straight-rail' ||
@@ -408,6 +447,7 @@ if (data.filename.includes('circuit-connector')) {
 ```
 
 Key changes from current code:
+
 - Elevated rails get their own higher z-index values (render above ground entities)
 - Pipes get `LAYER.PIPE` (-3) so they render below entities but above belts
 - Inserters get `LAYER.INSERTER` (3) so they render above entities they're inserting into
@@ -416,6 +456,7 @@ Key changes from current code:
 - [ ] **Step 2: Manual test**
 
 Test with blueprints that have overlapping entities:
+
 - Inserters next to assembling machines - inserters should render on top
 - Belts under entities - belts should render behind
 - Elevated rails over ground entities - elevated rails should render on top
@@ -441,6 +482,7 @@ pipes at an appropriate depth between belts and entities."
 **How FBSR does it:** Each entity type has a dedicated rendering class with specific property access. We can't match that granularity, but we can add more fallback property paths that cover common Space Age prototype patterns.
 
 **Files:**
+
 - Modify: `packages/editor/src/core/spriteDataBuilder.ts:1103-1112` (expand `draw_simple_entity`)
 
 ### Steps
@@ -499,9 +541,7 @@ function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] 
             // 4-way animation - use direction
             const dirName = util.getDirName(data.dir || 0)
             const anim = e.animations[dirName] || e.animations.north || e.animations
-            layers = anim?.layers
-                ? anim.layers.map(l => util.duplicate(l))
-                : [util.duplicate(anim)]
+            layers = anim?.layers ? anim.layers.map(l => util.duplicate(l)) : [util.duplicate(anim)]
         } else if (e.graphics_set?.animation?.layers) {
             layers = e.graphics_set.animation.layers.map(l => util.duplicate(l))
         } else if (e.graphics_set?.animation) {
@@ -573,6 +613,7 @@ draw functions."
 **How FBSR does it:** `PipeRendering.java:56-84` checks that both forward and reverse neighbors also have the same straight adjacency code before applying the window variant. Only if both neighbors are also straight pipes in the same orientation does it apply the checkerboard window pattern.
 
 **Files:**
+
 - Modify: `packages/editor/src/core/spriteDataBuilder.ts` (the `draw_pipe` function, lines 1741-1799)
 
 ### Steps
@@ -640,6 +681,7 @@ Note: `getFluidConnections` is already defined at line 313 and available in scop
 - [ ] **Step 2: Manual test**
 
 Test with blueprints containing:
+
 - Short pipe segments (2 pipes) - should NOT have window variants
 - Long straight pipe runs (3+ pipes) - middle pipes should alternate with window variants
 - T-junctions and corners - should not be affected
@@ -663,6 +705,7 @@ window sprites on short 2-pipe segments."
 Tasks 2, 3, and 5 are fully independent and can run in parallel.
 
 **Tasks 1 and 4 overlap:** Task 4's `draw_simple_entity` is a strict superset of Task 1 Step 1's version. When executing both:
+
 - **Skip Task 1 Step 1 entirely** (Task 4 Step 2 replaces it)
 - **Do Task 1 Step 2** (EntitySprite.ts fallback) - this is independent of Task 4
 - **Do Task 4 Steps 1-4** as written

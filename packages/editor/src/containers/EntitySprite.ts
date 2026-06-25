@@ -10,7 +10,11 @@ import G from '../common/globals'
 import F from '../UI/controls/functions'
 import { Entity } from '../core/Entity'
 import { PositionGrid } from '../core/PositionGrid'
-import { getSpriteData, ExtendedSpriteData, SPRITE_GENERATION_FAILED } from '../core/spriteDataBuilder'
+import {
+    getSpriteData,
+    ExtendedSpriteData,
+    SPRITE_GENERATION_FAILED,
+} from '../core/spriteDataBuilder'
 import { UnknownEntitySprite } from './UnknownEntitySprite'
 import FD, { ColorWithAlpha, getColor, getEntitySize } from '../core/factorioData'
 import { BlendMode } from 'factorio:prototype'
@@ -42,12 +46,12 @@ const LAYER = {
     RAIL_METAL: -7,
     TRANSPORT_BELT: -6,
     TRANSPORT_BELT_ABOVE: -5,
-    FLOOR_ENTITY: -4,        // pipes, underground belt entrances
+    FLOOR_ENTITY: -4, // pipes, underground belt entrances
     PIPE: -3,
     ENTITY_BASE: 0,
     CIRCUIT_CONNECTOR: 1,
     ARTILLERY_BARREL: 2,
-    INSERTER: 3,             // inserters should render above most entities
+    INSERTER: 3, // inserters should render above most entities
     ELEVATED_RAIL_STONE: 4,
     ELEVATED_RAIL_TIE: 5,
     ELEVATED_RAIL_METAL: 6,
@@ -154,7 +158,8 @@ export class EntitySprite extends Sprite {
             modules: entity.modules,
         })
 
-        const entityColor = entity instanceof Entity ? entity.trainStopColor : (entity as IEntityData).entityColor
+        const entityColor =
+            entity instanceof Entity ? entity.trainStopColor : (entity as IEntityData).entityColor
 
         if ((spriteData as any) === SPRITE_GENERATION_FAILED || spriteData.length === 0) {
             const fdEntity = FD.entities[entity.name]

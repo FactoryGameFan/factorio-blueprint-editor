@@ -1,2 +1,7 @@
 packages/editor/src/basis
 packages/exporter
+
+# Generated / machine-managed files
+**/package-lock.json
+packages/worker/worker-configuration.d.ts
+.claude

@@ -1078,8 +1078,7 @@ function draw_burner_generator(
 }
 function isCargoBayLike(entity: { type: string } | undefined): boolean {
     return (
-        entity !== undefined &&
-        (entity.type === 'cargo-bay' || entity.type === 'cargo-landing-pad')
+        entity !== undefined && (entity.type === 'cargo-bay' || entity.type === 'cargo-landing-pad')
     )
 }
 
@@ -1212,9 +1211,7 @@ function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] 
             // 4-way animation - use direction
             const dirName = util.getDirName(data.dir || 0)
             const anim = e.animations[dirName] || e.animations.north || e.animations
-            layers = anim?.layers
-                ? anim.layers.map(l => util.duplicate(l))
-                : [util.duplicate(anim)]
+            layers = anim?.layers ? anim.layers.map(l => util.duplicate(l)) : [util.duplicate(anim)]
         } else if (e.graphics_set?.animation?.layers) {
             layers = e.graphics_set.animation.layers.map(l => util.duplicate(l))
         } else if (e.graphics_set?.animation) {
@@ -1915,8 +1912,10 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
                     const aboveConn = getFluidConnections(above, data.positionGrid)
                     const belowConn = getFluidConnections(below, data.positionGrid)
                     // Both neighbors must also be vertical straight pipes
-                    const aboveIsStraightV = aboveConn[0] && aboveConn[2] && !aboveConn[1] && !aboveConn[3]
-                    const belowIsStraightV = belowConn[0] && belowConn[2] && !belowConn[1] && !belowConn[3]
+                    const aboveIsStraightV =
+                        aboveConn[0] && aboveConn[2] && !aboveConn[1] && !aboveConn[3]
+                    const belowIsStraightV =
+                        belowConn[0] && belowConn[2] && !belowConn[1] && !belowConn[3]
                     if (aboveIsStraightV && belowIsStraightV) {
                         useWindow = Math.floor(data.position.y) % 2 !== 0
                     }
@@ -1932,8 +1931,10 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
                     const right = { x: Math.floor(data.position.x) + 1, y: data.position.y }
                     const leftConn = getFluidConnections(left, data.positionGrid)
                     const rightConn = getFluidConnections(right, data.positionGrid)
-                    const leftIsStraightH = leftConn[1] && leftConn[3] && !leftConn[0] && !leftConn[2]
-                    const rightIsStraightH = rightConn[1] && rightConn[3] && !rightConn[0] && !rightConn[2]
+                    const leftIsStraightH =
+                        leftConn[1] && leftConn[3] && !leftConn[0] && !leftConn[2]
+                    const rightIsStraightH =
+                        rightConn[1] && rightConn[3] && !rightConn[0] && !rightConn[2]
                     if (leftIsStraightH && rightIsStraightH) {
                         useWindow = Math.floor(data.position.x) % 2 !== 0
                     }
@@ -2022,12 +2023,7 @@ function draw_rail_signal_base(
         rp = setPropertyUsing(rp, 'y', 'height', Math.floor(dir / rpLineLength))
 
         // Structure (signal body)
-        let a = duplicateAndSetPropertyUsing(
-            pictureSet.structure.layers[0],
-            'y',
-            'height',
-            dir
-        )
+        let a = duplicateAndSetPropertyUsing(pictureSet.structure.layers[0], 'y', 'height', dir)
         const structure_index = pictureSet.signal_color_to_structure_frame_index.green
         a = setPropertyUsing(a, 'x', 'width', structure_index)
         return [rp, a]
@@ -2229,7 +2225,14 @@ function draw_transport_belt(
 function draw_turret(e: TurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         if (e.folded_animation?.layers?.[0]) {
-            return [duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4)]
+            return [
+                duplicateAndSetPropertyUsing(
+                    e.folded_animation.layers[0],
+                    'y',
+                    'height',
+                    data.dir / 4
+                ),
+            ]
         }
         return []
     }

@@ -483,7 +483,7 @@ export function getEntitySize(e: EntityWithOwnerPrototype, dir: number = 0): IPo
         if (e.type === 'curved-rail-a' || e.type === 'curved-rail-b') {
             dir = Math.floor((dir % 8) / 4) * 4
         } else {
-            dir = Math.round(dir / 4) * 4 % 16
+            dir = (Math.round(dir / 4) * 4) % 16
         }
         switch (dir) {
             case 0:

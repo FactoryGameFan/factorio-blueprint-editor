@@ -27,7 +27,16 @@
                 },
                 "type": {
                     "type": "string",
-                    "enum": ["item", "virtual", "fluid", "recipe", "entity", "space-location", "asteroid-chunk", "quality"]
+                    "enum": [
+                        "item",
+                        "virtual",
+                        "fluid",
+                        "recipe",
+                        "entity",
+                        "space-location",
+                        "asteroid-chunk",
+                        "quality"
+                    ]
                 },
                 "quality": {
                     "type": "string"
@@ -110,7 +119,16 @@
                 },
                 "type": {
                     "type": "string",
-                    "enum": ["item", "virtual", "fluid", "recipe", "entity", "space-location", "asteroid-chunk", "quality"]
+                    "enum": [
+                        "item",
+                        "virtual",
+                        "fluid",
+                        "recipe",
+                        "entity",
+                        "space-location",
+                        "asteroid-chunk",
+                        "quality"
+                    ]
                 },
                 "quality": {
                     "type": "string"

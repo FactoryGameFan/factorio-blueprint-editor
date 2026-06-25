@@ -12,18 +12,19 @@
 
 ## File Structure
 
-| File | Responsibility |
-|------|---------------|
-| `playwright.config.ts` | Playwright config - base URL, timeouts, no auto-server |
-| `tests/blueprint-loading.spec.ts` | Main test file - iterates blueprint files, captures console output |
-| `tests/helpers/report-generator.ts` | Generates JSON + markdown reports from collected diagnostics |
-| `tests/helpers/blueprint-files.ts` | Discovers and reads blueprint `.txt` files from `wormeyman-tests/` |
+| File                                | Responsibility                                                     |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `playwright.config.ts`              | Playwright config - base URL, timeouts, no auto-server             |
+| `tests/blueprint-loading.spec.ts`   | Main test file - iterates blueprint files, captures console output |
+| `tests/helpers/report-generator.ts` | Generates JSON + markdown reports from collected diagnostics       |
+| `tests/helpers/blueprint-files.ts`  | Discovers and reads blueprint `.txt` files from `wormeyman-tests/` |
 
 ---
 
 ### Task 1: Install Playwright and Create Config
 
 **Files:**
+
 - Create: `playwright.config.ts`
 - Modify: `package.json` (devDependencies, scripts)
 - Modify: `.gitignore`
@@ -90,6 +91,7 @@ git commit -m "chore: add Playwright config for blueprint diagnostics"
 ### Task 2: Create Blueprint File Discovery Helper
 
 **Files:**
+
 - Create: `tests/helpers/blueprint-files.ts`
 
 - [ ] **Step 1: Create the helper**
@@ -124,9 +126,7 @@ export function discoverBlueprintFiles(): BlueprintFile[] {
 
     for (const collection of collections) {
         const collectionPath = path.join(TESTS_DIR, collection.name)
-        const txtFiles = fs
-            .readdirSync(collectionPath)
-            .filter(f => f.endsWith('.txt'))
+        const txtFiles = fs.readdirSync(collectionPath).filter(f => f.endsWith('.txt'))
 
         for (const txtFile of txtFiles) {
             const baseName = txtFile.replace(/\.txt$/, '')
@@ -158,6 +158,7 @@ git commit -m "feat: add blueprint file discovery helper"
 ### Task 3: Create Report Generator
 
 **Files:**
+
 - Create: `tests/helpers/report-generator.ts`
 
 - [ ] **Step 1: Create the report generator**
@@ -245,9 +246,7 @@ function generateMarkdown(report: DiagnosticReport): string {
     // Detailed per-blueprint sections
     for (const bp of report.blueprints) {
         const hasIssues =
-            bp.consoleWarnings.length > 0 ||
-            bp.consoleErrors.length > 0 ||
-            bp.jsErrors.length > 0
+            bp.consoleWarnings.length > 0 || bp.consoleErrors.length > 0 || bp.jsErrors.length > 0
         if (!hasIssues) continue
 
         lines.push(`## ${bp.name}`, '')
@@ -316,9 +315,11 @@ git commit -m "feat: add diagnostic report generator (JSON + markdown)"
 ### Task 4: Create Main Blueprint Loading Test
 
 **Files:**
+
 - Create: `tests/blueprint-loading.spec.ts`
 
 The critical design choice: instead of passing blueprint strings via URL `?source=` param (which breaks due to URL length limits, base64 `=` padding issues, and the app's naive `split('=')[1]` parsing), we:
+
 1. Navigate to the bare page and wait for the editor to initialize
 2. Use `page.evaluate()` to call the app's `getBlueprintOrBookFromSource()` directly
 
@@ -383,7 +384,7 @@ for (const bp of blueprintFiles) {
 
         // Write blueprint string to clipboard and trigger paste
         const startTime = Date.now()
-        await page.evaluate(async (bpStr) => {
+        await page.evaluate(async bpStr => {
             await navigator.clipboard.writeText(bpStr)
         }, bpString)
 
@@ -395,21 +396,25 @@ for (const bp of blueprintFiles) {
         // Wait for loading screen to appear then disappear (or detect error state)
         try {
             // First wait for loading to start
-            await page.waitForFunction(
-                () => {
-                    const el = document.getElementById('loadingScreen')
-                    return el && el.classList.contains('active')
-                },
-                { timeout: 5_000 }
-            ).catch(() => {
-                // Loading may have already started and finished for small blueprints
-            })
+            await page
+                .waitForFunction(
+                    () => {
+                        const el = document.getElementById('loadingScreen')
+                        return el && el.classList.contains('active')
+                    },
+                    { timeout: 5_000 }
+                )
+                .catch(() => {
+                    // Loading may have already started and finished for small blueprints
+                })
 
             // Then wait for loading to complete or error
             await page.waitForFunction(
                 () => {
                     const el = document.getElementById('loadingScreen')
-                    return el && (!el.classList.contains('active') || el.classList.contains('error'))
+                    return (
+                        el && (!el.classList.contains('active') || el.classList.contains('error'))
+                    )
                 },
                 { timeout: 90_000 }
             )
@@ -429,8 +434,7 @@ for (const bp of blueprintFiles) {
                 text: el.textContent || '',
                 isWarning:
                     el.closest('.toasts-toast')?.classList.contains('toasts-warning') || false,
-                isError:
-                    el.closest('.toasts-toast')?.classList.contains('toasts-error') || false,
+                isError: el.closest('.toasts-toast')?.classList.contains('toasts-error') || false,
             }))
         )
 
@@ -498,6 +502,7 @@ git commit -m "feat: add Playwright blueprint loading tests with diagnostic capt
 ### Task 5: Run Tests and Verify Report Generation
 
 **Prerequisites:** Dev servers running manually:
+
 - Terminal 1: `cd packages/website && npm run start` (Vite on port 8080)
 - Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
 
@@ -516,6 +521,7 @@ cat diagnostic-reports/blueprint-diagnostics.md
 ```
 
 Verify:
+
 - Summary table lists all 10 blueprints
 - Warning/error details are captured per blueprint
 - Warning frequency table shows aggregated patterns
@@ -531,6 +537,7 @@ Verify JSON structure matches the `DiagnosticReport` interface.
 - [ ] **Step 4: Iterate on test issues if needed**
 
 If tests fail due to timing, clipboard, or selector issues - debug and fix. Common issues:
+
 - Clipboard permissions not granted: check `context.grantPermissions` call
 - Canvas not focused: ensure `page.click('#editor')` works
 - Paste not detected: the app's paste handler checks `document.activeElement !== CANVAS`
@@ -542,6 +549,7 @@ If tests fail due to timing, clipboard, or selector issues - debug and fix. Comm
 This task is iterative - repeat for each category of issue found in the report.
 
 **Files:**
+
 - Modify: `packages/editor/src/core/spriteDataBuilder.ts` (missing entity types)
 - Modify: `packages/editor/src/core/bpString.ts` (validation issues)
 - Modify: `packages/editor/src/core/blueprintSchema.json` (schema gaps)
@@ -550,6 +558,7 @@ This task is iterative - repeat for each category of issue found in the report.
 - [ ] **Step 1: Categorize issues from the report**
 
 Read `diagnostic-reports/blueprint-diagnostics.md` and group issues by type:
+
 1. **Unknown entities stripped** - entities that need `draw_*` functions in `spriteDataBuilder.ts`
 2. **Validation warnings** - schema gaps in `blueprintSchema.json`
 3. **JS errors** - code crashes that need fixing
@@ -558,15 +567,18 @@ Read `diagnostic-reports/blueprint-diagnostics.md` and group issues by type:
 - [ ] **Step 2: For each category, fix the underlying code**
 
 For unknown entities:
+
 - Check if the entity exists in `data.json` (FD.entities)
 - If it exists but has no rendering: add a `draw_*` function in `spriteDataBuilder.ts`
 - If it doesn't exist in data.json: this is an exporter issue, note it
 
 For validation warnings:
+
 - Update `blueprintSchema.json` to accept new Space Age values
 - Add missing signal types, entity types, etc.
 
 For JS errors:
+
 - Debug the crash, add defensive handling or proper support
 
 - [ ] **Step 3: Re-run tests after each fix**

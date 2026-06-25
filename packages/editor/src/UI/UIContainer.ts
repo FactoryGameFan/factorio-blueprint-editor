@@ -25,7 +25,12 @@ export class UIContainer extends Container {
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
 
-        this.addChild(this.debugContainer, this.entityInfoPanel, this.dialogsContainer, this.paintIconContainer)
+        this.addChild(
+            this.debugContainer,
+            this.entityInfoPanel,
+            this.dialogsContainer,
+            this.paintIconContainer
+        )
 
         if (!isMobile.any) {
             this.addChild(this.quickbarPanel, this.wiresPanel)

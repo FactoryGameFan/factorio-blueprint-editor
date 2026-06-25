@@ -48,11 +48,11 @@ If you have Factorio installed locally (including any DLC like Space Age), set `
 FACTORIO_DIR=/path/to/your/factorio/installation
 ```
 
-| Platform | Example path |
-|---|---|
-| macOS (Steam) | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
-| Linux (Steam) | `~/.steam/steam/steamapps/common/Factorio` |
-| Windows (Steam) | `C:\Program Files (x86)\Steam\steamapps\common\Factorio` |
+| Platform        | Example path                                                               |
+| --------------- | -------------------------------------------------------------------------- |
+| macOS (Steam)   | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
+| Linux (Steam)   | `~/.steam/steam/steamapps/common/Factorio`                                 |
+| Windows (Steam) | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`                   |
 
 When `FACTORIO_DIR` is set, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` are not needed.
 

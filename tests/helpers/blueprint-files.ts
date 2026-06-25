@@ -25,9 +25,7 @@ export function discoverBlueprintFiles(): BlueprintFile[] {
 
     for (const collection of collections) {
         const collectionPath = path.join(TESTS_DIR, collection.name)
-        const txtFiles = fs
-            .readdirSync(collectionPath)
-            .filter(f => f.endsWith('.txt'))
+        const txtFiles = fs.readdirSync(collectionPath).filter(f => f.endsWith('.txt'))
 
         for (const txtFile of txtFiles) {
             const baseName = txtFile.replace(/\.txt$/, '')

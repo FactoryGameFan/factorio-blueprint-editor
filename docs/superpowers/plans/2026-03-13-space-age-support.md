@@ -17,6 +17,7 @@
 ### Task 1: Add local Factorio path resolution to setup.rs
 
 **Files:**
+
 - Modify: `packages/exporter/src/setup.rs`
 
 These are pure functions with no side effects - easy to reason about and test manually by inspection. No test harness exists in this project, so we verify correctness by reading the output in later tasks.
@@ -147,6 +148,7 @@ git commit -m "feat(exporter): add local Factorio path resolution helpers"
 ### Task 2: Generalize sprite path prefix substitution
 
 **Files:**
+
 - Modify: `packages/exporter/src/setup.rs` (the `extract` function, around line 191)
 
 Currently the code only handles `__core__` and `__base__` prefixes. Space Age sprites use `__space-age__`, quality uses `__quality__`, elevated rails uses `__elevated-rails__`. We need to handle any `__modname__` prefix generically.
@@ -211,6 +213,7 @@ git commit -m "feat(exporter): generalize sprite __modname__ prefix substitution
 ### Task 3: Add `extract_local` function to setup.rs
 
 **Files:**
+
 - Modify: `packages/exporter/src/setup.rs`
 
 This is a new async function that runs the export scenario against a local Factorio installation. It mirrors `extract` but uses the local paths from Task 1 and writes/cleans up from the user data directory.
@@ -370,6 +373,7 @@ git commit -m "feat(exporter): add extract_local for local Factorio installation
 ### Task 4: Update main.rs to branch on FACTORIO_DIR
 
 **Files:**
+
 - Modify: `packages/exporter/src/main.rs`
 
 Replace the hardcoded OS panic and always-download flow with a branch: if `FACTORIO_DIR` is set, validate and use the local flow; otherwise fall through to the existing download flow (which still panics on macOS - that's acceptable since macOS users will use `FACTORIO_DIR`).
@@ -464,6 +468,7 @@ println!("User data: {:?}", setup::user_data_dir()?);
 ```
 
 Expected output:
+
 ```
 Executable: "/Users/ericjohnson/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio"
 Game data: "/Users/ericjohnson/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/data"
@@ -480,6 +485,7 @@ cargo run --release 2>&1
 ```
 
 Expected:
+
 - No panic on startup
 - Factorio launches and runs the scenario
 - `data/output/data.json` is created
@@ -505,6 +511,7 @@ npm run start:website
 ```
 
 Open the URL from the bug report in your browser:
+
 ```
 http://localhost:5173/?source=https://www.factorio.school/api/blueprintData/ebecb9c63d1e56847148f8bd2a47115bdac5ade3/
 ```
@@ -531,6 +538,7 @@ git commit -m "chore(exporter): ensure .env is gitignored"
 ### Task 6: Update CONTRIBUTING.md
 
 **Files:**
+
 - Modify: `CONTRIBUTING.md`
 
 The existing CONTRIBUTING.md documents the download-based setup. Add a section for the local Factorio flow so contributors with Space Age can get started.
@@ -549,9 +557,10 @@ Find the section describing the `.env` setup and add after it:
 ### Using a local Factorio installation (required for Space Age support)
 
 If you have Factorio installed locally (including the Space Age expansion), you can skip the download step by setting `FACTORIO_DIR` in your `.env` file:
-
 ```
+
 FACTORIO_DIR=/path/to/your/factorio/installation
+
 ```
 
 Platform-specific paths:
@@ -578,6 +587,7 @@ git commit -m "docs: document local Factorio install option for Space Age suppor
 ## Done
 
 At this point:
+
 - `FACTORIO_DIR` unset: existing download flow unchanged (Linux/Windows)
 - `FACTORIO_DIR` set: local flow with Space Age data exported
 - macOS no longer panics when `FACTORIO_DIR` is set

@@ -115,6 +115,7 @@ cd packages/worker && npx wrangler login
 Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against the running dev server, capture console warnings/errors, and generate diagnostic reports.
 
 **Structure:**
+
 - `playwright.config.ts` - Config (base URL localhost:8080, 120s timeout, single worker)
 - `tests/blueprint-loading.spec.ts` - Main test file - iterates blueprints, uses `window.__fbe_test` API to load directly
 - `tests/helpers/blueprint-files.ts` - Discovers `.txt` files from `wormeyman-tests/{collection}/`
@@ -125,6 +126,7 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 **How it works:** Tests navigate to the editor, wait for init, then call `window.__fbe_test.getBlueprintOrBookFromSource()` and `loadBp()` via `page.evaluate()` to inject blueprints directly (avoiding URL length limits). Console warnings/errors and JS exceptions are captured per blueprint.
 
 **Prerequisites:** Both dev servers must be running before tests:
+
 - Terminal 1: `cd packages/website && npm run start` (Vite on port 8080)
 - Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
 

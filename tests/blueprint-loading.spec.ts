@@ -72,7 +72,7 @@ for (const bp of blueprintFiles) {
         const startTime = Date.now()
 
         try {
-            await page.evaluate(async (bpStr) => {
+            await page.evaluate(async bpStr => {
                 const fbe = (window as any).__fbe_test
                 fbe.loadingScreen.show()
                 const bpOrBook = await fbe.getBlueprintOrBookFromSource(bpStr)
@@ -97,8 +97,7 @@ for (const bp of blueprintFiles) {
                 text: el.textContent || '',
                 isWarning:
                     el.closest('.toasts-toast')?.classList.contains('toasts-warning') || false,
-                isError:
-                    el.closest('.toasts-toast')?.classList.contains('toasts-error') || false,
+                isError: el.closest('.toasts-toast')?.classList.contains('toasts-error') || false,
             }))
         )
 

@@ -35,11 +35,11 @@ Add a `FACTORIO_DIR` environment variable. When set, the exporter skips the down
 
 ### New Environment Variable
 
-| Variable | Required | Description |
-|---|---|---|
-| `FACTORIO_DIR` | No | Path to the local Factorio installation root (see platform notes). When set, skips download. |
-| `FACTORIO_USERNAME` | Only when `FACTORIO_DIR` is unset | Existing credential for download flow. |
-| `FACTORIO_TOKEN` | Only when `FACTORIO_DIR` is unset | Existing credential for download flow. |
+| Variable            | Required                          | Description                                                                                  |
+| ------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `FACTORIO_DIR`      | No                                | Path to the local Factorio installation root (see platform notes). When set, skips download. |
+| `FACTORIO_USERNAME` | Only when `FACTORIO_DIR` is unset | Existing credential for download flow.                                                       |
+| `FACTORIO_TOKEN`    | Only when `FACTORIO_DIR` is unset | Existing credential for download flow.                                                       |
 
 The `.env` file in `packages/exporter/` is the standard mechanism for setting these (loaded via `dotenvy` at startup).
 
@@ -47,11 +47,11 @@ The `.env` file in `packages/exporter/` is the standard mechanism for setting th
 
 `FACTORIO_DIR` is the Factorio installation root. Platform-specific paths derived from it:
 
-| Platform | `FACTORIO_DIR` example | Executable | Game data dir |
-|---|---|---|---|
-| macOS | `/Applications/Factorio` or Steam path | `{FACTORIO_DIR}/factorio.app/Contents/MacOS/factorio` | `{FACTORIO_DIR}/factorio.app/Contents/data/` |
-| Linux | `~/.steam/steam/steamapps/common/Factorio` | `{FACTORIO_DIR}/bin/x64/factorio` | `{FACTORIO_DIR}/data/` |
-| Windows | `C:\Program Files\Factorio` | `{FACTORIO_DIR}\bin\x64\factorio.exe` | `{FACTORIO_DIR}\data\` |
+| Platform | `FACTORIO_DIR` example                     | Executable                                            | Game data dir                                |
+| -------- | ------------------------------------------ | ----------------------------------------------------- | -------------------------------------------- |
+| macOS    | `/Applications/Factorio` or Steam path     | `{FACTORIO_DIR}/factorio.app/Contents/MacOS/factorio` | `{FACTORIO_DIR}/factorio.app/Contents/data/` |
+| Linux    | `~/.steam/steam/steamapps/common/Factorio` | `{FACTORIO_DIR}/bin/x64/factorio`                     | `{FACTORIO_DIR}/data/`                       |
+| Windows  | `C:\Program Files\Factorio`                | `{FACTORIO_DIR}\bin\x64\factorio.exe`                 | `{FACTORIO_DIR}\data\`                       |
 
 On macOS the game's `data/` directory is inside the app bundle. All sprite path resolution and locale generation must use the platform-specific game data dir, not a simple `{FACTORIO_DIR}/data/` join.
 
@@ -61,11 +61,11 @@ On macOS the game's `data/` directory is inside the app bundle. All sprite path 
 
 The Factorio user data directory (where mods and `script-output/` live) is auto-detected per platform. No env var is needed.
 
-| Platform | User data dir | Resolution in Rust |
-|---|---|---|
-| macOS | `~/Library/Application Support/factorio` | `dirs::data_dir()` + `"factorio"` or hardcoded platform path |
-| Linux | `~/.factorio` | `dirs::home_dir()` + `".factorio"` |
-| Windows | `%APPDATA%\Factorio` | `std::env::var("APPDATA")` + `"Factorio"` |
+| Platform | User data dir                            | Resolution in Rust                                           |
+| -------- | ---------------------------------------- | ------------------------------------------------------------ |
+| macOS    | `~/Library/Application Support/factorio` | `dirs::data_dir()` + `"factorio"` or hardcoded platform path |
+| Linux    | `~/.factorio`                            | `dirs::home_dir()` + `".factorio"`                           |
+| Windows  | `%APPDATA%\Factorio`                     | `std::env::var("APPDATA")` + `"Factorio"`                    |
 
 ### Validation
 
@@ -111,6 +111,7 @@ No change. Existing behavior is preserved exactly.
 The current code substitutes only `__core__` and `__base__` prefixes when resolving sprite file paths. Space Age sprites use `__space-age__`, quality uses `__quality__`, and so on. The substitution must be generalized:
 
 **Current (handles only base game):**
+
 ```rust
 let in_path = factorio_data.join(
     s.replace("__core__", "core").replace("__base__", "base")
@@ -119,6 +120,7 @@ let in_path = factorio_data.join(
 
 **Required (handles any mod prefix):**
 Strip `__modname__` delimiters and join to the game data dir:
+
 ```
 __<modname>__/path/to/sprite.png  →  {game_data_dir}/<modname>/path/to/sprite.png
 ```
@@ -127,20 +129,20 @@ This generalization is required regardless of which flow is used - it is an exis
 
 ### Cleanup Behavior
 
-| Scenario | Behavior |
-|---|---|
+| Scenario              | Behavior                                                  |
+| --------------------- | --------------------------------------------------------- |
 | Mods dir not writable | Fail immediately with clear error before running Factorio |
-| Factorio run fails | Still attempt cleanup, then surface Factorio error |
-| Cleanup fails | Log warning, do not fail the overall export |
+| Factorio run fails    | Still attempt cleanup, then surface Factorio error        |
+| Cleanup fails         | Log warning, do not fail the overall export               |
 
 ---
 
 ## Affected Files
 
-| File | Change |
-|---|---|
+| File                             | Change                                                                                                                                                                     |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/exporter/src/setup.rs` | Add `FACTORIO_DIR` branch; platform-specific path resolution; user data dir detection; validation; generalized sprite prefix substitution; cleanup with warning-on-failure |
-| `packages/exporter/src/main.rs` | Remove macOS panic; pass game data dir (not download dir) to sprite processing |
+| `packages/exporter/src/main.rs`  | Remove macOS panic; pass game data dir (not download dir) to sprite processing                                                                                             |
 
 No changes to Lua scripts, schema, TypeScript, or website package.
 

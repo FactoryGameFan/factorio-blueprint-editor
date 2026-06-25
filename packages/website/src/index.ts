@@ -52,8 +52,7 @@ const createToast = initToasts()
 
 if (isMobile.any) {
     createToast({
-        text:
-            'Viewing in read-only mode. Editing features are not available on mobile devices.',
+        text: 'Viewing in read-only mode. Editing features are not available on mobile devices.',
         type: 'warning',
         timeout: 10000,
     })

@@ -48,7 +48,10 @@ export function initSettingsPane(
                 e.preventDefault()
                 const current = Number(bpIndexInput.value) || 0
                 const delta = e.key === 'ArrowUp' ? 1 : -1
-                const newVal = Math.max(guiBPIndex.__min, Math.min(guiBPIndex.__max, current + delta))
+                const newVal = Math.max(
+                    guiBPIndex.__min,
+                    Math.min(guiBPIndex.__max, current + delta)
+                )
                 guiBPIndex.setValue(newVal)
                 changeBookIndex(newVal)
             }

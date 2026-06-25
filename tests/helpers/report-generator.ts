@@ -78,9 +78,7 @@ function generateMarkdown(report: DiagnosticReport): string {
     // Detailed per-blueprint sections
     for (const bp of report.blueprints) {
         const hasIssues =
-            bp.consoleWarnings.length > 0 ||
-            bp.consoleErrors.length > 0 ||
-            bp.jsErrors.length > 0
+            bp.consoleWarnings.length > 0 || bp.consoleErrors.length > 0 || bp.jsErrors.length > 0
         if (!hasIssues) continue
 
         lines.push(`## ${bp.name}`, '')
