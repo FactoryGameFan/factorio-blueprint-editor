@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js'
 import { DirectionType, IPoint } from '../types'
-import FD, { getEntitySize, getPossibleRotations } from '../core/factorioData'
+import FD, { getEntitySize, getPossibleRotations, isUndergroundBelt } from '../core/factorioData'
 import { Entity } from '../core/Entity'
 import { EntitySprite } from './EntitySprite'
 import { VisualizationArea } from './VisualizationArea'
@@ -82,7 +82,7 @@ export class PaintEntityContainer extends PaintContainer {
 
     private updateUndergroundBeltRotation(): void {
         const fd = FD.entities[this.name]
-        if (fd.type === 'underground-belt') {
+        if (isUndergroundBelt(fd)) {
             const otherEntity = this.bpc.bp.entityPositionGrid.getOpposingEntity(
                 this.name,
                 (this.direction + 8) % 16,

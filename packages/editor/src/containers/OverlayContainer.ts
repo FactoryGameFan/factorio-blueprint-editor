@@ -3,6 +3,8 @@ import { IPoint } from '../types'
 import FD, {
     getFluidBoxes,
     isCraftingMachine,
+    isMiningDrill,
+    isUndergroundBelt,
     hasModuleFunctionality,
     getModuleInventoryIndex,
     hasModuleIconsSuppressed,
@@ -282,12 +284,13 @@ export class OverlayContainer extends Container {
             entityInfo.addChild(arrows)
         }
 
-        if (entity.type === 'mining-drill' && entity.name !== 'pumpjack') {
+        const drillData = entity.entityData
+        if (entity.type === 'mining-drill' && entity.name !== 'pumpjack' && isMiningDrill(drillData)) {
             const arrows = new Container()
             arrows.addChild(
                 createArrow({
-                    x: entity.entityData.vector_to_place_result[0] * 64,
-                    y: entity.entityData.vector_to_place_result[1] * 64 + 18,
+                    x: drillData.vector_to_place_result[0] * 64,
+                    y: drillData.vector_to_place_result[1] * 64 + 18,
                 })
             )
             arrows.rotation = entity.direction * Math.PI * 0.125
@@ -444,7 +447,7 @@ export class OverlayContainer extends Container {
                     fd.type === 'pipe-to-ground' ? searchDirection : direction,
                     position,
                     searchDirection,
-                    fd.max_distance || 10
+                    (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
                 )
             )
 
@@ -472,10 +475,9 @@ export class OverlayContainer extends Container {
                 this.undergroundLines.addChild(lineParts)
 
                 for (let i = 1; i < distance; i++) {
-                    const data =
-                        fd.type === 'pipe-to-ground'
-                            ? FD.utilitySprites.underground_pipe_connection
-                            : fd.underground_sprite
+                    const data = isUndergroundBelt(fd)
+                        ? fd.underground_sprite
+                        : FD.utilitySprites.underground_pipe_connection
                     const s = new Sprite(
                         G.getTexture(data.filename, data.x, data.y, data.width, data.height)
                     )
