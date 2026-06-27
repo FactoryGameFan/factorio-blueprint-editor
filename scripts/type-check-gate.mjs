@@ -6,10 +6,20 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const ERROR_LINE = /error TS\d+/
+// Matches positioned source diagnostics: path/to/file.ts(LINE,COL): error TS####
+const POSITIONED_ERROR = /\(\d+,\d+\): error TS\d+/
+// Matches any error TS#### pattern (used to detect bare config/setup errors)
+const ANY_ERROR = /error TS\d+/
 
 export function countErrors(tscOutput) {
-    return tscOutput.split('\n').filter(line => ERROR_LINE.test(line)).length
+    return tscOutput.split('\n').filter(line => POSITIONED_ERROR.test(line)).length
+}
+
+// Returns true if output contains a bare `error TS####` line without a file position.
+// These are setup/config failures (e.g. TS6053 "File not found", TS18003 "No inputs found",
+// TS5057 "Cannot find tsconfig"), meaning tsc did not actually evaluate source files.
+export function hasFatalDiagnostics(output) {
+    return output.split('\n').some(line => ANY_ERROR.test(line) && !POSITIONED_ERROR.test(line))
 }
 
 export function evaluateGate({ count, baseline }) {
@@ -28,6 +38,9 @@ export function isToolFailure({ count, exitCode }) {
 function runTsc(project) {
     // tsc exits non-zero when there are errors; its diagnostics land on stdout.
     // `--pretty false` keeps each diagnostic on one parseable line.
+    // We only read stdout - stderr is not parsed to avoid false matches.
+    // If tsc cannot be spawned (ENOENT), stdout will be empty and exitCode non-zero,
+    // so isToolFailure will catch the failure and exit 1.
     try {
         const output = execFileSync(
             'npx',
@@ -39,7 +52,7 @@ function runTsc(project) {
         )
         return { output, exitCode: 0 }
     } catch (e) {
-        return { output: `${e.stdout ?? ''}${e.stderr ?? ''}`, exitCode: e.status ?? 1 }
+        return { output: e.stdout ?? '', exitCode: e.status ?? 1 }
     }
 }
 
@@ -50,6 +63,16 @@ function main() {
     const repoRoot = join(here, '..')
     const { output, exitCode } = runTsc(join(repoRoot, baseline.project))
     const count = countErrors(output)
+
+    if (hasFatalDiagnostics(output)) {
+        console.error(
+            'Type-check did not run correctly: tsc reported setup or config errors ' +
+                '(bare error TS#### without a source file position). ' +
+                'Check that the tsconfig path is correct and the project is configured properly.'
+        )
+        console.error(output)
+        process.exit(1)
+    }
 
     if (isToolFailure({ count, exitCode })) {
         console.error(
