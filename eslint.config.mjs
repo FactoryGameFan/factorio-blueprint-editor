@@ -29,6 +29,16 @@ export default tseslint.config(
         },
     },
     {
+        // Scripts run in Node, so they need Node globals.
+        files: ['scripts/**/*.mjs'],
+        languageOptions: {
+            globals: {
+                console: 'readonly',
+                process: 'readonly',
+            },
+        },
+    },
+    {
         ignores: [
             'packages/website/dist',
             'packages/editor/src/basis',

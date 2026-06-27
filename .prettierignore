@@ -5,3 +5,4 @@ packages/exporter
 **/package-lock.json
 packages/worker/worker-configuration.d.ts
 .claude
+.superpowers
