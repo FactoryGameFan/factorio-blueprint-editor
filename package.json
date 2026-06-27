@@ -10,6 +10,8 @@
         "start:exporter": "cd ./packages/exporter && cargo run --release",
         "build:website": "npm --workspace=@fbe/website run build",
         "type-check": "tsc",
+        "type-check:gate": "node scripts/type-check-gate.mjs",
+        "test:scripts": "node --test 'scripts/**/*.test.mjs'",
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "format": "prettier . --check",
