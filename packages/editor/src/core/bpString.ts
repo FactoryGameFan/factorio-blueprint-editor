@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer'
 import Ajv, { ErrorObject, KeywordDefinition } from 'ajv'
-import pako from 'pako'
+import * as pako from 'pako'
 import { IBlueprint, IBlueprintBook, IBlueprintBookEntry } from '../types'
 import FD from './factorioData'
 import blueprintSchema from './blueprintSchema.json'
@@ -169,7 +169,7 @@ function decode(str: string): Promise<Blueprint | Book> {
         try {
             const decodedStr = Buffer.from(str.slice(1), 'base64')
             const data = pako
-                .inflate(decodedStr, { to: 'string' })
+                .inflate(decodedStr, { toText: true })
                 .replace(nameMigrationsRegex, match => nameMigrations[match])
             const parsedData = JSON.parse(data)
             resolve(parsedData)
