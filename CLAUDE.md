@@ -26,6 +26,15 @@ cd packages/website && npx vite build
 # Type check (has pre-existing errors from Space Age work)
 npx tsc --noEmit -p packages/editor/tsconfig.json
 
+# CI type-check gate: fails only if the error count exceeds the committed
+# baseline in scripts/type-check-baseline.json (currently 87). As errors are
+# fixed, lower maxErrors to lock the gain. Runs in CI via .github/workflows/ci.yml
+# (prettier + eslint + gate) on PRs/pushes to wormeyman-space-age-support.
+npm run type-check:gate
+
+# Unit tests for the gate logic itself
+npm run test:scripts
+
 # Run Playwright blueprint diagnostic tests (requires dev servers running)
 npx playwright test
 
