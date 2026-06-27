@@ -36,6 +36,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run lint
 
+      - name: Gate unit tests (scripts)
+        if: ${{ !cancelled() }}
+        run: npm run test:scripts
+
       - name: Type-check gate
         if: ${{ !cancelled() }}
         run: npm run type-check:gate

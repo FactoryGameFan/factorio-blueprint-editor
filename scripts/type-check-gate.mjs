@@ -18,16 +18,28 @@ export function evaluateGate({ count, baseline }) {
     return { status: 'pass', count, baseline }
 }
 
+// Returns true when tsc exited non-zero but produced zero parseable diagnostics,
+// which signals that tsc itself failed to run (missing binary, bad config, OOM, etc.).
+// A clean repo (exit 0, count 0) is NOT a tool failure.
+export function isToolFailure({ count, exitCode }) {
+    return count === 0 && exitCode !== 0
+}
+
 function runTsc(project) {
     // tsc exits non-zero when there are errors; its diagnostics land on stdout.
     // `--pretty false` keeps each diagnostic on one parseable line.
     try {
-        return execFileSync('npx', ['tsc', '--noEmit', '--pretty', 'false', '-p', project], {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'pipe'],
-        })
+        const output = execFileSync(
+            'npx',
+            ['tsc', '--noEmit', '--pretty', 'false', '-p', project],
+            {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe'],
+            }
+        )
+        return { output, exitCode: 0 }
     } catch (e) {
-        return `${e.stdout ?? ''}${e.stderr ?? ''}`
+        return { output: `${e.stdout ?? ''}${e.stderr ?? ''}`, exitCode: e.status ?? 1 }
     }
 }
 
@@ -36,8 +48,17 @@ function main() {
     const baselinePath = join(here, 'type-check-baseline.json')
     const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'))
     const repoRoot = join(here, '..')
-    const output = runTsc(join(repoRoot, baseline.project))
+    const { output, exitCode } = runTsc(join(repoRoot, baseline.project))
     const count = countErrors(output)
+
+    if (isToolFailure({ count, exitCode })) {
+        console.error(
+            `tsc did not run cleanly (exit ${exitCode}, 0 diagnostics parsed). ` +
+                'Check that tsc is installed, the tsconfig path is correct, and the project compiles.'
+        )
+        process.exit(1)
+    }
+
     const result = evaluateGate({ count, baseline: baseline.maxErrors })
 
     if (result.status === 'fail') {
