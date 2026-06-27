@@ -165,7 +165,7 @@ const timer = (
     }
 }
 
-const objectHasOwnProperty = (obj: object, key: PropertyKey): boolean =>
+const objectHasOwnProperty = (obj: unknown, key: PropertyKey): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key)
 
 export default {
