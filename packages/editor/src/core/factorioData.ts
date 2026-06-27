@@ -63,6 +63,9 @@ import {
     ThrusterPrototype,
     TrainStopPrototype,
     TransportBeltPrototype,
+    TransportBeltConnectablePrototype,
+    UndergroundBeltPrototype,
+    LogisticContainerPrototype,
     TurretPrototype,
     ValvePrototype,
     WallPrototype,
@@ -130,6 +133,48 @@ export function isCraftingMachine(e: EntityWithOwnerPrototype): e is CraftingMac
 export function isTrainStop(e: EntityWithOwnerPrototype): e is TrainStopPrototype {
     const type: TrainStopPrototype['type'] = 'train-stop'
     return e.type === type
+}
+export function isMiningDrill(e: EntityWithOwnerPrototype): e is MiningDrillPrototype {
+    const type: MiningDrillPrototype['type'] = 'mining-drill'
+    return e.type === type
+}
+export function isBeacon(e: EntityWithOwnerPrototype): e is BeaconPrototype {
+    const type: BeaconPrototype['type'] = 'beacon'
+    return e.type === type
+}
+export function isRoboport(e: EntityWithOwnerPrototype): e is RoboportPrototype {
+    const type: RoboportPrototype['type'] = 'roboport'
+    return e.type === type
+}
+export function isElectricPole(e: EntityWithOwnerPrototype): e is ElectricPolePrototype {
+    const type: ElectricPolePrototype['type'] = 'electric-pole'
+    return e.type === type
+}
+export function isUndergroundBelt(e: EntityWithOwnerPrototype): e is UndergroundBeltPrototype {
+    const type: UndergroundBeltPrototype['type'] = 'underground-belt'
+    return e.type === type
+}
+export function isLoader(e: EntityWithOwnerPrototype): e is LoaderPrototype {
+    return e.type === 'loader' || e.type === 'loader-1x1'
+}
+export function isLogisticContainer(e: EntityWithOwnerPrototype): e is LogisticContainerPrototype {
+    return e.type === 'logistic-container' || e.type === 'infinity-container'
+}
+export function isTransportBeltConnectable(
+    e: EntityWithOwnerPrototype
+): e is TransportBeltConnectablePrototype {
+    switch (e.type) {
+        case 'transport-belt':
+        case 'underground-belt':
+        case 'splitter':
+        case 'loader':
+        case 'loader-1x1':
+        case 'linked-belt':
+        case 'lane-splitter':
+            return true
+        default:
+            return false
+    }
 }
 
 function isModule(item: ItemPrototype): item is ModulePrototype {
