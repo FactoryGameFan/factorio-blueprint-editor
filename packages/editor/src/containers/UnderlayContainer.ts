@@ -1,5 +1,12 @@
 import { Sprite, Container, Texture, AlphaFilter, ColorSource } from 'pixi.js'
-import FD, { getEnergySource, hasModuleFunctionality } from '../core/factorioData'
+import FD, {
+    getEnergySource,
+    hasModuleFunctionality,
+    isRoboport,
+    isElectricPole,
+    isBeacon,
+    isMiningDrill,
+} from '../core/factorioData'
 import { IPoint } from '../types'
 import { VisualizationArea } from './VisualizationArea'
 
@@ -34,7 +41,7 @@ export class UnderlayContainer extends Container {
     private static getDataForVisualizationArea(name: string): IVisualizationData[] {
         const ed = FD.entities[name]
 
-        if (name === 'roboport') {
+        if (name === 'roboport' && isRoboport(ed)) {
             return [
                 {
                     type: 'logistics0',
@@ -54,7 +61,7 @@ export class UnderlayContainer extends Container {
                 },
             ]
         }
-        if (ed.type === 'electric-pole') {
+        if (isElectricPole(ed)) {
             return [
                 {
                     type: 'poles',
@@ -64,7 +71,7 @@ export class UnderlayContainer extends Container {
                 },
             ]
         }
-        if (name === 'beacon') {
+        if (name === 'beacon' && isBeacon(ed)) {
             return [
                 {
                     type: 'beacons',
@@ -74,7 +81,7 @@ export class UnderlayContainer extends Container {
                 },
             ]
         }
-        if (name === 'electric-mining-drill') {
+        if (name === 'electric-mining-drill' && isMiningDrill(ed)) {
             return [
                 {
                     type: 'drills',

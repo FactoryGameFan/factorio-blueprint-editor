@@ -1,5 +1,11 @@
 import { Container, Rectangle, Text } from 'pixi.js'
-import FD, { getModule } from '../core/factorioData'
+import FD, {
+    getModule,
+    isBeacon,
+    isCraftingMachine,
+    isInserter,
+    isTransportBeltConnectable,
+} from '../core/factorioData'
 import G from '../common/globals'
 import util from '../common/util'
 import { Entity } from '../core/Entity'
@@ -105,7 +111,8 @@ export class EntityInfoPanel extends Panel {
         this.m_EntityName.position.set(10, nextY)
         nextY = this.m_EntityName.position.y + this.m_EntityName.height + 10
 
-        if (entity.entityData.type === 'assembling-machine') {
+        const machineData = entity.entityData
+        if (machineData.type === 'assembling-machine' && isCraftingMachine(machineData)) {
             // Details for assembling machines with or without recipe
             let productivity = 0
             let consumption = 0
@@ -131,34 +138,33 @@ export class EntityInfoPanel extends Panel {
             }
 
             for (const beacon of this.findNearbyBeacons(entity)) {
+                const beaconData = beacon.entityData
+                if (!isBeacon(beaconData)) continue
                 for (const module of beacon.modules) {
                     if (!module) continue
 
                     const moduleData = getModule(module)
                     if (moduleData.effect.productivity) {
                         productivity +=
-                            moduleData.effect.productivity *
-                            beacon.entityData.distribution_effectivity
+                            moduleData.effect.productivity * beaconData.distribution_effectivity
                     }
                     if (moduleData.effect.consumption) {
                         consumption +=
-                            moduleData.effect.consumption *
-                            beacon.entityData.distribution_effectivity
+                            moduleData.effect.consumption * beaconData.distribution_effectivity
                     }
                     // if (moduleData.effect.pollution) {
-                    //     pollution += moduleData.effect.pollution * beacon.entityData.distribution_effectivity
+                    //     pollution += moduleData.effect.pollution * beaconData.distribution_effectivity
                     // }
                     if (moduleData.effect.speed) {
-                        speed +=
-                            moduleData.effect.speed * beacon.entityData.distribution_effectivity
+                        speed += moduleData.effect.speed * beaconData.distribution_effectivity
                     }
                 }
             }
 
             consumption = consumption < -0.8 ? -0.8 : consumption
-            const newCraftingSpeed = entity.entityData.crafting_speed * (1 + speed)
+            const newCraftingSpeed = machineData.crafting_speed * (1 + speed)
             const newEnergyUsage =
-                parseInt(entity.entityData.energy_usage.slice(0, -2)) * (1 + consumption)
+                parseInt(machineData.energy_usage.slice(0, -2)) * (1 + consumption)
 
             const fmt = (n: number): string =>
                 `(${Math.sign(n) === 1 ? '+' : '-'}${roundToTwo(Math.abs(n) * 100)}%)`
@@ -233,12 +239,10 @@ export class EntityInfoPanel extends Panel {
             e.entityData.type === 'splitter' ||
             e.entityData.type === 'loader'
 
-        if (entity.entityData.type === 'inserter') {
+        const inserterData = entity.entityData
+        if (isInserter(inserterData)) {
             // Details for inserters
-            let speed = containerToContainer(
-                entity.entityData.rotation_speed,
-                entity.inserterStackSize
-            )
+            let speed = containerToContainer(inserterData.rotation_speed, entity.inserterStackSize)
             const tiles = entity.name === 'long-handed-inserter' ? 2 : 1
             // const fromP = util.rotatePointBasedOnDir([0, -tiles], entity.direction)
             const toP = util.rotatePointBasedOnDir([0, tiles], entity.direction)
@@ -250,10 +254,11 @@ export class EntityInfoPanel extends Panel {
             const to = G.bp.entityPositionGrid.getEntityAtPosition(
                 util.sumprod(entity.position, toP)
             )
-            if (to && isBelt(to)) {
+            const toData = to?.entityData
+            if (to && isBelt(to) && toData && isTransportBeltConnectable(toData)) {
                 speed = containerToBelt(
-                    entity.entityData.rotation_speed,
-                    to.entityData.speed,
+                    inserterData.rotation_speed,
+                    toData.speed,
                     entity.inserterStackSize
                 )
             }
@@ -264,11 +269,10 @@ export class EntityInfoPanel extends Panel {
             nextY = this.m_entityInfo.position.y + this.m_entityInfo.height + 20
         }
 
-        if (isBelt(entity)) {
+        const beltData = entity.entityData
+        if (isBelt(entity) && isTransportBeltConnectable(beltData)) {
             // Details for belts
-            this.m_entityInfo.text = `Speed: ${roundToTwo(
-                getBeltSpeed(entity.entityData.speed)
-            )} items/s`
+            this.m_entityInfo.text = `Speed: ${roundToTwo(getBeltSpeed(beltData.speed))} items/s`
             this.m_entityInfo.position.set(10, nextY)
         }
     }
@@ -287,7 +291,8 @@ export class EntityInfoPanel extends Panel {
             }
 
             const beaconAura = new Rectangle(beacon.position.x, beacon.position.y, 1, 1)
-            beaconAura.pad(FD.entities.beacon.supply_area_distance + 1)
+            const beaconProto = FD.entities.beacon
+            beaconAura.pad((isBeacon(beaconProto) ? beaconProto.supply_area_distance : 0) + 1)
 
             return (
                 beaconAura.contains(entityRect.left, entityRect.top) ||

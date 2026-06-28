@@ -14,3 +14,10 @@ declare namespace GlobalMixins {
         selected: [index: number, count: number]
     }
 }
+
+// Vite resolves `?url` imports to a string URL at build/dev time.
+// See https://vite.dev/guide/assets#explicit-url-imports
+declare module '*?url' {
+    const src: string
+    export default src
+}

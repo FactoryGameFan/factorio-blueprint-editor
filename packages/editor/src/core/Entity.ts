@@ -22,6 +22,11 @@ import FD, {
     getPossibleRotations,
     isCraftingMachine,
     isInserter,
+    isLoader,
+    isMiningDrill,
+    isLogisticContainer,
+    isRoboport,
+    isUndergroundBelt,
     mapBoundingBox,
     getMaxWireDistance,
     hasModuleFunctionality,
@@ -372,9 +377,15 @@ export class Entity extends EventEmitter<EntityEvents> {
     /** Count of filter slots */
     public get filterSlots(): number {
         if (this.type === 'splitter') return 1
-        if (this.entityData.filter_count !== undefined) return this.entityData.filter_count
-        if (this.entityData.max_logistic_slots !== undefined) {
-            return this.entityData.max_logistic_slots
+        const ed = this.entityData
+        if (
+            (isInserter(ed) || isLoader(ed) || isMiningDrill(ed)) &&
+            ed.filter_count !== undefined
+        ) {
+            return ed.filter_count
+        }
+        if ((isLogisticContainer(ed) || isRoboport(ed)) && ed.max_logistic_slots !== undefined) {
+            return ed.max_logistic_slots
         }
         if (this.name === 'buffer-chest' || this.name === 'requester-chest') {
             return this.logisticChestFilters.reduce(
@@ -862,7 +873,9 @@ export class Entity extends EventEmitter<EntityEvents> {
                         this.direction,
                         this.position,
                         this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
-                        this.entityData.max_distance
+                        isUndergroundBelt(this.entityData)
+                            ? this.entityData.max_distance
+                            : undefined
                     )
                 )
                 if (otherEntity) {
