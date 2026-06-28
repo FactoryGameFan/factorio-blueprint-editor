@@ -93,9 +93,36 @@ pinned during TDD - some may merge):
 | `toSpriteArray`           | `(x: SpriteVariations) => SpriteData[]`                                                    | the TS2322 return-type and TS2345 arg-type sites (e.g. `draw_straight_rail`'s `getBaseSprites`)                                  |
 
 Helpers operate on `SpriteData`/`ExtendedSpriteData` as already used in
-`spriteDataBuilder.ts`. Where typed-factorio's struct member type and the
-runtime `SpriteData` differ harmlessly, the helper's return type is the
-`SpriteData`-shaped value the rest of the file already consumes.
+`spriteDataBuilder.ts`. Note `SpriteData` is the file's alias for
+typed-factorio's `Sprite` (`import { Sprite as SpriteData } from 'factorio:prototype'`,
+`spriteDataBuilder.ts:24`); the new module imports it the same way.
+`spriteShape.ts` lives in `core/`, so its util import is `../common/util`.
+
+#### Helper implementation principles
+
+These were settled against an external spec review; they constrain the
+implementation:
+
+- **No defensive null-handling.** Helpers take the typed-factorio field types
+  as-is (mostly non-optional) and do **not** accept `undefined | null` or
+  swallow it into `[]`. This preserves current behavior: a malformed-data
+  access still throws and is caught + logged by the existing `getSpriteData`
+  try/catch (`spriteDataBuilder.ts:149-160`), which returns
+  `SPRITE_GENERATION_FAILED` and skips the entity with a diagnostic. Silent
+  empty returns would hide that. Call sites that are already optional (e.g.
+  `draw_turret`'s `e.folded_animation?.layers?.[0]`) keep handling optionality
+  locally.
+- **`sheetOf` returns `SpriteData`, never `SpriteData | undefined`.** Its
+  results feed straight into `duplicateAndSetPropertyUsing(...)`, which requires
+  non-undefined `SpriteData`; an optional return would create new type errors
+  or force `!` at ~14 sites.
+- **No speculative recursion / branches.** Add a union branch to a helper only
+  when a real failing call site needs it (TDD-driven). Do not pre-handle shapes
+  no site exercises (e.g. `layersOf` recursing through `.sheet`).
+- **Coerce with the narrowest cast, not `as any`.** Where a struct member
+  (`SpriteSheet`, `SpriteNWaySheet`) must become `SpriteData`, use
+  `as SpriteData` (or `as unknown as SpriteData`) with a short comment. Blanket
+  `as any` is the exact thing this cleanup removes.
 
 ### Call-site changes in `spriteDataBuilder.ts`
 
@@ -130,18 +157,42 @@ The editor package has no unit-test runner today (only Playwright e2e and the
 gate's `scripts/**/*.test.mjs` via `node --test`). Add Vitest (Vite-native; the
 project already uses Vite 8):
 
-- `vitest` devDependency in `packages/editor/package.json`.
-- Scripts: `"test:unit": "vitest run"`, `"test:unit:watch": "vitest"`.
-- `packages/editor/vitest.config.ts`: node environment (pure data functions, no
-  DOM).
+- `vitest` devDependency in `packages/editor/package.json` (latest stable at
+  implementation time - 3.x line; pin per repo preference for current versions).
+- Scripts in `packages/editor/package.json`: `"test:unit": "vitest run"`,
+  `"test:unit:watch": "vitest"`. Add a root convenience script to
+  `package.json`: `"test:unit": "npm --workspace=@fbe/editor run test:unit"`.
+- `packages/editor/vitest.config.ts`:
+
+    ```ts
+    import { defineConfig } from 'vitest/config'
+
+    export default defineConfig({
+        test: {
+            environment: 'node',
+            include: ['src/**/*.test.ts'],
+        },
+    })
+    ```
+
 - `packages/editor/src/core/spriteShape.test.ts`: for each helper, cover every
   union branch with small inline fixtures - e.g. `layersOf` gets a
   `{ layers: [...] }` input, a bare `Sprite`, and a variations/array input;
-  `sheetOf` gets a `{ sheet: {...} }` struct and a bare sheet. Assert the
-  returned shape. No real sprite/`.basis` files needed.
-- Add a `test:unit` step to `.github/workflows/ci.yml` alongside the existing
-  prettier/eslint/gate checks. This becomes the editor's unit-test home, reused
-  by 2b.
+  `sheetOf` gets a `{ sheet: {...} }` struct and a bare sheet;
+  `baseVisualisationLayers` gets both array and object forms;
+  `fourWayAnimation` gets a directional struct. Assert the returned shape. No
+  real sprite/`.basis` files needed. (Per TDD, tests are written before each
+  helper.)
+- Add a unit-test step to `.github/workflows/ci.yml` in the `checks` job,
+  before the type-check gate, so broken transforms fail CI:
+
+    ```yaml
+    - name: Unit tests (editor)
+      if: ${{ !cancelled() }}
+      run: npm run test:unit
+    ```
+
+    This becomes the editor's unit-test home, reused by 2b.
 
 ## Verification (PR done-criteria)
 
