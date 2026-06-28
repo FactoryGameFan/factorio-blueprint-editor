@@ -146,20 +146,17 @@ export class EntityInfoPanel extends Panel {
                     const moduleData = getModule(module)
                     if (moduleData.effect.productivity) {
                         productivity +=
-                            moduleData.effect.productivity *
-                            beaconData.distribution_effectivity
+                            moduleData.effect.productivity * beaconData.distribution_effectivity
                     }
                     if (moduleData.effect.consumption) {
                         consumption +=
-                            moduleData.effect.consumption *
-                            beaconData.distribution_effectivity
+                            moduleData.effect.consumption * beaconData.distribution_effectivity
                     }
                     // if (moduleData.effect.pollution) {
                     //     pollution += moduleData.effect.pollution * beaconData.distribution_effectivity
                     // }
                     if (moduleData.effect.speed) {
-                        speed +=
-                            moduleData.effect.speed * beaconData.distribution_effectivity
+                        speed += moduleData.effect.speed * beaconData.distribution_effectivity
                     }
                 }
             }
@@ -245,10 +242,7 @@ export class EntityInfoPanel extends Panel {
         const inserterData = entity.entityData
         if (isInserter(inserterData)) {
             // Details for inserters
-            let speed = containerToContainer(
-                inserterData.rotation_speed,
-                entity.inserterStackSize
-            )
+            let speed = containerToContainer(inserterData.rotation_speed, entity.inserterStackSize)
             const tiles = entity.name === 'long-handed-inserter' ? 2 : 1
             // const fromP = util.rotatePointBasedOnDir([0, -tiles], entity.direction)
             const toP = util.rotatePointBasedOnDir([0, tiles], entity.direction)
@@ -278,9 +272,7 @@ export class EntityInfoPanel extends Panel {
         const beltData = entity.entityData
         if (isBelt(entity) && isTransportBeltConnectable(beltData)) {
             // Details for belts
-            this.m_entityInfo.text = `Speed: ${roundToTwo(
-                getBeltSpeed(beltData.speed)
-            )} items/s`
+            this.m_entityInfo.text = `Speed: ${roundToTwo(getBeltSpeed(beltData.speed))} items/s`
             this.m_entityInfo.position.set(10, nextY)
         }
     }

@@ -285,7 +285,11 @@ export class OverlayContainer extends Container {
         }
 
         const drillData = entity.entityData
-        if (entity.type === 'mining-drill' && entity.name !== 'pumpjack' && isMiningDrill(drillData)) {
+        if (
+            entity.type === 'mining-drill' &&
+            entity.name !== 'pumpjack' &&
+            isMiningDrill(drillData)
+        ) {
             const arrows = new Container()
             arrows.addChild(
                 createArrow({

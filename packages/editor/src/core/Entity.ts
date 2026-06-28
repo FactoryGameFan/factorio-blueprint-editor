@@ -873,7 +873,9 @@ export class Entity extends EventEmitter<EntityEvents> {
                         this.direction,
                         this.position,
                         this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
-                        isUndergroundBelt(this.entityData) ? this.entityData.max_distance : undefined
+                        isUndergroundBelt(this.entityData)
+                            ? this.entityData.max_distance
+                            : undefined
                     )
                 )
                 if (otherEntity) {

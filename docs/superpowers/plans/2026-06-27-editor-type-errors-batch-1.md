@@ -19,15 +19,15 @@
 
 ## Type-Guard Reference (discriminants verified against typed-factorio 2.0.75)
 
-| Guard | Narrows to | `e.type` discriminant |
-| --- | --- | --- |
-| `isMiningDrill` | `MiningDrillPrototype` | `"mining-drill"` |
-| `isBeacon` | `BeaconPrototype` | `"beacon"` |
-| `isRoboport` | `RoboportPrototype` | `"roboport"` |
-| `isElectricPole` | `ElectricPolePrototype` | `"electric-pole"` |
-| `isUndergroundBelt` | `UndergroundBeltPrototype` | `"underground-belt"` |
-| `isLoader` | `LoaderPrototype` | `"loader"` \| `"loader-1x1"` |
-| `isLogisticContainer` | `LogisticContainerPrototype` | `"logistic-container"` \| `"infinity-container"` |
+| Guard                        | Narrows to                          | `e.type` discriminant                                                      |
+| ---------------------------- | ----------------------------------- | -------------------------------------------------------------------------- |
+| `isMiningDrill`              | `MiningDrillPrototype`              | `"mining-drill"`                                                           |
+| `isBeacon`                   | `BeaconPrototype`                   | `"beacon"`                                                                 |
+| `isRoboport`                 | `RoboportPrototype`                 | `"roboport"`                                                               |
+| `isElectricPole`             | `ElectricPolePrototype`             | `"electric-pole"`                                                          |
+| `isUndergroundBelt`          | `UndergroundBeltPrototype`          | `"underground-belt"`                                                       |
+| `isLoader`                   | `LoaderPrototype`                   | `"loader"` \| `"loader-1x1"`                                               |
+| `isLogisticContainer`        | `LogisticContainerPrototype`        | `"logistic-container"` \| `"infinity-container"`                           |
 | `isTransportBeltConnectable` | `TransportBeltConnectablePrototype` | belt/underground-belt/splitter/loader/loader-1x1/linked-belt/lane-splitter |
 
 Already present in `factorioData.ts`: `isInserter` (`InserterPrototype`), `isCraftingMachine` (`assembling-machine`/`furnace`/`rocket-silo`), `isTrainStop`.
@@ -37,9 +37,11 @@ Already present in `factorioData.ts`: `isInserter` (`InserterPrototype`), `isCra
 ### Task 1: Vite `*?url` ambient module declaration
 
 **Files:**
+
 - Modify: `packages/editor/src/global.d.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: ambient `declare module '*?url'` so `import x from './foo.js?url'` resolves to `string`.
 
@@ -80,19 +82,21 @@ git commit -m "fix(editor): declare Vite *?url module type to resolve transcoder
 ### Task 2: Add entity type guards to factorioData.ts
 
 **Files:**
+
 - Modify: `packages/editor/src/core/factorioData.ts` (import block lines 17-68; guards after the existing `isTrainStop` at ~line 133)
 
 **Interfaces:**
+
 - Consumes: `EntityWithOwnerPrototype` and the subtype prototypes from `factorio:prototype`.
 - Produces (all exported from `./factorioData`):
-  - `isMiningDrill(e: EntityWithOwnerPrototype): e is MiningDrillPrototype`
-  - `isBeacon(e: EntityWithOwnerPrototype): e is BeaconPrototype`
-  - `isRoboport(e: EntityWithOwnerPrototype): e is RoboportPrototype`
-  - `isElectricPole(e: EntityWithOwnerPrototype): e is ElectricPolePrototype`
-  - `isUndergroundBelt(e: EntityWithOwnerPrototype): e is UndergroundBeltPrototype`
-  - `isLoader(e: EntityWithOwnerPrototype): e is LoaderPrototype`
-  - `isLogisticContainer(e: EntityWithOwnerPrototype): e is LogisticContainerPrototype`
-  - `isTransportBeltConnectable(e: EntityWithOwnerPrototype): e is TransportBeltConnectablePrototype`
+    - `isMiningDrill(e: EntityWithOwnerPrototype): e is MiningDrillPrototype`
+    - `isBeacon(e: EntityWithOwnerPrototype): e is BeaconPrototype`
+    - `isRoboport(e: EntityWithOwnerPrototype): e is RoboportPrototype`
+    - `isElectricPole(e: EntityWithOwnerPrototype): e is ElectricPolePrototype`
+    - `isUndergroundBelt(e: EntityWithOwnerPrototype): e is UndergroundBeltPrototype`
+    - `isLoader(e: EntityWithOwnerPrototype): e is LoaderPrototype`
+    - `isLogisticContainer(e: EntityWithOwnerPrototype): e is LogisticContainerPrototype`
+    - `isTransportBeltConnectable(e: EntityWithOwnerPrototype): e is TransportBeltConnectablePrototype`
 
 `MiningDrillPrototype`, `BeaconPrototype`, `RoboportPrototype`, `ElectricPolePrototype`, `LoaderPrototype` are already imported. `UndergroundBeltPrototype`, `LogisticContainerPrototype`, `TransportBeltConnectablePrototype` are NOT - add them.
 
@@ -172,9 +176,11 @@ git commit -m "feat(editor): add entity subtype guards (drill/beacon/roboport/po
 ### Task 3: UnderlayContainer.ts visualization radii
 
 **Files:**
+
 - Modify: `packages/editor/src/containers/UnderlayContainer.ts` (import line 2; `getDataForVisualizationArea` lines 34-89)
 
 **Interfaces:**
+
 - Consumes: `isRoboport`, `isElectricPole`, `isBeacon`, `isMiningDrill` from `../core/factorioData`.
 
 Fixes 5 errors: `construction_radius` (41), `logistics_radius` (47), `supply_area_distance` (61, 71), `resource_searching_radius` (81).
@@ -247,10 +253,12 @@ git commit -m "fix(editor): narrow entity prototypes in UnderlayContainer visual
 ### Task 4: OverlayContainer.ts and PaintEntityContainer.ts (underground-belt + mining-drill)
 
 **Files:**
+
 - Modify: `packages/editor/src/containers/OverlayContainer.ts` (import lines 3-9; lines 285-291, 440-478)
 - Modify: `packages/editor/src/containers/PaintEntityContainer.ts` (import line 3; lines 85-94)
 
 **Interfaces:**
+
 - Consumes: `isMiningDrill`, `isUndergroundBelt` from `../core/factorioData`.
 
 Fixes 5 errors: OverlayContainer `vector_to_place_result` (289, 290), `max_distance` (447), `underground_sprite` (478); PaintEntityContainer `max_distance` (94).
@@ -298,7 +306,7 @@ with:
 Inside the `if (fd.type === 'underground-belt' || fd.type === 'pipe-to-ground')` block, replace the argument `fd.max_distance || 10` (line 447) with:
 
 ```typescript
-                    (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
+;(isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
 ```
 
 (For `pipe-to-ground`, `isUndergroundBelt(fd)` is false, yielding `undefined || 10 === 10` - identical to the original runtime value since `pipe-to-ground` has no `max_distance`.)
@@ -308,18 +316,18 @@ Inside the `if (fd.type === 'underground-belt' || fd.type === 'pipe-to-ground')`
 Replace:
 
 ```typescript
-                    const data =
-                        fd.type === 'pipe-to-ground'
-                            ? FD.utilitySprites.underground_pipe_connection
-                            : fd.underground_sprite
+const data =
+    fd.type === 'pipe-to-ground'
+        ? FD.utilitySprites.underground_pipe_connection
+        : fd.underground_sprite
 ```
 
 with:
 
 ```typescript
-                    const data = isUndergroundBelt(fd)
-                        ? fd.underground_sprite
-                        : FD.utilitySprites.underground_pipe_connection
+const data = isUndergroundBelt(fd)
+    ? fd.underground_sprite
+    : FD.utilitySprites.underground_pipe_connection
 ```
 
 (`fd` is `underground-belt | pipe-to-ground` here; `isUndergroundBelt` true selects `underground_sprite`, otherwise the pipe-to-ground sprite - identical behavior.)
@@ -365,9 +373,11 @@ git commit -m "fix(editor): narrow underground-belt/mining-drill prototypes in o
 ### Task 5: Entity.ts filter slots and underground-belt max_distance
 
 **Files:**
+
 - Modify: `packages/editor/src/core/Entity.ts` (import block lines 16-30; `filterSlots` getter lines 372-386; `rotate` lines 857-867)
 
 **Interfaces:**
+
 - Consumes: `isInserter` (already imported), `isLoader`, `isMiningDrill`, `isLogisticContainer`, `isRoboport`, `isUndergroundBelt` from `./factorioData`.
 
 Fixes 5 errors: `filter_count` (375 x2), `max_logistic_slots` (376, 377), `max_distance` (865).
@@ -425,7 +435,7 @@ with:
 In the `if (this.type === 'underground-belt' || this.type === 'loader')` block, the call to `getOpposingEntity` passes `this.entityData.max_distance` as its last argument. Replace that argument (line 865) with:
 
 ```typescript
-                        isUndergroundBelt(this.entityData) ? this.entityData.max_distance : undefined
+isUndergroundBelt(this.entityData) ? this.entityData.max_distance : undefined
 ```
 
 (`max_distance` exists only on `underground-belt`, not `loader`; for `loader` the original value was `undefined` at runtime, which this preserves.)
@@ -447,9 +457,11 @@ git commit -m "fix(editor): narrow prototypes for Entity filterSlots and undergr
 ### Task 6: EntityInfoPanel.ts beacon/crafting/inserter/belt details
 
 **Files:**
+
 - Modify: `packages/editor/src/UI/EntityInfoPanel.ts` (import line 2; lines 108, 133-161, 236-271, 280-290)
 
 **Interfaces:**
+
 - Consumes: `isBeacon`, `isCraftingMachine`, `isInserter`, `isTransportBeltConnectable` from `../core/factorioData`.
 
 Fixes 10 errors: `distribution_effectivity` (141, 146, 153), `crafting_speed` (159), `energy_usage` (161), `rotation_speed` (239, 255), `speed` (256, 270), `supply_area_distance` (290).
@@ -486,27 +498,25 @@ Change line 108 from `if (entity.entityData.type === 'assembling-machine') {` to
 Then within that block change line 159 from:
 
 ```typescript
-            const newCraftingSpeed = entity.entityData.crafting_speed * (1 + speed)
+const newCraftingSpeed = entity.entityData.crafting_speed * (1 + speed)
 ```
 
 to:
 
 ```typescript
-            const newCraftingSpeed = machineData.crafting_speed * (1 + speed)
+const newCraftingSpeed = machineData.crafting_speed * (1 + speed)
 ```
 
 and lines 160-161 from:
 
 ```typescript
-            const newEnergyUsage =
-                parseInt(entity.entityData.energy_usage.slice(0, -2)) * (1 + consumption)
+const newEnergyUsage = parseInt(entity.entityData.energy_usage.slice(0, -2)) * (1 + consumption)
 ```
 
 to:
 
 ```typescript
-            const newEnergyUsage =
-                parseInt(machineData.energy_usage.slice(0, -2)) * (1 + consumption)
+const newEnergyUsage = parseInt(machineData.energy_usage.slice(0, -2)) * (1 + consumption)
 ```
 
 - [ ] **Step 3: Narrow the beacon loop (lines 133-153)**
@@ -545,26 +555,22 @@ Replace `entity.entityData.rotation_speed` on line 239 with `inserterData.rotati
 Replace the belt-target sub-block (lines 253-259):
 
 ```typescript
-            if (to && isBelt(to)) {
-                speed = containerToBelt(
-                    entity.entityData.rotation_speed,
-                    to.entityData.speed,
-                    entity.inserterStackSize
-                )
-            }
+if (to && isBelt(to)) {
+    speed = containerToBelt(
+        entity.entityData.rotation_speed,
+        to.entityData.speed,
+        entity.inserterStackSize
+    )
+}
 ```
 
 with:
 
 ```typescript
-            const toData = to?.entityData
-            if (to && isBelt(to) && toData && isTransportBeltConnectable(toData)) {
-                speed = containerToBelt(
-                    inserterData.rotation_speed,
-                    toData.speed,
-                    entity.inserterStackSize
-                )
-            }
+const toData = to?.entityData
+if (to && isBelt(to) && toData && isTransportBeltConnectable(toData)) {
+    speed = containerToBelt(inserterData.rotation_speed, toData.speed, entity.inserterStackSize)
+}
 ```
 
 - [ ] **Step 5: Narrow the belt block (lines 267-272)**
@@ -572,26 +578,22 @@ with:
 Replace:
 
 ```typescript
-        if (isBelt(entity)) {
-            // Details for belts
-            this.m_entityInfo.text = `Speed: ${roundToTwo(
-                getBeltSpeed(entity.entityData.speed)
-            )} items/s`
-            this.m_entityInfo.position.set(10, nextY)
-        }
+if (isBelt(entity)) {
+    // Details for belts
+    this.m_entityInfo.text = `Speed: ${roundToTwo(getBeltSpeed(entity.entityData.speed))} items/s`
+    this.m_entityInfo.position.set(10, nextY)
+}
 ```
 
 with:
 
 ```typescript
-        const beltData = entity.entityData
-        if (isBelt(entity) && isTransportBeltConnectable(beltData)) {
-            // Details for belts
-            this.m_entityInfo.text = `Speed: ${roundToTwo(
-                getBeltSpeed(beltData.speed)
-            )} items/s`
-            this.m_entityInfo.position.set(10, nextY)
-        }
+const beltData = entity.entityData
+if (isBelt(entity) && isTransportBeltConnectable(beltData)) {
+    // Details for belts
+    this.m_entityInfo.text = `Speed: ${roundToTwo(getBeltSpeed(beltData.speed))} items/s`
+    this.m_entityInfo.position.set(10, nextY)
+}
 ```
 
 - [ ] **Step 6: Narrow `supply_area_distance` in `findNearbyBeacons` (line 290)**
@@ -599,14 +601,14 @@ with:
 Replace line 290:
 
 ```typescript
-            beaconAura.pad(FD.entities.beacon.supply_area_distance + 1)
+beaconAura.pad(FD.entities.beacon.supply_area_distance + 1)
 ```
 
 with:
 
 ```typescript
-            const beaconProto = FD.entities.beacon
-            beaconAura.pad((isBeacon(beaconProto) ? beaconProto.supply_area_distance : 0) + 1)
+const beaconProto = FD.entities.beacon
+beaconAura.pad((isBeacon(beaconProto) ? beaconProto.supply_area_distance : 0) + 1)
 ```
 
 - [ ] **Step 7: Verify the count dropped to 60**
@@ -626,9 +628,11 @@ git commit -m "fix(editor): narrow entity prototypes in EntityInfoPanel detail r
 ### Task 7: History.ts generic-constraint fix
 
 **Files:**
+
 - Modify: `packages/editor/src/common/util.ts` (line 168)
 
 **Interfaces:**
+
 - Consumes/Produces: none new. Widens `objectHasOwnProperty`'s first parameter so the generic `GetValue<T, ...>` in History.ts compiles without rippling a `T extends object` constraint up through `updateValue` and all its callers.
 
 Fixes `History.ts(338,39)` TS2345.
@@ -666,9 +670,11 @@ git commit -m "fix(editor): widen objectHasOwnProperty param to unknown for gene
 ### Task 8: Lower the baseline and run the gate
 
 **Files:**
+
 - Modify: `scripts/type-check-baseline.json`
 
 **Interfaces:**
+
 - Consumes: the now-59 error count.
 
 - [ ] **Step 1: Confirm the current count is 59**
@@ -711,6 +717,7 @@ git commit -m "chore(editor): lower type-check baseline 87 -> 59 after Batch 1 c
 ## Self-Review
 
 **Spec coverage** - every Batch-1 error is mapped to a task:
+
 - Editor.ts TS2307 x2 -> Task 1
 - Guards foundation -> Task 2
 - UnderlayContainer.ts (5) -> Task 3
@@ -719,7 +726,7 @@ git commit -m "chore(editor): lower type-check baseline 87 -> 59 after Batch 1 c
 - EntityInfoPanel.ts (10) -> Task 6
 - History.ts (1) -> Task 7
 - Baseline lock -> Task 8
-Total: 2 + 5 + 5 + 5 + 10 + 1 = 28, plus the 2 TS2307. Count 87 -> 59. Matches scope.
+  Total: 2 + 5 + 5 + 5 + 10 + 1 = 28, plus the 2 TS2307. Count 87 -> 59. Matches scope.
 
 **Placeholder scan** - no TBD/TODO/"handle edge cases"; every code step shows exact before/after.
 
