@@ -1,8 +1,3 @@
 {
-    "recommendations": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "sumneko.lua",
-        "rust-lang.rust-analyzer"
-    ]
+    "recommendations": ["oxc.oxc-vscode", "sumneko.lua", "rust-lang.rust-analyzer"]
 }

@@ -27,7 +27,7 @@ cd packages/website && vp build
 npx tsc --noEmit -p packages/editor/tsconfig.json
 
 # CI type-check gate: fails only if the error count exceeds the committed
-# baseline in scripts/type-check-baseline.json (currently 87). As errors are
+# baseline in scripts/type-check-baseline.json (currently 0). As errors are
 # fixed, lower maxErrors to lock the gain. Runs in CI via .github/workflows/ci.yml
 # (oxfmt + oxlint + vitest gate + tsc gate) on PRs/pushes to wormeyman-space-age-support.
 npm run type-check:gate
@@ -42,6 +42,8 @@ vp run test:e2e
 vp run test:e2e -- --list
 
 # Bundle size analysis (from packages/website/) - opens treemap in browser
+# Note: bare `npm`/`npx` must resolve to vp's managed npm (~/.vite-plus/bin on
+# PATH); the root devEngines pins npm `^11`, which system npm may not satisfy.
 cd packages/website && npm run build:analyze
 ```
 
