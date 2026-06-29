@@ -28,7 +28,7 @@
     "devEngines": {
         "packageManager": {
             "name": "npm",
-            "version": "11.18.0",
+            "version": "^11",
             "onFail": "download"
         }
     },
