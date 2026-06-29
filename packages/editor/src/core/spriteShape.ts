@@ -6,6 +6,7 @@ import type {
     Animation4Way,
     RotatedAnimation8Way,
 } from 'factorio:prototype'
+import util from '../common/util'
 
 /**
  * Sprite-shape narrowing helpers.
@@ -41,4 +42,13 @@ export function sheetsOf(x: Sprite4Way): readonly SpriteData[] {
     return 'sheets' in x && x.sheets
         ? (x.sheets as unknown as readonly SpriteData[])
         : [x as SpriteData]
+}
+
+/**
+ * Resolve a directional Animation4Way to its layers for `dir`. Uses
+ * util.getDirName to pick the north/east/south/west key.
+ */
+export function fourWayAnimation(x: Animation4Way, dir: number): readonly SpriteData[] {
+    const directional = x as unknown as Record<string, Animation4Way>
+    return layersOf(directional[util.getDirName(dir)])
 }

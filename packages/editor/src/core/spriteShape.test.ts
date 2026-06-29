@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layersOf, sheetOf, sheetsOf } from './spriteShape'
+import { layersOf, sheetOf, sheetsOf, fourWayAnimation } from './spriteShape'
 
 describe('layersOf', () => {
     it('returns the layers array when the value has a layers property', () => {
@@ -36,5 +36,24 @@ describe('sheetsOf', () => {
     it('wraps a bare sprite into a single-element array', () => {
         const bare = { filename: 'b.png' }
         expect(sheetsOf(bare as never)).toEqual([bare])
+    })
+})
+
+describe('fourWayAnimation', () => {
+    it('returns the layers for the resolved direction (north = dir 0)', () => {
+        const n0 = { filename: 'n.png' }
+        const input = {
+            north: { layers: [n0] },
+            east: { layers: [] },
+            south: { layers: [] },
+            west: { layers: [] },
+        }
+        expect(fourWayAnimation(input as never, 0)).toEqual([n0])
+    })
+
+    it('resolves east for dir 4', () => {
+        const e0 = { filename: 'e.png' }
+        const input = { north: { layers: [] }, east: { layers: [e0] } }
+        expect(fourWayAnimation(input as never, 4)).toEqual([e0])
     })
 })

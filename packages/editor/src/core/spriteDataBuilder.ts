@@ -17,7 +17,7 @@ import FD, {
 } from './factorioData'
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
-import { layersOf, sheetOf, sheetsOf } from './spriteShape'
+import { layersOf, sheetOf, sheetsOf, fourWayAnimation } from './spriteShape'
 import {
     SpriteVariations,
     EntityWithOwnerPrototype,
@@ -1871,7 +1871,7 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
                     'width',
                     data.dir / 4
                 ),
-                ...e.graphics_set.animation.north.layers,
+                ...fourWayAnimation(e.graphics_set.animation, 0),
             ]
 
         case 'electric-mining-drill':
