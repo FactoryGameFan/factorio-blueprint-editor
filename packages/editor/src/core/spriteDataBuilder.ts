@@ -17,7 +17,7 @@ import FD, {
 } from './factorioData'
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
-import { layersOf, sheetOf } from './spriteShape'
+import { layersOf, sheetOf, sheetsOf } from './spriteShape'
 import {
     SpriteVariations,
     EntityWithOwnerPrototype,
@@ -1865,7 +1865,12 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
 
         case 'pumpjack':
             return (data: IDrawData) => [
-                duplicateAndSetPropertyUsing(e.base_picture.sheets[0], 'x', 'width', data.dir / 4),
+                duplicateAndSetPropertyUsing(
+                    sheetsOf(e.base_picture)[0],
+                    'x',
+                    'width',
+                    data.dir / 4
+                ),
                 ...e.graphics_set.animation.north.layers,
             ]
 
@@ -2162,10 +2167,10 @@ function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readon
     return (data: IDrawData) => [
         addToShift([0, 1], util.duplicate(e.pictures.window_background)),
         setPropertyUsing(
-            util.duplicate(e.pictures.picture.sheets[0]),
+            util.duplicate(sheetsOf(e.pictures.picture)[0]),
             'x',
             'width',
-            Math.floor(data.dir / 4) % e.pictures.picture.sheets[0].frames
+            Math.floor(data.dir / 4) % sheetsOf(e.pictures.picture)[0].frames
         ),
     ]
 }
@@ -2411,7 +2416,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             for (const relDir of neighbourDirections) {
                 const patch = duplicateAndSetPropertyUsing(
-                    pictures.gate_connection_patch.sheets[0],
+                    sheetsOf(pictures.gate_connection_patch)[0],
                     'x',
                     'width',
                     relDir / 4

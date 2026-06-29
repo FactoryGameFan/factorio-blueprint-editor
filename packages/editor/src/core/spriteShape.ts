@@ -35,3 +35,10 @@ export function layersOf(
 export function sheetOf(x: SpriteVariations | Sprite4Way | AnimationVariations): SpriteData {
     return 'sheet' in x ? (x.sheet as unknown as SpriteData) : (x as unknown as SpriteData)
 }
+
+/** `'sheets' in x ? x.sheets : [x]` — Sprite4Way's multi-sheet form. */
+export function sheetsOf(x: Sprite4Way): readonly SpriteData[] {
+    return 'sheets' in x && x.sheets
+        ? (x.sheets as unknown as readonly SpriteData[])
+        : [x as SpriteData]
+}
