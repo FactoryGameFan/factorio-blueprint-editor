@@ -80,6 +80,7 @@ import {
     LocomotivePrototype,
     LogisticContainerPrototype,
     MiningDrillPrototype,
+    ModulePrototype,
     OffshorePumpPrototype,
     PipePrototype,
     PipeToGroundPrototype,
@@ -136,6 +137,23 @@ export interface ExtendedSpriteData extends SpriteData {
     squishY?: number
     rotAngle?: number
 }
+
+/**
+ * Sprite-sheet column metadata read off runtime sprites. typed-factorio carries
+ * these only on specific sheet subtypes (and types `frames` as a struct array on
+ * RotatedSprite), but data.json supplies plain frame/column counts here. Used as
+ * a read-only cast target so we don't narrow these onto ExtendedSpriteData (which
+ * would break its assignability from the base Sprite type).
+ */
+type SheetMeta = { size?: number; frames?: number; line_length?: number }
+
+/**
+ * Numeric sprite keys usable as a multiply source/target in the property
+ * helpers. Adds `size` - a runtime scalar shorthand typed-factorio models as
+ * `number | [w, h]` (so it's excluded from the numeric PickByType) but data.json
+ * supplies as a number.
+ */
+type SpriteNumberKey = keyof PickByType<ExtendedSpriteData, number> | 'size'
 
 export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
 
@@ -205,20 +223,27 @@ type PickByType<T, Value> = {
     [P in keyof T as T[P] extends Value ? P : never]: T[P]
 }
 
-function setPropertyUsing<
-    K0 extends keyof PickByType<ExtendedSpriteData, number>,
-    K1 extends keyof PickByType<ExtendedSpriteData, number>,
->(img: ExtendedSpriteData, key0: K0, key1: K1, mult = 1): ExtendedSpriteData {
+function setPropertyUsing<K0 extends SpriteNumberKey, K1 extends SpriteNumberKey>(
+    img: ExtendedSpriteData,
+    key0: K0,
+    key1: K1,
+    mult = 1
+): ExtendedSpriteData {
     if (key1) {
-        img[key0] = img[key1] * mult
+        // `size` is part of SpriteNumberKey but typed-factorio types it as
+        // `number | [w, h]`; at these call sites it is always the scalar form.
+        const rec = img as Record<SpriteNumberKey, number>
+        rec[key0] = rec[key1] * mult
     }
     return img
 }
 
-function duplicateAndSetPropertyUsing<
-    K0 extends keyof PickByType<SpriteData, number>,
-    K1 extends keyof PickByType<SpriteData, number>,
->(img: SpriteData, key0: K0, key1: K1, mult: number): SpriteData {
+function duplicateAndSetPropertyUsing<K0 extends SpriteNumberKey, K1 extends SpriteNumberKey>(
+    img: ExtendedSpriteData,
+    key0: K0,
+    key1: K1,
+    mult: number
+): ExtendedSpriteData {
     return setPropertyUsing(util.duplicate(img), key0, key1, mult)
 }
 
@@ -1014,7 +1039,9 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
             .map(vis => vis.animation)
             .flatMap(vis => (vis.layers ? vis.layers : [vis]))
 
-        const modules = (data.modules || []).map(name => FD.items[name])
+        // Beacon module slots only ever hold modules; narrow from the base
+        // ItemPrototype to read module-only `tier`/`beacon_tint`.
+        const modules = (data.modules || []).map(name => FD.items[name] as ModulePrototype)
         const moduleLayers = e.graphics_set.module_visualisations
             .flatMap(vis => vis.slots)
             .flatMap((arr, i) => {
@@ -1768,8 +1795,8 @@ function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
                         p,
                         util.duplicate(
                             dir % 8 === 0
-                                ? FD.entities.gate.horizontal_rail_base
-                                : FD.entities.gate.vertical_rail_base
+                                ? (FD.entities.gate as GatePrototype).horizontal_rail_base
+                                : (FD.entities.gate as GatePrototype).vertical_rail_base
                         )
                     )
                 )
@@ -2184,7 +2211,7 @@ function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readon
             util.duplicate(sheetsOf(e.pictures.picture)[0]),
             'x',
             'width',
-            Math.floor(data.dir / 4) % sheetsOf(e.pictures.picture)[0].frames
+            Math.floor(data.dir / 4) % (sheetsOf(e.pictures.picture)[0] as SheetMeta).frames
         ),
     ]
 }
@@ -2416,7 +2443,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
                     wall,
                     'x',
                     'width',
-                    util.getRandomInt(0, wall.line_length)
+                    util.getRandomInt(0, (wall as SheetMeta).line_length)
                 )
             )
 
@@ -2460,7 +2487,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
                     sheetOf(pictures.filling),
                     'x',
                     'width',
-                    util.getRandomInt(0, pictures.filling.line_length)
+                    util.getRandomInt(0, (pictures.filling as unknown as SheetMeta).line_length)
                 )
                 filling = setProperty(filling, 'anchorX', 1.17)
                 sprites.push(filling)
