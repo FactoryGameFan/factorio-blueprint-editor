@@ -40,7 +40,7 @@ after cloning the repo.
 1. Download the recommended workspace extensions in vscode
 1. Create a new git branch (`git checkout -b my-fix-branch master`)
 1. Create a new file at the path `packages/exporter/.env` and configure the
-exporter (see options below)
+   exporter (see options below)
 1. Run `npm i --legacy-peer-deps`
 1. Run `npm run start:website` and `npm run start:exporter`
 1. Open the link in a browser or use the vscode debugger
@@ -56,15 +56,15 @@ exporter (see options below)
 If you have Factorio installed locally (including any DLC like Space Age),
 set `FACTORIO_DIR` in `packages/exporter/.env`:
 
-``` shell
+```shell
 FACTORIO_DIR=/path/to/your/factorio/installation
 ```
 
-| Platform| Example path |
+| Platform        | Example path                                                               |
 | --------------- | -------------------------------------------------------------------------- |
 | macOS (Steam)   | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
-| Linux (Steam)   | `~/.steam/steam/steamapps/common/Factorio`|
-| Windows (Steam) | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`|
+| Linux (Steam)   | `~/.steam/steam/steamapps/common/Factorio`                                 |
+| Windows (Steam) | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`                   |
 
 When `FACTORIO_DIR` is set, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` are not needed.
 

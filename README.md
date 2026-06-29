@@ -7,7 +7,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-blue.svg?style=flat-square)](./CONTRIBUTING.md)
 &nbsp;&nbsp;_Badges are clickable!_
 
-A feature-rich [Factorio](https://www.factorio.com) Blueprint Editor. 
+A feature-rich [Factorio](https://www.factorio.com) Blueprint Editor.
 You can now edit your blueprints in the browser!
 
 ![Preview](./.github/preview.png)
@@ -22,8 +22,8 @@ Example blueprint book: <https://fbe.teoxoy.com/?source=https://pastebin.com/Xp9
 - history (undo/redo)
 - copy and delete selections
 - import blueprints and books from multiple sources
-(direct bp string, pastebin, hastebin, gist, gitlab, factorioprints,
-factorio.school, google docs)
+  (direct bp string, pastebin, hastebin, gist, gitlab, factorioprints,
+  factorio.school, google docs)
 - generating blueprint images
 - oil outpost generator
 - customizable keybinds
