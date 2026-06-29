@@ -108,28 +108,35 @@ file set and that only expected trees are rewritten - watch for `docs/`,
 `wormeyman-tests/`, and `diagnostic-reports/` being reformatted unexpectedly, and
 extend `fmt.ignorePatterns` if generated/fixture files are caught.
 
-### 3. Lint - Oxlint, type-aware, warnings non-blocking (commit 3)
+### 3. Lint - Oxlint, type-aware rules on (warnings), strict typeCheck off (commit 3)
 
-- Fix the `TS2531` (object possibly null) hard error. It occurs at **both**
-  `packages/editor/src/UI/controls/Slider.ts:182` **and `:173`** - the same
-  `this.m_SliderButton.parent.worldTransform.applyInverse(...)` access appears
-  twice. Fix both, then re-run `vp lint .` to confirm zero errors rather than
-  assuming a single site.
-- Fix the root `tsconfig.json` type-aware lint error ("Cannot find type
-  definition file for `typed-factorio/prototype`"). The root tsconfig references
-  types only installed under `packages/editor`. Scope the root tsconfig's
-  `types`/`include` (or otherwise make the type-aware pass resolve) without
-  disturbing `packages/editor`'s own tsconfig.
-- Keep `options.typeAware` and `options.typeCheck` enabled, but type-aware
-  findings remain at `warn` severity (non-blocking). The ~25 `unbound-method` /
-  `restrict-template-expressions` / `no-redundant-type-constituents` warnings
-  stay visible for incremental cleanup.
-- **Verify, do not assume, the non-blocking behavior:** `vp lint .` currently
-  exits 1 (because of the TS2531 error and the root-tsconfig error). After
-  fixing both, confirm `vp lint .` exits 0 with only warnings present. If it
-  exits non-zero on warnings, add the appropriate non-deny flag (e.g. avoid
-  `--deny-warnings`/`--max-warnings 0`) so CI passes with warnings. This is a
-  gating assumption for the "green CI" success criteria.
+**Revised after Task 1 (the original premise undercounted the errors).** The
+migrated config runs `lint.options.typeCheck: true`, which performs a full
+strict-mode type-check and emits ~960 errors: ~900 TypeScript diagnostics
+(TS18048 / TS2322 / TS2345 / ...), 54 `no-explicit-any`, 1 `ban-ts-comment`,
+plus 2 `tsconfig-error` and 1 `no-unused-vars`. The project's own `tsc` runs with
+`strict` **off** (the baseline-0 gate) and is the authoritative type check;
+Oxlint's `typeCheck` duplicates a strict tsc the project intentionally does not
+enforce. Decision (confirmed with the user):
+
+- Set `lint.options.typeCheck: false`. Keep `lint.options.typeAware: true` so the
+  type-aware lint *rules* (unbound-method, restrict-template-expressions,
+  no-redundant-type-constituents, ...) still run - as non-blocking **warnings**.
+  This eliminates the ~900 TS diagnostics; the `tsc` gate remains the type
+  authority (see section 4). The Slider `TS2531` sites were typeCheck
+  diagnostics and disappear with typeCheck off - no Slider edit is needed.
+- Restore the two rule disables the deleted `eslint.config.mjs` carried:
+  `typescript/no-explicit-any: off` and `typescript/ban-ts-comment: off` (the
+  Space Age code uses `as any` casts by design).
+- Add `typed-factorio` to the **root** devDependencies so the root/website
+  tsconfig `types: ['typed-factorio/prototype']` resolves (clears the 2
+  `tsconfig-error`s). The package is otherwise only installed under
+  `packages/editor`.
+- Fix the 1 remaining `no-unused-vars` error (`render_layer` at
+  `packages/editor/src/core/spriteDataBuilder.ts:1155`): remove/prefix if unused,
+  or scope-disable if a false positive.
+- **Verify (don't assume):** after the above, `vp lint .` exits 0 with only
+  warnings present. This is a gating assumption for the "green CI" criterion.
 
 ### 4. Type checking - unchanged
 

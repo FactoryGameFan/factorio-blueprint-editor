@@ -28,7 +28,8 @@
 - `packages/website/package.json` - pin `vite-plus`, drop redundant `vite` override dep.
 - `vite.config.ts` (root) - fix `fmt.tabWidth` 2->4 + ignore YAML (Task 1); add a `test` block with explicit projects (Task 4).
 - `.prettierignore` - delete (stale).
-- `packages/editor/src/UI/controls/Slider.ts` - fix two TS2531 null derefs.
+- `vite.config.ts` lint block (Task 3) - `typeCheck: false`; `no-explicit-any`/`ban-ts-comment` off.
+- `packages/editor/src/core/spriteDataBuilder.ts` - one unused var (Task 3).
 - `scripts/type-check-gate.test.mjs` - node:test -> Vitest import.
 - `.github/workflows/ci.yml` - rewrite for `vp`.
 - `.node-version` - pin `24.18.0`.
@@ -204,96 +205,84 @@ Claude-Session: https://claude.ai/code/session_01TJNktKfkk4GuyExffTQzrS"
 
 ---
 
-## Task 3: Unblock type-aware lint (fix TS2531 ×2 + root tsconfig)
+## Task 3: Make `vp lint` pass (turn off duplicate strict typeCheck; restore disabled rules)
+
+**Context (read before editing):** The migrated Oxlint config runs with
+`lint.options.typeCheck: true`, which performs a FULL strict-mode type-check and
+emits ~900 TypeScript errors (TS18048 x282, TS2322 x201, TS2345 x166, ...) plus
+54 `no-explicit-any` and 1 `ban-ts-comment`. The project's own `tsc` runs with
+`strict` OFF (the `type-check:gate`, baseline 0) and is the authoritative type
+gate; Oxlint's strict typeCheck duplicates a check the project intentionally does
+not enforce. Per the approved design (confirmed with the user), set
+`typeCheck: false` so lint stops duplicating strict tsc, keep `typeAware: true`
+so type-aware lint RULES (unbound-method etc.) still run as warnings, and restore
+the two rule disables the deleted `eslint.config.mjs` carried
+(`@typescript-eslint/no-explicit-any: off`, `@typescript-eslint/ban-ts-comment:
+off` - the Space Age code uses `as any` casts by design). With those changes,
+verified residual errors drop to: 2 `tsconfig-error` (typed-factorio resolution,
+fixed below) + 1 `no-unused-vars`. The Slider `TS2531` errors are typeCheck
+diagnostics and disappear once typeCheck is off - no Slider edit is needed.
 
 **Files:**
-- Modify: `packages/editor/src/UI/controls/Slider.ts` (methods `onButtonDragStart`, `onButtonDragMove`)
+- Modify: `vite.config.ts` (root) - `lint.options.typeCheck`, two `lint.rules` entries
 - Modify: `package.json` (root) - add `typed-factorio` devDependency
+- Modify: `packages/editor/src/core/spriteDataBuilder.ts` - one unused variable
 
 **Interfaces:**
 - Produces: `vp lint .` exits 0 (warnings allowed). Consumed by the CI lint step in Task 5.
 
-- [ ] **Step 1: Confirm the current lint failure**
+NOTE: Task 2 has reformatted `vite.config.ts` to 4-space, single quotes, and
+unquoted object keys where valid. The lint rule keys containing `/` (e.g.
+`'typescript/no-explicit-any'`) stay quoted. Because the exact post-reformat
+layout is formatter-driven, the steps below say WHAT to change - `Read` the file
+and edit the located values; do not rely on a pre-written literal block. Run
+`vp fmt vite.config.ts` after editing and confirm `vp fmt vite.config.ts --check`
+is clean before committing.
 
-Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp lint . ; echo "exit: $?"`
-Expected: exit 1; output includes `Slider.ts:182 … TS2531`, `Slider.ts:173 … TS2531` (verify both appear), and `tsconfig.json: error typescript(tsconfig-error): … Cannot find type definition file for 'typed-factorio/prototype'`.
+- [ ] **Step 1: Confirm the current lint failure and its scale**
 
-- [ ] **Step 2: Fix `onButtonDragStart` (Slider.ts) with a null guard**
+Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp lint . 2>&1 | grep -oE 'error [a-z]+\([A-Za-z0-9/_-]+\)' | sort | uniq -c | sort -rn | head`
+Expected: exit non-zero; hundreds of `typescript(TS....)` errors plus `typescript(no-explicit-any)` (~54), `typescript(tsconfig-error)` (2), `typescript(ban-ts-comment)` (1), `eslint(no-unused-vars)` (1).
 
-Replace:
-```ts
-    private readonly onButtonDragStart = (event: FederatedPointerEvent): void => {
-        if (!this.m_Dragging) {
-            this.m_Dragging = true
-            this.m_Dragpoint =
-                this.m_SliderButton.parent.worldTransform.applyInverse(event.global).x -
-                this.m_SliderButton.x
-            this.m_SliderButton.getChildAt<ContainerChild>(1).visible = true
-        }
-    }
-```
-with:
-```ts
-    private readonly onButtonDragStart = (event: FederatedPointerEvent): void => {
-        if (!this.m_Dragging) {
-            const parent = this.m_SliderButton.parent
-            if (!parent) return
-            this.m_Dragging = true
-            this.m_Dragpoint =
-                parent.worldTransform.applyInverse(event.global).x - this.m_SliderButton.x
-            this.m_SliderButton.getChildAt<ContainerChild>(1).visible = true
-        }
-    }
-```
+- [ ] **Step 2: Turn off Oxlint's strict typeCheck**
 
-(Uses a narrowed local, not a `!` assertion - the lint config sets `typescript/no-non-null-assertion: error`.)
+`Read` `vite.config.ts`, find the `lint.options` block (currently `typeAware: true, typeCheck: true`), and set `typeCheck` to `false`. Leave `typeAware: true` unchanged.
 
-- [ ] **Step 3: Fix `onButtonDragMove` (Slider.ts) with a null guard**
+- [ ] **Step 3: Restore the two rule disables from the old ESLint config**
 
-Replace:
-```ts
-    private readonly onButtonDragMove = (event: FederatedPointerEvent): void => {
-        if (this.m_Dragging) {
-            const position = this.m_SliderButton.parent.worldTransform.applyInverse(event.global)
-```
-with:
-```ts
-    private readonly onButtonDragMove = (event: FederatedPointerEvent): void => {
-        if (this.m_Dragging) {
-            const parent = this.m_SliderButton.parent
-            if (!parent) return
-            const position = parent.worldTransform.applyInverse(event.global)
-```
+In the `lint.rules` block of `vite.config.ts`:
+- set `'typescript/no-explicit-any'` to `'off'` (currently `'error'`)
+- set `'typescript/ban-ts-comment'` to `'off'` (currently an array `['error', { minimumDescriptionLength: 10 }]` - replace the whole value with `'off'`)
 
-- [ ] **Step 4: Make `typed-factorio` resolvable at the repo root**
+- [ ] **Step 4: Add `typed-factorio` to root devDeps (fixes the 2 `tsconfig-error`s)**
 
-The root `tsconfig.json` lists `typed-factorio/prototype` in `types`, but the package is only installed under `packages/editor`. Add it to the root `devDependencies` in `package.json` so the type-aware pass resolves it from root. Insert before `typescript`:
+The root `tsconfig.json` (and `packages/website/tsconfig.json`) list `typed-factorio/prototype` in `types`, but the package is only installed under `packages/editor`. In root `package.json` `devDependencies`, add (before `typescript`):
 ```json
         "typed-factorio": "^3.35.0",
 ```
-so the `devDependencies` read:
-```json
-    "devDependencies": {
-        "@playwright/test": "^1.58.2",
-        "typed-factorio": "^3.35.0",
-        "typescript": "^5.9.3",
-        "vite-plus": "0.2.1"
-    },
+Then run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp install`
+
+- [ ] **Step 5: Re-run lint and confirm only the unused-var error remains**
+
+Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp lint . 2>&1 | grep -E ': error |tsconfig-error'`
+Expected: no `TS....` errors, no `no-explicit-any`, no `tsconfig-error` (typed-factorio now resolves). The only remaining error should be `eslint(no-unused-vars)` for `render_layer` at `packages/editor/src/core/spriteDataBuilder.ts:1155`.
+
+- [ ] **Step 6: Fix the unused variable**
+
+`Read` `packages/editor/src/core/spriteDataBuilder.ts` around line 1155. Determine whether `render_layer` is genuinely unused:
+- If unused: remove the declaration (or, if it documents a destructured field, prefix with `_` and confirm the rule's ignore pattern - the old ESLint used `varsIgnorePattern: '^_'`; if Oxlint's `no-unused-vars` needs the same option, add it to the rule config).
+- If actually used (Oxlint false positive): add a scoped `// oxlint-disable-next-line no-unused-vars -- <reason>` comment.
+Pick the minimal correct fix; do not change unrelated code.
+
+- [ ] **Step 7: Format the config and verify lint exits 0**
+
+Run:
+```bash
+cd /Users/ericjohnson/GitHub/factorio-blueprint-editor
+vp fmt vite.config.ts && vp fmt vite.config.ts --check
+vp lint . ; echo "exit: $?"
 ```
-
-- [ ] **Step 5: Install the new dep**
-
-Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp install`
-Expected: completes; `typed-factorio` present at root.
-
-- [ ] **Step 6: Verify lint now exits 0 with only warnings**
-
-Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp lint . ; echo "exit: $?"`
-Expected: `exit: 0`. No lines containing ` error ` remain; `warning` lines (e.g. `unbound-method`, `restrict-template-expressions`) may remain - those are non-blocking by design.
-
-- [ ] **Step 7: Fallback only if Step 6 still shows ERRORS**
-
-If `vp lint .` still exits non-zero because tsgolint surfaces additional type-level **errors** beyond the two Slider sites (the project runs `tsc` with `strict` off, so strict-null-check style diagnostics can appear): demote type diagnostics to non-blocking by setting the type-check severity to `warn` in `vite.config.ts` under `lint.options` (the design treats all type-aware findings as non-blocking). Re-run Step 6 until `exit: 0`. Do NOT hand-fix unrelated files. If a config knob to demote them is not available, stop and report rather than suppressing file-by-file.
+Expected: fmt clean; `exit: 0`. `warning` lines (unbound-method, restrict-template-expressions, no-redundant-type-constituents, unicorn/*) remain and are non-blocking by design.
 
 - [ ] **Step 8: Confirm the type gate is unaffected**
 
@@ -304,12 +293,15 @@ Expected: `Type-check gate passed: 0 errors (at baseline 0).`
 
 ```bash
 cd /Users/ericjohnson/GitHub/factorio-blueprint-editor
-git add packages/editor/src/UI/controls/Slider.ts package.json package-lock.json vite.config.ts
-git commit -m "fix(editor): unblock Vite+ type-aware lint
+git add vite.config.ts package.json package-lock.json packages/editor/src/core/spriteDataBuilder.ts
+git commit -m "lint: make vp lint pass; tsc gate stays the type authority
 
-Guard the two Slider.ts parent null-derefs (TS2531) without non-null
-assertions; add typed-factorio to root devDeps so the root type-aware
-pass resolves it. vp lint . now exits 0 with warnings only.
+Oxlint typeCheck:true duplicated a full strict tsc (~900 errors) that
+the project intentionally does not run (tsc strict off, baseline 0).
+Set typeCheck:false (type-aware lint rules stay on as warnings); restore
+no-explicit-any/ban-ts-comment off per the old eslint.config.mjs (Space
+Age as-any casts); add typed-factorio to root devDeps so the root types
+resolve; fix one unused var. vp lint . now exits 0 with warnings only.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TJNktKfkk4GuyExffTQzrS"
