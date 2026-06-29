@@ -13,19 +13,27 @@
         "type-check:gate": "node scripts/type-check-gate.mjs",
         "test:unit": "npm --workspace=@fbe/editor run test:unit",
         "test:scripts": "node --test 'scripts/**/*.test.mjs'",
-        "lint": "eslint .",
-        "lint:fix": "eslint . --fix",
-        "format": "prettier . --check",
-        "format:fix": "prettier . --write",
+        "lint": "vp lint .",
+        "lint:fix": "vp lint . --fix",
+        "format": "vp fmt . --check",
+        "format:fix": "vp fmt .",
         "test": "npx playwright test",
         "test:report": "npx playwright test --reporter=list"
     },
     "devDependencies": {
-        "@eslint/js": "^10.0.1",
         "@playwright/test": "^1.58.2",
-        "eslint": "^10.0.3",
-        "prettier": "^3.8.1",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.57.1"
+        "vite-plus": "0.2.1"
+    },
+    "devEngines": {
+        "packageManager": {
+            "name": "npm",
+            "version": "11.18.0",
+            "onFail": "download"
+        }
+    },
+    "overrides": {
+        "vite": "npm:@voidzero-dev/vite-plus-core@0.2.1",
+        "vitest": "4.1.9"
     }
 }

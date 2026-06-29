@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, lazyPlugins } from 'vite-plus'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 const fullReloadAlways = {
@@ -50,7 +50,7 @@ export default defineConfig(async ({ command, mode }) => {
             port: 8080,
             proxy,
         },
-        plugins: [
+        plugins: lazyPlugins(() => [
             command === 'build'
                 ? viteStaticCopy({
                       targets: [
@@ -65,6 +65,6 @@ export default defineConfig(async ({ command, mode }) => {
                   })
                 : fullReloadAlways,
             ...(visualizerPlugin ? [visualizerPlugin] : []),
-        ],
+        ]),
     }
 })

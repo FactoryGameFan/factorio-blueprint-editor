@@ -17,6 +17,6 @@
             "@fbe/*": ["./packages/*/src/index.ts"]
         },
 
-        "types": ["vite/client", "typed-factorio/prototype"]
+        "types": ["vite-plus/client", "typed-factorio/prototype"]
     }
 }
