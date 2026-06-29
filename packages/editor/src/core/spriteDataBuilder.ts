@@ -18,6 +18,14 @@ import FD, {
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
 import {
+    layersOf,
+    sheetOf,
+    sheetsOf,
+    fourWayAnimation,
+    baseVisualisationLayers,
+    toSpriteArray,
+} from './spriteShape'
+import {
     SpriteVariations,
     EntityWithOwnerPrototype,
     TransportBeltAnimationSetWithCorners,
@@ -844,9 +852,9 @@ function draw_agricultural_tower(
 }
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        ...e.graphics_set.base_visualisation.animation.layers,
-        duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
-        duplicateAndSetPropertyUsing(e.folded_animation.layers[1], 'y', 'height', data.dir / 4),
+        ...baseVisualisationLayers(e.graphics_set.base_visualisation),
+        duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[0], 'y', 'height', data.dir / 4),
+        duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[1], 'y', 'height', data.dir / 4),
     ]
 }
 function draw_railgun_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -924,7 +932,7 @@ function draw_artillery_turret(
                     return [1, 0.31]
             }
         }
-        return [...e.base_picture.layers, barrel, base]
+        return [...layersOf(e.base_picture), barrel, base]
     }
 }
 function draw_artillery_wagon(
@@ -956,7 +964,7 @@ function draw_assembling_machine(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         if (e.graphics_set.always_draw_idle_animation) {
-            return e.graphics_set.idle_animation.layers
+            return layersOf(e.graphics_set.idle_animation)
         } else {
             const out = [...getAnimation(e.graphics_set.animation, data.dir).layers]
 
@@ -1013,7 +1021,7 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
                 const module = modules[i]
                 if (module) {
                     return arr.map(slot => {
-                        const img = util.duplicate(slot.pictures)
+                        const img = util.duplicate(sheetOf(slot.pictures))
 
                         let variationIndex = module.tier - 1
                         if (slot.has_empty_slot) {
@@ -1031,7 +1039,9 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
                         return img
                     })
                 } else {
-                    return arr.filter(slot => slot.has_empty_slot).map(slot => slot.pictures)
+                    return arr
+                        .filter(slot => slot.has_empty_slot)
+                        .map(slot => sheetOf(slot.pictures))
                 }
             })
 
@@ -1332,12 +1342,21 @@ function draw_electric_turret(
     e: ElectricTurretPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const bv = (e as any).graphics_set.base_visualisation
-        const baseLayers = Array.isArray(bv) ? bv[0].animation.layers : bv.animation.layers
+        const baseLayers = baseVisualisationLayers(e.graphics_set.base_visualisation)
         return [
             ...baseLayers,
-            duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
-            duplicateAndSetPropertyUsing(e.folded_animation.layers[2], 'y', 'height', data.dir / 4),
+            duplicateAndSetPropertyUsing(
+                layersOf(e.folded_animation)[0],
+                'y',
+                'height',
+                data.dir / 4
+            ),
+            duplicateAndSetPropertyUsing(
+                layersOf(e.folded_animation)[2],
+                'y',
+                'height',
+                data.dir / 4
+            ),
         ]
     }
 }
@@ -1348,7 +1367,9 @@ function draw_elevated_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
         if (Object.entries(ps).length === 0) {
             ps = e.pictures[util.getDirName8Way(dir % 8)]
         }
-        return [ps.stone_path_background, ps.stone_path, ps.backplates, ps.metals].filter(Boolean)
+        return [ps.stone_path_background, ps.stone_path, ps.backplates, ps.metals]
+            .filter(Boolean)
+            .map(p => sheetOf(p))
     }
 }
 function draw_elevated_curved_rail_a(
@@ -1373,7 +1394,7 @@ function draw_elevated_straight_rail(
 }
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        ...e.graphics_set.base_visualisation.animation[util.getDirName(data.dir)].layers,
+        ...baseVisualisationLayers(e.graphics_set.base_visualisation, data.dir),
         ...e.folded_animation[util.getDirName(data.dir)].layers,
     ]
 }
@@ -1530,9 +1551,9 @@ function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly Spr
                 }
                 return e.connection_sprites.single
             }
-            return [util.getRandomItem(getOpt())]
+            return [util.getRandomItem(toSpriteArray(getOpt()))]
         }
-        return [util.getRandomItem(e.connection_sprites.single)]
+        return [util.getRandomItem(toSpriteArray(e.connection_sprites.single))]
     }
 }
 function draw_infinity_cargo_wagon(
@@ -1667,7 +1688,7 @@ function draw_inserter(e: InserterPrototype): (data: IDrawData) => readonly Spri
 
         return [
             duplicateAndSetPropertyUsing(
-                e.platform_picture.sheet,
+                sheetOf(e.platform_picture),
                 'x',
                 'width',
                 ((data.dir + 8) % 16) / 4
@@ -1704,18 +1725,22 @@ function draw_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[]
         if (Object.entries(ps).length === 0) {
             ps = e.pictures[util.getDirName8Way(dir % 8)]
         }
-        return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals]
+        return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals].map(p =>
+            sheetOf(p)
+        )
     }
 }
 function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = data.dir
-        function getBaseSprites(): SpriteVariations[] {
+        function getBaseSprites(): readonly SpriteData[] {
             let ps = e.pictures[util.getDirName8Way(dir)]
             if (Object.entries(ps).length === 0) {
                 ps = e.pictures[util.getDirName8Way(dir % 8)]
             }
-            return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals]
+            return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals].map(
+                p => sheetOf(p)
+            )
         }
 
         if (data.positionGrid && dir % 4 === 0) {
@@ -1816,7 +1841,7 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
 
         sprites.push(
             duplicateAndSetPropertyUsing(
-                isInput ? structure.direction_in.sheet : structure.direction_out.sheet,
+                isInput ? sheetOf(structure.direction_in) : sheetOf(structure.direction_out),
                 'x',
                 'width',
                 dir / 4
@@ -1854,8 +1879,13 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
 
         case 'pumpjack':
             return (data: IDrawData) => [
-                duplicateAndSetPropertyUsing(e.base_picture.sheets[0], 'x', 'width', data.dir / 4),
-                ...e.graphics_set.animation.north.layers,
+                duplicateAndSetPropertyUsing(
+                    sheetsOf(e.base_picture)[0],
+                    'x',
+                    'width',
+                    data.dir / 4
+                ),
+                ...fourWayAnimation(e.graphics_set.animation, 0),
             ]
 
         case 'electric-mining-drill':
@@ -2040,7 +2070,7 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
     return (data: IDrawData) => {
         const patches = []
         for (const [i, conn] of e.heat_buffer.connections.entries()) {
-            let patchSheet = e.connection_patches_disconnected.sheet
+            let patchSheet = sheetOf(e.connection_patches_disconnected)
             if (data.positionGrid) {
                 const c = getHeatConnections(
                     {
@@ -2050,7 +2080,7 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
                     data.positionGrid
                 )
                 if (c[conn.direction / 4]) {
-                    patchSheet = e.connection_patches_connected.sheet
+                    patchSheet = sheetOf(e.connection_patches_connected)
                 }
             }
             patchSheet = duplicateAndSetPropertyUsing(patchSheet, 'x', 'width', i)
@@ -2111,7 +2141,7 @@ function draw_selector_combinator(
     }
 }
 function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.picture.layers
+    return () => layersOf(e.picture)
 }
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
@@ -2151,10 +2181,10 @@ function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readon
     return (data: IDrawData) => [
         addToShift([0, 1], util.duplicate(e.pictures.window_background)),
         setPropertyUsing(
-            util.duplicate(e.pictures.picture.sheets[0]),
+            util.duplicate(sheetsOf(e.pictures.picture)[0]),
             'x',
             'width',
-            Math.floor(data.dir / 4) % e.pictures.picture.sheets[0].frames
+            Math.floor(data.dir / 4) % sheetsOf(e.pictures.picture)[0].frames
         ),
     ]
 }
@@ -2205,7 +2235,7 @@ function draw_transport_belt(
             const sprites = []
 
             if (patchIndex !== undefined) {
-                const patch = e.connector_frame_sprites.frame_back_patch.sheet
+                const patch = sheetOf(e.connector_frame_sprites.frame_back_patch)
                 sprites.push(duplicateAndSetPropertyUsing(patch, 'x', 'width', patchIndex))
             }
 
@@ -2213,7 +2243,7 @@ function draw_transport_belt(
                 ...getBeltSprites(e.belt_animation_set, data.position, data.dir, data.positionGrid)
             )
 
-            let frame = e.connector_frame_sprites.frame_main.sheet
+            let frame = sheetOf(e.connector_frame_sprites.frame_main)
             frame = duplicateAndSetPropertyUsing(frame, 'x', 'width', 1)
             sprites.push(setPropertyUsing(frame, 'y', 'height', connIndex))
 
@@ -2224,10 +2254,10 @@ function draw_transport_belt(
 }
 function draw_turret(e: TurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        if (e.folded_animation?.layers?.[0]) {
+        if (e.folded_animation && layersOf(e.folded_animation)[0]) {
             return [
                 duplicateAndSetPropertyUsing(
-                    e.folded_animation.layers[0],
+                    layersOf(e.folded_animation)[0],
                     'y',
                     'height',
                     data.dir / 4
@@ -2308,7 +2338,7 @@ function draw_underground_belt(
 
         if (!sideloadingBack) {
             sprites.push(
-                duplicateAndSetPropertyUsing(structure.back_patch.sheet, 'x', 'width', dir / 4)
+                duplicateAndSetPropertyUsing(sheetOf(structure.back_patch), 'x', 'width', dir / 4)
             )
         }
 
@@ -2318,11 +2348,11 @@ function draw_underground_belt(
             duplicateAndSetPropertyUsing(
                 sideloadingFront
                     ? isInput
-                        ? structure.direction_in_side_loading.sheet
-                        : structure.direction_out_side_loading.sheet
+                        ? sheetOf(structure.direction_in_side_loading)
+                        : sheetOf(structure.direction_out_side_loading)
                     : isInput
-                      ? structure.direction_in.sheet
-                      : structure.direction_out.sheet,
+                      ? sheetOf(structure.direction_in)
+                      : sheetOf(structure.direction_out),
                 'x',
                 'width',
                 dir / 4
@@ -2331,7 +2361,7 @@ function draw_underground_belt(
 
         if (!sideloadingFront) {
             sprites.push(
-                duplicateAndSetPropertyUsing(structure.front_patch.sheet, 'x', 'width', dir / 4)
+                duplicateAndSetPropertyUsing(sheetOf(structure.front_patch), 'x', 'width', dir / 4)
             )
         }
 
@@ -2363,21 +2393,21 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             const wall = (() => {
                 if (conn[1] && conn[2] && conn[3]) {
-                    return pictures.t_up.layers[0]
+                    return layersOf(pictures.t_up)[0]
                 } else if (conn[1] && conn[2]) {
-                    return pictures.corner_right_down.layers[0]
+                    return layersOf(pictures.corner_right_down)[0]
                 } else if (conn[2] && conn[3]) {
-                    return pictures.corner_left_down.layers[0]
+                    return layersOf(pictures.corner_left_down)[0]
                 } else if (conn[1] && conn[3]) {
-                    return pictures.straight_horizontal.layers[0]
+                    return layersOf(pictures.straight_horizontal)[0]
                 } else if (conn[1]) {
-                    return pictures.ending_right.layers[0]
+                    return layersOf(pictures.ending_right)[0]
                 } else if (conn[2]) {
-                    return pictures.straight_vertical.layers[0]
+                    return layersOf(pictures.straight_vertical)[0]
                 } else if (conn[3]) {
-                    return pictures.ending_left.layers[0]
+                    return layersOf(pictures.ending_left)[0]
                 } else {
-                    return pictures.single.layers[0]
+                    return layersOf(pictures.single)[0]
                 }
             })()
 
@@ -2400,7 +2430,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             for (const relDir of neighbourDirections) {
                 const patch = duplicateAndSetPropertyUsing(
-                    pictures.gate_connection_patch.sheets[0],
+                    sheetsOf(pictures.gate_connection_patch)[0],
                     'x',
                     'width',
                     relDir / 4
@@ -2427,7 +2457,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             if (spawnFilling) {
                 let filling = duplicateAndSetPropertyUsing(
-                    pictures.filling,
+                    sheetOf(pictures.filling),
                     'x',
                     'width',
                     util.getRandomInt(0, pictures.filling.line_length)
@@ -2438,14 +2468,19 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             sprites.push(
                 ...neighbourDirections.map(relDir =>
-                    duplicateAndSetPropertyUsing(e.wall_diode_red.sheet, 'x', 'width', relDir / 4)
+                    duplicateAndSetPropertyUsing(
+                        sheetOf(e.wall_diode_red),
+                        'x',
+                        'width',
+                        relDir / 4
+                    )
                 )
             )
 
             return sprites
         }
 
-        return pictures.single.layers
+        return layersOf(pictures.single)
     }
 }
 

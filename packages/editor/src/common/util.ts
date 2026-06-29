@@ -8,7 +8,7 @@ const getRandomInt = (min: number, max: number): number => {
     return Math.floor(Math.random() * (MAX - MIN)) + MIN
 }
 
-const getRandomItem = <T>(array: T[]): T => array[getRandomInt(0, array.length - 1)]
+const getRandomItem = <T>(array: readonly T[]): T => array[getRandomInt(0, array.length - 1)]
 
 const Point = (p: IPoint | readonly [number, number]): IPoint => {
     if (Array.isArray(p)) return { x: p[0], y: p[1] }
