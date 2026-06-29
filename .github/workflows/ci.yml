@@ -19,30 +19,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up Node
-        uses: actions/setup-node@v6
+      - name: Cache Vite+ toolchain
+        uses: actions/cache@v6
         with:
-          node-version-file: .nvmrc
-          cache: npm
+          path: ~/.vite-plus
+          key: vite-plus-${{ runner.os }}-0.2.1
+
+      - name: Install vp
+        run: |
+          # Pin + verify the installer instead of curl | bash. The vp binary and
+          # vite-plus package are already version-pinned (VP_VERSION) and immutable
+          # via the npm registry; this also pins the mutable bootstrap script. Bump
+          # VP_INSTALLER_SHA256 when intentionally upgrading the toolchain.
+          curl -fsSL https://vite.plus -o vp-install.sh
+          echo "6f4fe3690a3f011b4b6cec3c71035e9c04a97dd45dd9e2623dc67f842268f0d2  vp-install.sh" | sha256sum -c -
+          VP_VERSION=0.2.1 VP_NODE_MANAGER=yes bash vp-install.sh
+          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
+          rm -f vp-install.sh
 
       - name: Install dependencies
-        run: npm ci
+        run: vp install --frozen-lockfile
 
-      - name: Format check (prettier)
+      - name: Format check (oxfmt)
         if: ${{ !cancelled() }}
-        run: npm run format
+        run: vp fmt . --check
 
-      - name: Lint (eslint)
+      - name: Lint (oxlint)
         if: ${{ !cancelled() }}
-        run: npm run lint
+        run: vp lint .
 
-      - name: Gate unit tests (scripts)
+      - name: Tests (vitest - units + gate)
         if: ${{ !cancelled() }}
-        run: npm run test:scripts
-
-      - name: Unit tests (editor)
-        if: ${{ !cancelled() }}
-        run: npm run test:unit
+        run: vp test
 
       - name: Type-check gate
         if: ${{ !cancelled() }}

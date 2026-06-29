@@ -35,7 +35,7 @@ export class PositionGrid {
 
     private tileDataAction(
         area: IArea,
-        // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- callback returns true to stop iteration, or nothing to continue
+        // oxlint-disable-next-line @typescript-eslint/no-invalid-void-type -- callback returns true to stop iteration, or nothing to continue
         fn: (key: string, cell: number | number[]) => boolean | void,
         returnEmptyCells = false
     ): void {

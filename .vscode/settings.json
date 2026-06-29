@@ -1,8 +1,8 @@
 {
     "editor.formatOnSave": true,
-    "eslint.validate": ["typescript"],
+    "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": "explicit"
+        "source.fixAll.oxc": "explicit"
     },
     "Lua.diagnostics.globals": ["data", "script", "game"],
     "rust-analyzer.linkedProjects": ["./packages/exporter/Cargo.toml"]

@@ -15,35 +15,41 @@ Web-based Factorio blueprint viewer/editor using PixiJS. Fork adding Space Age D
 
 ```fish
 # Dev server (from packages/website/)
-npm run start
+vp dev
 
 # Static file server for sprite data (separate terminal, from repo root)
 npx serve packages/exporter/data/output -l 8081 --cors
 
 # Build
-cd packages/website && npx vite build
+cd packages/website && vp build
 
 # Type check (has pre-existing errors from Space Age work)
 npx tsc --noEmit -p packages/editor/tsconfig.json
 
 # CI type-check gate: fails only if the error count exceeds the committed
-# baseline in scripts/type-check-baseline.json (currently 87). As errors are
+# baseline in scripts/type-check-baseline.json (currently 0). As errors are
 # fixed, lower maxErrors to lock the gain. Runs in CI via .github/workflows/ci.yml
-# (prettier + eslint + gate) on PRs/pushes to wormeyman-space-age-support.
+# (oxfmt + oxlint + vitest gate + tsc gate) on PRs/pushes to wormeyman-space-age-support.
 npm run type-check:gate
 
-# Unit tests for the gate logic itself
-npm run test:scripts
+# Unit tests (editor + gate) - gate tests now run under vp test
+vp test
 
 # Run Playwright blueprint diagnostic tests (requires dev servers running)
-npx playwright test
+vp run test:e2e
 
 # List discovered test blueprints without running
-npx playwright test --list
+vp run test:e2e -- --list
 
 # Bundle size analysis (from packages/website/) - opens treemap in browser
+# Note: bare `npm`/`npx` must resolve to vp's managed npm (~/.vite-plus/bin on
+# PATH); the root devEngines pins npm `^11`, which system npm may not satisfy.
 cd packages/website && npm run build:analyze
 ```
+
+## Vite+ Toolchain
+
+`vp` is the unified CLI for this project (lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks). The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.1 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
 
 ## Dev Server Setup
 
@@ -100,7 +106,7 @@ The editor is deployed to Cloudflare Workers at https://fbeworkeyman.wormeyman.w
 
 ```fish
 # Build the website first (from packages/website/)
-npx vite build
+vp build
 
 # Deploy to Cloudflare (from packages/worker/)
 cd /factorio-blueprint-editor/packages/worker && npx wrangler deploy
@@ -136,7 +142,7 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 
 **Prerequisites:** Both dev servers must be running before tests:
 
-- Terminal 1: `cd packages/website && npm run start` (Vite on port 8080)
+- Terminal 1: `cd packages/website && vp dev` (Vite on port 8080)
 - Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
 
 **Reports** are written to `diagnostic-reports/blueprint-diagnostics.json` and `diagnostic-reports/blueprint-diagnostics.md` (gitignored).

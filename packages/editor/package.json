@@ -12,8 +12,8 @@
     "homepage": "https://github.com/Teoxoy/factorio-blueprint-editor",
     "module": "./src/index.ts",
     "scripts": {
-        "test:unit": "vitest run",
-        "test:unit:watch": "vitest"
+        "test:unit": "vp test run",
+        "test:unit:watch": "vp test"
     },
     "dependencies": {
         "ajv": "^8.18.0",
@@ -29,6 +29,7 @@
         "@types/delaunator": "5.0.3",
         "@types/pathfinding": "0.1.0",
         "typed-factorio": "^3.35.0",
-        "vitest": "^4.1.9"
+        "vitest": "4.1.9",
+        "vite-plus": "0.2.1"
     }
 }
