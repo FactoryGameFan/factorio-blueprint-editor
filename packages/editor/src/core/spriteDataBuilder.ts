@@ -17,6 +17,7 @@ import FD, {
 } from './factorioData'
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
+import { layersOf } from './spriteShape'
 import {
     SpriteVariations,
     EntityWithOwnerPrototype,
@@ -845,8 +846,8 @@ function draw_agricultural_tower(
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
         ...e.graphics_set.base_visualisation.animation.layers,
-        duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
-        duplicateAndSetPropertyUsing(e.folded_animation.layers[1], 'y', 'height', data.dir / 4),
+        duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[0], 'y', 'height', data.dir / 4),
+        duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[1], 'y', 'height', data.dir / 4),
     ]
 }
 function draw_railgun_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -924,7 +925,7 @@ function draw_artillery_turret(
                     return [1, 0.31]
             }
         }
-        return [...e.base_picture.layers, barrel, base]
+        return [...layersOf(e.base_picture), barrel, base]
     }
 }
 function draw_artillery_wagon(
@@ -956,7 +957,7 @@ function draw_assembling_machine(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         if (e.graphics_set.always_draw_idle_animation) {
-            return e.graphics_set.idle_animation.layers
+            return layersOf(e.graphics_set.idle_animation)
         } else {
             const out = [...getAnimation(e.graphics_set.animation, data.dir).layers]
 
@@ -1336,8 +1337,18 @@ function draw_electric_turret(
         const baseLayers = Array.isArray(bv) ? bv[0].animation.layers : bv.animation.layers
         return [
             ...baseLayers,
-            duplicateAndSetPropertyUsing(e.folded_animation.layers[0], 'y', 'height', data.dir / 4),
-            duplicateAndSetPropertyUsing(e.folded_animation.layers[2], 'y', 'height', data.dir / 4),
+            duplicateAndSetPropertyUsing(
+                layersOf(e.folded_animation)[0],
+                'y',
+                'height',
+                data.dir / 4
+            ),
+            duplicateAndSetPropertyUsing(
+                layersOf(e.folded_animation)[2],
+                'y',
+                'height',
+                data.dir / 4
+            ),
         ]
     }
 }
@@ -2111,7 +2122,7 @@ function draw_selector_combinator(
     }
 }
 function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.picture.layers
+    return () => layersOf(e.picture)
 }
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
@@ -2224,10 +2235,10 @@ function draw_transport_belt(
 }
 function draw_turret(e: TurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        if (e.folded_animation?.layers?.[0]) {
+        if (e.folded_animation && layersOf(e.folded_animation)[0]) {
             return [
                 duplicateAndSetPropertyUsing(
-                    e.folded_animation.layers[0],
+                    layersOf(e.folded_animation)[0],
                     'y',
                     'height',
                     data.dir / 4
@@ -2363,21 +2374,21 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             const wall = (() => {
                 if (conn[1] && conn[2] && conn[3]) {
-                    return pictures.t_up.layers[0]
+                    return layersOf(pictures.t_up)[0]
                 } else if (conn[1] && conn[2]) {
-                    return pictures.corner_right_down.layers[0]
+                    return layersOf(pictures.corner_right_down)[0]
                 } else if (conn[2] && conn[3]) {
-                    return pictures.corner_left_down.layers[0]
+                    return layersOf(pictures.corner_left_down)[0]
                 } else if (conn[1] && conn[3]) {
-                    return pictures.straight_horizontal.layers[0]
+                    return layersOf(pictures.straight_horizontal)[0]
                 } else if (conn[1]) {
-                    return pictures.ending_right.layers[0]
+                    return layersOf(pictures.ending_right)[0]
                 } else if (conn[2]) {
-                    return pictures.straight_vertical.layers[0]
+                    return layersOf(pictures.straight_vertical)[0]
                 } else if (conn[3]) {
-                    return pictures.ending_left.layers[0]
+                    return layersOf(pictures.ending_left)[0]
                 } else {
-                    return pictures.single.layers[0]
+                    return layersOf(pictures.single)[0]
                 }
             })()
 
@@ -2445,7 +2456,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
             return sprites
         }
 
-        return pictures.single.layers
+        return layersOf(pictures.single)
     }
 }
 
