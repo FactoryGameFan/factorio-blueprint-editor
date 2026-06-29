@@ -154,7 +154,7 @@ Note: this commit intentionally still contains `.prettierignore` (deleted in Tas
 ## Task 2: Apply the Oxfmt reformat (isolated) and delete `.prettierignore`
 
 **Files:**
-- Modify: ~109 files repo-wide (mechanical reformat by `vp fmt`)
+- Modify: a small set of files (genuine Oxfmt-vs-Prettier diffs; with `tabWidth: 4` from Task 1 Step 4b this is ~3 files, NOT a whole-repo reindent)
 - Delete: `.prettierignore`
 
 **Interfaces:**
@@ -177,7 +177,7 @@ Expected: `rm '.prettierignore'`.
 - [ ] **Step 4: Apply the reformat**
 
 Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp fmt .`
-Expected: rewrites the ~109 files.
+Expected: rewrites the small set from Step 1 (~3 files with `tabWidth: 4`).
 
 - [ ] **Step 5: Verify formatting is now clean**
 
@@ -342,24 +342,27 @@ Leave `import assert from 'node:assert/strict'` and every `test(...)`/`assert.*`
 
 - [ ] **Step 2: Add a root `test` block with explicit projects**
 
-In `vite.config.ts`, the `defineConfig({ ... })` object currently has `lint` and `fmt` properties. Add a `test` property (top level, sibling of `lint`/`fmt`). Use explicit Vitest 4 `projects` rather than a bare `include`, so both the editor units and the gate tests are guaranteed to run and Playwright is never swept in (relying on vp's implicit workspace auto-discovery is unsafe - if the editor project silently dropped, CI would go green without running editor units):
+In `vite.config.ts`, the `defineConfig({ ... })` object has `lint` and `fmt` properties. Add a `test` property (top level, sibling of `lint`/`fmt`). Use explicit Vitest 4 `projects` rather than a bare `include`, so both the editor units and the gate tests are guaranteed to run and Playwright is never swept in (relying on vp's implicit workspace auto-discovery is unsafe - if the editor project silently dropped, CI would go green without running editor units).
+
+IMPORTANT: by this point Task 2 has reformatted `vite.config.ts` to **4-space indent, single quotes, unquoted object keys**. Write the inserted block in that style so the file stays `vp fmt`-clean (otherwise the CI `vp fmt . --check` in Task 5 fails). Insert, as a sibling before the closing `})`:
 ```ts
-  test: {
-    projects: [
-      // editor unit tests: uses packages/editor/vitest.config.ts as-is
-      './packages/editor',
-      {
-        // type-check-gate tests (outside any workspace package)
-        test: {
-          name: 'gate',
-          environment: 'node',
-          include: ['scripts/**/*.test.mjs'],
-          exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
-        },
-      },
-    ],
-  },
+    test: {
+        projects: [
+            // editor unit tests: uses packages/editor/vitest.config.ts as-is
+            './packages/editor',
+            {
+                // type-check-gate tests (outside any workspace package)
+                test: {
+                    name: 'gate',
+                    environment: 'node',
+                    include: ['scripts/**/*.test.mjs'],
+                    exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
+                },
+            },
+        ],
+    },
 ```
+After inserting, run `vp fmt vite.config.ts` and confirm `vp fmt vite.config.ts --check` is clean before committing. If `'./packages/editor'` does not resolve its `vitest.config.ts` (Step 4 shows editor units missing), use the explicit path `'./packages/editor/vitest.config.ts'` instead.
 
 - [ ] **Step 3: Rename the Playwright scripts in root `package.json`**
 
