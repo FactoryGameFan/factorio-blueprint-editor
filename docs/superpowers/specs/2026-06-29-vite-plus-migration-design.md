@@ -2,7 +2,7 @@
 
 - Date: 2026-06-29
 - Branch: `explore/vite-plus`
-- Status: Approved (design); pending implementation plan
+- Status: Approved (design); revised after subagent review; pending implementation plan
 
 ## Goal & scope
 
@@ -50,6 +50,7 @@ errors.
 | Test runners | `vp test` = editor units + gate tests; Playwright stays separate |
 | Test unification scope | Convert gate tests (node:test -> Vitest); do NOT port Playwright |
 | Node version | vp-managed LTS (24.18.0); CI uses vp's Node |
+| Dependency specifiers | Pin exact versions (no `@latest`); install must honor the lockfile |
 | Rollout | One PR, phased commits, reformat isolated |
 
 ## Design
@@ -58,16 +59,25 @@ errors.
 
 Keep the migration output as the first commit:
 
-- Root `overrides` alias `vite` -> `npm:@voidzero-dev/vite-plus-core@latest` and
-  pin `vitest` to `4.1.9`.
+- Root `overrides` alias `vite` -> `@voidzero-dev/vite-plus-core` and pin
+  `vitest` to `4.1.9`. **Pin the `vite-plus-core` override and every `vite-plus`
+  dependency to an exact version (replace the `@latest`/`"latest"` specifiers
+  the migration emitted), so the toolchain version is reproducible.** Drop the
+  redundant `vite: @voidzero-dev/vite-plus-core@latest` entry in
+  `packages/website/package.json` (covered by the root override).
 - `vite-plus` added as a dev dependency at root and in each workspace package.
 - ESLint/Prettier dev deps removed (`@eslint/js`, `eslint`, `prettier`,
   `typescript-eslint`).
 - `defineConfig` imports rewritten to `vite-plus`; `vitest`/`vitest/config`
   rewritten to `vite-plus` / `vite-plus/test`.
 - Website inline plugins wrapped with `lazyPlugins()`.
-- `package.json` scripts repointed to `vp` (`vp dev`, `vp build`, `vp preview`,
-  `vp lint`, `vp fmt`, `vp test`).
+- `package.json` scripts repointed to `vp`. Note the split: the root
+  `package.json` repoints only `lint`/`format` (and their `:fix` variants) to
+  `vp`; the `vp dev`/`vp build`/`vp preview` scripts live in
+  `packages/website/package.json`. The root `build:website`/`start:website`/
+  `preview:website` still shell out to `npm --workspace ... run` (which then call
+  `vp`). Implication to document: any contributor or CI step running
+  `npm run lint`/`format` now requires `vp` on PATH.
 - `.nvmrc`, `.prettierrc.yml`, and `eslint.config.mjs` deleted; their settings
   folded into the root `vite.config.ts` (`lint` and `fmt` blocks). `.nvmrc`
   replaced by `.node-version`.
@@ -75,27 +85,42 @@ Keep the migration output as the first commit:
 
 ### 2. Formatting - Oxfmt (commit 2)
 
-Run `vp fmt .` and commit the resulting 109-file reformat as a single,
-mechanical, isolated commit. Nothing is hand-edited. The `fmt` block mirrors the
-prior Prettier configuration (printWidth 100, no semicolons, single quotes, es5
-trailing commas, avoid arrow parens, tabWidth 2). `.prettierignore` is replaced
-by `fmt.ignorePatterns`. Reviewers can skip this commit with
-`git show <sha> --ignore-all-space`.
+Run `vp fmt .` and commit the resulting reformat as a single, mechanical,
+isolated commit. Nothing is hand-edited. The `fmt` block mirrors the prior
+Prettier configuration (printWidth 100, no semicolons, single quotes, es5
+trailing commas, avoid arrow parens, tabWidth 2). Reviewers can skip this commit
+with `git show <sha> --ignore-all-space`.
+
+Also in this commit: **delete the now-stale `.prettierignore`** (it still exists
+in the tree; its patterns are duplicated in `fmt.ignorePatterns`). Before
+committing, run `vp fmt --check` as a dry run to confirm the count (~109 files
+reported during exploration) and that only expected trees are rewritten - watch
+for `docs/`, `wormeyman-tests/`, and `diagnostic-reports/` being reformatted
+unexpectedly, and extend `fmt.ignorePatterns` if generated/fixture files are
+caught.
 
 ### 3. Lint - Oxlint, type-aware, warnings non-blocking (commit 3)
 
-- Fix the one hard error: `packages/editor/src/UI/controls/Slider.ts:182`
-  `TS2531` (object possibly null).
+- Fix the `TS2531` (object possibly null) hard error. It occurs at **both**
+  `packages/editor/src/UI/controls/Slider.ts:182` **and `:173`** - the same
+  `this.m_SliderButton.parent.worldTransform.applyInverse(...)` access appears
+  twice. Fix both, then re-run `vp lint .` to confirm zero errors rather than
+  assuming a single site.
 - Fix the root `tsconfig.json` type-aware lint error ("Cannot find type
   definition file for `typed-factorio/prototype`"). The root tsconfig references
   types only installed under `packages/editor`. Scope the root tsconfig's
   `types`/`include` (or otherwise make the type-aware pass resolve) without
   disturbing `packages/editor`'s own tsconfig.
 - Keep `options.typeAware` and `options.typeCheck` enabled, but type-aware
-  findings remain at `warn` severity (non-blocking). CI `vp lint .` fails only
-  on errors. The ~25 `unbound-method` / `restrict-template-expressions` /
-  `no-redundant-type-constituents` warnings stay visible for incremental
-  cleanup.
+  findings remain at `warn` severity (non-blocking). The ~25 `unbound-method` /
+  `restrict-template-expressions` / `no-redundant-type-constituents` warnings
+  stay visible for incremental cleanup.
+- **Verify, do not assume, the non-blocking behavior:** `vp lint .` currently
+  exits 1 (because of the TS2531 error and the root-tsconfig error). After
+  fixing both, confirm `vp lint .` exits 0 with only warnings present. If it
+  exits non-zero on warnings, add the appropriate non-deny flag (e.g. avoid
+  `--deny-warnings`/`--max-warnings 0`) so CI passes with warnings. This is a
+  gating assumption for the "green CI" success criteria.
 
 ### 4. Type checking - unchanged
 
@@ -108,41 +133,70 @@ Vite+ lint's type-awareness is advisory only. Type-checking is not folded into a
 
 - Convert `scripts/type-check-gate.test.mjs` from node:test to the Vitest API so
   `vp test` runs editor unit tests plus the gate tests.
-- Scope the Vitest `include` so `vp test` covers `packages/editor/**` and
-  `scripts/**`, and excludes `tests/**` (the Playwright suite) and any
-  `*.spec.ts` Playwright files.
-- Playwright is unchanged and stays on its own runner, exposed as a script
-  (`test:e2e` -> `npx playwright test`, invoked via `vp run test:e2e`). The old
-  `test:scripts` script is removed (folded into `vp test`).
+- **Add a root `test` block to `vite.config.ts`** (it currently has only `lint`
+  and `fmt` blocks). `scripts/**` lives outside any workspace package, so without
+  a root-level test config `vp test` will not pick up the converted gate tests.
+  The root `test` config must `include` `scripts/**/*.test.{mjs,ts}` and
+  `exclude` `tests/**` and `**/*.spec.ts` (the Playwright suite). The editor's
+  own `packages/editor/vitest.config.ts` already scopes to `src/**/*.test.ts`.
+  After wiring this, confirm `vp test` runs exactly the editor units + gate tests
+  and does not sweep up Playwright.
+- Playwright is unchanged and stays on its own runner. Rename the root `test`
+  script (`npx playwright test`) to `test:e2e`, update `test:report`
+  accordingly, and invoke via `vp run test:e2e`, so `npm test` does not silently
+  keep launching Playwright. The old `test:scripts` script is removed (folded
+  into `vp test`).
 
 ### 6. CI + Node (commit 5)
 
 - Rewrite `.github/workflows/ci.yml`: replace the `setup-node` + `npm ci` +
-  `npm run format/lint/...` steps with a `vp` install step
-  (`curl -fsSL https://vite.plus | bash`, or a pinned installer), then
-  `vp install` -> `vp fmt --check` -> `vp lint .` -> `vp test` ->
-  `npm run type-check:gate`.
-- Pin `.node-version` to `24.18.0` (vp-managed LTS). CI runs under vp's Node so
-  local and CI agree on the runtime.
+  `npm run format/lint/...` steps with a `vp` install step, then `vp install` ->
+  `vp fmt --check` -> `vp lint .` -> `vp test` -> `npm run type-check:gate`. Also
+  fix the stale step labels ("prettier"/"eslint") and remove the
+  `node-version-file: .nvmrc` reference (that file is deleted).
+- **Pin and cache the `vp` install**: prefer a version-pinned installer (with
+  checksum) over a bare `curl -fsSL https://vite.plus | bash`, and cache the vp
+  toolchain dir (`~/.vite-plus`) between runs so CI does not re-download the
+  toolchain every time (the risk section flags this network dependency).
+- **Install must honor the lockfile.** Confirm `vp install` has frozen-lockfile
+  semantics in CI; if it re-resolves and mutates `package-lock.json`, keep
+  `npm ci` for the install step instead. (Pairs with the exact-version pinning
+  in section 1.)
+- **Keep `typescript` pinned** in root devDeps. `npm run type-check:gate` runs
+  `npx tsc`, which resolves `typescript@^5.9.3` (still present; not dropped by
+  the migration). The gate is independent of `vp`; do not remove `typescript`.
+- Pin `.node-version` to `24.18.0` (vp-managed LTS); it currently reads `lts/*`.
+  CI runs under vp's Node so local and CI agree on the runtime. Note the local
+  machine runs Node 26 until contributors adopt vp's Node.
 - Preserve the existing triggers and branch filters
-  (`wormeyman-space-age-support` push/PR).
+  (`wormeyman-space-age-support` push/PR). Because CI triggers only on that
+  branch (not `explore/vite-plus`) and a PR runs the workflow file at its head,
+  the rewritten `ci.yml` is what executes at PR/merge time. Intermediate
+  commits 1-4 leave `ci.yml` internally inconsistent, which only matters if
+  someone runs CI off an intermediate SHA (e.g. via bisect).
 
 ### 7. Docs (commit 5)
 
-- Update `CLAUDE.md`: the Key Commands table (`npm run start` -> `vp dev`, build,
-  test, lint, format equivalents), the Dev Server Setup section, and a short
-  "Vite+ toolchain" note describing `vp` and the config layout.
+- Update `CLAUDE.md` beyond just the table: the Key Commands block (including the
+  `npm run test:scripts` reference, now folded into `vp test`), the Dev Server
+  Setup section, the Playwright Diagnostics **Prerequisites** (`npm run start` ->
+  `vp dev`), and a short "Vite+ toolchain" note describing `vp` and the
+  `vite.config.ts` `lint`/`fmt`/`test` config layout. Document that
+  `npm run lint`/`format` now require `vp` on PATH.
 - Add a Vite+ pointer to auto-memory.
 
 ## Verification / success criteria
 
-- `vp install` completes clean.
-- `vp fmt --check` reports no formatting issues.
-- `vp lint .` reports no errors (warnings allowed).
-- `vp test` is green (editor units + gate tests).
+- `vp install` completes clean and does not mutate `package-lock.json` (frozen
+  lockfile).
+- `vp fmt --check` reports no formatting issues; `.prettierignore` is gone.
+- `vp lint .` **exits 0** with no errors (warnings allowed and present).
+- `vp test` is green and runs exactly the editor units + gate tests (no
+  Playwright files swept in).
 - `npx playwright test --list` still discovers the blueprint suite.
 - `vp build` produces a working `packages/website/dist/`.
 - `npm run type-check:gate` reports 0 errors (at baseline 0).
+- No `@latest`/`"latest"` dependency specifiers remain.
 - CI is green on the PR.
 
 ## Risks & rollback
@@ -159,8 +213,13 @@ Vite+ lint's type-awareness is advisory only. Type-checking is not folded into a
 
 ## Rollout (commit plan)
 
-1. Toolchain config + deps + import rewrites (current `vp migrate` output).
-2. Oxfmt 109-file reformat (isolated, mechanical).
-3. Lint unblock: fix `TS2531` + root tsconfig; confirm warnings non-blocking.
-4. Test reorg: gate tests node:test -> Vitest; scope `vp test`; keep Playwright.
-5. CI rewrite + `.node-version` pin (24.18.0) + `CLAUDE.md` doc updates.
+1. Toolchain config + deps + import rewrites (current `vp migrate` output), with
+   `@latest` specifiers pinned to exact versions and the redundant website `vite`
+   dep dropped.
+2. Oxfmt reformat (isolated, mechanical) + delete stale `.prettierignore`.
+3. Lint unblock: fix both `Slider.ts` `TS2531` sites (173 + 182) + root tsconfig;
+   verify `vp lint .` exits 0 with warnings.
+4. Test reorg: gate tests node:test -> Vitest; add root `test` block scoping
+   `vp test`; rename `test` -> `test:e2e`; keep Playwright.
+5. CI rewrite (pinned/cached vp install, frozen lockfile, keep `typescript`) +
+   `.node-version` pin (24.18.0) + `CLAUDE.md` doc updates.
