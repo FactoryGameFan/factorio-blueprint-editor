@@ -1,6 +1,8 @@
 import type {
     Sprite as SpriteData,
     SpriteVariations,
+    Sprite4Way,
+    AnimationVariations,
     Animation4Way,
     RotatedAnimation8Way,
 } from 'factorio:prototype'
@@ -22,4 +24,14 @@ export function layersOf(
     x: SpriteVariations | SpriteData | Animation4Way | RotatedAnimation8Way
 ): readonly SpriteData[] {
     return 'layers' in x ? (x.layers as readonly SpriteData[]) : [x as SpriteData]
+}
+
+/**
+ * `'sheet' in x ? x.sheet : x` — collapse a *Variations/4Way union to the
+ * single sheet sprite. Struct members (SpriteSheet) are structurally SpriteData
+ * at runtime. Returns SpriteData (never undefined) so results feed straight
+ * into duplicateAndSetPropertyUsing.
+ */
+export function sheetOf(x: SpriteVariations | Sprite4Way | AnimationVariations): SpriteData {
+    return 'sheet' in x ? (x.sheet as unknown as SpriteData) : (x as unknown as SpriteData)
 }

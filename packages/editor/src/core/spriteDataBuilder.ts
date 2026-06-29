@@ -17,7 +17,7 @@ import FD, {
 } from './factorioData'
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
-import { layersOf } from './spriteShape'
+import { layersOf, sheetOf } from './spriteShape'
 import {
     SpriteVariations,
     EntityWithOwnerPrototype,
@@ -1014,7 +1014,7 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
                 const module = modules[i]
                 if (module) {
                     return arr.map(slot => {
-                        const img = util.duplicate(slot.pictures)
+                        const img = util.duplicate(sheetOf(slot.pictures))
 
                         let variationIndex = module.tier - 1
                         if (slot.has_empty_slot) {
@@ -1678,7 +1678,7 @@ function draw_inserter(e: InserterPrototype): (data: IDrawData) => readonly Spri
 
         return [
             duplicateAndSetPropertyUsing(
-                e.platform_picture.sheet,
+                sheetOf(e.platform_picture),
                 'x',
                 'width',
                 ((data.dir + 8) % 16) / 4
@@ -1827,7 +1827,7 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
 
         sprites.push(
             duplicateAndSetPropertyUsing(
-                isInput ? structure.direction_in.sheet : structure.direction_out.sheet,
+                isInput ? sheetOf(structure.direction_in) : sheetOf(structure.direction_out),
                 'x',
                 'width',
                 dir / 4
@@ -2051,7 +2051,7 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
     return (data: IDrawData) => {
         const patches = []
         for (const [i, conn] of e.heat_buffer.connections.entries()) {
-            let patchSheet = e.connection_patches_disconnected.sheet
+            let patchSheet = sheetOf(e.connection_patches_disconnected)
             if (data.positionGrid) {
                 const c = getHeatConnections(
                     {
@@ -2061,7 +2061,7 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
                     data.positionGrid
                 )
                 if (c[conn.direction / 4]) {
-                    patchSheet = e.connection_patches_connected.sheet
+                    patchSheet = sheetOf(e.connection_patches_connected)
                 }
             }
             patchSheet = duplicateAndSetPropertyUsing(patchSheet, 'x', 'width', i)
@@ -2216,7 +2216,7 @@ function draw_transport_belt(
             const sprites = []
 
             if (patchIndex !== undefined) {
-                const patch = e.connector_frame_sprites.frame_back_patch.sheet
+                const patch = sheetOf(e.connector_frame_sprites.frame_back_patch)
                 sprites.push(duplicateAndSetPropertyUsing(patch, 'x', 'width', patchIndex))
             }
 
@@ -2224,7 +2224,7 @@ function draw_transport_belt(
                 ...getBeltSprites(e.belt_animation_set, data.position, data.dir, data.positionGrid)
             )
 
-            let frame = e.connector_frame_sprites.frame_main.sheet
+            let frame = sheetOf(e.connector_frame_sprites.frame_main)
             frame = duplicateAndSetPropertyUsing(frame, 'x', 'width', 1)
             sprites.push(setPropertyUsing(frame, 'y', 'height', connIndex))
 
@@ -2319,7 +2319,7 @@ function draw_underground_belt(
 
         if (!sideloadingBack) {
             sprites.push(
-                duplicateAndSetPropertyUsing(structure.back_patch.sheet, 'x', 'width', dir / 4)
+                duplicateAndSetPropertyUsing(sheetOf(structure.back_patch), 'x', 'width', dir / 4)
             )
         }
 
@@ -2329,11 +2329,11 @@ function draw_underground_belt(
             duplicateAndSetPropertyUsing(
                 sideloadingFront
                     ? isInput
-                        ? structure.direction_in_side_loading.sheet
-                        : structure.direction_out_side_loading.sheet
+                        ? sheetOf(structure.direction_in_side_loading)
+                        : sheetOf(structure.direction_out_side_loading)
                     : isInput
-                      ? structure.direction_in.sheet
-                      : structure.direction_out.sheet,
+                      ? sheetOf(structure.direction_in)
+                      : sheetOf(structure.direction_out),
                 'x',
                 'width',
                 dir / 4
@@ -2342,7 +2342,7 @@ function draw_underground_belt(
 
         if (!sideloadingFront) {
             sprites.push(
-                duplicateAndSetPropertyUsing(structure.front_patch.sheet, 'x', 'width', dir / 4)
+                duplicateAndSetPropertyUsing(sheetOf(structure.front_patch), 'x', 'width', dir / 4)
             )
         }
 
@@ -2449,7 +2449,12 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             sprites.push(
                 ...neighbourDirections.map(relDir =>
-                    duplicateAndSetPropertyUsing(e.wall_diode_red.sheet, 'x', 'width', relDir / 4)
+                    duplicateAndSetPropertyUsing(
+                        sheetOf(e.wall_diode_red),
+                        'x',
+                        'width',
+                        relDir / 4
+                    )
                 )
             )
 
