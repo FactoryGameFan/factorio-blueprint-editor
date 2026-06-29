@@ -1,36 +1,39 @@
-<img src="./.github/logo.svg" width="100%" align="right">
-
 # factorio-blueprint-editor
+
+![Factorio Blueprint Editor logo](./.github/logo.svg)
 
 [![Website](https://img.shields.io/website-up-down-brightgreen-red/https/fbe.teoxoy.com.svg?style=flat-square)](https://fbe.teoxoy.com)
 [![Discord](https://img.shields.io/discord/540738973413408809.svg?style=flat-square&color=7289da&logo=discord&logoColor=white)](https://discord.gg/c5eXyBU)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-blue.svg?style=flat-square)](./CONTRIBUTING.md)
 &nbsp;&nbsp;_Badges are clickable!_
 
-A feature-rich [Factorio](https://www.factorio.com) Blueprint Editor. You can now edit your blueprints in the browser!
+A feature-rich [Factorio](https://www.factorio.com) Blueprint Editor. 
+You can now edit your blueprints in the browser!
 
 ![Preview](./.github/preview.png)
 
-Sample blueprint: https://fbe.teoxoy.com/?source=https://pastebin.com/uc4n81GP
+Sample blueprint: <https://fbe.teoxoy.com/?source=https://pastebin.com/uc4n81GP>
 
-Example blueprint book: https://fbe.teoxoy.com/?source=https://pastebin.com/Xp9u7NaA&index=1
+Example blueprint book: <https://fbe.teoxoy.com/?source=https://pastebin.com/Xp9u7NaA&index=1>
 
-# Features
+## Features
 
 - rendering and editing blueprints
 - history (undo/redo)
 - copy and delete selections
-- import blueprints and books from multiple sources (direct bp string, pastebin, hastebin, gist, gitlab, factorioprints, factorio.school, google docs)
+- import blueprints and books from multiple sources
+(direct bp string, pastebin, hastebin, gist, gitlab, factorioprints,
+factorio.school, google docs)
 - generating blueprint images
 - oil outpost generator
 - customizable keybinds
 - "creative" entities
 
-# Contributing
+## Contributing
 
 Check out [this readme](./CONTRIBUTING.md) if you are interested in contributing.
 
-# Credits
+## Credits
 
 Thanks to all contributors!
 
