@@ -5,6 +5,7 @@ import type {
     AnimationVariations,
     Animation4Way,
     RotatedAnimation8Way,
+    TurretBaseVisualisation,
 } from 'factorio:prototype'
 import util from '../common/util'
 
@@ -51,4 +52,18 @@ export function sheetsOf(x: Sprite4Way): readonly SpriteData[] {
 export function fourWayAnimation(x: Animation4Way, dir: number): readonly SpriteData[] {
     const directional = x as unknown as Record<string, Animation4Way>
     return layersOf(directional[util.getDirName(dir)])
+}
+
+/**
+ * Resolve a turret base_visualisation (array or object form) to its animation
+ * layers. Pass `dir` for the directional (fluid-turret) animation form;
+ * omit it for the flat (ammo/electric-turret) form.
+ */
+export function baseVisualisationLayers(
+    bv: TurretBaseVisualisation | readonly TurretBaseVisualisation[],
+    dir?: number
+): readonly SpriteData[] {
+    const base = Array.isArray(bv) ? bv[0] : (bv as TurretBaseVisualisation)
+    const anim = base.animation
+    return dir === undefined ? layersOf(anim) : fourWayAnimation(anim, dir)
 }

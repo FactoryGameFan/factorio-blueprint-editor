@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { layersOf, sheetOf, sheetsOf, fourWayAnimation } from './spriteShape'
+import {
+    layersOf,
+    sheetOf,
+    sheetsOf,
+    fourWayAnimation,
+    baseVisualisationLayers,
+} from './spriteShape'
 
 describe('layersOf', () => {
     it('returns the layers array when the value has a layers property', () => {
@@ -55,5 +61,33 @@ describe('fourWayAnimation', () => {
         const e0 = { filename: 'e.png' }
         const input = { north: { layers: [] }, east: { layers: [e0] } }
         expect(fourWayAnimation(input as never, 4)).toEqual([e0])
+    })
+})
+
+describe('baseVisualisationLayers', () => {
+    const layer = { filename: 'base.png' }
+
+    it('handles the object form (non-directional animation)', () => {
+        expect(baseVisualisationLayers({ animation: { layers: [layer] } } as never)).toEqual([
+            layer,
+        ])
+    })
+
+    it('handles the array form by taking the first element', () => {
+        expect(baseVisualisationLayers([{ animation: { layers: [layer] } }] as never)).toEqual([
+            layer,
+        ])
+    })
+
+    it('handles the directional form when dir is provided', () => {
+        const bv = {
+            animation: {
+                north: { layers: [layer] },
+                east: { layers: [] },
+                south: { layers: [] },
+                west: { layers: [] },
+            },
+        }
+        expect(baseVisualisationLayers(bv as never, 0)).toEqual([layer])
     })
 })

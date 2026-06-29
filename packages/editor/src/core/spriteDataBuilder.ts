@@ -17,7 +17,13 @@ import FD, {
 } from './factorioData'
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
-import { layersOf, sheetOf, sheetsOf, fourWayAnimation } from './spriteShape'
+import {
+    layersOf,
+    sheetOf,
+    sheetsOf,
+    fourWayAnimation,
+    baseVisualisationLayers,
+} from './spriteShape'
 import {
     SpriteVariations,
     EntityWithOwnerPrototype,
@@ -845,7 +851,7 @@ function draw_agricultural_tower(
 }
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        ...e.graphics_set.base_visualisation.animation.layers,
+        ...baseVisualisationLayers(e.graphics_set.base_visualisation),
         duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[0], 'y', 'height', data.dir / 4),
         duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[1], 'y', 'height', data.dir / 4),
     ]
@@ -1333,8 +1339,7 @@ function draw_electric_turret(
     e: ElectricTurretPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const bv = (e as any).graphics_set.base_visualisation
-        const baseLayers = Array.isArray(bv) ? bv[0].animation.layers : bv.animation.layers
+        const baseLayers = baseVisualisationLayers(e.graphics_set.base_visualisation)
         return [
             ...baseLayers,
             duplicateAndSetPropertyUsing(
@@ -1384,7 +1389,7 @@ function draw_elevated_straight_rail(
 }
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        ...e.graphics_set.base_visualisation.animation[util.getDirName(data.dir)].layers,
+        ...baseVisualisationLayers(e.graphics_set.base_visualisation, data.dir),
         ...e.folded_animation[util.getDirName(data.dir)].layers,
     ]
 }
