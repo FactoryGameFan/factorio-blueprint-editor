@@ -1,0 +1,36 @@
+name: Setup Vite+
+description: >-
+  Install the pinned, checksum-verified Vite+ toolchain (vp) and prime the npm
+  download cache. After this runs, vp is on PATH; the caller runs its own
+  vp install. Single source of truth for the vp version + installer checksum.
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Vite+ toolchain
+      uses: actions/cache@v6
+      with:
+        path: ~/.vite-plus
+        key: vite-plus-${{ runner.os }}-0.2.1
+
+    - name: Cache npm downloads
+      uses: actions/cache@v6
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'packages/worker/package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-
+
+    - name: Install vp
+      shell: bash
+      run: |
+        # Pin + verify the installer instead of curl | bash. The vp binary and
+        # vite-plus package are already version-pinned (VP_VERSION) and immutable
+        # via the npm registry; this also pins the mutable bootstrap script. Bump
+        # the VP_VERSION (here + the cache key above) and the checksum together
+        # when intentionally upgrading the toolchain.
+        curl -fsSL https://vite.plus -o vp-install.sh
+        echo "6f4fe3690a3f011b4b6cec3c71035e9c04a97dd45dd9e2623dc67f842268f0d2  vp-install.sh" | sha256sum -c -
+        VP_VERSION=0.2.1 VP_NODE_MANAGER=yes bash vp-install.sh
+        echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
+        rm -f vp-install.sh
