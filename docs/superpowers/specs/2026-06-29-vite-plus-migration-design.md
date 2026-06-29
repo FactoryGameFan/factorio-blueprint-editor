@@ -42,17 +42,17 @@ errors.
 
 ## Decisions
 
-| Question | Decision |
-| --- | --- |
-| Goal | Full toolchain (Oxlint + Oxfmt + unified `vp`) |
-| Type-aware lint findings | Fix hard error + tsconfig; type-aware warnings stay non-blocking |
-| Authoritative type gate | Keep custom `type-check-gate.mjs` (baseline 0) |
-| Test runners | `vp test` = editor units + gate tests; Playwright stays separate |
-| Test unification scope | Convert gate tests (node:test -> Vitest); do NOT port Playwright |
-| Node version | vp-managed LTS (24.18.0); CI uses vp's Node |
-| Dependency specifiers | Pin exact versions (no `@latest`); install must honor the lockfile |
-| Indent width | Keep 4-space (`fmt.tabWidth: 4`); YAML excluded from oxfmt |
-| Rollout | One PR, phased commits, reformat isolated |
+| Question                 | Decision                                                           |
+| ------------------------ | ------------------------------------------------------------------ |
+| Goal                     | Full toolchain (Oxlint + Oxfmt + unified `vp`)                     |
+| Type-aware lint findings | Fix hard error + tsconfig; type-aware warnings stay non-blocking   |
+| Authoritative type gate  | Keep custom `type-check-gate.mjs` (baseline 0)                     |
+| Test runners             | `vp test` = editor units + gate tests; Playwright stays separate   |
+| Test unification scope   | Convert gate tests (node:test -> Vitest); do NOT port Playwright   |
+| Node version             | vp-managed LTS (24.18.0); CI uses vp's Node                        |
+| Dependency specifiers    | Pin exact versions (no `@latest`); install must honor the lockfile |
+| Indent width             | Keep 4-space (`fmt.tabWidth: 4`); YAML excluded from oxfmt         |
+| Rollout                  | One PR, phased commits, reformat isolated                          |
 
 ## Design
 
@@ -120,7 +120,7 @@ Oxlint's `typeCheck` duplicates a strict tsc the project intentionally does not
 enforce. Decision (confirmed with the user):
 
 - Set `lint.options.typeCheck: false`. Keep `lint.options.typeAware: true` so the
-  type-aware lint *rules* (unbound-method, restrict-template-expressions,
+  type-aware lint _rules_ (unbound-method, restrict-template-expressions,
   no-redundant-type-constituents, ...) still run - as non-blocking **warnings**.
   This eliminates the ~900 TS diagnostics; the `tsc` gate remains the type
   authority (see section 4). The Slider `TS2531` sites were typeCheck
