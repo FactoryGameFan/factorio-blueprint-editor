@@ -51,6 +51,7 @@ errors.
 | Test unification scope | Convert gate tests (node:test -> Vitest); do NOT port Playwright |
 | Node version | vp-managed LTS (24.18.0); CI uses vp's Node |
 | Dependency specifiers | Pin exact versions (no `@latest`); install must honor the lockfile |
+| Indent width | Keep 4-space (`fmt.tabWidth: 4`); YAML excluded from oxfmt |
 | Rollout | One PR, phased commits, reformat isolated |
 
 ## Design
@@ -86,18 +87,26 @@ Keep the migration output as the first commit:
 ### 2. Formatting - Oxfmt (commit 2)
 
 Run `vp fmt .` and commit the resulting reformat as a single, mechanical,
-isolated commit. Nothing is hand-edited. The `fmt` block mirrors the prior
-Prettier configuration (printWidth 100, no semicolons, single quotes, es5
-trailing commas, avoid arrow parens, tabWidth 2). Reviewers can skip this commit
-with `git show <sha> --ignore-all-space`.
+isolated commit. Nothing is hand-edited.
+
+**Critical: the `fmt` block must use `tabWidth: 4`, not the `tabWidth: 2` the
+migration emitted.** The prior `.prettierrc.yml` used `tabWidth: 4` (with a
+`*.yml -> 2` override); the repo is 4-space throughout. Left at 2, `vp fmt`
+reindents the entire repo (that is most of the ~109-file churn seen during
+exploration) AND invalidates the 4-space literal edit blocks in tasks 3-4, which
+run after this commit. Setting `fmt.tabWidth: 4` (done in commit 1) reduces this
+commit to genuine Oxfmt-vs-Prettier differences only. YAML files (the sole prior
+tabWidth-2 override) are added to `fmt.ignorePatterns` rather than reformatted.
+The remaining `fmt` settings mirror Prettier: printWidth 100, no semicolons,
+single quotes, es5 trailing commas, avoid arrow parens. Reviewers can skip this
+commit with `git show <sha> --ignore-all-space`.
 
 Also in this commit: **delete the now-stale `.prettierignore`** (it still exists
 in the tree; its patterns are duplicated in `fmt.ignorePatterns`). Before
-committing, run `vp fmt --check` as a dry run to confirm the count (~109 files
-reported during exploration) and that only expected trees are rewritten - watch
-for `docs/`, `wormeyman-tests/`, and `diagnostic-reports/` being reformatted
-unexpectedly, and extend `fmt.ignorePatterns` if generated/fixture files are
-caught.
+committing, run `vp fmt --check` as a dry run to confirm the (now much smaller)
+file set and that only expected trees are rewritten - watch for `docs/`,
+`wormeyman-tests/`, and `diagnostic-reports/` being reformatted unexpectedly, and
+extend `fmt.ignorePatterns` if generated/fixture files are caught.
 
 ### 3. Lint - Oxlint, type-aware, warnings non-blocking (commit 3)
 

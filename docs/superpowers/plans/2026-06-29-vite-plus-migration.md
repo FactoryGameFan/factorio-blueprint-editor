@@ -26,7 +26,7 @@
 - `package.json` (root) - pin versions, fix scripts (`test`->`test:e2e`, drop `test:scripts`), add `typed-factorio` dep.
 - `packages/editor/package.json` - pin `vite-plus`.
 - `packages/website/package.json` - pin `vite-plus`, drop redundant `vite` override dep.
-- `vite.config.ts` (root) - add a `test` block scoping `vp test`.
+- `vite.config.ts` (root) - fix `fmt.tabWidth` 2->4 + ignore YAML (Task 1); add a `test` block with explicit projects (Task 4).
 - `.prettierignore` - delete (stale).
 - `packages/editor/src/UI/controls/Slider.ts` - fix two TS2531 null derefs.
 - `scripts/type-check-gate.test.mjs` - node:test -> Vitest import.
@@ -95,6 +95,25 @@ Replace that block with (drop the `vite` line - the root `overrides` covers it -
         "vite-plus": "0.2.1"
 ```
 
+- [ ] **Step 4b: Fix the Oxfmt indent width to match the repo (4-space) and exclude YAML**
+
+The migration emitted `fmt.tabWidth: 2`, but the repo (and prior Prettier) use
+4-space. Left at 2, the Task 2 reformat reindents the entire repo and breaks the
+4-space edit blocks in Tasks 3-4. In `vite.config.ts`, inside the `fmt` block, change:
+```ts
+    tabWidth: 2,
+```
+to:
+```ts
+    tabWidth: 4,
+```
+Then add YAML globs to the existing `fmt.ignorePatterns` array (so the GitHub
+workflow YAML is not reindented to 4-space) by adding these two entries:
+```ts
+      "**/*.yml",
+      "**/*.yaml",
+```
+
 - [ ] **Step 5: Re-resolve the lockfile against the pinned versions**
 
 Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp install`
@@ -143,8 +162,8 @@ Note: this commit intentionally still contains `.prettierignore` (deleted in Tas
 
 - [ ] **Step 1: Dry-run the formatter to confirm scope**
 
-Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp fmt . --check 2>&1 | tail -5`
-Expected: reports formatting issues in ~109 files. Scan the file list for anything unexpected (e.g. files under `docs/`, `wormeyman-tests/`, `diagnostic-reports/`).
+Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp fmt . --check 2>&1 | tail -10`
+Expected: with `tabWidth: 4` from Task 1 Step 4b, this is now a SMALL set (genuine Oxfmt-vs-Prettier differences only), NOT the ~109-file whole-repo reindent. If it still reports ~100+ files, Task 1 Step 4b's `tabWidth: 4` change did not take effect - stop and fix that first. Scan the file list for anything unexpected (e.g. files under `docs/`, `wormeyman-tests/`, `diagnostic-reports/`).
 
 - [ ] **Step 2: If unexpected trees appear, extend `fmt.ignorePatterns`**
 
@@ -321,13 +340,24 @@ import { test } from 'vite-plus/test'
 ```
 Leave `import assert from 'node:assert/strict'` and every `test(...)`/`assert.*` call unchanged - Vitest runs the `test()` blocks and treats a thrown `assert` failure as a test failure.
 
-- [ ] **Step 2: Add a root `test` block to scope `vp test`**
+- [ ] **Step 2: Add a root `test` block with explicit projects**
 
-In `vite.config.ts`, the `defineConfig({ ... })` object currently has `lint` and `fmt` properties. Add a `test` property (top level, sibling of `lint`/`fmt`) so the root run picks up `scripts/**` gate tests and excludes the Playwright suite:
+In `vite.config.ts`, the `defineConfig({ ... })` object currently has `lint` and `fmt` properties. Add a `test` property (top level, sibling of `lint`/`fmt`). Use explicit Vitest 4 `projects` rather than a bare `include`, so both the editor units and the gate tests are guaranteed to run and Playwright is never swept in (relying on vp's implicit workspace auto-discovery is unsafe - if the editor project silently dropped, CI would go green without running editor units):
 ```ts
   test: {
-    include: ['scripts/**/*.test.mjs'],
-    exclude: ['tests/**', '**/*.spec.ts', '**/node_modules/**', '**/dist/**'],
+    projects: [
+      // editor unit tests: uses packages/editor/vitest.config.ts as-is
+      './packages/editor',
+      {
+        // type-check-gate tests (outside any workspace package)
+        test: {
+          name: 'gate',
+          environment: 'node',
+          include: ['scripts/**/*.test.mjs'],
+          exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
+        },
+      },
+    ],
   },
 ```
 
@@ -350,8 +380,8 @@ with:
 
 - [ ] **Step 4: Verify `vp test` runs the right suites**
 
-Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp test 2>&1 | tail -15`
-Expected: editor `spriteShape.test.ts` (13 tests) AND `scripts/type-check-gate.test.mjs` (16 tests) pass; NO `tests/blueprint-loading.spec.ts` is collected. Test files: 2 passed.
+Run: `cd /Users/ericjohnson/GitHub/factorio-blueprint-editor && vp test 2>&1 | tail -20`
+Expected: BOTH projects run - the editor project (`spriteShape.test.ts`, 13 tests) AND the `gate` project (`scripts/type-check-gate.test.mjs`, 16 tests); 29 tests total pass. NO `tests/blueprint-loading.spec.ts` is collected. If the editor tests are missing (only the gate project ran), the `./packages/editor` project entry is not being picked up - stop and fix the `projects` config before continuing (do not proceed with editor units silently unrun).
 
 - [ ] **Step 5: Verify Playwright still discovers its suite separately**
 
@@ -449,7 +479,7 @@ jobs:
         run: npm run type-check:gate
 ```
 
-Notes baked in: `VP_VERSION=0.2.1` pins the installer; `VP_NODE_MANAGER=yes` lets vp provide Node 24.18.0 non-interactively; the toolchain dir is cached; `npm run type-check:gate` still uses `npx tsc` (typescript stays in devDeps from Task 3's untouched root deps).
+Notes baked in: `VP_VERSION=0.2.1` pins the installer; `VP_NODE_MANAGER=yes` lets vp provide Node 24.18.0 non-interactively; the toolchain dir is cached. `npm run type-check:gate` runs `node scripts/type-check-gate.mjs`, which spawns `tsc` internally - so `typescript` must remain in root devDeps (it does; Task 3 only adds `typed-factorio`). The `npm`/`node` used here come from vp's managed Node (on PATH via the install step).
 
 - [ ] **Step 3: If `vp install` does not honor the lockfile, fall back to `npm ci`**
 
@@ -464,7 +494,13 @@ If `package-lock.json` changed, replace the `Install dependencies` step's `run: 
 
 - [ ] **Step 4: Update `CLAUDE.md` Key Commands**
 
-In `CLAUDE.md`, update the dev/build/test/lint/format commands to their `vp` equivalents. Replace the dev-server line `npm run start` (website) references with `vp dev`; the build `npx vite build` with `vp build`; `npx playwright test` references stay but note the script is now `npm run test:e2e` / `vp run test:e2e`; the type-check commands are unchanged (`npm run type-check:gate`). Replace the `npm run test:scripts` reference (gate tests) with a note that gate tests now run under `vp test`. Add a short "Vite+ toolchain" subsection stating: `vp` is the unified CLI; lint/format/test config live in the root `vite.config.ts` (`lint`/`fmt`/`test` blocks); `npm run lint`/`format` now require `vp` on PATH.
+In `CLAUDE.md`, update the commands to their `vp` equivalents. Specific anchors to change:
+- Key Commands block: `npm run start` (dev server, ~line 18) -> `vp dev`; `cd packages/website && npx vite build` (~line 24) -> `cd packages/website && vp build`; the `npm run test:scripts` reference (~line 36) -> note gate tests now run under `vp test`; the type-check lines (`npm run type-check:gate`) are unchanged.
+- Cloudflare Deployment section: the `npx vite build` line (~line 103) -> `vp build`.
+- Replace `npx playwright test` script references with `vp run test:e2e` (script renamed in Task 4).
+- Add a short "Vite+ toolchain" subsection stating: `vp` is the unified CLI; lint/format/test config live in the root `vite.config.ts` (`lint`/`fmt`/`test` blocks); `npm run lint`/`format` now require `vp` on PATH.
+
+(Line numbers are approximate - `Read` the file and match the actual text.)
 
 - [ ] **Step 5: Update `CLAUDE.md` Playwright Diagnostics prerequisites**
 
