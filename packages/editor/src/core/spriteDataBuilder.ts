@@ -1152,7 +1152,7 @@ function getCargoBayConnectionSprites(
                     sprites.push(util.duplicate(layer))
                 }
             } else {
-                const { render_layer, ...spriteData } = rendition
+                const { render_layer: _render_layer, ...spriteData } = rendition
                 sprites.push(util.duplicate(spriteData))
             }
         }

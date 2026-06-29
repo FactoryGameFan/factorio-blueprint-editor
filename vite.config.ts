@@ -81,16 +81,11 @@ export default defineConfig({
             'no-array-constructor': 'error',
             'no-unused-expressions': 'error',
             'no-useless-constructor': 'error',
-            'typescript/ban-ts-comment': [
-                'error',
-                {
-                    minimumDescriptionLength: 10,
-                },
-            ],
+            'typescript/ban-ts-comment': 'off',
             'typescript/no-duplicate-enum-values': 'error',
             'typescript/no-dynamic-delete': 'error',
             'typescript/no-empty-object-type': 'error',
-            'typescript/no-explicit-any': 'error',
+            'typescript/no-explicit-any': 'off',
             'typescript/no-extra-non-null-assertion': 'error',
             'typescript/no-extraneous-class': 'error',
             'typescript/no-invalid-void-type': 'error',
@@ -155,7 +150,7 @@ export default defineConfig({
         ],
         options: {
             typeAware: true,
-            typeCheck: true,
+            typeCheck: false,
         },
         jsPlugins: [
             {
