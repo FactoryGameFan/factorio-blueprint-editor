@@ -178,4 +178,19 @@ export default defineConfig({
             '**/*.yaml',
         ],
     },
+    test: {
+        projects: [
+            // editor unit tests: uses packages/editor/vitest.config.ts as-is
+            './packages/editor',
+            {
+                // type-check-gate tests (outside any workspace package)
+                test: {
+                    name: 'gate',
+                    environment: 'node',
+                    include: ['scripts/**/*.test.mjs'],
+                    exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
+                },
+            },
+        ],
+    },
 })

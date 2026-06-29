@@ -12,13 +12,12 @@
         "type-check": "tsc",
         "type-check:gate": "node scripts/type-check-gate.mjs",
         "test:unit": "npm --workspace=@fbe/editor run test:unit",
-        "test:scripts": "node --test 'scripts/**/*.test.mjs'",
         "lint": "vp lint .",
         "lint:fix": "vp lint . --fix",
         "format": "vp fmt . --check",
         "format:fix": "vp fmt .",
-        "test": "npx playwright test",
-        "test:report": "npx playwright test --reporter=list"
+        "test:e2e": "npx playwright test",
+        "test:e2e:report": "npx playwright test --reporter=list"
     },
     "devDependencies": {
         "@playwright/test": "^1.58.2",
