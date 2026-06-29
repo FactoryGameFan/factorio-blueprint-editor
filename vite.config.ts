@@ -2,7 +2,7 @@ import { defineConfig } from 'vite-plus'
 
 export default defineConfig({
     lint: {
-        plugins: ['oxc', 'typescript', 'unicorn', 'react'],
+        plugins: ['oxc', 'typescript', 'unicorn'],
         categories: {
             correctness: 'warn',
         },
@@ -13,6 +13,10 @@ export default defineConfig({
             'packages/website/dist',
             'packages/editor/src/basis',
             'packages/exporter',
+            // Out of migration scope; its tsconfig references a gitignored,
+            // wrangler-generated worker-configuration.d.ts that is absent on a
+            // fresh checkout (e.g. CI), which oxlint reports as an invalid tsconfig.
+            'packages/worker',
             'functions/corsproxy.js',
         ],
         rules: {
