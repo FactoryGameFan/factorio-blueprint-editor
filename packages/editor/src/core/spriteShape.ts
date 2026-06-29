@@ -67,3 +67,12 @@ export function baseVisualisationLayers(
     const anim = base.animation
     return dir === undefined ? layersOf(anim) : fourWayAnimation(anim, dir)
 }
+
+/**
+ * Coerce a SpriteVariations value to a SpriteData[] for array positions (e.g.
+ * util.getRandomItem). At runtime variations are either an array of sprites or
+ * a single sprite.
+ */
+export function toSpriteArray(x: SpriteVariations): readonly SpriteData[] {
+    return Array.isArray(x) ? (x as readonly SpriteData[]) : [x as unknown as SpriteData]
+}

@@ -23,6 +23,7 @@ import {
     sheetsOf,
     fourWayAnimation,
     baseVisualisationLayers,
+    toSpriteArray,
 } from './spriteShape'
 import {
     SpriteVariations,
@@ -1038,7 +1039,9 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
                         return img
                     })
                 } else {
-                    return arr.filter(slot => slot.has_empty_slot).map(slot => slot.pictures)
+                    return arr
+                        .filter(slot => slot.has_empty_slot)
+                        .map(slot => sheetOf(slot.pictures))
                 }
             })
 
@@ -1364,7 +1367,9 @@ function draw_elevated_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
         if (Object.entries(ps).length === 0) {
             ps = e.pictures[util.getDirName8Way(dir % 8)]
         }
-        return [ps.stone_path_background, ps.stone_path, ps.backplates, ps.metals].filter(Boolean)
+        return [ps.stone_path_background, ps.stone_path, ps.backplates, ps.metals]
+            .filter(Boolean)
+            .map(p => sheetOf(p))
     }
 }
 function draw_elevated_curved_rail_a(
@@ -1546,9 +1551,9 @@ function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly Spr
                 }
                 return e.connection_sprites.single
             }
-            return [util.getRandomItem(getOpt())]
+            return [util.getRandomItem(toSpriteArray(getOpt()))]
         }
-        return [util.getRandomItem(e.connection_sprites.single)]
+        return [util.getRandomItem(toSpriteArray(e.connection_sprites.single))]
     }
 }
 function draw_infinity_cargo_wagon(
@@ -1720,18 +1725,22 @@ function draw_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[]
         if (Object.entries(ps).length === 0) {
             ps = e.pictures[util.getDirName8Way(dir % 8)]
         }
-        return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals]
+        return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals].map(p =>
+            sheetOf(p)
+        )
     }
 }
 function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = data.dir
-        function getBaseSprites(): SpriteVariations[] {
+        function getBaseSprites(): readonly SpriteData[] {
             let ps = e.pictures[util.getDirName8Way(dir)]
             if (Object.entries(ps).length === 0) {
                 ps = e.pictures[util.getDirName8Way(dir % 8)]
             }
-            return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals]
+            return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals].map(
+                p => sheetOf(p)
+            )
         }
 
         if (data.positionGrid && dir % 4 === 0) {
@@ -2448,7 +2457,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             if (spawnFilling) {
                 let filling = duplicateAndSetPropertyUsing(
-                    pictures.filling,
+                    sheetOf(pictures.filling),
                     'x',
                     'width',
                     util.getRandomInt(0, pictures.filling.line_length)

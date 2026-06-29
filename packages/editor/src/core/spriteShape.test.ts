@@ -5,6 +5,7 @@ import {
     sheetsOf,
     fourWayAnimation,
     baseVisualisationLayers,
+    toSpriteArray,
 } from './spriteShape'
 
 describe('layersOf', () => {
@@ -89,5 +90,17 @@ describe('baseVisualisationLayers', () => {
             },
         }
         expect(baseVisualisationLayers(bv as never, 0)).toEqual([layer])
+    })
+})
+
+describe('toSpriteArray', () => {
+    it('returns an array of variations unchanged', () => {
+        const arr = [{ filename: 'a.png' }, { filename: 'b.png' }]
+        expect(toSpriteArray(arr as never)).toEqual(arr)
+    })
+
+    it('wraps a single sprite into an array', () => {
+        const one = { filename: 'a.png' }
+        expect(toSpriteArray(one as never)).toEqual([one])
     })
 })
