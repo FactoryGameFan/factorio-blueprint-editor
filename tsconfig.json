@@ -11,7 +11,10 @@
         "moduleDetection": "force",
         "noEmit": true,
 
-        // "strict": true, // TODO: enable
+        // TS7 defaults `strict` to true; pin false to preserve the pre-TS7
+        // behavior (the codebase's ~850 strict-mode errors are a separate
+        // cleanup - see type-check-baseline.json). TODO: enable strict.
+        "strict": false,
 
         "paths": {
             "@fbe/*": ["./packages/*/src/index.ts"]
