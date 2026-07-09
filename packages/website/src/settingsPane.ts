@@ -48,10 +48,13 @@ export function initSettingsPane(
                 e.preventDefault()
                 const current = Number(bpIndexInput.value) || 0
                 const delta = e.key === 'ArrowUp' ? 1 : -1
-                const newVal = Math.max(
-                    guiBPIndex.__min,
-                    Math.min(guiBPIndex.__max, current + delta)
-                )
+                // dat.gui's NumberController stores its bounds on __min/__max;
+                // the published GUIController types don't expose them.
+                const bounds = guiBPIndex as unknown as {
+                    __min: number
+                    __max: number
+                }
+                const newVal = Math.max(bounds.__min, Math.min(bounds.__max, current + delta))
                 guiBPIndex.setValue(newVal)
                 changeBookIndex(newVal)
             }

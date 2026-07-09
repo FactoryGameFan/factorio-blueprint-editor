@@ -11,10 +11,16 @@
         "moduleDetection": "force",
         "noEmit": true,
 
-        // TS7 defaults `strict` to true; pin false to preserve the pre-TS7
-        // behavior (the codebase's ~850 strict-mode errors are a separate
-        // cleanup - see type-check-baseline.json). TODO: enable strict.
+        // Incrementally migrating to full `strict` (TS7 defaults it true). The
+        // umbrella stays off; sub-flags are enabled one batch at a time as the
+        // codebase is cleaned. Remaining before `strict: true`: strictNullChecks
+        // (~784), noImplicitAny (~77), strictFunctionTypes (~4),
+        // strictPropertyInitialization (~1). See type-check-baseline.json.
         "strict": false,
+        "noImplicitThis": true,
+        "alwaysStrict": true,
+        "useUnknownInCatchVariables": true,
+        "strictBindCallApply": true,
 
         "paths": {
             "@fbe/*": ["./packages/*/src/index.ts"]
