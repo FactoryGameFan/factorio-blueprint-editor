@@ -30,7 +30,7 @@ runs:
         # the VP_VERSION (here + the cache key above) and the checksum together
         # when intentionally upgrading the toolchain.
         curl -fsSL https://vite.plus -o vp-install.sh
-        echo "6f4fe3690a3f011b4b6cec3c71035e9c04a97dd45dd9e2623dc67f842268f0d2  vp-install.sh" | sha256sum -c -
+        echo "58bb052c6a007e662e99667d65686251b16d6b39aa21155487da6d51280b3d54  vp-install.sh" | sha256sum -c -
         VP_VERSION=0.2.1 VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh
