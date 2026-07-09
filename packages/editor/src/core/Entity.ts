@@ -36,7 +36,7 @@ import FD, {
 import { Blueprint } from './Blueprint'
 import { getBeltWireConnectionIndex } from './spriteDataBuilder'
 import U from './generators/util'
-import { EntityWithOwnerPrototype, CombinatorPrototype } from 'factorio:prototype'
+import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'factorio:prototype'
 
 export interface IFilter {
     /** Slot index (1 based ... not 0 like arrays) */
@@ -569,10 +569,10 @@ export class Entity extends EventEmitter<EntityEvents> {
         const sections = this.m_rawEntity.request_filters.sections
         if (!sections || !sections[0] || !sections[0].filters) return []
 
-        const out = []
+        const out: IFilter[] = []
         for (const filter of sections[0].filters) {
             if (!filter.name) continue
-            out.push(filter)
+            out.push({ index: filter.index, name: filter.name, count: filter.count })
         }
         return out
     }
@@ -1043,15 +1043,18 @@ export class Entity extends EventEmitter<EntityEvents> {
         color: string,
         side: number,
         direction = this.direction
-    ): undefined | number[] {
+    ): undefined | readonly [number, number] {
         const e = this.entityData
 
+        // color is one of the WirePosition keys; the runtime value is a [x, y] tuple.
+        const wireKey = color as keyof WirePosition
         const getCombinatorSide = () => (side === 1 ? 'input' : 'output')
         const getPowerSwitchSide = () =>
             color === 'copper' ? (side === 1 ? 'left' : 'right') : 'circuit'
         const wcp = getWireConnectionPoint(e, direction, getCombinatorSide, getPowerSwitchSide)
         if (wcp) {
-            return wcp.wire[color]
+            const pos = wcp.wire[wireKey]
+            return pos && util.vectorToTuple(pos)
         }
 
         const isLoaderInputting = () => this.directionType === 'input'
@@ -1059,7 +1062,8 @@ export class Entity extends EventEmitter<EntityEvents> {
             getBeltWireConnectionIndex(this.m_BP.entityPositionGrid, this.position, direction)
         const cc = getCircuitConnector(e, direction, isLoaderInputting, getBeltConnectionIndex)
         if (cc) {
-            return cc.points.wire[color]
+            const pos = cc.points.wire[wireKey]
+            return pos && util.vectorToTuple(pos)
         }
     }
 

@@ -95,7 +95,7 @@ export class PaintBlueprintContainer extends PaintContainer {
     public logDataForComparison(): void {
         const withOutNums = [...this.entities.keys()].map(e => ({
             ...e.rawEntity,
-            entity_number: undefined,
+            entity_number: undefined as number | undefined,
         }))
         withOutNums.sort(
             (a, b) =>

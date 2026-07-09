@@ -8,6 +8,10 @@ import {
     toSpriteArray,
 } from './spriteShape'
 
+// Minimal sprite-layer shape for the fixtures below; annotating the fixtures
+// gives their empty `layers: []` arrays a concrete element type.
+type LayerFixture = { layers: { filename: string }[] }
+
 describe('layersOf', () => {
     it('returns the layers array when the value has a layers property', () => {
         const a = { filename: 'a.png' }
@@ -49,7 +53,7 @@ describe('sheetsOf', () => {
 describe('fourWayAnimation', () => {
     it('returns the layers for the resolved direction (north = dir 0)', () => {
         const n0 = { filename: 'n.png' }
-        const input = {
+        const input: Record<string, LayerFixture> = {
             north: { layers: [n0] },
             east: { layers: [] },
             south: { layers: [] },
@@ -60,7 +64,10 @@ describe('fourWayAnimation', () => {
 
     it('resolves east for dir 4', () => {
         const e0 = { filename: 'e.png' }
-        const input = { north: { layers: [] }, east: { layers: [e0] } }
+        const input: Record<string, LayerFixture> = {
+            north: { layers: [] },
+            east: { layers: [e0] },
+        }
         expect(fourWayAnimation(input as never, 4)).toEqual([e0])
     })
 })
@@ -81,7 +88,7 @@ describe('baseVisualisationLayers', () => {
     })
 
     it('handles the directional form when dir is provided', () => {
-        const bv = {
+        const bv: { animation: Record<string, LayerFixture> } = {
             animation: {
                 north: { layers: [layer] },
                 east: { layers: [] },

@@ -226,7 +226,9 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
 
     // ADD LEFTOVER POLES
     groups = groups.concat(
-        poles.filter(p => !addedPoles.includes(p)).map(p => ({ poles: [p], lines: [], x: 0, y: 0 }))
+        poles
+            .filter(p => !addedPoles.includes(p))
+            .map((p): IGroup => ({ poles: [p], lines: [], x: 0, y: 0 }))
     )
 
     for (const p of poles) {
