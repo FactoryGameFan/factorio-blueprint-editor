@@ -239,7 +239,7 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
     if (DATA[0] === '0') {
         bpString = Promise.resolve(DATA)
     } else {
-        bpString = new Promise((resolve, reject) => {
+        bpString = new Promise<URL>((resolve, reject) => {
             const url = `https://${DATA.replace(/https?:\/\//g, '')}`
             try {
                 resolve(new URL(url))

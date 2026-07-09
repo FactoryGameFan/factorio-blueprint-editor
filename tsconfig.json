@@ -21,6 +21,7 @@
         "alwaysStrict": true,
         "useUnknownInCatchVariables": true,
         "strictBindCallApply": true,
+        "strictFunctionTypes": true,
 
         "paths": {
             "@fbe/*": ["./packages/*/src/index.ts"]
