@@ -69,6 +69,19 @@ export function baseVisualisationLayers(
 }
 
 /**
+ * Index a directional sprite/animation struct (Sprite4Way, Animation4Way,
+ * RotatedAnimation8Way, ...) by its resolved north/east/south/west key.
+ * typed-factorio models these as `Struct | Single` unions whose Single member
+ * has no directional keys, so the union can't be indexed by a direction name;
+ * runtime data here is always the struct form. Returns the entry as SpriteData
+ * (Sprite and Animation share the `.layers` shape callers read). Pass an
+ * explicit `T` (e.g. `Animation`) when the caller needs a narrower entry type.
+ */
+export function dirEntry<T = SpriteData>(x: object, dirName: string): T {
+    return (x as unknown as Record<string, T>)[dirName]
+}
+
+/**
  * Coerce a SpriteVariations value to a SpriteData[] for array positions (e.g.
  * util.getRandomItem). At runtime variations are either an array of sprites or
  * a single sprite.

@@ -131,7 +131,7 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                 if (getType(entityNumber) === 'electric-pole') {
                     neighbours.push(otherE.entityNumber)
                 } else if (getType(entityNumber) === 'power-switch') {
-                    const SIDE = `Cu${entitySide - 1}`
+                    const SIDE = `Cu${entitySide - 1}` as 'Cu0' | 'Cu1'
                     if (serialized[SIDE] === undefined) {
                         serialized[SIDE] = []
                     }
@@ -142,10 +142,11 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                     })
                 }
             } else if (color === 'red' || color === 'green') {
-                if (serialized[entitySide] === undefined) {
-                    serialized[entitySide] = {}
+                const sideKey = entitySide as 1 | 2
+                if (serialized[sideKey] === undefined) {
+                    serialized[sideKey] = {}
                 }
-                const SIDE = serialized[entitySide] as IConnSide
+                const SIDE = serialized[sideKey] as IConnSide
                 if (SIDE[color] === undefined) {
                     SIDE[color] = []
                 }
@@ -221,8 +222,8 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
 
     // post 2.0
     public createBpConnections(wires: BlueprintWire[]): void {
-        const connections = []
-        const getColorAndSide = (id: defines.wire_connector_id): [string, number] => {
+        const connections: IConnection[] = []
+        const getColorAndSide = (id: defines.wire_connector_id): [WireColor, number] => {
             switch (id) {
                 case FD.defines.wire_connector_id.circuit_red:
                     return ['red', 1]
@@ -300,7 +301,7 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
 
     // post 2.0
     public serializeBpWires(): BlueprintWire[] {
-        const wires = []
+        const wires: BlueprintWire[] = []
         const getId = (type: string, color: string, side: number): defines.wire_connector_id => {
             switch (color) {
                 case 'red':

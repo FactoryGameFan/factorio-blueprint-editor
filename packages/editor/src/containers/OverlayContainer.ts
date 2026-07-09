@@ -43,7 +43,7 @@ export class OverlayContainer extends Container {
             (entity.entityData.show_recipe_icon === undefined || entity.entityData.show_recipe_icon)
         ) {
             const spec = entity.entityData.icon_draw_specification
-            const shift = spec.shift || [0, 0]
+            const shift = spec.shift ? util.vectorToTuple(spec.shift) : [0, 0]
             const scale = spec.scale || 1
             const recipeInfo = new Container()
             createIconWithBackground(recipeInfo, entity.recipe)
@@ -145,7 +145,9 @@ export class OverlayContainer extends Container {
                     ip => ip.inventory_index === getModuleInventoryIndex(e)
                 )
 
-                const shift = module_icon_positioning?.shift || [0, 0.7]
+                const shift = module_icon_positioning?.shift
+                    ? util.vectorToTuple(module_icon_positioning.shift)
+                    : [0, 0.7]
                 const scale = module_icon_positioning?.scale || 0.5
                 const separation_multiplier = module_icon_positioning?.separation_multiplier || 1.1
                 for (let slot = 0; slot < module_slots; slot++) {
@@ -291,10 +293,11 @@ export class OverlayContainer extends Container {
             isMiningDrill(drillData)
         ) {
             const arrows = new Container()
+            const placeResult = util.vectorToTuple(drillData.vector_to_place_result)
             arrows.addChild(
                 createArrow({
-                    x: drillData.vector_to_place_result[0] * 64,
-                    y: drillData.vector_to_place_result[1] * 64 + 18,
+                    x: placeResult[0] * 64,
+                    y: placeResult[1] * 64 + 18,
                 })
             )
             arrows.rotation = entity.direction * Math.PI * 0.125

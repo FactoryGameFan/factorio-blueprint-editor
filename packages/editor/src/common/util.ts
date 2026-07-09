@@ -1,3 +1,4 @@
+import type { Vector, MapPosition } from 'factorio:prototype'
 import { IPoint, NamedDirection, NamedDirection8Way } from '../types'
 
 const duplicate = <T>(obj: T): T => JSON.parse(JSON.stringify(obj))
@@ -168,6 +169,15 @@ const timer = (
 const objectHasOwnProperty = (obj: unknown, key: PropertyKey): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key)
 
+/**
+ * Narrow a `Vector`/`MapPosition` to its `[x, y]` tuple form. typed-factorio
+ * models both as `Struct | [x, y]`, but the runtime data from data.json is
+ * always the tuple form here; the struct branch converts defensively so callers
+ * can index [0]/[1].
+ */
+const vectorToTuple = (v: Vector | MapPosition): readonly [number, number] =>
+    Array.isArray(v) ? v : [v.x, v.y]
+
 export default {
     duplicate,
     getRandomInt,
@@ -185,4 +195,5 @@ export default {
     areArraysEquivalent,
     timer,
     objectHasOwnProperty,
+    vectorToTuple,
 }

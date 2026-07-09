@@ -24,6 +24,7 @@ import {
     fourWayAnimation,
     baseVisualisationLayers,
     toSpriteArray,
+    dirEntry,
 } from './spriteShape'
 import {
     SpriteVariations,
@@ -205,7 +206,8 @@ function generateConnection(e: EntityWithOwnerPrototype, data: IDrawData): reado
 function addToShift(shift: IPoint | readonly [number, number], tab: SpriteData): SpriteData {
     const SHIFT: readonly [number, number] = Array.isArray(shift) ? shift : [shift.x, shift.y]
 
-    tab.shift = tab.shift ? [SHIFT[0] + tab.shift[0], SHIFT[1] + tab.shift[1]] : SHIFT
+    const prev = tab.shift ? util.vectorToTuple(tab.shift) : undefined
+    tab.shift = prev ? [SHIFT[0] + prev[0], SHIFT[1] + prev[1]] : SHIFT
 
     return tab
 }
@@ -298,7 +300,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
 
             const needs_cover = force_cover || !isConnected()
             if (needs_cover) {
-                let temp = fb.pipe_covers[util.getDirName(dir)].layers[0]
+                let temp = dirEntry(fb.pipe_covers, util.getDirName(dir)).layers[0]
                 temp = addToShift(offset, util.duplicate(temp))
                 output.push(temp)
             }
@@ -682,14 +684,15 @@ function getBeltSprites(
 }
 
 function getAnimation(a: Animation4Way, dir: number): Animation {
-    const ad = a[util.getDirName(dir)]
+    const ad = dirEntry<Animation>(a, util.getDirName(dir))
     if (ad) {
         return ad
-    } else if (a['north']) {
-        return a['north']
-    } else {
-        return a as Animation
     }
+    const north = dirEntry<Animation>(a, 'north')
+    if (north) {
+        return north
+    }
+    return a as Animation
 }
 
 function generateGraphics(e: EntityWithOwnerPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -922,12 +925,13 @@ function draw_arithmetic_combinator(
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...e.sprites[util.getDirName(data.dir)].layers]
+        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
         if (data.operator) {
             out.push(
-                operatorToSpriteData(data.operator as ArithmeticOperation)[
+                dirEntry(
+                    operatorToSpriteData(data.operator as ArithmeticOperation),
                     util.getDirName(data.dir)
-                ]
+                )
             )
         }
         return out
@@ -1011,8 +1015,11 @@ function draw_assembling_machine(
 
                     const dir = (data.dir + conn.direction) % 16
                     // pipe_picture can be a directional map {north, east, south, west}
-                    // or a single sprite object (e.g. foundry)
-                    const pipePic = fb.pipe_picture[util.getDirName(dir)] || fb.pipe_picture
+                    // or a single sprite object (e.g. foundry). The latter has no
+                    // directional keys, so fall back to it as a SpriteData.
+                    const pipePic =
+                        dirEntry(fb.pipe_picture, util.getDirName(dir)) ||
+                        (fb.pipe_picture as unknown as SpriteData)
                     if (!pipePic || !pipePic.filename) continue
                     out.push(
                         addToShift(
@@ -1057,7 +1064,13 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
                         setPropertyUsing(img, 'x', 'width', variationIndex)
 
                         if (slot.apply_module_tint) {
-                            let tint = module.beacon_tint[slot.apply_module_tint]
+                            // beacon_tint is keyed by ModuleTint ('primary', ...);
+                            // apply_module_tint may also be 'none', which has no entry.
+                            const tints = module.beacon_tint as Record<
+                                string,
+                                ColorWithAlpha | readonly number[]
+                            >
+                            let tint = tints[slot.apply_module_tint]
                             if (Array.isArray(tint)) {
                                 tint = { r: tint[0], g: tint[1], b: tint[2], a: 1 }
                             }
@@ -1098,7 +1111,10 @@ function draw_boiler(e: BoilerPrototype): (data: IDrawData) => readonly SpriteDa
                         addToShift(
                             util.rotatePointBasedOnDir([0, 1.5], data.dir),
                             util.duplicate(
-                                energy_source.pipe_covers[util.getDirName((data.dir + 8) % 16)]
+                                dirEntry(
+                                    energy_source.pipe_covers,
+                                    util.getDirName((data.dir + 8) % 16)
+                                )
                             )
                         )
                     )
@@ -1219,7 +1235,7 @@ function draw_constant_combinator(
     e: ConstantCombinatorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        return e.sprites[util.getDirName(data.dir)].layers
+        return dirEntry(e.sprites, util.getDirName(data.dir)).layers
     }
 }
 function draw_container(e: ContainerPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -1231,26 +1247,28 @@ function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] 
 
         // Try various property paths that Factorio prototypes use for graphics
         if (e.picture?.layers) {
-            layers = e.picture.layers.map(l => util.duplicate(l))
+            layers = e.picture.layers.map((l: SpriteData) => util.duplicate(l))
         } else if (e.picture) {
             layers = [util.duplicate(e.picture)]
         } else if (e.pictures?.layers) {
-            layers = e.pictures.layers.map(l => util.duplicate(l))
+            layers = e.pictures.layers.map((l: SpriteData) => util.duplicate(l))
         } else if (e.pictures && Array.isArray(e.pictures)) {
             // Array of sprite variants (e.g., SpriteVariations) - pick first
             const first = e.pictures[0]
             layers = first?.layers
-                ? first.layers.map(l => util.duplicate(l))
+                ? first.layers.map((l: SpriteData) => util.duplicate(l))
                 : [util.duplicate(first)]
         } else if (e.animations?.layers) {
-            layers = e.animations.layers.map(l => util.duplicate(l))
+            layers = e.animations.layers.map((l: SpriteData) => util.duplicate(l))
         } else if (e.animations && !e.animations.layers) {
             // 4-way animation - use direction
             const dirName = util.getDirName(data.dir || 0)
             const anim = e.animations[dirName] || e.animations.north || e.animations
-            layers = anim?.layers ? anim.layers.map(l => util.duplicate(l)) : [util.duplicate(anim)]
+            layers = anim?.layers
+                ? anim.layers.map((l: SpriteData) => util.duplicate(l))
+                : [util.duplicate(anim)]
         } else if (e.graphics_set?.animation?.layers) {
-            layers = e.graphics_set.animation.layers.map(l => util.duplicate(l))
+            layers = e.graphics_set.animation.layers.map((l: SpriteData) => util.duplicate(l))
         } else if (e.graphics_set?.animation) {
             // 4-way animation in graphics_set
             const anim = e.graphics_set.animation
@@ -1258,24 +1276,24 @@ function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] 
             if (anim[dirName]) {
                 const dirAnim = anim[dirName]
                 layers = dirAnim.layers
-                    ? dirAnim.layers.map(l => util.duplicate(l))
+                    ? dirAnim.layers.map((l: SpriteData) => util.duplicate(l))
                     : [util.duplicate(dirAnim)]
             } else if (anim.layers) {
-                layers = anim.layers.map(l => util.duplicate(l))
+                layers = anim.layers.map((l: SpriteData) => util.duplicate(l))
             } else {
                 layers = [util.duplicate(anim)]
             }
         } else if (e.graphics_set?.picture?.layers) {
-            layers = e.graphics_set.picture.layers.map(l => util.duplicate(l))
+            layers = e.graphics_set.picture.layers.map((l: SpriteData) => util.duplicate(l))
         } else if (e.graphics_set?.picture && Array.isArray(e.graphics_set.picture)) {
             // Flat array of pictures (e.g., cargo-bay)
-            layers = e.graphics_set.picture.flatMap(p =>
-                p.layers ? p.layers.map(l => util.duplicate(l)) : [util.duplicate(p)]
+            layers = e.graphics_set.picture.flatMap((p: SpriteData) =>
+                p.layers ? p.layers.map((l: SpriteData) => util.duplicate(l)) : [util.duplicate(p)]
             )
         } else if (e.chargable_graphics?.picture?.layers) {
-            layers = e.chargable_graphics.picture.layers.map(l => util.duplicate(l))
+            layers = e.chargable_graphics.picture.layers.map((l: SpriteData) => util.duplicate(l))
         } else if (e.folded_animation?.layers) {
-            layers = e.folded_animation.layers.map(l => util.duplicate(l))
+            layers = e.folded_animation.layers.map((l: SpriteData) => util.duplicate(l))
         } else {
             return []
         }
@@ -1313,10 +1331,13 @@ function draw_decider_combinator(
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...e.sprites[util.getDirName(data.dir)].layers]
+        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
         if (data.operator) {
             out.push(
-                operatorToSpriteData(data.operator as ComparatorString)[util.getDirName(data.dir)]
+                dirEntry(
+                    operatorToSpriteData(data.operator as ComparatorString),
+                    util.getDirName(data.dir)
+                )
             )
         }
         return out
@@ -1324,7 +1345,7 @@ function draw_decider_combinator(
 }
 function draw_display_panel(e: DisplayPanelPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const out = [...e.sprites[util.getDirName(data.dir)].layers]
+        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
         if (data.displayPanelIcon && data.displayPanelIcon.name) {
             // TODO: move this out
             const map = () => {
@@ -1422,7 +1443,7 @@ function draw_elevated_straight_rail(
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
         ...baseVisualisationLayers(e.graphics_set.base_visualisation, data.dir),
-        ...e.folded_animation[util.getDirName(data.dir)].layers,
+        ...dirEntry(e.folded_animation, util.getDirName(data.dir)).layers,
     ]
 }
 function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -1902,7 +1923,8 @@ function draw_logistic_container(
 function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readonly SpriteData[] {
     switch (e.name) {
         case 'burner-mining-drill':
-            return (data: IDrawData) => e.graphics_set.animation[util.getDirName(data.dir)].layers
+            return (data: IDrawData) =>
+                dirEntry(e.graphics_set.animation, util.getDirName(data.dir)).layers
 
         case 'pumpjack':
             return (data: IDrawData) => [
@@ -1918,13 +1940,13 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
         case 'electric-mining-drill':
             return (data: IDrawData) => {
                 const dir = util.getDirName(data.dir)
-                const layers0 = e.graphics_set.animation[dir].layers
+                const layers0 = dirEntry(e.graphics_set.animation, dir).layers
 
                 const animDir = `${dir}_animation` as
-                    | 'north-animation'
-                    | 'east-animation'
-                    | 'south-animation'
-                    | 'west-animation'
+                    | 'north_animation'
+                    | 'east_animation'
+                    | 'south_animation'
+                    | 'west_animation'
 
                 const layers1 = e.graphics_set.working_visualisations
                     .filter(vis => vis.always_draw)
@@ -1937,7 +1959,7 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
     }
 }
 function draw_offshore_pump(e: OffshorePumpPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => e.graphics_set.animation[util.getDirName(data.dir)].layers
+    return (data: IDrawData) => dirEntry(e.graphics_set.animation, util.getDirName(data.dir)).layers
 }
 function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -2029,7 +2051,7 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
     }
 }
 function draw_pipe_to_ground(e: PipeToGroundPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => [e.pictures[util.getDirName(data.dir)]]
+    return (data: IDrawData) => [dirEntry(e.pictures, util.getDirName(data.dir))]
 }
 function draw_power_switch(e: PowerSwitchPrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => [...e.power_on_animation.layers, e.led_off]
@@ -2045,7 +2067,7 @@ function draw_proxy_container(
     return () => (e as any).picture.layers
 }
 function draw_pump(e: PumpPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => [e.animations[util.getDirName(data.dir)]]
+    return (data: IDrawData) => [dirEntry(e.animations, util.getDirName(data.dir))]
 }
 function draw_radar(e: RadarPrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => e.pictures.layers
@@ -2099,10 +2121,11 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
         for (const [i, conn] of e.heat_buffer.connections.entries()) {
             let patchSheet = sheetOf(e.connection_patches_disconnected)
             if (data.positionGrid) {
+                const connPos = util.vectorToTuple(conn.position)
                 const c = getHeatConnections(
                     {
-                        x: Math.floor(data.position.x) + conn.position[0],
-                        y: Math.floor(data.position.y) + conn.position[1],
+                        x: Math.floor(data.position.x) + connPos[0],
+                        y: Math.floor(data.position.y) + connPos[1],
                     },
                     data.positionGrid
                 )
@@ -2156,12 +2179,13 @@ function draw_selector_combinator(
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...e.sprites[util.getDirName(data.dir)].layers]
+        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
         if (data.operator) {
             out.push(
-                operatorToSpriteData(data.operator as SelectorCombinatorOperation)[
+                dirEntry(
+                    operatorToSpriteData(data.operator as SelectorCombinatorOperation),
                     util.getDirName(data.dir)
-                ]
+                )
             )
         }
         return out
@@ -2201,7 +2225,12 @@ function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly Spri
         ).map(sd => addToShift(b1Offset, sd))
 
         const dir = util.getDirName(data.dir)
-        return [...belt0Parts, ...belt1Parts, e.structure_patch[dir], e.structure[dir]]
+        return [
+            ...belt0Parts,
+            ...belt1Parts,
+            dirEntry(e.structure_patch, dir),
+            dirEntry(e.structure, dir),
+        ]
     }
 }
 function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -2228,15 +2257,15 @@ function draw_thruster(e: ThrusterPrototype): (data: IDrawData) => readonly Spri
 function draw_train_stop(e: TrainStopPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = util.getDirName(data.dir)
-        let ta = util.duplicate(e.top_animations[dir].layers[1])
+        let ta = util.duplicate(dirEntry(e.top_animations, dir).layers[1])
         ta = setProperty(ta, 'tint', data.trainStopColor ? data.trainStopColor : e.color)
         return [
-            e.rail_overlay_animations[dir],
-            ...e.animations[dir].layers,
-            ...e.top_animations[dir].layers,
+            dirEntry(e.rail_overlay_animations, dir),
+            ...dirEntry(e.animations, dir).layers,
+            ...dirEntry(e.top_animations, dir).layers,
             ta,
-            e.light1.picture[dir],
-            e.light2.picture[dir],
+            dirEntry(e.light1.picture, dir),
+            dirEntry(e.light2.picture, dir),
         ]
     }
 }

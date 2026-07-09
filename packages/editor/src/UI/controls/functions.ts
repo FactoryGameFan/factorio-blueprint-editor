@@ -10,6 +10,7 @@ import {
 import FD, { ColorWithAlpha, getColor } from '../../core/factorioData'
 import { styles } from '../style'
 import G from '../../common/globals'
+import util from '../../common/util'
 import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
 
 /**
@@ -244,7 +245,8 @@ function CreateIcon(
                 sprite.scale.set(icon.scale, icon.scale)
             }
             if (icon.shift) {
-                sprite.position.set(icon.shift[0], icon.shift[1])
+                const shift = util.vectorToTuple(icon.shift)
+                sprite.position.set(shift[0], shift[1])
             }
             if (icon.tint) {
                 applyTint(sprite, getColor(icon.tint))

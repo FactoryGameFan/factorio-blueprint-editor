@@ -7,6 +7,7 @@ import {
     SelectorCombinatorOperation,
 } from '../types'
 import G from '../common/globals'
+import util from '../common/util'
 import F from '../UI/controls/functions'
 import { Entity } from '../core/Entity'
 import { PositionGrid } from '../core/PositionGrid'
@@ -96,8 +97,9 @@ export class EntitySprite extends Sprite {
         this.position.set(position.x, position.y)
 
         if (data.shift) {
-            this.position.x += data.shift[0] * 32
-            this.position.y += data.shift[1] * 32
+            const shift = util.vectorToTuple(data.shift)
+            this.position.x += shift[0] * 32
+            this.position.y += shift[1] * 32
         }
 
         if (data.scale) {
