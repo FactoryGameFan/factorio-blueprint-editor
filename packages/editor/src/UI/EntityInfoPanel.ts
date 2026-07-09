@@ -59,7 +59,7 @@ const roundToFour = (n: number): number => Math.round(n * 10000) / 10000
  * This class creates a panel to show detailed informations about each entity (as the original game and maybe more).
  * @function updateVisualization (Update informations and show/hide panel)
  * @function setPosition (top right corner of the screen)
- * @extends /controls/panel (extends Container)
+ * Extends Panel (from /controls/panel, which extends Container).
  * @see instantiation in /index.ts - event in /containers/entity.ts
  */
 export class EntityInfoPanel extends Panel {
