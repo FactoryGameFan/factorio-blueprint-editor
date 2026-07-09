@@ -132,12 +132,18 @@ class Transaction {
     }
 
     /** Add action to this transaction */
-    public push(action: Action<unknown>): void {
+    // Generic in V so callers can push a concrete Action<V> (under
+    // strictFunctionTypes Action<V> is not assignable to Action<unknown>
+    // because V appears in the apply callback's parameter position). The
+    // transaction stores actions heterogeneously and only ever invokes each
+    // through its own closure, so widening to Action<unknown> for storage is
+    // safe.
+    public push<V>(action: Action<V>): void {
         if (this.text === undefined && this.actions.length === 0) {
             this.text = action.text
         }
         action.applyImmediate = this.applyImmediate
-        this.actions.push(action)
+        this.actions.push(action as Action<unknown>)
     }
 }
 

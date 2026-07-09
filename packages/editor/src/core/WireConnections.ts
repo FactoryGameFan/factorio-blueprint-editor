@@ -527,7 +527,7 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                     U.getAngle(0, 0, p.x - centre.x, (p.y - centre.y) * -1 /* invert Y axis */)
                 )
                 .map(angleToSector)
-                .reduce((acc, sec) => acc + sec, 0)
+                .reduce<number>((acc, sec) => acc + sec, 0)
 
             return Math.floor(sectorSum / points.length) * 4
 

@@ -471,9 +471,15 @@ export class BlueprintContainer extends Container {
             })
         }
 
-        this.addEventListener('pointerdown', G.actions.pressButton.bind(G.actions))
+        // pointerdown delivers a Pixi FederatedPointerEvent; pressButton wants
+        // the underlying DOM PointerEvent. Bind the handler once so that the
+        // destroy-time removeEventListener actually matches (a fresh .bind()
+        // would create a new function that never removes the added listener).
+        const onPointerDown = (e: FederatedPointerEvent): void =>
+            G.actions.pressButton(e.nativeEvent as PointerEvent)
+        this.addEventListener('pointerdown', onPointerDown)
         this.on('destroyed', () => {
-            this.removeEventListener('pointerdown', G.actions.pressButton.bind(G.actions))
+            this.removeEventListener('pointerdown', onPointerDown)
             G.actions.releaseAll()
         })
     }
