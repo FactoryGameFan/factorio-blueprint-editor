@@ -21,7 +21,7 @@ export default defineConfig(async ({ command, mode }) => {
         : null
     const proxy = {
         '/corsproxy': {
-            target: 'https://fbeworkeyman.wormeyman.workers.dev',
+            target: 'https://fbe.factorygamefan.com',
             changeOrigin: true,
         },
     }

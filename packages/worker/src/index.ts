@@ -6,6 +6,12 @@ export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url)
 
+        // Redirect the legacy workers.dev hostname to the custom domain,
+        // preserving the path and query string.
+        if (url.hostname === 'fbeworkeyman.wormeyman.workers.dev') {
+            return Response.redirect(`https://fbe.factorygamefan.com${url.pathname}${url.search}`, 301)
+        }
+
         // Proxy /corsproxy requests - reads target from ?url= parameter
         if (url.pathname === '/corsproxy') {
             const target = url.searchParams.get('url')
