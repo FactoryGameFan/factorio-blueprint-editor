@@ -3,9 +3,17 @@
     "name": "fbeworkeyman",
     "main": "src/index.ts",
     "compatibility_date": "2026-03-01",
+    // Keep the legacy workers.dev URL live so it can 301-redirect to the
+    // custom domain (redirect logic in src/index.ts).
+    "workers_dev": true,
     "assets": {
         "directory": "../website/dist",
         "binding": "ASSETS",
         "run_worker_first": true,
     },
+    // Serve the editor from the custom domain. Cloudflare provisions the
+    // proxied DNS record + SSL cert automatically since the zone lives in
+    // this account. The workers.dev URL stays enabled and 301-redirects to
+    // this domain (see src/index.ts).
+    "routes": [{ "pattern": "fbe.factorygamefan.com", "custom_domain": true }],
 }

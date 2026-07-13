@@ -102,7 +102,12 @@ Common patterns for `draw_*` functions:
 
 ## Cloudflare Deployment
 
-The editor is deployed to Cloudflare Workers at https://fbeworkeyman.wormeyman.workers.dev
+The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom
+domain). The legacy workers.dev URL (https://fbeworkeyman.wormeyman.workers.dev) stays
+enabled and 301-redirects to the custom domain, preserving path and query string
+(redirect logic in `packages/worker/src/index.ts`). The custom domain is declared as a
+`custom_domain` route in `packages/worker/wrangler.jsonc`; `workers_dev: true` keeps the
+old URL live so the redirect can run.
 
 ```fish
 # Build the website first (from packages/website/)
