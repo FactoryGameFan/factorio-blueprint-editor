@@ -11,3 +11,4 @@ packages/exporter/target
 diagnostic-reports/
 playwright-report/
 test-results/
+.claude/settings.local.json

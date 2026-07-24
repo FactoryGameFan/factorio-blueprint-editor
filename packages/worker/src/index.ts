@@ -9,7 +9,10 @@ export default {
         // Redirect the legacy workers.dev hostname to the custom domain,
         // preserving the path and query string.
         if (url.hostname === 'fbeworkeyman.wormeyman.workers.dev') {
-            return Response.redirect(`https://fbe.factorygamefan.com${url.pathname}${url.search}`, 301)
+            return Response.redirect(
+                `https://fbe.factorygamefan.com${url.pathname}${url.search}`,
+                301
+            )
         }
 
         // Proxy /corsproxy requests - reads target from ?url= parameter
