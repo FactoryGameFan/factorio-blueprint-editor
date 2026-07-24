@@ -49,7 +49,7 @@ cd packages/website && npm run build:analyze
 
 ## Vite+ Toolchain
 
-`vp` is the unified CLI for this project (lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks). The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.1 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
+`vp` is the unified CLI for this project (lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks). The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.6 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
 
 ## Dev Server Setup
 
