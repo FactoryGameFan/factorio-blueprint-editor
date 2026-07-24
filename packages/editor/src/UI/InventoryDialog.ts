@@ -54,7 +54,7 @@ export class InventoryDialog extends Dialog {
     private readonly m_ContentHeights = new Map<Container, number>()
 
     /** Scrollbar thumb rendered alongside the items viewport */
-    private m_ScrollThumb: Graphics
+    private readonly m_ScrollThumb: Graphics
 
     // Items viewport geometry (matches the layout comment above)
     private static readonly VP_X = 12
@@ -70,18 +70,19 @@ export class InventoryDialog extends Dialog {
     ) {
         super(404, 442, title)
 
+        const D = InventoryDialog
+
         this.m_InventoryGroups = new Container()
         this.m_InventoryGroups.position.set(12, 46)
         this.addChild(this.m_InventoryGroups)
 
         this.m_InventoryItems = new Container()
-        this.m_InventoryItems.position.set(12, 126)
+        this.m_InventoryItems.position.set(D.VP_X, D.VP_Y)
         this.addChild(this.m_InventoryItems)
 
         // Clip the items to a fixed viewport and allow wheel scrolling.
         // Space Age groups contain far more items than fit in the fixed dialog
         // height, so without this the lower rows are hidden with no way to reach them.
-        const D = InventoryDialog
         const itemsMask = new Graphics().rect(D.VP_X, D.VP_Y, D.VP_W, D.VP_H).fill(0xffffff)
         this.addChild(itemsMask)
         this.m_InventoryItems.mask = itemsMask
@@ -100,10 +101,7 @@ export class InventoryDialog extends Dialog {
             if (maxScroll <= 0) return
             e.preventDefault()
             e.stopPropagation()
-            active.y = Math.min(
-                0,
-                Math.max(-maxScroll, active.y - Math.sign(e.deltaY) * D.ROW_H * 2)
-            )
+            active.y = Math.min(0, Math.max(-maxScroll, active.y - Math.sign(e.deltaY) * D.ROW_H))
             this.refreshScrollbar()
         }
         this.m_InventoryItems.addEventListener('wheel', onItemsWheel, { passive: false })
@@ -183,7 +181,7 @@ export class InventoryDialog extends Dialog {
                 // Record content height so wheel scrolling can be clamped
                 let contentH = 0
                 for (const child of inventoryGroupItems.children) {
-                    contentH = Math.max(contentH, child.position.y + InventoryDialog.ROW_H)
+                    contentH = Math.max(contentH, child.position.y + D.ROW_H)
                 }
                 this.m_ContentHeights.set(inventoryGroupItems, contentH)
 
