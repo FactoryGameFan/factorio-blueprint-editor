@@ -207,7 +207,7 @@ function registerActions(): void {
         modifiers: { shift: true },
         callbacks: {
             onPress: () => {
-                loadBp(new Blueprint())
+                loadBp(new Blueprint()).catch(error => createBPImportError(error))
                 return true
             },
         },
@@ -252,10 +252,16 @@ function registerActions(): void {
             onPress: () => {
                 if (bp.isEmpty()) return
 
-                editor.getPicture().then(blob => {
-                    FileSaver.saveAs(blob, `${bp.name}.png`)
-                    createToast({ text: 'Blueprint image successfully generated', type: 'success' })
-                })
+                editor
+                    .getPicture()
+                    .then(blob => {
+                        FileSaver.saveAs(blob, `${bp.name}.png`)
+                        createToast({
+                            text: 'Blueprint image successfully generated',
+                            type: 'success',
+                        })
+                    })
+                    .catch(error => createErrorMessage('Failed to generate the image.', error))
                 return true
             },
         },

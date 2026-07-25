@@ -43,7 +43,8 @@ export function initToasts(): (options: IToastsOptions) => void {
             promises.push(new Promise(resolve => setTimeout(resolve, options.timeout || 5000)))
         }
 
-        Promise.race(promises).then(() => {
+        // Never rejects: both racers settle from a click listener or a timeout.
+        void Promise.race(promises).then(() => {
             toast.classList.add('toasts-toast-fadeOut')
             toast.addEventListener(
                 'transitionend',
