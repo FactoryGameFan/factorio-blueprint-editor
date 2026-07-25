@@ -1,4 +1,4 @@
 {
     "project": "packages/editor/tsconfig.json",
-    "maxErrors": 760
+    "maxErrors": 664
 }

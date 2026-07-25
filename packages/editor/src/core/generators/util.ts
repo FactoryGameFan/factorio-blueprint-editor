@@ -32,6 +32,25 @@ const pointInCircle = (point: IPoint, origin: IPoint, r: number): boolean =>
 const range = (from: number, to: number): number[] =>
     [...Array(to - from).keys()].map(i => from + i)
 
+/**
+ * Asserts that a lookup the algorithm treats as infallible really did find something.
+ *
+ * The generators are full of `find` and `shift` calls whose success is guaranteed by
+ * a surrounding loop guard or by how the data was built, but which `strictNullChecks`
+ * still widens to `T | undefined`. Naming the invariant is better than a non-null
+ * assertion: if one is ever wrong it fails immediately and says which, rather than
+ * letting `undefined` travel into the geometry and surface as an unrelated TypeError.
+ */
+const expectFound = <T>(value: T | undefined, what: string): T => {
+    if (value === undefined) {
+        throw new Error(`${what} was expected to exist but was not found`)
+    }
+    return value
+}
+
+/** Removes and returns the first element of an array that is known to be non-empty. */
+const shiftFirst = <T>(list: T[], what: string): T => expectFound(list.shift(), what)
+
 // https://stackoverflow.com/a/38024982
 /** Returns the angle (0-360) anticlockwise from the horizontal for a point on a circle */
 const getAngle = (cX: number, cY: number, pX: number, pY: number): number => {
@@ -142,6 +161,8 @@ export default {
     pointsToLines,
     pointsToTriangles,
     range,
+    expectFound,
+    shiftFirst,
     getAngle,
     getReflectedPoint,
     findSide,

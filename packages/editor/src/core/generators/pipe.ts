@@ -37,12 +37,23 @@ interface ILine {
 interface IPumpjack extends IPoint {
     entity_number: number
     plugs: IPlug[]
-    plug?: IPlug
-    dir?: number
+}
+
+/**
+ * A pumpjack that has been committed to a group, and so has had one of its
+ * candidate `plugs` chosen as the `plug` the pipe network actually connects to.
+ *
+ * Keeping this separate from `IPumpjack` is what lets the later stages - choosing
+ * underground pipe positions, and rotating the pumpjacks to face their pipe - read
+ * `plug` without re-checking it. A pumpjack only ever reaches those stages through
+ * a group, and joining a group is exactly when the plug gets picked.
+ */
+interface IPlacedPumpjack extends IPumpjack {
+    plug: IPlug
 }
 
 interface IGroup extends IPoint {
-    entities: IPumpjack[]
+    entities: IPlacedPumpjack[]
     paths: IPoint[][]
 }
 
@@ -154,7 +165,7 @@ function generatePipes(
 
     // GENERATE GROUPS
     let groups: IGroup[] = []
-    const addedPumpjacks: IPumpjack[] = []
+    const addedPumpjacks: IPlacedPumpjack[] = []
     while (LINES.length) {
         LINES = LINES.sort((a, b) => a.avgDistance - b.avgDistance)
             .sort((a, b) => a.connections.length - b.connections.length)
@@ -185,7 +196,7 @@ function generatePipes(
                 return 0
             })
 
-        const l = LINES.shift()
+        const l = U.shiftFirst(LINES, 'a line to form a group from')
         const addedEnt1 = addedPumpjacks.find(e => e.entity_number === l.endpoints[0].entity_number)
         const addedEnt2 = addedPumpjacks.find(e => e.entity_number === l.endpoints[1].entity_number)
 
@@ -199,7 +210,7 @@ function generatePipes(
             .sort((a, b) => a.distance - b.distance)
 
         for (const t of l.connections) {
-            const entities = [
+            const entities: IPlacedPumpjack[] = [
                 { ...l.endpoints[0], plug: t.plugs[0] },
                 { ...l.endpoints[1], plug: t.plugs[1] },
             ]
@@ -208,15 +219,23 @@ function generatePipes(
                 addedPumpjacks.push(...entities)
                 break
             }
+            // every pumpjack in addedPumpjacks was pushed there together with the
+            // group that holds it, so the group lookups below always succeed
             if (!addedEnt1 && addedEnt2 && addedEnt2.plug.dir === t.plugs[1].dir) {
-                const g = groups.find(g => g.entities.includes(addedEnt2))
+                const g = U.expectFound(
+                    groups.find(g => g.entities.includes(addedEnt2)),
+                    'the group holding an already added pumpjack'
+                )
                 g.entities.push(entities[0])
                 g.paths.push(t.path)
                 addedPumpjacks.push(entities[0])
                 break
             }
             if (!addedEnt2 && addedEnt1 && addedEnt1.plug.dir === t.plugs[0].dir) {
-                const g = groups.find(g => g.entities.includes(addedEnt1))
+                const g = U.expectFound(
+                    groups.find(g => g.entities.includes(addedEnt1)),
+                    'the group holding an already added pumpjack'
+                )
                 g.entities.push(entities[1])
                 g.paths.push(t.path)
                 addedPumpjacks.push(entities[1])
@@ -264,7 +283,7 @@ function generatePipes(
     // CONNECT GROUPS
     let tries = MAX_TRIES
     let aloneGroups: IGroup[] = []
-    let finalGroup: IGroup
+    let finalGroup: IGroup | undefined
     while (groups.length) {
         for (const g of groups) {
             g.x = g.entities.reduce((acc, e) => acc + e.x, 0) / g.entities.length
@@ -277,7 +296,7 @@ function generatePipes(
         )
 
         const groupsCopy = [...groups]
-        const group = groups.shift()
+        const group = U.shiftFirst(groups, 'a group to connect')
         if (!groups.length) {
             if (aloneGroups.length && tries) {
                 groups.push(...aloneGroups, group)
@@ -293,7 +312,11 @@ function generatePipes(
             grid,
             U.pointsToLines(groupsCopy)
                 .filter(l => l.includes(group))
-                .map(l => l.find(g => g !== group)),
+                // a line whose two ends are the same group contributes no other
+                // group to connect to - pointsToLines does produce those when
+                // groups share a centre point and get deduplicated down to one
+                .map(l => l.find(g => g !== group))
+                .filter(g => g !== undefined),
             group,
             2 + MAX_TRIES - tries
         )
@@ -309,13 +332,18 @@ function generatePipes(
         addVisualization(conn.path, 16, 0.5)
     }
 
+    // The loop above only ends by draining `groups`, and the single path that
+    // drains it assigns finalGroup. `groups` is never empty on entry either: a
+    // group is seeded above when the line stage produced none.
+    const mainGroup = U.expectFound(finalGroup, 'a pumpjack group to attach the pipe network to')
+
     // ADD LEFTOVER PUMPJACKS TO GROUP
     const leftoverPumpjacks = dataset
         .filter(ent => !addedPumpjacks.find(e => e.entity_number === ent.entity_number))
         .sort((a, b) => U.manhattenDistance(a, middle) - U.manhattenDistance(b, middle))
 
     while (leftoverPumpjacks.length) {
-        const ent = leftoverPumpjacks.shift()
+        const ent = U.shiftFirst(leftoverPumpjacks, 'a leftover pumpjack')
 
         const conn = getPathBetweenGroups(
             grid,
@@ -326,27 +354,36 @@ function generatePipes(
                 paths: [[{ x: p.x, y: p.y }]],
                 entities: [{ x: 0, y: 0, entity_number: 0, plugs: [p], plug: p }],
             })),
-            finalGroup
+            mainGroup
         )
 
-        finalGroup.entities.push({ ...ent, plug: conn.toGroup.entities[0].plug })
-        finalGroup.paths.push(conn.path)
+        // A leftover pumpjack with no route to the main group has no pipe layout at
+        // all. That already ended the generation run, just as an opaque TypeError a
+        // line further down; this says which pumpjack is unreachable.
+        if (!conn) {
+            throw new Error(
+                `No pipe path from pumpjack ${ent.entity_number} to the main pipe group`
+            )
+        }
+
+        mainGroup.entities.push({ ...ent, plug: conn.toGroup.entities[0].plug })
+        mainGroup.paths.push(conn.path)
 
         addVisualization(conn.path, 8, 0.5)
     }
 
-    let pipePositions = U.uniqPoints(finalGroup.paths.flat())
+    let pipePositions = U.uniqPoints(mainGroup.paths.flat())
 
     // GENERATE ALL INTERSECTION POINTS (WILL INCLUDE ALL PUMPJACKS PLUGS TOO)
     const intersectionPositions = U.uniqPoints(
-        finalGroup.paths.flatMap(p =>
+        mainGroup.paths.flatMap(p =>
             PF.Util.compressPath(p.map(U.pointToArray)).map(U.arrayToPoint)
         )
     )
     // addVisualization(intersectionPositions)
 
     // GENERATE ALL VALID POSITIONS (THAT COINCIDE WITH PLUGS) WHERE AN UNDERGROUND PIPE CAN SPAWN
-    const validCoordsForUPipes = finalGroup.entities
+    const validCoordsForUPipes = mainGroup.entities
         .map(e => e.plug)
         // filter out overlapping plugs
         .sort((a, b) => (a.x - b.x ? a.x - b.x : a.y - b.y))
@@ -371,13 +408,18 @@ function generatePipes(
                         return { x: plug.x, y: plug.y + 1 }
                     case 12:
                         return { x: plug.x - 1, y: plug.y }
+                    default:
+                        // plug directions come from PUMPJACK_PLUGS as `i * 4` and the
+                        // callers only pass 4 or 12, so the sum is always a multiple
+                        // of 4 and the four cases above are exhaustive
+                        throw new Error(`Unexpected pipe direction ${(plug.dir + dir) % 16}`)
                 }
             }
         })
     // addVisualization(validStraightPipeEnds)
 
     // GENERATE ALL STRAIGHT PATHS
-    const straightPaths = finalGroup.paths
+    const straightPaths = mainGroup.paths
         // not length - 4 because one of the ends might be in validStraightPipeEnds
         .filter(p => p.length - 3 >= MIN_GAP_BETWEEN_UNDERGROUNDS)
         .flatMap(p =>
@@ -395,7 +437,7 @@ function generatePipes(
         .map(path =>
             path.filter((pos, i, arr) => {
                 if (i > 0 && i < arr.length - 1) return true
-                return validCoordsForUPipes.find(U.equalPoints(pos))
+                return validCoordsForUPipes.some(U.equalPoints(pos))
             })
         )
         .filter(p => p.length - 2 >= MIN_GAP_BETWEEN_UNDERGROUNDS)
@@ -430,7 +472,7 @@ function generatePipes(
         .filter(coord => !straightPathsCoords.find(U.equalPoints(coord)))
         .map(localToGlobal)
 
-    const pumpjacksToRotate = finalGroup.entities.map(e => ({
+    const pumpjacksToRotate = mainGroup.entities.map(e => ({
         entity_number: e.entity_number,
         direction: e.plug.dir,
     }))
@@ -493,20 +535,25 @@ function generatePathFromLine(l: IPoint[]): {
     }
 }
 
-/** Returns the shortest path between the given group and one group from the given array */
+/**
+ * Returns the shortest path between the given group and one group from the given
+ * array, or `undefined` when none of them can be reached within `maxTurns`.
+ */
 function getPathBetweenGroups(
     grid: number[][],
     GROUPS: IGroup[],
     group: IGroup,
     maxTurns = 2
-): {
-    path: IPoint[]
-    toGroup: IGroup
-} {
+):
+    | {
+          path: IPoint[]
+          toGroup: IGroup
+      }
+    | undefined {
     const ret = GROUPS.map(g => connect2Groups(grid, g, group, maxTurns))
         .filter(p => p.lines.length)
         .sort((a, b) => a.minDistance - b.minDistance)[0]
-    if (!ret) return
+    if (!ret) return undefined
     return {
         toGroup: ret.firstGroup,
         path: ret.lines[0].path,

@@ -106,10 +106,7 @@ export function generateBeacons(
     const pointToBeaconCount = possibleBeaconAreas
         .flat()
         .map(U.hashPoint)
-        .reduce<Map<string, number>>(
-            (map, key) => map.set(key, map.has(key) ? map.get(key) + 1 : 1),
-            new Map()
-        )
+        .reduce<Map<string, number>>((map, key) => map.set(key, (map.get(key) ?? 0) + 1), new Map())
 
     const pointToEntityArea = entityAreas
         .filter(area => area.every(p => p.effect))
@@ -143,8 +140,10 @@ export function generateBeacons(
                     .map(p => U.manhattenDistance(p, mid))
                     .reduce((acc, distance) => acc + distance, 0) / effectsGiven.length
 
+            // every point of a collision area was counted into pointToBeaconCount
+            // above, so the fallback is unreachable
             const nrOfOverlaps = collisionArea
-                .map(p => pointToBeaconCount.get(U.hashPoint(p)))
+                .map(p => pointToBeaconCount.get(U.hashPoint(p)) ?? 0)
                 .reduce((acc, v) => acc + v, 0)
 
             return {
@@ -172,7 +171,7 @@ export function generateBeacons(
     }, new Map())
 
     // GENERATE BEACONS
-    const beacons = []
+    const beacons: IBeacon[] = []
     while (possibleBeacons.length) {
         possibleBeacons = possibleBeacons
             .sort((a, b) => {
@@ -183,7 +182,7 @@ export function generateBeacons(
             })
             .sort((a, b) => b.effectsGiven - a.effectsGiven)
 
-        const beacon = possibleBeacons.shift()
+        const beacon = U.shiftFirst(possibleBeacons, 'a candidate beacon position')
         beacons.push(beacon)
 
         const toRemove = new Set(
