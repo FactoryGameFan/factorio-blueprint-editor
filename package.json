@@ -22,6 +22,7 @@
     },
     "devDependencies": {
         "@playwright/test": "^1.58.2",
+        "@types/node": "^26.1.1",
         "typed-factorio": "^3.35.0",
         "typescript": "^7.0.2",
         "vite-plus": "0.2.6"
