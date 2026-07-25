@@ -44,7 +44,6 @@ const DIRECTIONS = [0, 4, 8, 12]
  * matters, a Space Age entity a player can actually build.
  */
 const EXPECTED_FAILURES: string[] = [
-    'big-mining-drill',
     'factorio-logo-11tiles',
     'factorio-logo-16tiles',
     'factorio-logo-22tiles',
