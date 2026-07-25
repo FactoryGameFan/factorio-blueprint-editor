@@ -1,0 +1,1795 @@
+{
+    "pair": {
+        "pipes": {
+            "pumpjacksToRotate": [
+                {
+                    "entity_number": 1,
+                    "direction": 0
+                },
+                {
+                    "entity_number": 2,
+                    "direction": 0
+                }
+            ],
+            "pipes": [
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 2.5,
+                        "y": -0.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 11.5,
+                        "y": -0.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 3.5,
+                        "y": -0.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 10.5,
+                        "y": -0.5
+                    },
+                    "direction": 4
+                }
+            ],
+            "info": {
+                "nrOfPipes": 2,
+                "nrOfUPipes": 2,
+                "nrOfPipesReplacedByUPipes": 8
+            }
+        },
+        "beacons": {
+            "beacons": [
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": 2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 8.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -0.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -0.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 8.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 2.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 2.5,
+                        "y": 6.5
+                    }
+                }
+            ],
+            "info": {
+                "totalBeacons": 20,
+                "effectsGiven": 24
+            }
+        },
+        "poles": {
+            "poles": [
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 3.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -0.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -1.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 8.5,
+                        "y": 4.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 13.5,
+                        "y": 4.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 12.5,
+                        "y": -0.5
+                    }
+                }
+            ],
+            "info": {
+                "totalPoles": 6
+            }
+        }
+    },
+    "row": {
+        "pipes": {
+            "pumpjacksToRotate": [
+                {
+                    "entity_number": 2,
+                    "direction": 0
+                },
+                {
+                    "entity_number": 3,
+                    "direction": 0
+                },
+                {
+                    "entity_number": 1,
+                    "direction": 0
+                }
+            ],
+            "pipes": [
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 2.5,
+                        "y": -0.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 9.5,
+                        "y": -0.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 16.5,
+                        "y": -0.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 10.5,
+                        "y": -0.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 15.5,
+                        "y": -0.5
+                    },
+                    "direction": 4
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 3.5,
+                        "y": -0.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 8.5,
+                        "y": -0.5
+                    },
+                    "direction": 4
+                }
+            ],
+            "info": {
+                "nrOfPipes": 3,
+                "nrOfUPipes": 4,
+                "nrOfPipesReplacedByUPipes": 12
+            }
+        },
+        "beacons": {
+            "beacons": [
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 3.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 10.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 11.5,
+                        "y": 2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 13.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 3.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 10.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 13.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 4.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 20.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 20.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -0.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 17.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 20.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -0.5,
+                        "y": -3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 20.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -3.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 17.5,
+                        "y": -3.5
+                    }
+                }
+            ],
+            "info": {
+                "totalBeacons": 24,
+                "effectsGiven": 36
+            }
+        },
+        "poles": {
+            "poles": [
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -0.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 6.5,
+                        "y": 4.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -1.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 7.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 16.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 16.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 10.5,
+                        "y": -1.5
+                    }
+                }
+            ],
+            "info": {
+                "totalPoles": 7
+            }
+        }
+    },
+    "scattered": {
+        "pipes": {
+            "pumpjacksToRotate": [
+                {
+                    "entity_number": 2,
+                    "direction": 12
+                },
+                {
+                    "entity_number": 1,
+                    "direction": 8
+                },
+                {
+                    "entity_number": 5,
+                    "direction": 0
+                },
+                {
+                    "entity_number": 4,
+                    "direction": 8
+                },
+                {
+                    "entity_number": 3,
+                    "direction": 0
+                }
+            ],
+            "pipes": [
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 1.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 8.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 9.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 10.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 10.5,
+                        "y": 5.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 18.5,
+                        "y": 5.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 18.5,
+                        "y": 13.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 19.5,
+                        "y": 13.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 2.5,
+                        "y": 4.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 7.5,
+                        "y": 4.5
+                    },
+                    "direction": 4
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 19.5,
+                        "y": 14.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 19.5,
+                        "y": 20.5
+                    },
+                    "direction": 8
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 18.5,
+                        "y": 6.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 18.5,
+                        "y": 12.5
+                    },
+                    "direction": 8
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 11.5,
+                        "y": 5.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 17.5,
+                        "y": 5.5
+                    },
+                    "direction": 4
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 8.5,
+                        "y": 5.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 8.5,
+                        "y": 11.5
+                    },
+                    "direction": 8
+                }
+            ],
+            "info": {
+                "nrOfPipes": 8,
+                "nrOfUPipes": 10,
+                "nrOfPipesReplacedByUPipes": 34
+            }
+        },
+        "beacons": {
+            "beacons": [
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 7.5,
+                        "y": 7.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 7.5,
+                        "y": 2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 7.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 10.5,
+                        "y": 8.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 7.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 2.5,
+                        "y": 8.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 2.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 13.5,
+                        "y": 27.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 16.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 17.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 23.5,
+                        "y": 17.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 23.5,
+                        "y": 27.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 14.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 4.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 0.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 2.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 2.5,
+                        "y": 15.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 4.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 9.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 10.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": 15.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 13.5,
+                        "y": 24.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 14.5,
+                        "y": -1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 9.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 13.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 16.5,
+                        "y": 27.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 17.5,
+                        "y": 1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 18.5,
+                        "y": 16.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 20.5,
+                        "y": 27.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 22.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 23.5,
+                        "y": 20.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 23.5,
+                        "y": 24.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 9.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 13.5,
+                        "y": 21.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 4.5,
+                        "y": 5.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 5.5,
+                        "y": 10.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 16.5,
+                        "y": 19.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 18.5,
+                        "y": 8.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 22.5,
+                        "y": 14.5
+                    }
+                }
+            ],
+            "info": {
+                "totalBeacons": 46,
+                "effectsGiven": 51
+            }
+        },
+        "poles": {
+            "poles": [
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 11.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 9.5,
+                        "y": 14.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 14.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 18.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 19.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 22.5,
+                        "y": 10.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 0.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 4.5,
+                        "y": 16.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 16.5,
+                        "y": 25.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 21.5,
+                        "y": 25.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 4.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 0.5,
+                        "y": 1.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 9.5,
+                        "y": 2.5
+                    }
+                }
+            ],
+            "info": {
+                "totalPoles": 13
+            }
+        }
+    },
+    "grid": {
+        "pipes": {
+            "pumpjacksToRotate": [
+                {
+                    "entity_number": 1,
+                    "direction": 4
+                },
+                {
+                    "entity_number": 3,
+                    "direction": 4
+                },
+                {
+                    "entity_number": 6,
+                    "direction": 12
+                },
+                {
+                    "entity_number": 5,
+                    "direction": 0
+                },
+                {
+                    "entity_number": 2,
+                    "direction": 8
+                },
+                {
+                    "entity_number": 4,
+                    "direction": 0
+                }
+            ],
+            "pipes": [
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 4.5,
+                        "y": 1.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 4.5,
+                        "y": 2.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 4.5,
+                        "y": 3.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 4.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 4.5,
+                        "y": 10.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 4.5,
+                        "y": 21.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 10.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 11.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 12.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe",
+                    "position": {
+                        "x": 21.5,
+                        "y": 4.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 4.5,
+                        "y": 5.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 4.5,
+                        "y": 9.5
+                    },
+                    "direction": 8
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 4.5,
+                        "y": 11.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 4.5,
+                        "y": 20.5
+                    },
+                    "direction": 8
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 13.5,
+                        "y": 4.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 20.5,
+                        "y": 4.5
+                    },
+                    "direction": 4
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 5.5,
+                        "y": 4.5
+                    },
+                    "direction": 12
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 9.5,
+                        "y": 4.5
+                    },
+                    "direction": 4
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 12.5,
+                        "y": 5.5
+                    },
+                    "direction": 0
+                },
+                {
+                    "name": "pipe-to-ground",
+                    "position": {
+                        "x": 12.5,
+                        "y": 9.5
+                    },
+                    "direction": 8
+                }
+            ],
+            "info": {
+                "nrOfPipes": 10,
+                "nrOfUPipes": 10,
+                "nrOfPipesReplacedByUPipes": 33
+            }
+        },
+        "beacons": {
+            "beacons": [
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": 16.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 12.5,
+                        "y": 7.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 7.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 3.5,
+                        "y": 7.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 9.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": 10.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 6.5,
+                        "y": 13.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 11.5,
+                        "y": 15.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 15.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 1.5,
+                        "y": 15.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 0.5,
+                        "y": 6.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 16.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 1.5,
+                        "y": 25.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 11.5,
+                        "y": 25.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 16.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 16.5,
+                        "y": 16.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 9.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 13.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 0.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 1.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 1.5,
+                        "y": 22.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 4.5,
+                        "y": 25.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 8.5,
+                        "y": 25.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 9.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 11.5,
+                        "y": 18.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 11.5,
+                        "y": 22.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 13.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 16.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 18.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 22.5,
+                        "y": 1.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 22.5,
+                        "y": 11.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 4.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 25.5,
+                        "y": 8.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": -2.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 3.5,
+                        "y": -2.5
+                    }
+                },
+                {
+                    "name": "beacon",
+                    "position": {
+                        "x": 19.5,
+                        "y": 1.5
+                    }
+                }
+            ],
+            "info": {
+                "totalBeacons": 46,
+                "effectsGiven": 67
+            }
+        },
+        "poles": {
+            "poles": [
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 23.5,
+                        "y": 8.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 22.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 18.5,
+                        "y": 3.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 14.5,
+                        "y": 0.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 9.5,
+                        "y": -0.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 4.5,
+                        "y": 23.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 9.5,
+                        "y": 23.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 4.5,
+                        "y": 14.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -0.5,
+                        "y": 4.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -0.5,
+                        "y": 13.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 9.5,
+                        "y": 8.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": 14.5,
+                        "y": 14.5
+                    }
+                },
+                {
+                    "name": "medium-electric-pole",
+                    "position": {
+                        "x": -0.5,
+                        "y": -0.5
+                    }
+                }
+            ],
+            "info": {
+                "totalPoles": 13
+            }
+        }
+    }
+}
