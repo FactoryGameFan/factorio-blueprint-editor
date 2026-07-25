@@ -1,0 +1,50 @@
+# Dependabot version updates.
+#
+# Security alerts were already on; this adds *version* updates, which catch a
+# different failure: a lockfile drifting behind versions the manifest range
+# already allows. `npm install` keeps a locked version as long as it satisfies
+# the range, so drift is silent and indefinite. That is how wrangler sat at
+# 4.104.0 under `^4.75.0` and transitively pinned a vulnerable sharp, and how
+# typed-factorio sat at 3.35.0 under `^3.35.0`.
+#
+# One npm entry covers the whole repo: packages/editor, packages/website and
+# packages/worker are all workspaces under the root package-lock.json.
+version: 2
+updates:
+    - package-ecosystem: npm
+      directory: /
+      schedule:
+          interval: weekly
+      open-pull-requests-limit: 5
+      groups:
+          # One PR per week for all in-range drift; majors still get their own
+          # PR so they can be reviewed on their own merits.
+          minor-and-patch:
+              update-types:
+                  - minor
+                  - patch
+      ignore:
+          # Held back deliberately: typed-factorio tracks Factorio game versions,
+          # and v4 targets 2.1.x while packages/exporter extracted data.json from
+          # 2.0.x. Only bump the major once the exporter is re-run against 2.1.
+          # Minor/patch updates within v3 are still wanted.
+          - dependency-name: typed-factorio
+            update-types:
+                - version-update:semver-major
+          # vite-plus must move in lockstep across six places (three package.json
+          # devDeps, the vite-plus-core alias in overrides, VP_VERSION plus the
+          # cache key in .github/actions/setup-vp, and the install command in
+          # CLAUDE.md). A PR touching only package.json would leave CI installing
+          # a different toolchain version than the lockfile pins, so this one is
+          # done by hand.
+          - dependency-name: vite-plus
+
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      open-pull-requests-limit: 5
+      groups:
+          all-actions:
+              patterns:
+                  - '*'
