@@ -2,7 +2,8 @@
     "private": true,
     "workspaces": [
         "packages/editor",
-        "packages/website"
+        "packages/website",
+        "packages/worker"
     ],
     "scripts": {
         "start:website": "npm --workspace=@fbe/website run start",

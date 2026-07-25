@@ -7,8 +7,8 @@
 # 4.104.0 under `^4.75.0` and transitively pinned a vulnerable sharp, and how
 # typed-factorio sat at 3.35.0 under `^3.35.0`.
 #
-# Two npm entries are required: packages/worker is not in the root `workspaces`
-# array and carries its own package-lock.json, so nothing at the root sees it.
+# One npm entry covers the whole repo: packages/editor, packages/website and
+# packages/worker are all workspaces under the root package-lock.json.
 version: 2
 updates:
     - package-ecosystem: npm
@@ -38,17 +38,6 @@ updates:
           # a different toolchain version than the lockfile pins, so this one is
           # done by hand.
           - dependency-name: vite-plus
-
-    - package-ecosystem: npm
-      directory: /packages/worker
-      schedule:
-          interval: weekly
-      open-pull-requests-limit: 5
-      groups:
-          minor-and-patch:
-              update-types:
-                  - minor
-                  - patch
 
     - package-ecosystem: github-actions
       directory: /

@@ -17,7 +17,7 @@ runs:
       uses: actions/cache@v6
       with:
         path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'packages/worker/package-lock.json') }}
+        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
         restore-keys: |
           npm-${{ runner.os }}-
 

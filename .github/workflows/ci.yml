@@ -76,10 +76,6 @@ jobs:
       - name: Build website
         run: npm run build:website
 
-      - name: Install worker dependencies
-        run: npm ci
-        working-directory: packages/worker
-
       - name: Deploy worker to Cloudflare
         uses: cloudflare/wrangler-action@v4
         with:
