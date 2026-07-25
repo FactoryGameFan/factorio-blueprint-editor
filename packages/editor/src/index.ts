@@ -11,11 +11,26 @@ import {
 import { Editor } from './Editor'
 import FD from './core/factorioData'
 import { OverlayContainer } from './containers/OverlayContainer'
+import { EntitySprite } from './containers/EntitySprite'
+import { getSpriteData, SPRITE_GENERATION_FAILED } from './core/spriteDataBuilder'
 
 export * from './core/bpString'
 // OverlayContainer is exported for tests/overlay-container.spec.ts, which tallies
-// what createEntityInfo draws per entity. Nothing in the app imports it from here.
-export { Editor, Book, Blueprint, GridPattern, FD, OverlayContainer }
+// what createEntityInfo draws per entity. EntitySprite, getSpriteData and
+// SPRITE_GENERATION_FAILED are exported for tests/sprite-data.spec.ts, which
+// digests the sprite data every entity generates. Nothing in the app imports any
+// of them from here.
+export {
+    Editor,
+    Book,
+    Blueprint,
+    GridPattern,
+    FD,
+    OverlayContainer,
+    EntitySprite,
+    getSpriteData,
+    SPRITE_GENERATION_FAILED,
+}
 export default {
     registerAction,
     forEachAction,

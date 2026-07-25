@@ -114,7 +114,7 @@ import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
 import { need } from './need'
 
-interface IDrawData {
+export interface IDrawData {
     dir: number
 
     name: string

@@ -14,6 +14,9 @@ import EDITOR, {
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,
     OverlayContainer,
+    EntitySprite,
+    getSpriteData,
+    SPRITE_GENERATION_FAILED,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
@@ -214,6 +217,92 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         }
         return out
     },
+    /*
+        Per entity name, a digest of the sprite data every placement generated:
+        "<layer count>:<hash of the layer fields>", or "FAILED" where the
+        generator threw. Calls getSpriteData rather than EntitySprite.getParts so
+        no textures are needed and nothing is mutated on the way out.
+
+        The layer count alone would miss a layer whose shift or sheet offset
+        moved, and a hash alone would say nothing useful when it changes, so the
+        digest carries both.
+
+        draw_wall and draw_heat_pipe pick a sprite variation at random, so
+        Math.random is swapped for a fixed sequence while the tally runs -
+        otherwise their digests differ run to run.
+
+        Takes the blueprint to walk rather than reading the loaded one, so the
+        caller can tally every blueprint of a book without loading each in turn -
+        the position grid a Blueprint carries is populated as its entities are
+        created, so no rendering is needed for the neighbour branches to work.
+    */
+    spriteDataTally: (blueprint?: Blueprint) => {
+        const target = blueprint ?? bp
+        const out: Record<string, string[]> = {}
+        const realRandom = Math.random
+        let seed = 1
+        Math.random = () => {
+            seed = (seed * 1103515245 + 12345) % 2147483648
+            return seed / 2147483648
+        }
+        try {
+            for (const entity of target.entities.valuesArray()) {
+                const data = getSpriteData(
+                    EntitySprite.getDrawData(entity, target.entityPositionGrid)
+                ) as unknown
+                ;(out[entity.name] ??= []).push(spriteDataDigest(data))
+            }
+        } finally {
+            Math.random = realRandom
+        }
+        return out
+    },
+}
+
+/*
+    The layer fields that decide what ends up on screen, in a fixed order so the
+    digest does not depend on the key order of whatever prototype object the
+    generator happened to return.
+*/
+const DIGESTED_FIELDS = [
+    'filename',
+    'filenames',
+    'x',
+    'y',
+    'width',
+    'height',
+    'size',
+    'scale',
+    'shift',
+    'tint',
+    'anchorX',
+    'anchorY',
+    'squishY',
+    'rotAngle',
+    'flipX',
+    'flipY',
+    'divW',
+    'divH',
+    'draw_as_shadow',
+    'blend_mode',
+] as const
+
+function spriteDataDigest(data: unknown): string {
+    if (data === SPRITE_GENERATION_FAILED) return 'FAILED'
+    const layers = data as readonly Record<string, unknown>[]
+    const parts = layers.map(layer =>
+        layer === undefined || layer === null
+            ? 'MISSING'
+            : DIGESTED_FIELDS.map(f => JSON.stringify(layer[f] ?? null)).join(',')
+    )
+    // FNV-1a, 32 bit. Only needs to be stable and to change when the input does.
+    let h = 0x811c9dc5
+    const s = parts.join('|')
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i)
+        h = Math.imul(h, 0x01000193)
+    }
+    return `${layers.length}:${(h >>> 0).toString(16).padStart(8, '0')}`
 }
 
 function registerActions(): void {
