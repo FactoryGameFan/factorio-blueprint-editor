@@ -158,6 +158,44 @@ type SpriteNumberKey = keyof PickByType<ExtendedSpriteData, number> | 'size'
 
 export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
 
+/**
+ * Reads a prototype field that data.json supplies for this entity type, but which
+ * typed-factorio models as optional because it only exists on some types.
+ *
+ * Throws rather than returning undefined, which is the same contract spriteShape.ts
+ * documents: getSpriteData catches it, names the entity, logs it and returns
+ * SPRITE_GENERATION_FAILED. The throw carries the field path, so the log says which
+ * field was missing instead of surfacing as a TypeError further down. Returning
+ * empty here instead would silently draw nothing and lose that.
+ *
+ * Takes a path so nested reads stay one call: need(e, 'chargable_graphics',
+ * 'picture', 'layers').
+ */
+function need<T extends object, K1 extends keyof T>(obj: T, k1: K1): NonNullable<T[K1]>
+function need<T extends object, K1 extends keyof T, K2 extends keyof NonNullable<T[K1]>>(
+    obj: T,
+    k1: K1,
+    k2: K2
+): NonNullable<NonNullable<T[K1]>[K2]>
+function need<
+    T extends object,
+    K1 extends keyof T,
+    K2 extends keyof NonNullable<T[K1]>,
+    K3 extends keyof NonNullable<NonNullable<T[K1]>[K2]>,
+>(obj: T, k1: K1, k2: K2, k3: K3): NonNullable<NonNullable<NonNullable<T[K1]>[K2]>[K3]>
+function need(obj: object, ...keys: PropertyKey[]): unknown {
+    let current: unknown = obj
+    const walked: string[] = []
+    for (const key of keys) {
+        walked.push(String(key))
+        current = (current as Record<PropertyKey, unknown>)[key]
+        if (current === undefined || current === null) {
+            throw new Error(`prototype field '${walked.join('.')}' is missing`)
+        }
+    }
+    return current
+}
+
 const generatorCache = new Map<string, (data: IDrawData) => readonly ExtendedSpriteData[]>()
 
 function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
@@ -198,7 +236,10 @@ function generateConnection(e: EntityWithOwnerPrototype, data: IDrawData): reado
     const cc = getCircuitConnector(e, data.dir, isLoaderInputting, getBeltConnectionIndex)
     if (cc?.sprites) {
         const ccs = cc.sprites
-        return [ccs.connector_main, ccs.wire_pins, ccs.led_blue_off]
+        // Not all three exist for every connector - a transport belt has no
+        // connector_main - and the absent ones were previously passed through as
+        // undefined for EntitySprite.getParts to skip
+        return [ccs.connector_main, ccs.wire_pins, ccs.led_blue_off].filter(s => s !== undefined)
     }
     return []
 }
@@ -221,8 +262,13 @@ function setProperty<K extends keyof ExtendedSpriteData>(
     return img
 }
 
+/**
+ * Optional properties are `Value | undefined`, which does not extend `Value`, so
+ * matching on NonNullable is what keeps `width?: number` in the numeric set. Under
+ * strictNullChecks the naive form picked nothing.
+ */
 type PickByType<T, Value> = {
-    [P in keyof T as T[P] extends Value ? P : never]: T[P]
+    [P in keyof T as NonNullable<T[P]> extends Value ? P : never]: T[P]
 }
 
 function setPropertyUsing<K0 extends SpriteNumberKey, K1 extends SpriteNumberKey>(
@@ -279,11 +325,11 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
             )
                 continue
 
-            const dir = (data.dir + connection.direction) % 16
+            const dir = (data.dir + need(connection, 'direction')) % 16
 
             const offset = connection.position
                 ? util.rotatePointBasedOnDir(connection.position, data.dir)
-                : util.Point(connection.positions[data.dir / 4])
+                : util.Point(need(connection, 'positions')[data.dir / 4])
             const offset2 = util.rotatePointBasedOnDir([0, -1], dir)
             offset.x += offset2.x
             offset.y += offset2.y
@@ -327,11 +373,11 @@ function checkFluidConnection(x: number, y: number, entity: Entity, relDir: numb
     for (const connection of connections) {
         const offset = connection.position
             ? util.rotatePointBasedOnDir(connection.position, entity.direction)
-            : util.Point(connection.positions[entity.direction / 4])
+            : util.Point(need(connection, 'positions')[entity.direction / 4])
         if (
             x === Math.floor(entity.position.x + offset.x) &&
             y === Math.floor(entity.position.y + offset.y) &&
-            (entity.direction + connection.direction) % 16 === (relDir + 8) % 16
+            (entity.direction + need(connection, 'direction')) % 16 === (relDir + 8) % 16
         ) {
             return true
         }
@@ -371,13 +417,13 @@ function getHeatConnections(position: IPoint, positionGrid: PositionGrid): boole
         // check for heat_buffer first since the reactor has both properties
         const heat_buffer = getHeatBuffer(entity.entityData)
         if (heat_buffer) {
-            return checkConnections(heat_buffer.connections)
+            return checkConnections(need(heat_buffer, 'connections'))
         }
 
         const energy_source = getEnergySource(entity.entityData)
         if (energy_source) {
             if (energy_source.type === 'heat') {
-                return checkConnections(energy_source.connections)
+                return checkConnections(need(energy_source, 'connections'))
             }
         }
 
@@ -565,12 +611,13 @@ function getBeltSprites(
         const C2 = C.map(d => {
             if (
                 !d ||
-                ((d.entity.type === 'underground-belt' || d.entity.type === 'loader') &&
-                    d.entity.directionType === 'input')
+                ((need(d, 'entity').type === 'underground-belt' ||
+                    need(d, 'entity').type === 'loader') &&
+                    need(d, 'entity').directionType === 'input')
             ) {
                 return
             }
-            if (d.entity.direction === (d.relDir + 8) % 16) {
+            if (need(d, 'entity').direction === (d.relDir + 8) % 16) {
                 return d
             }
         })
@@ -578,9 +625,9 @@ function getBeltSprites(
         const entAtPos = positionGrid.getEntityAtPosition(pos)
         if (
             forceStraight ||
-            entAtPos.type === 'splitter' ||
-            entAtPos.type === 'underground-belt' ||
-            entAtPos.type === 'loader'
+            need(entAtPos, 'type') === 'splitter' ||
+            need(entAtPos, 'type') === 'underground-belt' ||
+            need(entAtPos, 'type') === 'loader'
         ) {
             return {
                 from: C[2],
@@ -871,7 +918,7 @@ function generateGraphics(e: EntityWithOwnerPrototype): (data: IDrawData) => rea
 }
 
 function draw_accumulator(e: AccumulatorPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.chargable_graphics.picture.layers
+    return () => need(e, 'chargable_graphics', 'picture', 'layers')
 }
 function draw_agricultural_tower(
     e: AgriculturalTowerPrototype
@@ -880,7 +927,7 @@ function draw_agricultural_tower(
 }
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        ...baseVisualisationLayers(e.graphics_set.base_visualisation),
+        ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation')),
         duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[0], 'y', 'height', data.dir / 4),
         duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[1], 'y', 'height', data.dir / 4),
     ]
@@ -925,7 +972,7 @@ function draw_arithmetic_combinator(
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
+        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
         if (data.operator) {
             out.push(
                 dirEntry(
@@ -942,11 +989,11 @@ function draw_artillery_turret(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const d = data.dir / 2
-        let base = util.duplicate(e.cannon_base_pictures.layers[0])
-        base = setProperty(base, 'filename', base.filenames[d])
+        let base = util.duplicate(need(e, 'cannon_base_pictures', 'layers')[0])
+        base = setProperty(base, 'filename', need(base, 'filenames')[d])
         base = addToShift([0, -0.6875], base)
-        let barrel = util.duplicate(e.cannon_barrel_pictures.layers[0])
-        barrel = setProperty(barrel, 'filename', barrel.filenames[d])
+        let barrel = util.duplicate(need(e, 'cannon_barrel_pictures', 'layers')[0])
+        barrel = setProperty(barrel, 'filename', need(barrel, 'filenames')[d])
         barrel = addToShift([0, -0.6875], barrel)
         barrel = addToShift(getShift(), barrel)
         function getShift(): readonly [number, number] {
@@ -961,7 +1008,7 @@ function draw_artillery_turret(
                     return [1, 0.31]
             }
         }
-        return [...layersOf(e.base_picture), barrel, base]
+        return [...layersOf(need(e, 'base_picture')), barrel, base]
     }
 }
 function draw_artillery_wagon(
@@ -992,10 +1039,10 @@ function draw_assembling_machine(
     e: AssemblingMachinePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        if (e.graphics_set.always_draw_idle_animation) {
-            return layersOf(e.graphics_set.idle_animation)
+        if (need(e, 'graphics_set').always_draw_idle_animation) {
+            return layersOf(need(e, 'graphics_set', 'idle_animation'))
         } else {
-            const out = [...getAnimation(e.graphics_set.animation, data.dir).layers]
+            const out = [...getAnimation(need(e, 'graphics_set', 'animation'), data.dir).layers]
 
             const fbs = getFluidBoxes(
                 e,
@@ -1013,7 +1060,7 @@ function draw_assembling_machine(
                     if (!(conn.connection_type === undefined || conn.connection_type === 'normal'))
                         continue
 
-                    const dir = (data.dir + conn.direction) % 16
+                    const dir = (data.dir + need(conn, 'direction')) % 16
                     // pipe_picture can be a directional map {north, east, south, west}
                     // or a single sprite object (e.g. foundry). The latter has no
                     // directional keys, so fall back to it as a SpriteData.
@@ -1041,21 +1088,22 @@ function draw_asteroid_collector(
 }
 function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const layers = e.graphics_set.animation_list
+        const layers = need(e, 'graphics_set', 'animation_list')
             .filter(vis => vis.always_draw)
             .map(vis => vis.animation)
-            .flatMap(vis => (vis.layers ? vis.layers : [vis]))
+            // an animation either has layers or is itself the single layer
+            .flatMap(vis => layersOf(vis))
 
         // Beacon module slots only ever hold modules; narrow from the base
         // ItemPrototype to read module-only `tier`/`beacon_tint`.
         const modules = (data.modules || []).map(name => FD.items[name] as ModulePrototype)
-        const moduleLayers = e.graphics_set.module_visualisations
+        const moduleLayers = need(e, 'graphics_set', 'module_visualisations')
             .flatMap(vis => vis.slots)
             .flatMap((arr, i) => {
                 const module = modules[i]
                 if (module) {
                     return arr.map(slot => {
-                        const img = util.duplicate(sheetOf(slot.pictures))
+                        const img = util.duplicate(sheetOf(need(slot, 'pictures')))
 
                         let variationIndex = module.tier - 1
                         if (slot.has_empty_slot) {
@@ -1081,7 +1129,7 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
                 } else {
                     return arr
                         .filter(slot => slot.has_empty_slot)
-                        .map(slot => sheetOf(slot.pictures))
+                        .map(slot => sheetOf(need(slot, 'pictures')))
                 }
             })
 
@@ -1235,11 +1283,11 @@ function draw_constant_combinator(
     e: ConstantCombinatorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        return dirEntry(e.sprites, util.getDirName(data.dir)).layers
+        return dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers
     }
 }
 function draw_container(e: ContainerPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.picture.layers
+    return () => need(e, 'picture', 'layers')
 }
 function draw_simple_entity(e: any): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1331,7 +1379,7 @@ function draw_decider_combinator(
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
+        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
         if (data.operator) {
             out.push(
                 dirEntry(
@@ -1345,11 +1393,11 @@ function draw_decider_combinator(
 }
 function draw_display_panel(e: DisplayPanelPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
+        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
         if (data.displayPanelIcon && data.displayPanelIcon.name) {
             // TODO: move this out
             const map = () => {
-                switch (data.displayPanelIcon.type) {
+                switch (need(data, 'displayPanelIcon').type) {
                     case undefined:
                     case 'item':
                         return FD.items
@@ -1379,18 +1427,18 @@ function draw_display_panel(e: DisplayPanelPrototype): (data: IDrawData) => read
 function draw_electric_energy_interface(
     e: ElectricEnergyInterfacePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.picture.layers
+    return () => need(e, 'picture', 'layers')
 }
 function draw_electric_pole(e: ElectricPolePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        duplicateAndSetPropertyUsing(e.pictures.layers[0], 'x', 'width', data.dir / 4),
+        duplicateAndSetPropertyUsing(need(e, 'pictures', 'layers')[0], 'x', 'width', data.dir / 4),
     ]
 }
 function draw_electric_turret(
     e: ElectricTurretPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const baseLayers = baseVisualisationLayers(e.graphics_set.base_visualisation)
+        const baseLayers = baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'))
         return [
             ...baseLayers,
             duplicateAndSetPropertyUsing(
@@ -1442,7 +1490,7 @@ function draw_elevated_straight_rail(
 }
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        ...baseVisualisationLayers(e.graphics_set.base_visualisation, data.dir),
+        ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), data.dir),
         ...dirEntry(e.folded_animation, util.getDirName(data.dir)).layers,
     ]
 }
@@ -1459,7 +1507,7 @@ function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly
     }
 }
 function draw_furnace(e: FurnacePrototype): (data: IDrawData) => readonly SpriteData[] {
-    const anim = e.graphics_set.animation as any
+    const anim = need(e, 'graphics_set').animation as any
     if (anim.layers) {
         return () => anim.layers
     }
@@ -1507,22 +1555,22 @@ function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[]
                 if (rail) {
                     if (data.dir % 8 === 0) {
                         if (rail.position.y > data.position.y) {
-                            return e.vertical_rail_animation_left.layers
+                            return need(e, 'vertical_rail_animation_left').layers
                         }
-                        return e.vertical_rail_animation_right.layers
+                        return need(e, 'vertical_rail_animation_right').layers
                     } else {
                         if (rail.position.x > data.position.x) {
-                            return e.horizontal_rail_animation_left.layers
+                            return need(e, 'horizontal_rail_animation_left').layers
                         }
-                        return e.horizontal_rail_animation_right.layers
+                        return need(e, 'horizontal_rail_animation_right').layers
                     }
                 }
             }
 
             if (data.dir % 8 === 0) {
-                return e.vertical_animation.layers
+                return need(e, 'vertical_animation').layers
             }
-            return e.horizontal_animation.layers
+            return need(e, 'horizontal_animation').layers
         }
 
         if (data.dir % 8 === 0 && data.positionGrid) {
@@ -1531,7 +1579,7 @@ function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[]
                 y: data.position.y + 1,
             })
             if (wall && wall.type === 'wall') {
-                return [...getBaseSprites(), ...e.wall_patch.layers]
+                return [...getBaseSprites(), ...need(e, 'wall_patch', 'layers')]
             }
         }
 
@@ -1540,12 +1588,14 @@ function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[]
 }
 function draw_generator(e: GeneratorPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) =>
-        data.dir % 8 === 0 ? e.vertical_animation.layers : e.horizontal_animation.layers
+        data.dir % 8 === 0
+            ? need(e, 'vertical_animation').layers
+            : need(e, 'horizontal_animation').layers
 }
 function draw_heat_interface(
     e: HeatInterfacePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => [e.picture]
+    return () => [need(e, 'picture')]
 }
 function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1553,55 +1603,55 @@ function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly Spr
             const getOpt = (): SpriteVariations => {
                 const conn = getHeatConnections(data.position, data.positionGrid)
                 if (conn[0] && conn[1] && conn[2] && conn[3]) {
-                    return e.connection_sprites.cross
+                    return need(e, 'connection_sprites').cross
                 }
                 if (conn[0] && conn[1] && conn[3]) {
-                    return e.connection_sprites.t_up
+                    return need(e, 'connection_sprites').t_up
                 }
                 if (conn[1] && conn[2] && conn[3]) {
-                    return e.connection_sprites.t_down
+                    return need(e, 'connection_sprites').t_down
                 }
                 if (conn[0] && conn[1] && conn[2]) {
-                    return e.connection_sprites.t_right
+                    return need(e, 'connection_sprites').t_right
                 }
                 if (conn[0] && conn[2] && conn[3]) {
-                    return e.connection_sprites.t_left
+                    return need(e, 'connection_sprites').t_left
                 }
                 if (conn[0] && conn[2]) {
-                    return e.connection_sprites.straight_vertical
+                    return need(e, 'connection_sprites').straight_vertical
                 }
                 if (conn[1] && conn[3]) {
-                    return e.connection_sprites.straight_horizontal
+                    return need(e, 'connection_sprites').straight_horizontal
                 }
                 if (conn[0] && conn[1]) {
-                    return e.connection_sprites.corner_right_up
+                    return need(e, 'connection_sprites').corner_right_up
                 }
                 if (conn[0] && conn[3]) {
-                    return e.connection_sprites.corner_left_up
+                    return need(e, 'connection_sprites').corner_left_up
                 }
                 if (conn[1] && conn[2]) {
-                    return e.connection_sprites.corner_right_down
+                    return need(e, 'connection_sprites').corner_right_down
                 }
                 if (conn[2] && conn[3]) {
-                    return e.connection_sprites.corner_left_down
+                    return need(e, 'connection_sprites').corner_left_down
                 }
                 if (conn[0]) {
-                    return e.connection_sprites.ending_up
+                    return need(e, 'connection_sprites').ending_up
                 }
                 if (conn[2]) {
-                    return e.connection_sprites.ending_down
+                    return need(e, 'connection_sprites').ending_down
                 }
                 if (conn[1]) {
-                    return e.connection_sprites.ending_right
+                    return need(e, 'connection_sprites').ending_right
                 }
                 if (conn[3]) {
-                    return e.connection_sprites.ending_left
+                    return need(e, 'connection_sprites').ending_left
                 }
-                return e.connection_sprites.single
+                return need(e, 'connection_sprites').single
             }
             return [util.getRandomItem(toSpriteArray(getOpt()))]
         }
-        return [util.getRandomItem(toSpriteArray(e.connection_sprites.single))]
+        return [util.getRandomItem(toSpriteArray(need(e, 'connection_sprites').single))]
     }
 }
 function draw_infinity_cargo_wagon(
@@ -1621,7 +1671,7 @@ function draw_infinity_cargo_wagon(
 function draw_infinity_container(
     e: InfinityContainerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.picture.layers
+    return () => need(e, 'picture', 'layers')
 }
 function draw_inserter(e: InserterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1736,7 +1786,7 @@ function draw_inserter(e: InserterPrototype): (data: IDrawData) => readonly Spri
 
         return [
             duplicateAndSetPropertyUsing(
-                sheetOf(e.platform_picture),
+                sheetOf(need(e, 'platform_picture')),
                 'x',
                 'width',
                 ((data.dir + 8) % 16) / 4
@@ -1747,13 +1797,13 @@ function draw_inserter(e: InserterPrototype): (data: IDrawData) => readonly Spri
     }
 }
 function draw_lab(e: LabPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.off_animation.layers
+    return () => need(e, 'off_animation', 'layers')
 }
 function draw_lamp(e: LampPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.picture_off.layers
+    return () => need(e, 'picture_off', 'layers')
 }
 function draw_land_mine(e: LandMinePrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => [e.picture_set]
+    return () => [need(e, 'picture_set')]
 }
 function draw_lane_splitter(e: LaneSplitterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -1853,7 +1903,7 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
         const offset = util.rotatePointBasedOnDir([0, 0.5], dir)
 
         const beltParts = getBeltSprites(
-            e.belt_animation_set,
+            need(e, 'belt_animation_set'),
             data.positionGrid ? util.sumprod(data.position, offset) : offset,
             data.dir,
             data.positionGrid,
@@ -1882,14 +1932,16 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
             mainBelt = setProperty(mainBelt, 'anchorY', 0.5)
         }
 
-        const structure = e.structure
+        const structure = need(e, 'structure')
         const sprites = []
 
         sprites.push(mainBelt)
 
         sprites.push(
             duplicateAndSetPropertyUsing(
-                isInput ? sheetOf(structure.direction_in) : sheetOf(structure.direction_out),
+                isInput
+                    ? sheetOf(need(structure, 'direction_in'))
+                    : sheetOf(need(structure, 'direction_out')),
                 'x',
                 'width',
                 dir / 4
@@ -1918,29 +1970,29 @@ function draw_locomotive(e: LocomotivePrototype): (data: IDrawData) => readonly 
 function draw_logistic_container(
     e: LogisticContainerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.animation.layers
+    return () => need(e, 'animation', 'layers')
 }
 function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readonly SpriteData[] {
     switch (e.name) {
         case 'burner-mining-drill':
             return (data: IDrawData) =>
-                dirEntry(e.graphics_set.animation, util.getDirName(data.dir)).layers
+                dirEntry(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir)).layers
 
         case 'pumpjack':
             return (data: IDrawData) => [
                 duplicateAndSetPropertyUsing(
-                    sheetsOf(e.base_picture)[0],
+                    sheetsOf(need(e, 'base_picture'))[0],
                     'x',
                     'width',
                     data.dir / 4
                 ),
-                ...fourWayAnimation(e.graphics_set.animation, 0),
+                ...fourWayAnimation(need(e, 'graphics_set', 'animation'), 0),
             ]
 
         case 'electric-mining-drill':
             return (data: IDrawData) => {
                 const dir = util.getDirName(data.dir)
-                const layers0 = dirEntry(e.graphics_set.animation, dir).layers
+                const layers0 = dirEntry(need(e, 'graphics_set', 'animation'), dir).layers
 
                 const animDir = `${dir}_animation` as
                     | 'north_animation'
@@ -1948,7 +2000,7 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
                     | 'south_animation'
                     | 'west_animation'
 
-                const layers1 = e.graphics_set.working_visualisations
+                const layers1 = need(e, 'graphics_set', 'working_visualisations')
                     .filter(vis => vis.always_draw)
                     .map(vis => vis[animDir])
                     .filter(vis => !!vis)
@@ -1959,11 +2011,12 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
     }
 }
 function draw_offshore_pump(e: OffshorePumpPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => dirEntry(e.graphics_set.animation, util.getDirName(data.dir)).layers
+    return (data: IDrawData) =>
+        dirEntry(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir)).layers
 }
 function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const pictures = e.pictures
+        const pictures = need(e, 'pictures')
         if (data.positionGrid) {
             const conn = getFluidConnections(data.position, data.positionGrid)
 
@@ -2051,15 +2104,15 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
     }
 }
 function draw_pipe_to_ground(e: PipeToGroundPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => [dirEntry(e.pictures, util.getDirName(data.dir))]
+    return (data: IDrawData) => [dirEntry(need(e, 'pictures'), util.getDirName(data.dir))]
 }
 function draw_power_switch(e: PowerSwitchPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => [...e.power_on_animation.layers, e.led_off]
+    return () => [...need(e, 'power_on_animation', 'layers'), need(e, 'led_off')]
 }
 function draw_programmable_speaker(
     e: ProgrammableSpeakerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.sprite.layers
+    return () => need(e, 'sprite', 'layers')
 }
 function draw_proxy_container(
     e: ProxyContainerPrototype
@@ -2067,10 +2120,10 @@ function draw_proxy_container(
     return () => (e as any).picture.layers
 }
 function draw_pump(e: PumpPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => [dirEntry(e.animations, util.getDirName(data.dir))]
+    return (data: IDrawData) => [dirEntry(need(e, 'animations'), util.getDirName(data.dir))]
 }
 function draw_radar(e: RadarPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => e.pictures.layers
+    return () => need(e, 'pictures', 'layers')
 }
 function draw_rail_ramp(e: RailRampPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
@@ -2118,8 +2171,8 @@ function draw_rail_support(e: RailSupportPrototype): (data: IDrawData) => readon
 function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const patches = []
-        for (const [i, conn] of e.heat_buffer.connections.entries()) {
-            let patchSheet = sheetOf(e.connection_patches_disconnected)
+        for (const [i, conn] of need(e, 'heat_buffer', 'connections').entries()) {
+            let patchSheet = sheetOf(need(e, 'connection_patches_disconnected'))
             if (data.positionGrid) {
                 const connPos = util.vectorToTuple(conn.position)
                 const c = getHeatConnections(
@@ -2130,28 +2183,33 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
                     data.positionGrid
                 )
                 if (c[conn.direction / 4]) {
-                    patchSheet = sheetOf(e.connection_patches_connected)
+                    patchSheet = sheetOf(need(e, 'connection_patches_connected'))
                 }
             }
             patchSheet = duplicateAndSetPropertyUsing(patchSheet, 'x', 'width', i)
             patchSheet = addToShift(conn.position, patchSheet)
             patches.push(patchSheet)
         }
-        return [...patches, e.lower_layer_picture, ...e.picture.layers]
+        return [...patches, e.lower_layer_picture, ...need(e, 'picture', 'layers')]
     }
 }
 function draw_roboport(e: RoboportPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => [...e.base.layers, e.door_animation_up, e.door_animation_down, e.base_animation]
+    return () => [
+        ...need(e, 'base', 'layers'),
+        need(e, 'door_animation_up'),
+        need(e, 'door_animation_down'),
+        need(e, 'base_animation'),
+    ]
 }
 function draw_rocket_silo(e: RocketSiloPrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => [
-        e.door_back_sprite,
-        e.door_front_sprite,
-        e.base_day_sprite,
-        e.arm_01_back_animation,
-        e.arm_02_right_animation,
-        e.arm_03_front_animation,
-        e.satellite_animation,
+        need(e, 'door_back_sprite'),
+        need(e, 'door_front_sprite'),
+        need(e, 'base_day_sprite'),
+        need(e, 'arm_01_back_animation'),
+        need(e, 'arm_02_right_animation'),
+        need(e, 'arm_03_front_animation'),
+        need(e, 'satellite_animation'),
     ]
 }
 function draw_selector_combinator(
@@ -2162,8 +2220,8 @@ function draw_selector_combinator(
             switch (operator) {
                 case 'select':
                     return data.selectorCombinatorSelectMax
-                        ? e.max_symbol_sprites
-                        : e.min_symbol_sprites
+                        ? need(e, 'max_symbol_sprites')
+                        : need(e, 'min_symbol_sprites')
                 case 'count':
                     return e.count_symbol_sprites
                 case 'random':
@@ -2179,7 +2237,7 @@ function draw_selector_combinator(
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...dirEntry(e.sprites, util.getDirName(data.dir)).layers]
+        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
         if (data.operator) {
             out.push(
                 dirEntry(
@@ -2192,7 +2250,7 @@ function draw_selector_combinator(
     }
 }
 function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return () => layersOf(e.picture)
+    return () => layersOf(need(e, 'picture'))
 }
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
@@ -2205,7 +2263,7 @@ function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly Spri
         const b1Offset = util.rotatePointBasedOnDir([0.5, 0], data.dir)
 
         const belt0Parts = getBeltSprites(
-            e.belt_animation_set,
+            need(e, 'belt_animation_set'),
             data.positionGrid ? util.sumprod(data.position, b0Offset) : b0Offset,
             data.dir,
             data.positionGrid,
@@ -2215,7 +2273,7 @@ function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly Spri
         ).map(sd => addToShift(b0Offset, sd))
 
         const belt1Parts = getBeltSprites(
-            e.belt_animation_set,
+            need(e, 'belt_animation_set'),
             data.positionGrid ? util.sumprod(data.position, b1Offset) : b1Offset,
             data.dir,
             data.positionGrid,
@@ -2228,19 +2286,20 @@ function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly Spri
         return [
             ...belt0Parts,
             ...belt1Parts,
-            dirEntry(e.structure_patch, dir),
-            dirEntry(e.structure, dir),
+            dirEntry(need(e, 'structure_patch'), dir),
+            dirEntry(need(e, 'structure'), dir),
         ]
     }
 }
 function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        addToShift([0, 1], util.duplicate(e.pictures.window_background)),
+        addToShift([0, 1], util.duplicate(need(e, 'pictures').window_background)),
         setPropertyUsing(
-            util.duplicate(sheetsOf(e.pictures.picture)[0]),
+            util.duplicate(sheetsOf(need(e, 'pictures', 'picture'))[0]),
             'x',
             'width',
-            Math.floor(data.dir / 4) % (sheetsOf(e.pictures.picture)[0] as SheetMeta).frames
+            Math.floor(data.dir / 4) %
+                (sheetsOf(need(e, 'pictures', 'picture'))[0] as SheetMeta).frames
         ),
     ]
 }
@@ -2257,15 +2316,15 @@ function draw_thruster(e: ThrusterPrototype): (data: IDrawData) => readonly Spri
 function draw_train_stop(e: TrainStopPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = util.getDirName(data.dir)
-        let ta = util.duplicate(dirEntry(e.top_animations, dir).layers[1])
+        let ta = util.duplicate(dirEntry(need(e, 'top_animations'), dir).layers[1])
         ta = setProperty(ta, 'tint', data.trainStopColor ? data.trainStopColor : e.color)
         return [
-            dirEntry(e.rail_overlay_animations, dir),
-            ...dirEntry(e.animations, dir).layers,
-            ...dirEntry(e.top_animations, dir).layers,
+            dirEntry(need(e, 'rail_overlay_animations'), dir),
+            ...dirEntry(need(e, 'animations'), dir).layers,
+            ...dirEntry(need(e, 'top_animations'), dir).layers,
             ta,
-            dirEntry(e.light1.picture, dir),
-            dirEntry(e.light2.picture, dir),
+            dirEntry(need(e, 'light1').picture, dir),
+            dirEntry(need(e, 'light2').picture, dir),
         ]
     }
 }
@@ -2291,21 +2350,33 @@ function draw_transport_belt(
             const sprites = []
 
             if (patchIndex !== undefined) {
-                const patch = sheetOf(e.connector_frame_sprites.frame_back_patch)
+                const patch = sheetOf(need(e, 'connector_frame_sprites', 'frame_back_patch'))
                 sprites.push(duplicateAndSetPropertyUsing(patch, 'x', 'width', patchIndex))
             }
 
             sprites.push(
-                ...getBeltSprites(e.belt_animation_set, data.position, data.dir, data.positionGrid)
+                ...getBeltSprites(
+                    need(e, 'belt_animation_set'),
+                    data.position,
+                    data.dir,
+                    data.positionGrid
+                )
             )
 
-            let frame = sheetOf(e.connector_frame_sprites.frame_main)
+            let frame = sheetOf(need(e, 'connector_frame_sprites').frame_main)
             frame = duplicateAndSetPropertyUsing(frame, 'x', 'width', 1)
             sprites.push(setPropertyUsing(frame, 'y', 'height', connIndex))
 
             return sprites
         }
-        return [...getBeltSprites(e.belt_animation_set, data.position, data.dir, data.positionGrid)]
+        return [
+            ...getBeltSprites(
+                need(e, 'belt_animation_set'),
+                data.position,
+                data.dir,
+                data.positionGrid
+            ),
+        ]
     }
 }
 function draw_turret(e: TurretPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -2331,7 +2402,7 @@ function draw_underground_belt(
         const dir = isInput ? data.dir : (data.dir + 8) % 16
 
         const beltParts = getBeltSprites(
-            e.belt_animation_set,
+            need(e, 'belt_animation_set'),
             data.position,
             data.dir,
             data.positionGrid,
@@ -2379,7 +2450,7 @@ function draw_underground_belt(
 
             // Belt facing this belt
             C = C.map(d => {
-                if (d && d.entity.direction === (d.relDir + 8) % 16) {
+                if (d && need(d, 'entity').direction === (d.relDir + 8) % 16) {
                     return d
                 }
                 return undefined
@@ -2389,12 +2460,17 @@ function draw_underground_belt(
             sideloadingFront = C[2] !== undefined
         }
 
-        const structure = e.structure
+        const structure = need(e, 'structure')
         const sprites = []
 
         if (!sideloadingBack) {
             sprites.push(
-                duplicateAndSetPropertyUsing(sheetOf(structure.back_patch), 'x', 'width', dir / 4)
+                duplicateAndSetPropertyUsing(
+                    sheetOf(need(structure, 'back_patch')),
+                    'x',
+                    'width',
+                    dir / 4
+                )
             )
         }
 
@@ -2404,11 +2480,11 @@ function draw_underground_belt(
             duplicateAndSetPropertyUsing(
                 sideloadingFront
                     ? isInput
-                        ? sheetOf(structure.direction_in_side_loading)
-                        : sheetOf(structure.direction_out_side_loading)
+                        ? sheetOf(need(structure, 'direction_in_side_loading'))
+                        : sheetOf(need(structure, 'direction_out_side_loading'))
                     : isInput
-                      ? sheetOf(structure.direction_in)
-                      : sheetOf(structure.direction_out),
+                      ? sheetOf(need(structure, 'direction_in'))
+                      : sheetOf(need(structure, 'direction_out')),
                 'x',
                 'width',
                 dir / 4
@@ -2417,7 +2493,12 @@ function draw_underground_belt(
 
         if (!sideloadingFront) {
             sprites.push(
-                duplicateAndSetPropertyUsing(sheetOf(structure.front_patch), 'x', 'width', dir / 4)
+                duplicateAndSetPropertyUsing(
+                    sheetOf(need(structure, 'front_patch')),
+                    'x',
+                    'width',
+                    dir / 4
+                )
             )
         }
 
@@ -2433,7 +2514,7 @@ function draw_valve(e: ValvePrototype): (data: IDrawData) => readonly SpriteData
 }
 function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const pictures = e.pictures
+        const pictures = need(e, 'pictures')
 
         if (data.positionGrid) {
             const sprites = []
@@ -2449,21 +2530,21 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             const wall = (() => {
                 if (conn[1] && conn[2] && conn[3]) {
-                    return layersOf(pictures.t_up)[0]
+                    return layersOf(need(pictures, 't_up'))[0]
                 } else if (conn[1] && conn[2]) {
-                    return layersOf(pictures.corner_right_down)[0]
+                    return layersOf(need(pictures, 'corner_right_down'))[0]
                 } else if (conn[2] && conn[3]) {
-                    return layersOf(pictures.corner_left_down)[0]
+                    return layersOf(need(pictures, 'corner_left_down'))[0]
                 } else if (conn[1] && conn[3]) {
-                    return layersOf(pictures.straight_horizontal)[0]
+                    return layersOf(need(pictures, 'straight_horizontal'))[0]
                 } else if (conn[1]) {
-                    return layersOf(pictures.ending_right)[0]
+                    return layersOf(need(pictures, 'ending_right'))[0]
                 } else if (conn[2]) {
-                    return layersOf(pictures.straight_vertical)[0]
+                    return layersOf(need(pictures, 'straight_vertical'))[0]
                 } else if (conn[3]) {
-                    return layersOf(pictures.ending_left)[0]
+                    return layersOf(need(pictures, 'ending_left'))[0]
                 } else {
-                    return layersOf(pictures.single)[0]
+                    return layersOf(need(pictures, 'single'))[0]
                 }
             })()
 
@@ -2486,7 +2567,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             for (const relDir of neighbourDirections) {
                 const patch = duplicateAndSetPropertyUsing(
-                    sheetsOf(pictures.gate_connection_patch)[0],
+                    sheetsOf(need(pictures, 'gate_connection_patch'))[0],
                     'x',
                     'width',
                     relDir / 4
@@ -2513,7 +2594,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
 
             if (spawnFilling) {
                 let filling = duplicateAndSetPropertyUsing(
-                    sheetOf(pictures.filling),
+                    sheetOf(need(pictures, 'filling')),
                     'x',
                     'width',
                     util.getRandomInt(0, (pictures.filling as unknown as SheetMeta).line_length)
@@ -2525,7 +2606,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
             sprites.push(
                 ...neighbourDirections.map(relDir =>
                     duplicateAndSetPropertyUsing(
-                        sheetOf(e.wall_diode_red),
+                        sheetOf(need(e, 'wall_diode_red')),
                         'x',
                         'width',
                         relDir / 4
@@ -2536,7 +2617,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
             return sprites
         }
 
-        return layersOf(pictures.single)
+        return layersOf(need(pictures, 'single'))
     }
 }
 

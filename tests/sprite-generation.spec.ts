@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { buildAllEntitiesBlueprint } from './helpers/all-entities-blueprint'
+import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint-files'
 
 /*
     Coverage net for spriteDataBuilder.ts, which is one draw_* function per entity
@@ -101,4 +102,45 @@ test('every entity type produces sprites', async ({ page }) => {
 
     expect([...failedNames].sort()).toEqual([...EXPECTED_FAILURES].sort())
     expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
+})
+
+/*
+    The synthetic blueprint spaces entities out so none of them touch, which means
+    it never reaches the branches that look at neighbours - pipes picking a
+    junction sprite, belts picking a corner, undergrounds pairing up. Those read
+    the position grid and are a large part of the file, so the real bases have to
+    carry that half of the coverage.
+*/
+test('real blueprints generate sprites without failures', async ({ page }) => {
+    const files = discoverBlueprintFiles()
+    expect(files.length).toBeGreaterThan(0)
+
+    const failures: string[] = []
+    page.on('console', msg => {
+        const failed = /Error generating sprites for '([^']+)'/.exec(msg.text())
+        if (failed && !EXPECTED_FAILURES.includes(failed[1])) {
+            failures.push(failed[1])
+        }
+    })
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(
+        () => {
+            const el = document.getElementById('loadingScreen')
+            return el !== null && !el.classList.contains('active')
+        },
+        { timeout: 60_000 }
+    )
+
+    for (const file of files) {
+        const bpString = readBlueprintString(file.filePath)
+        await page.evaluate(async (str: string) => {
+            const api = (window as any).__fbe_test
+            const bp = await api.getBlueprintOrBookFromSource(str)
+            await api.loadBp(bp)
+        }, bpString)
+    }
+    await page.waitForTimeout(2000)
+
+    expect([...new Set(failures)].sort()).toEqual([])
 })
