@@ -105,6 +105,8 @@ Common patterns for `draw_*` functions:
 - **Signal types**: Space Age adds `space-location`, `asteroid-chunk`, `quality` signal types beyond the base `item`, `virtual`, `fluid`, `recipe`, `entity`.
 - **Array-form base_visualisation**: Some Space Age turrets (tesla-turret) have `graphics_set.base_visualisation` as an array instead of a direct object. `draw_electric_turret` handles both formats.
 - **Blueprint validation**: Made lenient to handle Space Age content. Unknown entity names are stripped; other validation failures (unknown signals, new enum values) are logged as warnings but don't block loading.
+- **`draw_*` functions that switch on `e.name` need a `default`**: falling off the end returns `undefined`, and `getSpriteData` then calls it, so the entity fails with `graphicsFn is not a function` - which names neither the entity nor the real problem, and is swallowed by the try/catch into a placeholder box. Throw instead, naming the entity. `draw_mining_drill` had this and `big-mining-drill` rendered as an unknown entity for it (issue #29). Switching on `e.name` at all is a Space Age hazard: the DLC adds new members to existing entity types.
+- **`always_draw` working visualisations come in two shapes**: directional (`north_animation` and friends, absent for facings the visualisation does not apply to) and a single non-directional `animation` drawn the same whichever way the entity points. Read `vis[animDir] ?? vis.animation` - reading only the directional key silently drops the second kind, which cost `big-mining-drill` its drill head and scorch mark. The `??` order matters: a directional entry that omits the current facing must stay dropped, not fall back.
 
 ## Cloudflare Deployment
 
