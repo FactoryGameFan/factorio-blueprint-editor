@@ -19,12 +19,12 @@ export class EntityContainer {
     }
 
     private visualizationArea: VisualizationArea
-    private entityInfo: Container
+    private entityInfo: Container | undefined
     private entitySprites: EntitySprite[] = []
     /** This is only a reference */
     private cursorBoxContainer: Container
     /** This is only a reference */
-    private undergroundLine: Container
+    private undergroundLine: Container | undefined
 
     private readonly m_Entity: Entity
 

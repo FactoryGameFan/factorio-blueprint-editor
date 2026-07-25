@@ -112,6 +112,7 @@ import {
 } from 'factorio:prototype'
 import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
+import { need } from './need'
 
 interface IDrawData {
     dir: number
@@ -157,44 +158,6 @@ type SheetMeta = { size?: number; frames?: number; line_length?: number }
 type SpriteNumberKey = keyof PickByType<ExtendedSpriteData, number> | 'size'
 
 export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
-
-/**
- * Reads a prototype field that data.json supplies for this entity type, but which
- * typed-factorio models as optional because it only exists on some types.
- *
- * Throws rather than returning undefined, which is the same contract spriteShape.ts
- * documents: getSpriteData catches it, names the entity, logs it and returns
- * SPRITE_GENERATION_FAILED. The throw carries the field path, so the log says which
- * field was missing instead of surfacing as a TypeError further down. Returning
- * empty here instead would silently draw nothing and lose that.
- *
- * Takes a path so nested reads stay one call: need(e, 'chargable_graphics',
- * 'picture', 'layers').
- */
-function need<T extends object, K1 extends keyof T>(obj: T, k1: K1): NonNullable<T[K1]>
-function need<T extends object, K1 extends keyof T, K2 extends keyof NonNullable<T[K1]>>(
-    obj: T,
-    k1: K1,
-    k2: K2
-): NonNullable<NonNullable<T[K1]>[K2]>
-function need<
-    T extends object,
-    K1 extends keyof T,
-    K2 extends keyof NonNullable<T[K1]>,
-    K3 extends keyof NonNullable<NonNullable<T[K1]>[K2]>,
->(obj: T, k1: K1, k2: K2, k3: K3): NonNullable<NonNullable<NonNullable<T[K1]>[K2]>[K3]>
-function need(obj: object, ...keys: PropertyKey[]): unknown {
-    let current: unknown = obj
-    const walked: string[] = []
-    for (const key of keys) {
-        walked.push(String(key))
-        current = (current as Record<PropertyKey, unknown>)[key]
-        if (current === undefined || current === null) {
-            throw new Error(`prototype field '${walked.join('.')}' is missing`)
-        }
-    }
-    return current
-}
 
 const generatorCache = new Map<string, (data: IDrawData) => readonly ExtendedSpriteData[]>()
 

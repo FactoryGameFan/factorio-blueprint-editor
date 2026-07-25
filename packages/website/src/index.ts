@@ -13,6 +13,7 @@ import EDITOR, {
     encode,
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,
+    OverlayContainer,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
@@ -198,6 +199,20 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         if (!book) throw new Error('No book loaded')
         bp = book.selectBlueprint(index)
         await editor.loadBlueprint(bp)
+    },
+    /*
+        Per entity name, the number of children each entity's info overlay came
+        out with, or -1 where it produced no overlay at all. Deliberately calls
+        the static createEntityInfo rather than the instance method, so a throw
+        propagates instead of being swallowed by the latter's try/catch.
+    */
+    overlayInfoTally: () => {
+        const out: Record<string, number[]> = {}
+        for (const entity of bp.entities.valuesArray()) {
+            const info = OverlayContainer.createEntityInfo(entity, { x: 0, y: 0 })
+            ;(out[entity.name] ??= []).push(info === undefined ? -1 : info.children.length)
+        }
+        return out
     },
 }
 
