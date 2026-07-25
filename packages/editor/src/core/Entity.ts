@@ -170,6 +170,17 @@ export class Entity extends EventEmitter<EntityEvents> {
         this.m_BP.history
             .updateValue(this.m_rawEntity, 'position', position, 'Change position')
             .onDone((newValue, oldValue) => {
+                /*
+                    History hands both values back as `| undefined` because undo
+                    swaps them and a key can be absent before its first write.
+                    `position` is a required field on the raw entity, so neither
+                    can be missing here - and if one were, the grid would be
+                    updated against the wrong tile and drift from the blueprint,
+                    which is the case entityAt() exists to catch loudly.
+                */
+                if (newValue === undefined || oldValue === undefined) {
+                    throw new Error('position changed to or from no position')
+                }
                 this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
                 this.m_BP.entityPositionGrid.setTileData(this, newValue)
                 this.emit('position', newValue, oldValue)

@@ -84,7 +84,7 @@ class Action<V> {
 /** A wrapper that stores multiple `Action`s */
 class Transaction {
     /** Field to store description */
-    public text: string
+    public text: string | undefined
 
     /** Should actions be applied immediately */
     private applyImmediate: boolean
@@ -92,7 +92,7 @@ class Transaction {
     /** Field to store historical actions */
     private readonly actions: Action<unknown>[] = []
 
-    public constructor(text?: string, applyImmediate?: boolean) {
+    public constructor(text?: string, applyImmediate = true) {
         this.text = text
         this.applyImmediate = applyImmediate
     }
@@ -196,7 +196,7 @@ export class History {
     private transactionCount = 0
 
     private historyIndex = 0
-    private activeTransaction: Transaction
+    private activeTransaction: Transaction | undefined
     private transactionHistory: Transaction[] = []
 
     /** Removes all history entries */
@@ -211,7 +211,7 @@ export class History {
         key: K,
         value: T[K],
         text: string
-    ): Action<T[K]> {
+    ): Action<T[K] | undefined> {
         const oldValue = this.GetValue(target, key)
         const newValue = value
 
@@ -227,13 +227,18 @@ export class History {
         })
 
         this.startTransaction()
-        this.activeTransaction.push(historyAction)
+        this.openTransaction.push(historyAction)
 
         return historyAction
     }
 
     /** Updates a value in a `Map` and stores it in the history */
-    public updateMap<K, V>(target: Map<K, V>, key: K, value: V, text: string): Action<V> {
+    public updateMap<K, V>(
+        target: Map<K, V>,
+        key: K,
+        value: V | undefined,
+        text: string
+    ): Action<V | undefined> {
         const oldValue = target.get(key)
         const newValue = value
 
@@ -248,7 +253,7 @@ export class History {
         })
 
         this.startTransaction()
-        this.activeTransaction.push(historyAction)
+        this.openTransaction.push(historyAction)
 
         return historyAction
     }
@@ -292,6 +297,19 @@ export class History {
      * @param text Description of transaction - If not specified it will be the description of the first action
      * @returns `false` if there is already an active transaction
      */
+    /**
+     * The open transaction. startTransaction() creates one if there is not
+     * already one, so every call site below that has just called it is holding a
+     * real invariant rather than a hope - naming it here means a violation says
+     * so instead of surfacing as a TypeError on .push of undefined.
+     */
+    private get openTransaction(): Transaction {
+        if (this.activeTransaction === undefined) {
+            throw new Error('no open transaction')
+        }
+        return this.activeTransaction
+    }
+
     public startTransaction(text?: string, applyImmediate = true): boolean {
         this.transactionCount += 1
 
@@ -311,18 +329,18 @@ export class History {
         this.transactionCount -= 1
 
         if (this.transactionCount === 0) {
-            if (this.activeTransaction.empty()) return false
+            if (this.openTransaction.empty()) return false
             while (this.transactionHistory.length > this.historyIndex) {
                 this.transactionHistory.pop()
             }
 
-            this.activeTransaction.apply()
-            this.transactionHistory.push(this.activeTransaction)
+            this.openTransaction.apply()
+            this.transactionHistory.push(this.openTransaction)
             if (this.logging) {
                 if (this.historyIndex !== 0 && this.historyIndex % 20 === 0) {
                     console.clear()
                 }
-                this.activeTransaction.log()
+                this.openTransaction.log()
             }
             this.activeTransaction = undefined
 
@@ -340,7 +358,7 @@ export class History {
     }
 
     /** Gets the value of the `Array` or `Object` at the specified key  */
-    private GetValue<T, K extends keyof T>(obj: T, key: K): T[K] {
+    private GetValue<T, K extends keyof T>(obj: T, key: K): T[K] | undefined {
         if (util.objectHasOwnProperty(obj, key)) {
             return obj[key]
         }
