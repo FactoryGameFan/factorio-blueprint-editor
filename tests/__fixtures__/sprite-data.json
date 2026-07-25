@@ -77,7 +77,7 @@
         "heat-exchanger": ["6:530d59ec", "6:8adad6a3", "6:c2fc1103", "6:dfb468b6"],
         "heat-interface": ["1:d196ef02"],
         "heat-pipe": ["1:bc42ba65"],
-        "heating-tower": ["7:0cb643bf"],
+        "heating-tower": ["6:69d3325b"],
         "hidden-electric-energy-interface": ["FAILED"],
         "infinity-cargo-wagon": ["3:06695c6d", "3:0914b6de", "3:71253f40", "3:98889d5f"],
         "infinity-chest": ["2:78cd9b62"],
@@ -946,7 +946,7 @@
             "1:fd28450e",
             "1:fdaae7df"
         ],
-        "heating-tower": ["10:88f92883", "7:0cb643bf"],
+        "heating-tower": ["6:69d3325b", "9:274ff1ef"],
         "infinity-chest": ["2:78cd9b62"],
         "infinity-pipe": ["1:6b23fa86", "1:934ae587", "1:e342aea7"],
         "inserter": [
