@@ -10,8 +10,8 @@ export class Switch<T extends string> extends Container {
     /** Options for switch */
     private readonly m_Values: T[]
 
-    /** Data of switch */
-    private m_Value: T
+    /** Data of switch (undefined when the switch is in its tri-state) */
+    private m_Value: T | undefined
 
     /**
      * Create switch control
@@ -129,10 +129,10 @@ export class Switch<T extends string> extends Container {
     }
 
     /** Is checkbox checked */
-    public get value(): T {
+    public get value(): T | undefined {
         return this.m_Value
     }
-    public set value(value: T) {
+    public set value(value: T | undefined) {
         if (this.m_Value !== value) {
             this.m_Value = value
             this.updateButtonPosition()

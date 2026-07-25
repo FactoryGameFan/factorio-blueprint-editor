@@ -53,7 +53,11 @@ export class PaintEntityContainer extends PaintContainer {
     }
 
     public override getItemName(): string {
-        return Entity.getItemName(this.name)
+        const itemName = Entity.getItemName(this.name)
+        if (itemName === undefined) {
+            throw new Error(`${this.name} is being painted but has no item to place it with`)
+        }
+        return itemName
     }
 
     private checkBuildable(): void {

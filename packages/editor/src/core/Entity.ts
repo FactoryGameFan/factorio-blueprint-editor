@@ -54,10 +54,10 @@ export interface EntityEvents {
     position: [newValue: IPoint, oldValue: IPoint]
     direction: []
     directionType: []
-    recipe: [recipe: string]
+    recipe: [recipe: string | undefined]
     modules: [modules: (string | undefined)[]]
-    splitterInputPriority: [priority: FilterPriority]
-    splitterOutputPriority: [priority: FilterPriority]
+    splitterInputPriority: [priority: FilterPriority | undefined]
+    splitterOutputPriority: [priority: FilterPriority | undefined]
     splitterFilter: []
     filters: []
     inserterFilters: []
@@ -91,8 +91,9 @@ export class Entity extends EventEmitter<EntityEvents> {
         return this.m_rawEntity
     }
 
-    public static getItemName(name: string): string {
-        return FD.entities[name].minable.result
+    /** undefined for entities that cannot be mined into an item, e.g. the dummy rails */
+    public static getItemName(name: string): string | undefined {
+        return FD.entities[name]?.minable?.result
     }
 
     public destroy(): void {
@@ -149,6 +150,7 @@ export class Entity extends EventEmitter<EntityEvents> {
                     : c.cps[0].entityNumber
             )
             .map(otherEntityNumer => this.m_BP.entities.get(otherEntityNumer))
+            .filter(e => e !== undefined)
             .some(
                 e =>
                     // Make sure that a reaching connection is not broken
@@ -188,6 +190,7 @@ export class Entity extends EventEmitter<EntityEvents> {
                     : c.cps[0].entityNumber
             )
             .map(otherEntityNumer => this.m_BP.entities.get(otherEntityNumer))
+            .filter(e => e !== undefined)
             .every(e =>
                 U.pointInCircle(
                     e.position,
@@ -223,10 +226,10 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /** Direction Type (input|output) for underground belts */
-    public get directionType(): DirectionType {
+    public get directionType(): DirectionType | undefined {
         return this.m_rawEntity.type
     }
-    public set directionType(type: DirectionType) {
+    public set directionType(type: DirectionType | undefined) {
         if (this.m_rawEntity.type === type) return
 
         this.m_BP.history
@@ -236,10 +239,10 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /** Entity recipe */
-    public get recipe(): string {
+    public get recipe(): string | undefined {
         return this.m_rawEntity.recipe
     }
-    public set recipe(recipe: string) {
+    public set recipe(recipe: string | undefined) {
         if (this.m_rawEntity.recipe === recipe) return
 
         this.m_BP.history.startTransaction()
@@ -332,6 +335,11 @@ export class Entity extends EventEmitter<EntityEvents> {
             throw new Error('Old format for items!')
         }
         const inventory = getModuleInventoryIndex(this.entityData)
+        if (inventory === null) {
+            // moduleSlots said this entity takes modules but there is no inventory to
+            // put them in, so the two mappings in factorioData disagree
+            throw new Error(`${this.name} has module slots but no module inventory`)
+        }
         items = items.filter(item => {
             if (item.items.in_inventory) {
                 item.items.in_inventory = item.items.in_inventory.filter(
@@ -397,7 +405,7 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /** List of all filter(s) for splitters, inserters and logistic chests */
-    public get filters(): IFilter[] {
+    public get filters(): IFilter[] | undefined {
         switch (this.name) {
             case 'splitter':
             case 'fast-splitter':
@@ -426,7 +434,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
         }
     }
-    public set filters(list: IFilter[]) {
+    public set filters(list: IFilter[] | undefined) {
         const FILTERS =
             list === undefined || list.length === 0 ? undefined : list.filter(f => !!f.name)
         switch (this.name) {
@@ -455,10 +463,10 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /** Splitter input priority */
-    public get splitterInputPriority(): FilterPriority {
+    public get splitterInputPriority(): FilterPriority | undefined {
         return this.m_rawEntity.input_priority
     }
-    public set splitterInputPriority(priority: FilterPriority) {
+    public set splitterInputPriority(priority: FilterPriority | undefined) {
         if (this.m_rawEntity.input_priority === priority) return
 
         this.m_BP.history
@@ -473,10 +481,10 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /** Splitter output priority */
-    public get splitterOutputPriority(): FilterPriority {
+    public get splitterOutputPriority(): FilterPriority | undefined {
         return this.m_rawEntity.output_priority
     }
-    public set splitterOutputPriority(priority: FilterPriority) {
+    public set splitterOutputPriority(priority: FilterPriority | undefined) {
         if (this.m_rawEntity.output_priority === priority) return
 
         this.m_BP.history.startTransaction()
@@ -509,13 +517,15 @@ export class Entity extends EventEmitter<EntityEvents> {
         }
         return []
     }
-    private set splitterFilter(filters: IFilter[]) {
-        const filter = filters === undefined ? undefined : filters[0].name
+    private set splitterFilter(filters: IFilter[] | undefined) {
+        const filter = filters?.[0]?.name
         if (this.m_rawEntity.filter === filter) return
 
         this.m_BP.history.startTransaction()
 
-        const f = { name: filter }
+        // used to write { name: undefined } when clearing, which serialized as an
+        // empty filter object rather than as no filter at all
+        const f = filter === undefined ? undefined : { name: filter }
 
         this.m_BP.history
             .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
@@ -546,10 +556,10 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /** Inserter filter */
-    private get inserterFilters(): IFilter[] {
+    private get inserterFilters(): IFilter[] | undefined {
         return this.m_rawEntity.filters
     }
-    private set inserterFilters(filters: IFilter[]) {
+    private set inserterFilters(filters: IFilter[] | undefined) {
         if (filters === undefined && this.m_rawEntity.filters === undefined) return
         if (util.areArraysEquivalent(filters, this.m_rawEntity.filters)) return
 
@@ -576,7 +586,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         }
         return out
     }
-    private set logisticChestFilters(filters: IFilter[]) {
+    private set logisticChestFilters(filters: IFilter[] | undefined) {
         throw new Error('TODO: set logisticChestFilters')
 
         // if (filters === undefined && this.m_rawEntity.request_filters === undefined) return
@@ -589,14 +599,15 @@ export class Entity extends EventEmitter<EntityEvents> {
         //     .commit()
     }
 
-    private get infinityChestFilters(): IFilter[] {
+    private get infinityChestFilters(): IFilter[] | undefined {
         if (!this.m_rawEntity.infinity_settings) return []
         return this.m_rawEntity.infinity_settings.filters
     }
 
     private get infinityPipeFilters(): IFilter[] {
-        if (!this.m_rawEntity.infinity_settings) return []
-        return [{ name: this.m_rawEntity.infinity_settings.name, index: 1 }]
+        const name = this.m_rawEntity.infinity_settings?.name
+        if (name === undefined) return []
+        return [{ name, index: 1 }]
     }
 
     /** Requester chest - request from buffer chest */
@@ -607,7 +618,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         ) {
             throw new Error('pre 2.0 format!')
         }
-        return this.m_rawEntity.request_filters.request_from_buffers
+        return this.m_rawEntity.request_filters?.request_from_buffers ?? false
     }
     public set requestFromBufferChest(request: boolean) {
         if (this.requestFromBufferChest === request) return
@@ -643,16 +654,18 @@ export class Entity extends EventEmitter<EntityEvents> {
 
     public get constantCombinatorFilters(): string[] {
         return (this.m_rawEntity.control_behavior?.sections?.sections || [])
-            .flatMap(f => f.filters)
-            .filter(f => f?.name)
-            .map(f => f.name)
+            .flatMap(f => f.filters ?? [])
+            .map(f => f?.name)
+            .filter(name => name !== undefined)
     }
 
-    public get combinatorConditions(): {
-        first_signal?: ISignal
-        second_signal?: ISignal
-        output_signal?: ISignal
-    } {
+    public get combinatorConditions():
+        | {
+              first_signal?: ISignal
+              second_signal?: ISignal
+              output_signal?: ISignal
+          }
+        | undefined {
         if (this.type === 'decider-combinator') {
             const decider_conditions = this.m_rawEntity.control_behavior?.decider_conditions
             return {
@@ -691,16 +704,16 @@ export class Entity extends EventEmitter<EntityEvents> {
         return this.m_BP.wireConnections.getEntityConnections(this.entityNumber).length > 0
     }
 
-    public get trainStopColor(): ColorWithAlpha {
+    public get trainStopColor(): ColorWithAlpha | undefined {
         return this.m_rawEntity.color
     }
 
     /** Entity Train Stop Station name */
-    public get station(): string {
+    public get station(): string | undefined {
         return this.m_rawEntity.station
     }
 
-    public set station(station: string) {
+    public set station(station: string | undefined) {
         if (this.m_rawEntity.station === station) return
 
         this.m_BP.history
@@ -776,7 +789,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             ? { x: this.m_rawEntity.position.y, y: -this.m_rawEntity.position.x }
             : { x: -this.m_rawEntity.position.y, y: this.m_rawEntity.position.x }
         const direction = this.constrainDirection((this.direction + (ccw ? 12 : 4)) % 16)
-        const updatedRawEntity = { ...this.m_rawEntity, position, direction }
+        const updatedRawEntity: IEntity = { ...this.m_rawEntity, position, direction }
         if (direction === 0) delete updatedRawEntity.direction
 
         return new Entity(updatedRawEntity, this.m_BP)
@@ -835,7 +848,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         const position = vertical
             ? { x: this.m_rawEntity.position.x, y: -this.m_rawEntity.position.y }
             : { x: -this.m_rawEntity.position.x, y: this.m_rawEntity.position.y }
-        const updatedRawEntity = {
+        const updatedRawEntity: IEntity = {
             ...this.m_rawEntity,
             direction,
             position,
@@ -867,17 +880,17 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         if (this.type === 'underground-belt' || this.type === 'loader') {
             if (rotateOpposingUB) {
-                const otherEntity = this.m_BP.entities.get(
-                    this.m_BP.entityPositionGrid.getOpposingEntity(
-                        this.name,
-                        this.direction,
-                        this.position,
-                        this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
-                        isUndergroundBelt(this.entityData)
-                            ? this.entityData.max_distance
-                            : undefined
-                    )
+                const opposingEntityNumber = this.m_BP.entityPositionGrid.getOpposingEntity(
+                    this.name,
+                    this.direction,
+                    this.position,
+                    this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
+                    isUndergroundBelt(this.entityData) ? this.entityData.max_distance : undefined
                 )
+                const otherEntity =
+                    opposingEntityNumber === undefined
+                        ? undefined
+                        : this.m_BP.entities.get(opposingEntityNumber)
                 if (otherEntity) {
                     otherEntity.rotate()
                 }
@@ -927,7 +940,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (aM.length > 0 && sourceEntity.acceptedModules) {
             if (sourceEntity.modules && sourceEntity.modules.length > 0) {
                 this.modules = sourceEntity.modules
-                    .filter(m => aM.includes(m))
+                    .filter(m => m !== undefined && aM.includes(m))
                     .slice(0, this.moduleSlots)
             } else {
                 this.modules = []
@@ -1014,7 +1027,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         */
     }
 
-    public get displayPanelIcon(): ISignal {
+    public get displayPanelIcon(): ISignal | undefined {
         if (this.type !== 'display-panel') return undefined
         return this.m_rawEntity.icon || this.m_rawEntity.control_behavior?.parameters?.[0]?.icon
     }
@@ -1061,7 +1074,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         const getBeltConnectionIndex = () =>
             getBeltWireConnectionIndex(this.m_BP.entityPositionGrid, this.position, direction)
         const cc = getCircuitConnector(e, direction, isLoaderInputting, getBeltConnectionIndex)
-        if (cc) {
+        if (cc?.points) {
             const pos = cc.points.wire[wireKey]
             return pos && util.vectorToTuple(pos)
         }
@@ -1071,7 +1084,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         color: string,
         side: number,
         direction = this.direction
-    ): [[number, number], [number, number]] {
+    ): [[number, number], [number, number]] | undefined {
         const point = this.getWireConnectionPoint(color, side, direction)
         if (!point) return undefined
 
@@ -1115,7 +1128,7 @@ export class Entity extends EventEmitter<EntityEvents> {
         color: string,
         side: number,
         direction = this.direction
-    ): IPoint[] {
+    ): IPoint[] | undefined {
         const box = this.getWire_connection_box(color, side, direction)
         if (box === undefined) return undefined
         let bbox: IPoint[] = box.map(util.Point)

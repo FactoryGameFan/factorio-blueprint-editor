@@ -33,7 +33,9 @@ export class InserterEditor extends Editor {
             })
 
             filterModeSwitch.on('changed', () => {
-                this.m_Entity.filterMode = filterModeSwitch.value
+                // this switch is never in its tri-state; 'whitelist' is what the
+                // entity itself falls back to
+                this.m_Entity.filterMode = filterModeSwitch.value ?? 'whitelist'
             })
 
             filterModeBlacklist.on('changed', () => {

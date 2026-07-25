@@ -70,7 +70,7 @@ export class OverlayContainer extends Container {
 
             for (const [i, fb] of fbs.entries()) {
                 let filter = fb.filter
-                if (isCraftingMachine(entity.entityData)) {
+                if (isCraftingMachine(entity.entityData) && entity.recipe !== undefined) {
                     const recipe = FD.recipes[entity.recipe]
                     if (recipe) {
                         const items =

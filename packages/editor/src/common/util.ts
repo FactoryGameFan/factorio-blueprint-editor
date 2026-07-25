@@ -145,7 +145,7 @@ const areObjectsEquivalent = <T extends Record<string, any>>(a: T, b: T): boolea
     return true
 }
 
-const areArraysEquivalent = <T>(a: T[], b: T[]): boolean =>
+const areArraysEquivalent = <T>(a: T[] | undefined, b: T[] | undefined): boolean =>
     a !== undefined &&
     b !== undefined &&
     a.length === b.length &&
