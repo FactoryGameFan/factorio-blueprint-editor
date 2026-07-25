@@ -71,6 +71,7 @@ import {
     WallPrototype,
 } from 'factorio:prototype'
 import { IPoint } from '../types'
+import { need } from './need'
 import { WireConnectionPoint } from 'factorio:prototype'
 import { BoundingBox } from 'factorio:prototype'
 import { MapPosition } from 'factorio:prototype'
@@ -90,7 +91,7 @@ function getModulesFor(entityName: string): ModulePrototype[] {
             // filter modules based on entity allowed_effects (ex: beacons don't accept productivity effect)
             .filter(module =>
                 Object.keys(module.effect)
-                    .filter(effect => module.effect[effect] > 0) // needed or else speed modules can't be placed in beacons, not sure what the game does here
+                    .filter(effect => (module.effect[effect] ?? 0) > 0) // needed or else speed modules can't be placed in beacons, not sure what the game does here
                     .every(effect => allowed_effects.includes(effect))
             )
             .filter(
@@ -187,12 +188,20 @@ export function getModule(name: string): ModulePrototype {
     else throw new Error('Internal Error!')
 }
 
+/*
+    Returns undefined, not null, for "this entity has no circuit connector".
+    The two used to be mixed: the default arm returned null while every other arm
+    returned an optional prototype field, so the same absence arrived spelled two
+    ways and the type could describe neither. Every caller tests truthiness, so
+    settling on undefined - which is what the fields themselves are - costs
+    nothing and removes the coercion the split would otherwise need at each arm.
+*/
 export function getCircuitConnector(
     e: EntityWithOwnerPrototype,
     dir: number,
     isLoaderInputting: () => boolean,
     getBeltConnectionIndex: () => number
-): null | CircuitConnectorDefinition {
+): CircuitConnectorDefinition | undefined {
     switch (e.type) {
         case 'accumulator':
         case 'agricultural-tower':
@@ -250,23 +259,23 @@ export function getCircuitConnector(
                 | PumpPrototype
                 | StorageTankPrototype
                 | TrainStopPrototype
-            return e_resolved.circuit_connector[dir / 4]
+            return e_resolved.circuit_connector?.[dir / 4]
         }
         case 'rail-chain-signal':
         case 'rail-signal': {
             const e_resolved = e as RailSignalBasePrototype
-            return e_resolved.ground_picture_set.circuit_connector[dir]
+            return e_resolved.ground_picture_set.circuit_connector?.[dir]
         }
         case 'loader':
         case 'loader-1x1': {
             const e_resolved = e as LoaderPrototype
             // First the four cardinal directions for `direction_out`, followed by the four directions for `direction_in`.
-            return e_resolved.circuit_connector[(isLoaderInputting() ? 4 : 0) + dir / 4]
+            return e_resolved.circuit_connector?.[(isLoaderInputting() ? 4 : 0) + dir / 4]
         }
         case 'transport-belt': {
             const e_resolved = e as TransportBeltPrototype
             // Set of 7 CircuitConnectorDefinition in order: X, H, V, SE, SW, NE and NW.
-            return e_resolved.circuit_connector[getBeltConnectionIndex()]
+            return e_resolved.circuit_connector?.[getBeltConnectionIndex()]
         }
         case 'ammo-turret':
         case 'electric-turret':
@@ -286,10 +295,10 @@ export function getCircuitConnector(
             } else if (e_resolved.turret_base_has_direction) {
                 d = dir / 4
             }
-            return e_resolved.circuit_connector[d]
+            return e_resolved.circuit_connector?.[d]
         }
         default:
-            return null
+            return undefined
     }
 }
 
@@ -517,7 +526,7 @@ export function mapBoundingBox(bb: BoundingBox): [[number, number], [number, num
 }
 
 export function getEntitySize(e: EntityWithOwnerPrototype, dir: number = 0): IPoint {
-    const bb = mapBoundingBox(e.collision_box)
+    const bb = mapBoundingBox(need(e, 'collision_box'))
     const w = e.tile_width || Math.ceil(Math.abs(bb[0][0]) + Math.abs(bb[1][0]))
     const h = e.tile_height || Math.ceil(Math.abs(bb[0][1]) + Math.abs(bb[1][1]))
     if (w === h) {
@@ -662,7 +671,8 @@ export function getHeatBuffer(e: EntityWithOwnerPrototype): null | HeatBuffer {
             return null
     }
 }
-export function getEnergySource(e: EntityWithOwnerPrototype): null | EnergySource {
+/** undefined for "no energy source", for the same reason getCircuitConnector is. */
+export function getEnergySource(e: EntityWithOwnerPrototype): EnergySource | undefined {
     switch (e.type) {
         case 'agricultural-tower':
         case 'boiler':
@@ -730,7 +740,7 @@ export function getEnergySource(e: EntityWithOwnerPrototype): null | EnergySourc
             return e_resolved.energy_source
         }
         default:
-            return null
+            return undefined
     }
 }
 
