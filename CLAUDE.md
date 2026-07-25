@@ -23,12 +23,12 @@ npx serve packages/exporter/data/output -l 8081 --cors
 # Build
 cd packages/website && vp build
 
-# Type check (has pre-existing errors from Space Age work)
+# Type check (strictNullChecks is on and still being worked down - see issue #22)
 npx tsc --noEmit -p packages/editor/tsconfig.json
 
 # CI type-check gate: fails only if the error count exceeds the committed
-# baseline in scripts/type-check-baseline.json (currently 0). As errors are
-# fixed, lower maxErrors to lock the gain. Runs in CI via .github/workflows/ci.yml
+# baseline in scripts/type-check-baseline.json. As errors are fixed, lower
+# maxErrors to lock the gain. Runs in CI via .github/workflows/ci.yml
 # (oxfmt + oxlint + vitest gate + tsc gate) on PRs/pushes to wormeyman-space-age-support.
 npm run type-check:gate
 
@@ -71,6 +71,8 @@ Vite dev server runs on port 8080. In dev mode, `/data` is proxied to `http://12
 - `packages/editor/src/core/bpString.ts` - Blueprint string decode/encode, AJV schema validation. Validation is lenient - warns on unknown items/signals but only strips unknown entities.
 - `packages/editor/src/core/blueprintSchema.json` - AJV schema for blueprint validation. Signal types enum must include Space Age types.
 - `packages/editor/src/core/Blueprint.ts` - Blueprint data model, entity creation, wire connections.
+- `packages/editor/src/core/PositionGrid.ts` - Spatial index behind placement, overlap rules and neighbour lookups. It stores entity numbers, not entities: `setTileData`/`removeTileData` keep it in lockstep with `Blueprint.entities` via `onCreateOrRemoveEntity`, and `entityAt()` throws if the two ever drift.
+- `packages/editor/src/core/generators/` - Oil outpost generators (pipe, beacon, pole). Untested geometry until recently; `generators.test.ts` pins their output against a committed fixture, so a diff there means a refactor changed generated layouts.
 - `packages/editor/src/containers/EntitySprite.ts` - Creates PixiJS sprites from sprite data. `getParts()` is the main entry point.
 - `packages/editor/src/containers/BlueprintContainer.ts` - Main rendering container. `spawnPaintContainer()` handles entity placement from inventory.
 - `packages/editor/src/containers/EntityContainer.ts` - Per-entity container, calls `EntitySprite.getParts()` in `redraw()`.
@@ -138,6 +140,7 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 
 - `playwright.config.ts` - Config (base URL localhost:8080, 120s timeout, single worker)
 - `tests/blueprint-loading.spec.ts` - Main test file - iterates blueprints, uses `window.__fbe_test` API to load directly
+- `tests/position-grid.spec.ts` - Exercises `PositionGrid` queries and the setTileData/removeTileData round trip against a real loaded blueprint (the class is core to placement and cannot be unit tested without FD data loaded)
 - `tests/helpers/blueprint-files.ts` - Discovers `.txt` files from `wormeyman-tests/{collection}/`
 - `tests/helpers/report-generator.ts` - Generates JSON + markdown reports to `diagnostic-reports/`
 
@@ -177,5 +180,5 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 - Complex visualizations (crane arms, plasma effects, thruster flames) show only static base sprites
 - Blueprint book icons using planet names show no icon
 - Some entity types may have missing or incorrectly mapped textures
-- TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json)
+- TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json). Most of what is left sits in `spriteDataBuilder.ts` and is the same problem viewed through `strictNullChecks` - see issue #22 for the plan and the current count
 - Mobile is view-only - no editing, inventory, or keyboard shortcuts
