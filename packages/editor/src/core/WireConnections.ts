@@ -315,8 +315,8 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
     // pre 2.0
     public createEntityConnections(
         entityNumber: number,
-        connections: IBPConnection,
-        neighbours: number[]
+        connections: IBPConnection | undefined,
+        neighbours: number[] | undefined
     ): void {
         const conns = WireConnections.deserialize(entityNumber, connections, neighbours)
         for (const conn of conns) {

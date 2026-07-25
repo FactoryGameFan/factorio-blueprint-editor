@@ -22,6 +22,7 @@ import * as generators from './generators'
 import { IVisualization } from './generators'
 import { History } from './History'
 import { Tile } from './Tile'
+import { need } from './need'
 
 export interface IOilOutpostSettings extends Record<string, string | boolean | number> {
     DEBUG: boolean
@@ -50,8 +51,12 @@ const getFactorioVersion = (main = 2, major = 0, minor = 45): number =>
     (minor << 16) + (major | (main << 16)) * 0xffffffff
 
 class OurMap<K, V> extends Map<K, V> {
+    // The two arguments only ever make sense together - there is no key without
+    // a key function - which the overloads say and a pair of optionals did not.
+    public constructor()
+    public constructor(values: V[], mapFn: (value: V) => K)
     public constructor(values?: V[], mapFn?: (value: V) => K) {
-        if (values) {
+        if (values !== undefined && mapFn !== undefined) {
             super(values.map(e => [mapFn(e), e]))
         } else {
             super()
@@ -66,7 +71,7 @@ class OurMap<K, V> extends Map<K, V> {
         return [...this.values()]
     }
 
-    public find(predicate: (value: V, key: K) => boolean): V {
+    public find(predicate: (value: V, key: K) => boolean): V | undefined {
         for (const [k, v] of this) {
             if (predicate(v, k)) return v
         }
@@ -145,7 +150,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             }
 
             if (data.entities !== undefined) {
-                const pre_2_0 = data.version < getFactorioVersion(2, 0, 0)
+                const pre_2_0 =
+                    data.version !== undefined && data.version < getFactorioVersion(2, 0, 0)
                 const dirMult = pre_2_0 ? 2 : 1
 
                 this.m_nextEntityNumber =
@@ -187,7 +193,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                         if (pre_2_0 && e.name === 'straight-rail') {
                             e.name = 'legacy-straight-rail'
                         }
-                        let items: BlueprintInsertPlan[]
+                        let items: BlueprintInsertPlan[] | undefined
                         if (e.items) {
                             if (!Array.isArray(e.items)) {
                                 if (!pre_2_0) {
@@ -286,12 +292,15 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                                     second_signal_networks: c.second_signal_networks,
                                 },
                             ]
-                            c.outputs = [
-                                {
-                                    signal: c.output_signal,
-                                    copy_count_from_input: c.copy_count_from_input,
-                                },
-                            ]
+                            c.outputs =
+                                c.output_signal === undefined
+                                    ? []
+                                    : [
+                                          {
+                                              signal: c.output_signal,
+                                              copy_count_from_input: c.copy_count_from_input,
+                                          },
+                                      ]
                             delete c.comparator
                             delete c.constant
                             delete c.copy_count_from_input
@@ -344,7 +353,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                     e => e.entityNumber
                 )
 
-                if (data.version < getFactorioVersion(1, 1, 11)) {
+                if (data.version !== undefined && data.version < getFactorioVersion(1, 1, 11)) {
                     this.wireConnections.generatePowerPoleWires()
                 }
 
@@ -434,7 +443,10 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         return true
     }
 
-    private onCreateOrRemoveEntity(newValue: Entity, oldValue: Entity): void {
+    private onCreateOrRemoveEntity(
+        newValue: Entity | undefined,
+        oldValue: Entity | undefined
+    ): void {
         if (newValue) {
             this.entityPositionGrid.setTileData(newValue)
             this.emit('create-entity', newValue)
@@ -475,7 +487,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.commitTransaction()
     }
 
-    private onCreateOrRemoveTile(newValue: Tile, oldValue: Tile): void {
+    private onCreateOrRemoveTile(newValue: Tile | undefined, oldValue: Tile | undefined): void {
         if (oldValue) {
             oldValue.destroy()
         }
@@ -533,7 +545,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         }
     }
 
-    public generatePipes(): string {
+    public generatePipes(): string | undefined {
         const {
             DEBUG,
             PUMPJACK_MODULE,
@@ -630,6 +642,9 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         }
         const e = FD.entities['beacon']
         const inventory = getModuleInventoryIndex(e)
+        if (inventory === null) {
+            throw new Error('beacon has no module inventory')
+        }
         const beacon_module_slots = (hasModuleFunctionality(e) && e.module_slots) || 0
         const items: BlueprintInsertPlan[] = []
         const in_inventory: InventoryPosition[] = []
@@ -656,7 +671,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.wireConnections.generatePowerPoleWires()
 
         for (const p of GP.pumpjacksToRotate) {
+            // Created by this same method a few lines up, so its absence would
+            // mean the generator returned a number we never placed.
             const entity = this.entities.get(p.entity_number)
+            if (entity === undefined) {
+                throw new Error(`generator returned unknown entity ${p.entity_number}`)
+            }
             entity.direction = p.direction
             if (PUMPJACK_MODULE !== 'none') {
                 entity.modules = new Array(entity.moduleSlots).fill(PUMPJACK_MODULE)
@@ -720,7 +740,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         if (!this.entities.isEmpty()) {
             const getSize = (name: string): number => {
-                const e_size = getEntitySize(FD.entities[FD.items[name].place_result])
+                const e_size = getEntitySize(FD.entities[need(FD.items[name], 'place_result')])
                 return e_size.x * e_size.y
             }
             const getItemScore = (item: [string, number]): number => getSize(item[0]) * item[1]
@@ -806,7 +826,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 }
 
-function getOffset(data?: Partial<IBlueprint>): IPoint {
+function getOffset(data: Partial<IBlueprint>): IPoint {
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
@@ -823,7 +843,8 @@ function getOffset(data?: Partial<IBlueprint>): IPoint {
         for (const entity of data.entities) {
             if (FD.entities[entity.name]?.flags?.includes('placeable-off-grid')) continue
 
-            const dirMult = data.version < getFactorioVersion(2, 0, 0) ? 2 : 1
+            const dirMult =
+                data.version !== undefined && data.version < getFactorioVersion(2, 0, 0) ? 2 : 1
             const size = getEntitySize(FD.entities[entity.name], (entity.direction || 0) * dirMult)
             comp(entity.position.x, entity.position.y, size.x, size.y)
         }
