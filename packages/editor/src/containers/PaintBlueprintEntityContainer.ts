@@ -17,7 +17,7 @@ export class PaintBlueprintEntityContainer {
     private readonly visualizationArea: VisualizationArea
     public readonly entitySprites: EntitySprite[]
     /** This is only a reference */
-    private undergroundLine: Container
+    private undergroundLine: Container | undefined
 
     public constructor(
         pbpc: PaintBlueprintContainer,

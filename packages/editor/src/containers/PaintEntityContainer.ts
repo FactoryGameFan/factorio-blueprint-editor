@@ -12,7 +12,7 @@ export class PaintEntityContainer extends PaintContainer {
     private directionType: DirectionType
     private direction: number
     /** This is only a reference */
-    private undergroundLine: Container
+    private undergroundLine: Container | undefined
 
     public constructor(bpc: BlueprintContainer, name: string, direction: number) {
         super(bpc, name)

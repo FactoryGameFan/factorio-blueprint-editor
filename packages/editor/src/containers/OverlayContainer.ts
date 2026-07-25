@@ -17,6 +17,18 @@ import { EditorMode, BlueprintContainer } from './BlueprintContainer'
 import { EntityContainer } from './EntityContainer'
 import { CursorBoxSpecification } from 'factorio:prototype'
 import { Sprite as SpriteData } from 'factorio:prototype'
+import { need } from '../core/need'
+
+/**
+ * Every sprite this file draws is a utility sprite or an entity sprite that the
+ * data export always supplies a `filename` for. The field is optional on the
+ * prototype because a sprite may instead be multi-file (`filenames`), which is a
+ * Space Age shape - none of the sprites read here are, so a missing filename is a
+ * broken export rather than a case to handle, and need() says so by name.
+ */
+function textureOf(data: SpriteData): ReturnType<typeof G.getTexture> {
+    return G.getTexture(need(data, 'filename'), data.x, data.y, data.width, data.height)
+}
 
 export class OverlayContainer extends Container {
     private readonly bpc: BlueprintContainer
@@ -24,7 +36,7 @@ export class OverlayContainer extends Container {
     private readonly cursorBoxes = new Container()
     private readonly undergroundLines = new Container()
     private readonly selectionArea = new Graphics()
-    private copyCursorBox: Container
+    private copyCursorBox: Container | undefined
     private selectionAreaUpdateFn: (endX: number, endY: number) => void
 
     public constructor(bpc: BlueprintContainer) {
@@ -34,7 +46,8 @@ export class OverlayContainer extends Container {
         this.addChild(this.entityInfos, this.cursorBoxes, this.undergroundLines, this.selectionArea)
     }
 
-    public static createEntityInfo(entity: Entity, position: IPoint): Container {
+    /** undefined when the entity has nothing to draw, which is most of them. */
+    public static createEntityInfo(entity: Entity, position: IPoint): Container | undefined {
         const entityInfo = new Container()
 
         if (
@@ -42,9 +55,15 @@ export class OverlayContainer extends Container {
             isCraftingMachine(entity.entityData) &&
             (entity.entityData.show_recipe_icon === undefined || entity.entityData.show_recipe_icon)
         ) {
+            /*
+                icon_draw_specification is optional because Factorio has defaults
+                for it, which the two lines below already implement - so read it
+                through `?.` rather than need(). Throwing here would cost the
+                entity its whole overlay, not just the recipe icon's placement.
+            */
             const spec = entity.entityData.icon_draw_specification
-            const shift = spec.shift ? util.vectorToTuple(spec.shift) : [0, 0]
-            const scale = spec.scale || 1
+            const shift = spec?.shift ? util.vectorToTuple(spec.shift) : [0, 0]
+            const scale = spec?.scale || 1
             const recipeInfo = new Container()
             createIconWithBackground(recipeInfo, entity.recipe)
             recipeInfo.scale.set(scale)
@@ -73,8 +92,11 @@ export class OverlayContainer extends Container {
                 if (isCraftingMachine(entity.entityData) && entity.recipe !== undefined) {
                     const recipe = FD.recipes[entity.recipe]
                     if (recipe) {
+                        // Both are optional: a recipe can have no ingredients or no results.
                         const items =
-                            fb.production_type === 'input' ? recipe.ingredients : recipe.results
+                            (fb.production_type === 'input'
+                                ? recipe.ingredients
+                                : recipe.results) ?? []
                         const fluids = items
                             .filter(item => item.type === 'fluid')
                             .map(fluid => fluid.name)
@@ -91,10 +113,17 @@ export class OverlayContainer extends Container {
                     )
                         continue
 
-                    const dir = (entity.direction + connection.direction) % 16
+                    /*
+                        `position` and `positions` are a discriminated union in the
+                        data - across every pipe connection in data.json, exactly
+                        one of the two is present, and `direction` is always there.
+                        need() states that rather than inventing a fallback
+                        direction, which would silently point an arrow the wrong way.
+                    */
+                    const dir = (entity.direction + need(connection, 'direction')) % 16
                     const offset = connection.position
                         ? util.rotatePointBasedOnDir(connection.position, entity.direction)
-                        : util.Point(connection.positions[entity.direction / 4])
+                        : util.Point(need(connection, 'positions')[entity.direction / 4])
                     const offset2 = util.rotatePointBasedOnDir([0, -0.5], dir)
                     offset2.x += offset.x
                     offset2.y += offset.y
@@ -137,7 +166,8 @@ export class OverlayContainer extends Container {
             hasModuleFunctionality(e) &&
             !hasModuleIconsSuppressed(e)
         ) {
-            const module_slots = e.module_slots
+            // Absent means none, and `undefined > 0` was already false here.
+            const module_slots = e.module_slots ?? 0
             if (module_slots > 0) {
                 const moduleInfo = new Container()
                 const icons_positioning = e.icons_positioning || []
@@ -151,8 +181,11 @@ export class OverlayContainer extends Container {
                 const scale = module_icon_positioning?.scale || 0.5
                 const separation_multiplier = module_icon_positioning?.separation_multiplier || 1.1
                 for (let slot = 0; slot < module_slots; slot++) {
-                    if (modules[slot]) {
-                        createIconWithBackground(moduleInfo, modules[slot], {
+                    // Bound to a local so the truthiness check narrows it; an
+                    // indexed read does not stay narrowed across the call.
+                    const module = modules[slot]
+                    if (module) {
+                        createIconWithBackground(moduleInfo, module, {
                             x: slot * 32 * separation_multiplier,
                             y: 0,
                         })
@@ -183,11 +216,12 @@ export class OverlayContainer extends Container {
                 if (i === 4) {
                     break
                 }
-                if (filters[i].name === undefined) {
+                const filterName = filters[i].name
+                if (filterName === undefined) {
                     break
                 }
 
-                createIconWithBackground(filterInfo, filters[i].name, {
+                createIconWithBackground(filterInfo, filterName, {
                     x: (i % 2) * 32 - (filters.length === 1 ? 0 : 16),
                     y: filters.length < 3 ? 0 : (i < 2 ? -1 : 1) * 16,
                 })
@@ -256,14 +290,23 @@ export class OverlayContainer extends Container {
             }
 
             if (entity.filters && entity.filters.length > 0) {
-                createIconWithBackground(
-                    filterInfo,
-                    entity.filters[0].name,
-                    util.rotatePointBasedOnDir(
-                        { x: entity.splitterOutputPriority === 'right' ? 32 : -32, y: 0 },
-                        entity.direction
+                /*
+                    The guard stays on the filter list, not on the name, so this
+                    branch still wins over the output-priority arrow below exactly
+                    when it did before. A filter with no name drew a broken icon;
+                    now it draws none.
+                */
+                const splitterFilter = entity.filters[0].name
+                if (splitterFilter !== undefined) {
+                    createIconWithBackground(
+                        filterInfo,
+                        splitterFilter,
+                        util.rotatePointBasedOnDir(
+                            { x: entity.splitterOutputPriority === 'right' ? 32 : -32, y: 0 },
+                            entity.direction
+                        )
                     )
-                )
+                }
             } else if (entity.splitterOutputPriority) {
                 createArrowForDirection(entity.splitterOutputPriority, -16)
             }
@@ -316,10 +359,7 @@ export class OverlayContainer extends Container {
             position?: IPoint
         ): void {
             const icon = F.CreateIcon(itemName, undefined, true, true)
-            const data = FD.utilitySprites.entity_info_dark_background
-            const background = new Sprite(
-                G.getTexture(data.filename, data.x, data.y, data.width, data.height)
-            )
+            const background = new Sprite(textureOf(FD.utilitySprites.entity_info_dark_background))
             background.anchor.set(0.5, 0.5)
             if (position) {
                 icon.position.set(position.x, position.y)
@@ -335,8 +375,10 @@ export class OverlayContainer extends Container {
             }
         }
 
-        function createArrow(position: IPoint, type = 0): Sprite {
-            const typeToPath = (type = 0): SpriteData => {
+        // Narrowing the parameter to the three cases makes the switch exhaustive,
+        // so it needs no default and cannot fall off the end returning undefined.
+        function createArrow(position: IPoint, type: 0 | 1 | 2 = 0): Sprite {
+            const typeToPath = (type: 0 | 1 | 2): SpriteData => {
                 switch (type) {
                     case 0:
                         return FD.utilitySprites.indication_arrow
@@ -346,10 +388,7 @@ export class OverlayContainer extends Container {
                         return FD.utilitySprites.fluid_indication_arrow_both_ways
                 }
             }
-            const data = typeToPath(type)
-            const arrow = new Sprite(
-                G.getTexture(data.filename, data.x, data.y, data.width, data.height)
-            )
+            const arrow = new Sprite(textureOf(typeToPath(type)))
             arrow.anchor.set(0.5, 0.5)
             arrow.position.set(position.x, position.y)
             return arrow
@@ -366,12 +405,16 @@ export class OverlayContainer extends Container {
             EntityContainer.mappings.has(this.bpc.entityForCopyData.entityNumber) &&
             this.bpc.hoverContainer.entity.canPasteSettings(this.bpc.entityForCopyData)
         ) {
+            // The condition above already established the mapping exists, but the
+            // lookup has to be bound before it narrows.
             const srcEnt = EntityContainer.mappings.get(this.bpc.entityForCopyData.entityNumber)
-            this.copyCursorBox = this.createCursorBox(
-                srcEnt.position,
-                this.bpc.entityForCopyData.size,
-                'copy'
-            )
+            if (srcEnt !== undefined) {
+                this.copyCursorBox = this.createCursorBox(
+                    srcEnt.position,
+                    this.bpc.entityForCopyData.size,
+                    'copy'
+                )
+            }
         } else if (this.copyCursorBox !== undefined) {
             this.copyCursorBox.destroy()
             this.copyCursorBox = undefined
@@ -382,7 +425,7 @@ export class OverlayContainer extends Container {
         this.entityInfos.visible = !this.entityInfos.visible
     }
 
-    public createEntityInfo(entity: Entity, position: IPoint): Container {
+    public createEntityInfo(entity: Entity, position: IPoint): Container | undefined {
         try {
             const entityInfo = OverlayContainer.createEntityInfo(entity, position)
             if (entityInfo !== undefined) {
@@ -405,9 +448,7 @@ export class OverlayContainer extends Container {
         this.cursorBoxes.addChild(cursorBox)
 
         if (size.x === 1 && size.y === 1) {
-            const data = FD.utilitySprites.cursor_box[type][0].sprite
-            const texture = G.getTexture(data.filename, data.x, data.y, data.width, data.height)
-            const s = new Sprite(texture)
+            const s = new Sprite(textureOf(FD.utilitySprites.cursor_box[type][0].sprite))
             s.anchor.set(0.5, 0.5)
             cursorBox.addChild(s)
         } else {
@@ -418,10 +459,13 @@ export class OverlayContainer extends Container {
 
         function createCorners(minSideLength: number): Sprite[] {
             const boxes = FD.utilitySprites.cursor_box[type]
-            const data = (
-                boxes.find(t => t.max_side_length > minSideLength) || boxes[boxes.length - 1]
-            ).sprite
-            const texture = G.getTexture(data.filename, data.x, data.y, data.width, data.height)
+            // An entry with no max_side_length never matched before either, since
+            // `undefined > n` is false - it just falls through to the last box.
+            const box =
+                boxes.find(
+                    t => t.max_side_length !== undefined && t.max_side_length > minSideLength
+                )?.sprite ?? need(boxes[boxes.length - 1], 'sprite')
+            const texture = textureOf(box)
 
             const c0 = new Sprite(texture)
             const c1 = new Sprite(texture)
@@ -445,18 +489,26 @@ export class OverlayContainer extends Container {
         position: IPoint,
         direction: number,
         searchDirection: number
-    ): Container {
+        /*
+            undefined whenever there is no line to draw: the entity is not an
+            underground, has no partner in range, or the partner faces the same
+            way. Every caller already stores the result in a `Container |
+            undefined` field and checks it.
+        */
+    ): Container | undefined {
         const fd = FD.entities[name]
         if (fd.type === 'underground-belt' || fd.type === 'pipe-to-ground') {
-            const otherEntity = this.bpc.bp.entities.get(
-                this.bpc.bp.entityPositionGrid.getOpposingEntity(
-                    name,
-                    fd.type === 'pipe-to-ground' ? searchDirection : direction,
-                    position,
-                    searchDirection,
-                    (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
-                )
+            const opposingEntityNumber = this.bpc.bp.entityPositionGrid.getOpposingEntity(
+                name,
+                fd.type === 'pipe-to-ground' ? searchDirection : direction,
+                position,
+                searchDirection,
+                (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
             )
+            const otherEntity =
+                opposingEntityNumber === undefined
+                    ? undefined
+                    : this.bpc.bp.entities.get(opposingEntityNumber)
 
             if (otherEntity) {
                 // Return if directionTypes are the same
@@ -481,13 +533,12 @@ export class OverlayContainer extends Container {
                 lineParts.y = position.y * 32
                 this.undergroundLines.addChild(lineParts)
 
+                const data = isUndergroundBelt(fd)
+                    ? need(fd, 'underground_sprite')
+                    : FD.utilitySprites.underground_pipe_connection
+
                 for (let i = 1; i < distance; i++) {
-                    const data = isUndergroundBelt(fd)
-                        ? fd.underground_sprite
-                        : FD.utilitySprites.underground_pipe_connection
-                    const s = new Sprite(
-                        G.getTexture(data.filename, data.x, data.y, data.width, data.height)
-                    )
+                    const s = new Sprite(textureOf(data))
                     s.rotation = direction * Math.PI * 0.125
                     if (data.scale) {
                         s.scale.set(data.scale)
