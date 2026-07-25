@@ -4,7 +4,7 @@ import { EntitySprite } from './EntitySprite'
 import { PaintContainer } from './PaintContainer'
 import { PaintBlueprintEntityContainer } from './PaintBlueprintEntityContainer'
 import { BlueprintContainer } from './BlueprintContainer'
-import { IConnectionPoint } from '../core/WireConnections'
+import { IConnection } from '../core/WireConnections'
 
 export class PaintBlueprintContainer extends PaintContainer {
     private readonly bp: Blueprint
@@ -175,16 +175,21 @@ export class PaintBlueprintContainer extends PaintContainer {
             for (const [oldID] of oldEntIDToNewEntID) {
                 this.bp.wireConnections
                     .getEntityConnections(oldID)
-                    .filter(connection =>
-                        connection.cps.every(cp => oldEntIDToNewEntID.has(cp.entityNumber))
-                    )
-                    .map(connection => ({
-                        ...connection,
-                        cps: connection.cps.map(cp => ({
-                            ...cp,
-                            entityNumber: oldEntIDToNewEntID.get(cp.entityNumber),
-                        })) as [IConnectionPoint, IConnectionPoint],
-                    }))
+                    .flatMap<IConnection>(connection => {
+                        const en0 = oldEntIDToNewEntID.get(connection.cps[0].entityNumber)
+                        const en1 = oldEntIDToNewEntID.get(connection.cps[1].entityNumber)
+                        // only copy a wire when both of its ends were pasted
+                        if (en0 === undefined || en1 === undefined) return []
+                        return [
+                            {
+                                ...connection,
+                                cps: [
+                                    { ...connection.cps[0], entityNumber: en0 },
+                                    { ...connection.cps[1], entityNumber: en1 },
+                                ],
+                            },
+                        ]
+                    })
                     .forEach(conn => this.bpc.bp.wireConnections.create(conn))
             }
         }

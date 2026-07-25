@@ -1,7 +1,7 @@
 import { Container } from 'pixi.js'
 import G from '../common/globals'
 import U from '../core/generators/util'
-import { IConnection, IConnectionPoint } from '../core/WireConnections'
+import { IConnection, IDrawableConnection, IEntityConnectionPoint } from '../core/WireConnections'
 import { Entity } from '../core/Entity'
 import { EntityContainer } from './EntityContainer'
 import { PaintContainer } from './PaintContainer'
@@ -10,7 +10,8 @@ import { WireColor } from '../types'
 
 export class PaintWireContainer extends PaintContainer {
     private color: WireColor
-    private cp?: IConnectionPoint = undefined
+    /** The anchored end of the wire being dragged; the other end follows the cursor. */
+    private cp?: IEntityConnectionPoint = undefined
     /** This is only a reference */
     private cursorBox: Container
 
@@ -25,7 +26,7 @@ export class PaintWireContainer extends PaintContainer {
         this.redraw()
     }
 
-    private get entity(): Entity {
+    private get entity(): Entity | undefined {
         if (this.cp === undefined) return undefined
         return this.bpc.bp.entities.get(this.cp.entityNumber)
     }
@@ -54,27 +55,28 @@ export class PaintWireContainer extends PaintContainer {
         return this.name
     }
 
-    private updateCursorBox(): IConnectionPoint {
+    private updateCursorBox(): IEntityConnectionPoint | undefined {
         this.destroyCursorBox()
         const cursor_position = this.getGridPosition()
         const entity = this.bpc.bp.entityPositionGrid.getEntityAtPosition(cursor_position)
         if (entity === undefined) return undefined
         const ec = EntityContainer.mappings.get(entity.entityNumber)
+        if (ec === undefined) return undefined
 
         const cp = this.bpc.bp.entityPositionGrid.getConnectionPointAtPosition(
             cursor_position,
             this.color
         )
 
+        // The anchored end, if the wire already has one. It is always an entity, so
+        // reach is measured between the two entities' positions.
+        const anchor = this.entity
         let connectionsReach = true
-        if (this.cp && G.BPC.limitWireReach) {
+        if (anchor !== undefined && G.BPC.limitWireReach) {
             connectionsReach &&= U.pointInCircle(
                 entity.position,
-                this.cp.position ?? this.entity.position,
-                Math.min(
-                    entity.maxWireDistance ?? Infinity,
-                    this.entity?.maxWireDistance ?? Infinity
-                )
+                anchor.position,
+                Math.min(entity.maxWireDistance ?? Infinity, anchor.maxWireDistance ?? Infinity)
             )
         }
 
@@ -84,6 +86,7 @@ export class PaintWireContainer extends PaintContainer {
             cp === undefined ? 'not_allowed' : connectionsReach ? 'regular' : 'not_allowed'
         )
         if (connectionsReach) return cp
+        return undefined
     }
 
     private destroyCursorBox(): void {
@@ -109,19 +112,22 @@ export class PaintWireContainer extends PaintContainer {
         return false
     }
 
+    // Unreachable: BlueprintContainer only calls these when canFlipOrRotateByCopying()
+    // is true, and a wire cannot be copied
     public override rotatedEntities(_ccw?: boolean): Entity[] {
-        return undefined
+        throw new Error('A wire cannot be rotated by copying')
     }
 
     public override flippedEntities(_vertical: boolean): Entity[] {
-        return undefined
+        throw new Error('A wire cannot be flipped by copying')
     }
 
     protected override redraw(): void {
         this.updateCursorBox()
         this.bpc.wiresContainer.remove('paint-wire')
         if (this.cp) {
-            const connection: IConnection = {
+            // The far end is wherever the cursor is, so this is drawable but not storable
+            const connection: IDrawableConnection = {
                 color: this.color,
                 cps: [this.cp, { position: this.getGridPosition() }],
             }
