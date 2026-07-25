@@ -11,7 +11,7 @@ export class TrainStopEditor extends Editor {
 
         this.addLabel(140, 46, 'Station Name:')
         // The length is arbitrary, but the Textbox doesn't work right without it
-        const stationTextBox = new TextInput(G.app.renderer, 250, entity.station, 100)
+        const stationTextBox = new TextInput(G.app.renderer, 250, entity.station ?? '', 100)
         stationTextBox.position.set(140, 65)
         this.addChild(stationTextBox)
 
@@ -53,7 +53,7 @@ export class TrainStopEditor extends Editor {
         })
 
         this.onEntityChange('station', () => {
-            stationTextBox.text = this.m_Entity.station
+            stationTextBox.text = this.m_Entity.station ?? ''
         })
 
         this.onEntityChange('manualTrainsLimit', () => {

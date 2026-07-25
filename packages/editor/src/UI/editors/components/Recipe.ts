@@ -29,7 +29,7 @@ export class Recipe extends Slot<undefined> {
     }
 
     /** Update Content Icon */
-    private updateContent(recipe: string): void {
+    private updateContent(recipe: string | undefined): void {
         if (recipe === undefined) {
             if (this.content !== undefined) {
                 this.content = undefined

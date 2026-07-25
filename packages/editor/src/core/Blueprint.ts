@@ -707,11 +707,14 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         /** returns [iconName, count][] */
         const getIconPairs = (
             tilesOrEntities: (Tile | Entity)[],
-            getItemName: (name: string) => string
+            getItemName: (name: string) => string | undefined
         ): [string, number][] => [
             ...tilesOrEntities.reduce<Map<string, number>>((map, tileOrEntity) => {
                 const itemName = getItemName(tileOrEntity.name)
-                return map.set(itemName, map.has(itemName) ? map.get(itemName) + 1 : 0)
+                // nothing to show for an entity that cannot be mined into an item
+                if (itemName === undefined) return map
+                const count = map.get(itemName)
+                return map.set(itemName, count === undefined ? 0 : count + 1)
             }, new Map()),
         ]
 

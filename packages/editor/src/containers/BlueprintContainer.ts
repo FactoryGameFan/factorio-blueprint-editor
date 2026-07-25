@@ -560,9 +560,13 @@ export class BlueprintContainer extends Container {
         if (this.mode === EditorMode.EDIT) {
             const entity = this.hoverContainer.entity
             const itemName = Entity.getItemName(entity.name)
-            const direction =
-                entity.directionType === 'output' ? (entity.direction + 8) % 16 : entity.direction
-            this.spawnPaintContainer(itemName, direction)
+            if (itemName !== undefined) {
+                const direction =
+                    entity.directionType === 'output'
+                        ? (entity.direction + 8) % 16
+                        : entity.direction
+                this.spawnPaintContainer(itemName, direction)
+            }
         } else if (this.mode === EditorMode.PAINT) {
             this.paintContainer.destroy()
         }

@@ -378,8 +378,11 @@ export class PositionGrid {
         direction: number,
         position: IPoint,
         searchDirection: number,
-        maxDistance: number
+        maxDistance: number | undefined
     ): number | undefined {
+        // no reach to search along; the loop below already expressed this by not running
+        if (maxDistance === undefined) return undefined
+
         const horizontal = searchDirection % 4 !== 0
         const sign = searchDirection === 0 || searchDirection === 6 ? -1 : 1
 
