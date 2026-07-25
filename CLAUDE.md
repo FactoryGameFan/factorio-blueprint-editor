@@ -144,7 +144,7 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 
 **Structure:**
 
-- `playwright.config.ts` - Config (base URL localhost:8080, 120s timeout, single worker)
+- `playwright.config.ts` - Config (base URL localhost:8080 unless `FBE_BASE_URL` is set, 120s timeout, single worker)
 - `tests/blueprint-loading.spec.ts` - Main test file - iterates blueprints, uses `window.__fbe_test` API to load directly
 - `tests/position-grid.spec.ts` - Exercises `PositionGrid` queries and the setTileData/removeTileData round trip against a real loaded blueprint (the class is core to placement and cannot be unit tested without FD data loaded)
 - `tests/sprite-generation.spec.ts` - Two halves. One builds a synthetic blueprint holding every entity in `data.json` at the four cardinal directions (`tests/helpers/all-entities-blueprint.ts`); the other loads the real bases, which is where the neighbour-dependent branches (pipe junctions, belt corners, undergrounds) and modules get exercised. Both assert against a pinned list of entity types that fail today
@@ -162,7 +162,14 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 - Terminal 1: `cd packages/website && vp dev` (Vite on port 8080)
 - Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
 
-Start them in that order and check the port Vite reports. If something else already holds 8080, Vite silently falls back to 8081 and then proxies `/data` to itself, which looks like the sprite server failing rather than a port clash. Pin it with `vp dev --port 8080 --strictPort` to get a clear failure instead, and note `playwright.config.ts` hardcodes `baseURL` to 8080.
+Start them in that order and check the port Vite reports. If something else already holds 8080, Vite silently falls back to 8081 and then proxies `/data` to itself, which looks like the sprite server failing rather than a port clash. Pin it with `vp dev --port 8080 --strictPort` to get a clear failure instead.
+
+If 8080 is taken, run Vite elsewhere and point the specs at it with `FBE_BASE_URL` rather than editing `playwright.config.ts`. The sprite data server must stay on 8081 either way - the Vite dev proxy hardcodes it.
+
+```fish
+cd packages/website; vp dev --port 8090 --strictPort
+FBE_BASE_URL=http://localhost:8090 npx playwright test
+```
 
 **Reports** are written to `diagnostic-reports/blueprint-diagnostics.json` and `diagnostic-reports/blueprint-diagnostics.md` (gitignored).
 

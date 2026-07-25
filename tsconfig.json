@@ -30,6 +30,10 @@
             "@fbe/*": ["./packages/*/src/index.ts"]
         },
 
-        "types": ["vite-plus/client", "typed-factorio/prototype"]
+        // "node" is for the Playwright specs, their helpers and playwright.config.ts,
+        // which read process.env / cwd and use zlib + Buffer. The editor project
+        // narrows this list back to typed-factorio only, so browser code cannot
+        // reach node globals - see packages/editor/tsconfig.json.
+        "types": ["vite-plus/client", "typed-factorio/prototype", "node"]
     }
 }
