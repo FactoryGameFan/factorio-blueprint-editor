@@ -73,6 +73,8 @@ Vite dev server runs on port 8080. In dev mode, `/data` is proxied to `http://12
 - `packages/editor/src/core/Blueprint.ts` - Blueprint data model, entity creation, wire connections.
 - `packages/editor/src/core/PositionGrid.ts` - Spatial index behind placement, overlap rules and neighbour lookups. It stores entity numbers, not entities: `setTileData`/`removeTileData` keep it in lockstep with `Blueprint.entities` via `onCreateOrRemoveEntity`, and `entityAt()` throws if the two ever drift.
 - `packages/editor/src/core/generators/` - Oil outpost generators (pipe, beacon, pole). Untested geometry until recently; `generators.test.ts` pins their output against a committed fixture, so a diff there means a refactor changed generated layouts.
+- `packages/editor/src/core/WireConnections.ts` - Wire data model. A connection point is either `IEntityConnectionPoint` (anchored to an entity) or `ILooseConnectionPoint` (a bare position, produced only by `PaintWireContainer` for the end following the cursor). `IConnection` has two anchored ends and is what gets stored, hashed and serialized; `IDrawableConnection` is the wider type `WiresContainer.add` accepts. `hash()` sorts `cps` in place on purpose - that normalisation is load-bearing.
+- `packages/editor/src/core/WireConnectionMap.ts` - Stores wires twice: hash -> connection, plus an entity number -> hashes index. `get`/`getEntityConnections` throw if the two drift, same signal `PositionGrid.entityAt` gives. Note a self-connection is indexed once, not twice.
 - `packages/editor/src/containers/EntitySprite.ts` - Creates PixiJS sprites from sprite data. `getParts()` is the main entry point.
 - `packages/editor/src/containers/BlueprintContainer.ts` - Main rendering container. `spawnPaintContainer()` handles entity placement from inventory.
 - `packages/editor/src/containers/EntityContainer.ts` - Per-entity container, calls `EntitySprite.getParts()` in `redraw()`.
@@ -141,6 +143,7 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 - `playwright.config.ts` - Config (base URL localhost:8080, 120s timeout, single worker)
 - `tests/blueprint-loading.spec.ts` - Main test file - iterates blueprints, uses `window.__fbe_test` API to load directly
 - `tests/position-grid.spec.ts` - Exercises `PositionGrid` queries and the setTileData/removeTileData round trip against a real loaded blueprint (the class is core to placement and cannot be unit tested without FD data loaded)
+- `tests/wire-connections.spec.ts` - Checks the connection map agrees with its entity index, that `serializeBpWires` resolves every endpoint, and that remove/re-create reproduces the wire set. Also needs FD loaded. The static `serialize`/`deserialize` are unit tested in `packages/editor/src/core/WireConnections.test.ts` instead - those need no FD
 - `tests/helpers/blueprint-files.ts` - Discovers `.txt` files from `wormeyman-tests/{collection}/`
 - `tests/helpers/report-generator.ts` - Generates JSON + markdown reports to `diagnostic-reports/`
 
@@ -152,6 +155,8 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 
 - Terminal 1: `cd packages/website && vp dev` (Vite on port 8080)
 - Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
+
+Start them in that order and check the port Vite reports. If something else already holds 8080, Vite silently falls back to 8081 and then proxies `/data` to itself, which looks like the sprite server failing rather than a port clash. Pin it with `vp dev --port 8080 --strictPort` to get a clear failure instead, and note `playwright.config.ts` hardcodes `baseURL` to 8080.
 
 **Reports** are written to `diagnostic-reports/blueprint-diagnostics.json` and `diagnostic-reports/blueprint-diagnostics.md` (gitignored).
 
@@ -180,5 +185,5 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 - Complex visualizations (crane arms, plasma effects, thruster flames) show only static base sprites
 - Blueprint book icons using planet names show no icon
 - Some entity types may have missing or incorrectly mapped textures
-- TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json). Most of what is left sits in `spriteDataBuilder.ts` and is the same problem viewed through `strictNullChecks` - see issue #22 for the plan and the current count
+- TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json). Most of what is left sits in `spriteDataBuilder.ts` (326 of the 562) and is the same problem viewed through `strictNullChecks` - see issue #22 for the plan and the current count
 - Mobile is view-only - no editing, inventory, or keyboard shortcuts
