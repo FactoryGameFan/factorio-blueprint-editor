@@ -166,7 +166,7 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
             .sort((a, b) => a.distFromMidOfConsumers - b.distFromMidOfConsumers)
             .sort((a, b) => b.powerGiven - a.powerGiven)
 
-        const pole = possiblePoles.shift()
+        const pole = U.shiftFirst(possiblePoles, 'a candidate pole position')
         poles.push(pole)
 
         const toRemove = pole.poweredEntityAreas.flatMap(area => {
@@ -195,7 +195,7 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
     let groups: IGroup[] = []
     const addedPoles: IPole[] = []
     while (lines.length) {
-        const l = lines.shift()
+        const l = U.shiftFirst(lines, 'a line to form a pole group from')
         const g1 = groups.find(g => g.poles.includes(l[0]))
         const g2 = groups.find(g => g.poles.includes(l[1]))
 
@@ -249,7 +249,7 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
 
     // CONNECT GROUPS
     const connectionPoles: IPoint[] = []
-    let finalGroup: IGroup
+    let finalGroup: IGroup | undefined
     while (groups.length) {
         for (const g of groups) {
             g.x = g.poles.reduce((acc, e) => acc + e.x, 0) / g.poles.length
@@ -258,7 +258,7 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
         groups = groups.sort((a, b) => a.poles.length - b.poles.length)
 
         const groupsCopy = [...groups]
-        const group = groups.shift()
+        const group = U.shiftFirst(groups, 'a pole group to connect')
         if (!groups.length) {
             finalGroup = group
             break
@@ -266,7 +266,10 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
 
         const DATA = U.pointsToLines(groupsCopy)
             .filter(l => l.includes(group))
+            // a line whose two ends are the same group offers nothing to connect to,
+            // which pointsToLines produces when groups share a centre point
             .map(l => l.find(g => g !== group))
+            .filter(g => g !== undefined)
             .map(otherGroup => {
                 const shortestLine = U.pointsToLines([...group.poles, ...otherGroup.poles])
                     // filter out lines that are in the same group
@@ -283,8 +286,16 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
                     }))
                     .sort((a, b) => a.dist - b.dist)[0]
 
-                const g1pole = shortestLine.poles.find(p => group.poles.includes(p))
-                const g2pole = shortestLine.poles.find(p => otherGroup.poles.includes(p))
+                // same-group lines were filtered out above, so the shortest line has
+                // exactly one end in each group
+                const g1pole = U.expectFound(
+                    shortestLine.poles.find(p => group.poles.includes(p)),
+                    'the end of the shortest line belonging to the current group'
+                )
+                const g2pole = U.expectFound(
+                    shortestLine.poles.find(p => otherGroup.poles.includes(p)),
+                    'the end of the shortest line belonging to the other group'
+                )
 
                 const betweenG1AndG2Poles = {
                     x: (g1pole.x + g2pole.x) / 2,
@@ -325,12 +336,17 @@ export function generatePoles(entities: { position: IPoint; size: number; power:
 
     addVisualization(connectionPoles, 16, 1, 0x8a2be2)
 
+    // The loop above only ends by draining `groups`, and the one path that drains it
+    // assigns finalGroup. `groups` is non-empty on entry because every pole that did
+    // not join a line group is added above as a group of its own.
+    const mainGroup = U.expectFound(finalGroup, 'a pole group to draw the power network from')
+
     const info = {
-        totalPoles: finalGroup.poles.length,
+        totalPoles: mainGroup.poles.length,
     }
 
     return {
-        poles: finalGroup.poles.map(p => ({
+        poles: mainGroup.poles.map(p => ({
             name: 'medium-electric-pole',
             position: { x: p.x + 0.5, y: p.y + 0.5 },
         })),

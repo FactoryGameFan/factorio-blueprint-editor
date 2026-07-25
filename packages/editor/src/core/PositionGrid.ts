@@ -15,7 +15,8 @@ interface IArea {
 
 interface INeighbourData extends IPoint {
     relDir: number
-    entity: Entity
+    /** undefined when the neighbouring cell is empty */
+    entity: Entity | undefined
 }
 
 /** Moves X and Y to top left corner from middle (anchor 0.5 0.5 => 0 0) */
@@ -33,11 +34,36 @@ export class PositionGrid {
         this.bp = bp
     }
 
+    /**
+     * Resolves an entity number held in the grid.
+     *
+     * The grid is an index into `bp.entities`, not an independent store: numbers
+     * only enter it through setTileData and leave through removeTileData, both of
+     * which Blueprint drives from the single onCreateOrRemoveEntity hook. So a
+     * number sitting in a cell always has a live entity behind it, and a miss means
+     * the two have drifted apart rather than that the caller asked for something
+     * reasonable.
+     */
+    private entityAt(entityNumber: number): Entity {
+        const entity = this.bp.entities.get(entityNumber)
+        if (entity === undefined) {
+            throw new Error(
+                `Position grid references entity ${entityNumber}, which is not in the blueprint`
+            )
+        }
+        return entity
+    }
+
+    /**
+     * Visits the occupied cells of an area, stopping early if fn returns true.
+     *
+     * Empty cells are skipped, which is what lets every caller here treat a cell as
+     * present. The one caller that needs to see the gaps uses eachCellIncludingEmpty.
+     */
     private tileDataAction(
         area: IArea,
         // oxlint-disable-next-line @typescript-eslint/no-invalid-void-type -- callback returns true to stop iteration, or nothing to continue
-        fn: (key: string, cell: number | number[]) => boolean | void,
-        returnEmptyCells = false
+        fn: (key: string, cell: number | number[]) => boolean | void
     ): void {
         const A = processArea(area)
 
@@ -46,7 +72,7 @@ export class PositionGrid {
             for (let y = A.y, maxY = A.y + A.h; y < maxY; y++) {
                 const key = `${x},${y}`
                 const cell = this.grid.get(key)
-                if (cell || returnEmptyCells) {
+                if (cell) {
                     stop = !!fn(key, cell)
                 }
                 if (stop) {
@@ -59,18 +85,38 @@ export class PositionGrid {
         }
     }
 
-    public getEntityAtPosition(position: IPoint): Entity {
-        const cell = this.grid.get(`${Math.floor(position.x)},${Math.floor(position.y)}`)
-        if (cell) {
-            if (typeof cell === 'number') {
-                return this.bp.entities.get(cell)
-            } else {
-                return this.bp.entities.get(cell[cell.length - 1])
+    /** Visits every cell of an area, handing over undefined for the empty ones */
+    private eachCellIncludingEmpty(
+        area: IArea,
+        fn: (key: string, cell: number | number[] | undefined) => void
+    ): void {
+        const A = processArea(area)
+
+        for (let x = A.x, maxX = A.x + A.w; x < maxX; x++) {
+            for (let y = A.y, maxY = A.y + A.h; y < maxY; y++) {
+                const key = `${x},${y}`
+                fn(key, this.grid.get(key))
             }
         }
     }
 
-    public getConnectionPointAtPosition(position: IPoint, color: string): IConnectionPoint {
+    /** Returns the topmost entity covering the position, or undefined if it is empty */
+    public getEntityAtPosition(position: IPoint): Entity | undefined {
+        const cell = this.grid.get(`${Math.floor(position.x)},${Math.floor(position.y)}`)
+        if (cell) {
+            if (typeof cell === 'number') {
+                return this.entityAt(cell)
+            } else {
+                return this.entityAt(cell[cell.length - 1])
+            }
+        }
+        return undefined
+    }
+
+    public getConnectionPointAtPosition(
+        position: IPoint,
+        color: string
+    ): IConnectionPoint | undefined {
         const entity = this.getEntityAtPosition(position)
         if (entity === undefined) return undefined
         const rel_position = util.sumprod(position, -1, entity.position)
@@ -85,6 +131,7 @@ export class PositionGrid {
                 entitySide: side,
             }
         }
+        return undefined
     }
 
     public setTileData(entity: Entity, position: IPoint = entity.position): void {
@@ -92,7 +139,7 @@ export class PositionGrid {
         //     return
         // }
 
-        this.tileDataAction(
+        this.eachCellIncludingEmpty(
             {
                 x: position.x,
                 y: position.y,
@@ -107,8 +154,8 @@ export class PositionGrid {
                     ]
                         // Sort entities by their size
                         .sort((a, b) => {
-                            const sA = this.bp.entities.get(a).size
-                            const sB = this.bp.entities.get(b).size
+                            const sA = this.entityAt(a).size
+                            const sB = this.entityAt(b).size
                             return sB.x * sB.y - sA.x * sA.y
                         })
 
@@ -116,8 +163,7 @@ export class PositionGrid {
                 } else {
                     this.grid.set(key, entity.entityNumber)
                 }
-            },
-            true
+            }
         )
     }
 
@@ -140,10 +186,8 @@ export class PositionGrid {
                         if (cell.length === 1) {
                             this.grid.delete(key)
                         } else if (cell.length === 2) {
-                            this.grid.set(
-                                key,
-                                cell.find((_, k) => k !== res)
-                            )
+                            // the pair collapses to whichever of the two is not `res`
+                            this.grid.set(key, cell[res === 0 ? 1 : 0])
                         } else {
                             this.grid.set(
                                 key,
@@ -168,9 +212,9 @@ export class PositionGrid {
 
         const straightRails: Entity[] = []
         const halfDiagonalRails: Entity[] = []
-        let gate: Entity
-        let curvedRail: Entity
-        let signal: Entity
+        let gate: Entity | undefined
+        let curvedRail: Entity | undefined
+        let signal: Entity | undefined
         let otherEntities = false
 
         const area = {
@@ -271,7 +315,11 @@ export class PositionGrid {
         return false
     }
 
-    public checkFastReplaceableGroup(name: string, direction: number, pos: IPoint): Entity {
+    public checkFastReplaceableGroup(
+        name: string,
+        direction: number,
+        pos: IPoint
+    ): Entity | undefined {
         const fd = FD.entities[name]
         const size = getEntitySize(fd, direction)
         const area = {
@@ -281,16 +329,13 @@ export class PositionGrid {
             h: size.y,
         }
 
-        if (this.sharesCell(area)) return
-        const entity = this.findInArea(
-            area,
-            entity =>
-                entity.name !== name &&
-                entity.entityData.fast_replaceable_group &&
-                fd.fast_replaceable_group &&
-                entity.entityData.fast_replaceable_group === fd.fast_replaceable_group
-        )
-        if (!entity || pos.x !== entity.position.x || pos.y !== entity.position.y) return
+        if (this.sharesCell(area)) return undefined
+        const entity = this.findInArea(area, entity => {
+            const group = entity.entityData.fast_replaceable_group
+            // both being absent must not read as a match, hence the truthiness check
+            return entity.name !== name && !!group && group === fd.fast_replaceable_group
+        })
+        if (!entity || pos.x !== entity.position.x || pos.y !== entity.position.y) return undefined
         return entity
     }
 
@@ -344,7 +389,7 @@ export class PositionGrid {
             const cell = this.grid.get(`${X},${Y}`)
 
             if (typeof cell === 'number') {
-                const entity = this.bp.entities.get(cell)
+                const entity = this.entityAt(cell)
                 if (entity.name === name) {
                     if (entity.direction === direction) return cell
                     if ((entity.direction + 8) % 16 === direction) return undefined
@@ -376,18 +421,19 @@ export class PositionGrid {
         return empty
     }
 
-    public findInArea(area: IArea, fn: (entity: Entity) => boolean): Entity {
-        let entity: Entity
+    /** Returns the first entity in the area matching fn, or undefined if none does */
+    public findInArea(area: IArea, fn: (entity: Entity) => boolean): Entity | undefined {
+        let entity: Entity | undefined
         this.tileDataAction(area, (_, cell) => {
             if (typeof cell === 'number') {
-                const ent = this.bp.entities.get(cell)
+                const ent = this.entityAt(cell)
                 if (fn(ent)) {
                     entity = ent
                     return true
                 }
             } else {
                 for (const v of cell) {
-                    const ent = this.bp.entities.get(v)
+                    const ent = this.entityAt(v)
                     if (fn(ent)) {
                         entity = ent
                         return true
@@ -403,10 +449,10 @@ export class PositionGrid {
         const entities = new Set<Entity>()
         this.tileDataAction(area, (_, cell) => {
             if (typeof cell === 'number') {
-                entities.add(this.bp.entities.get(cell))
+                entities.add(this.entityAt(cell))
             } else {
                 for (const v of cell) {
-                    entities.add(this.bp.entities.get(v))
+                    entities.add(this.entityAt(v))
                 }
             }
         })
@@ -446,7 +492,7 @@ export class PositionGrid {
                     return acc
                 }, [])
             )
-            .map(entNr => this.bp.entities.get(entNr))
+            .map(entNr => this.entityAt(entNr))
     }
 
     public getNeighbourData(point: IPoint): INeighbourData[] {
@@ -460,7 +506,7 @@ export class PositionGrid {
             const y = Math.floor(point.y) + o.y
             const cell = this.grid.get(`${x},${y}`)
             const entity = cell
-                ? this.bp.entities.get(typeof cell === 'number' ? cell : cell[cell.length - 1])
+                ? this.entityAt(typeof cell === 'number' ? cell : cell[cell.length - 1])
                 : undefined
             return { x, y, relDir: i * 4, entity }
         })

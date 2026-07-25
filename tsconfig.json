@@ -13,14 +13,17 @@
 
         // Incrementally migrating to full `strict` (TS7 defaults it true). The
         // umbrella stays off; sub-flags are enabled one batch at a time as the
-        // codebase is cleaned. Remaining before `strict: true`: strictNullChecks
-        // (~784) and strictPropertyInitialization (~1). See type-check-baseline.json.
+        // codebase is cleaned. `strictNullChecks` is now on with its errors
+        // ratcheted down via scripts/type-check-baseline.json; once that reaches 0,
+        // `strictPropertyInitialization` (~1 error) rides along and `strict: true`
+        // replaces this whole block. See issue #22.
         "strict": false,
         "noImplicitThis": true,
         "alwaysStrict": true,
         "useUnknownInCatchVariables": true,
         "strictBindCallApply": true,
         "strictFunctionTypes": true,
+        "strictNullChecks": true,
         "noImplicitAny": true,
 
         "paths": {
