@@ -7,15 +7,38 @@ import { WireConnectionMap } from './WireConnectionMap'
 
 const MAX_POLE_CONNECTION_COUNT = 5
 
-export interface IConnection {
-    color: WireColor
-    cps: [IConnectionPoint, IConnectionPoint]
+/** A wire endpoint anchored to one of an entity's connection points. */
+export interface IEntityConnectionPoint {
+    entityNumber: number
+    entitySide: number
 }
 
-export interface IConnectionPoint {
-    entityNumber?: number
-    entitySide?: number
-    position?: IPoint
+/**
+ * A wire endpoint that is a bare world position. Only the wire currently being
+ * dragged has one - it is where the cursor is, before the far end is anchored.
+ */
+export interface ILooseConnectionPoint {
+    position: IPoint
+}
+
+export type IConnectionPoint = IEntityConnectionPoint | ILooseConnectionPoint
+
+/**
+ * A wire between two entities. This is what gets stored, hashed and serialized,
+ * so both ends are always anchored.
+ */
+export interface IConnection {
+    color: WireColor
+    cps: [IEntityConnectionPoint, IEntityConnectionPoint]
+}
+
+/**
+ * A wire that can be drawn but not necessarily stored, because one end may still
+ * be a loose position. Every IConnection is also drawable.
+ */
+export interface IDrawableConnection {
+    color: WireColor
+    cps: [IConnectionPoint, IConnectionPoint]
 }
 
 export interface WireConnectionsEvents {
@@ -33,6 +56,8 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
     }
 
     private static hash(conn: IConnection): string {
+        // Sorts in place on purpose: this normalises the connection before it is
+        // stored, so cps[0] is always the lower entity number afterwards.
         const cps = conn.cps.sort(
             (cp1, cp2) => cp1.entityNumber - cp2.entityNumber || cp1.entitySide - cp2.entitySide
         )
@@ -43,61 +68,64 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
 
     public static deserialize(
         entityNumber: number,
-        connections: IBPConnection,
-        neighbours: number[]
+        connections: IBPConnection | undefined,
+        neighbours: number[] | undefined
     ): IConnection[] {
         const parsedConnections: IConnection[] = []
 
-        const addConnSide = (side: '1' | '2'): void => {
-            if (connections[side]) {
-                for (const c in connections[side]) {
-                    const color = c as WireColor
-                    const conn = connections[side]
-                    for (const data of conn[color]) {
-                        parsedConnections.push({
-                            color,
-                            cps: [
-                                {
-                                    entityNumber: entityNumber,
-                                    entitySide: Number(side),
-                                },
-                                {
-                                    entityNumber: data.entity_id,
-                                    entitySide: data.circuit_id || 1,
-                                },
-                            ],
-                        })
-                    }
+        const addConnSide = (connSide: IConnSide | undefined, side: '1' | '2'): void => {
+            if (connSide === undefined) return
+            for (const c in connSide) {
+                const color = c as WireColor
+                const wires = connSide[color]
+                if (wires === undefined) continue
+                for (const data of wires) {
+                    parsedConnections.push({
+                        color,
+                        cps: [
+                            {
+                                entityNumber: entityNumber,
+                                entitySide: Number(side),
+                            },
+                            {
+                                entityNumber: data.entity_id,
+                                entitySide: data.circuit_id || 1,
+                            },
+                        ],
+                    })
                 }
             }
         }
 
-        const addCopperConnSide = (side: 'Cu0' | 'Cu1', color: WireColor): void => {
-            if (connections[side]) {
-                // For some reason Cu0 and Cu1 are arrays but the switch can only have 1 copper connection
-                const data = (connections[side] as IWireColor[])[0]
-                parsedConnections.push({
-                    color,
-                    cps: [
-                        {
-                            entityNumber: entityNumber,
-                            entitySide: Number(side.slice(2, 3)) + 1,
-                        },
-                        {
-                            entityNumber: data.entity_id,
-                            entitySide: 1,
-                        },
-                    ],
-                })
-            }
+        const addCopperConnSide = (
+            wires: IWireColor[] | undefined,
+            side: 'Cu0' | 'Cu1',
+            color: WireColor
+        ): void => {
+            // For some reason Cu0 and Cu1 are arrays but the switch can only have 1 copper connection
+            const data = wires?.[0]
+            if (data === undefined) return
+            parsedConnections.push({
+                color,
+                cps: [
+                    {
+                        entityNumber: entityNumber,
+                        entitySide: Number(side.slice(2, 3)) + 1,
+                    },
+                    {
+                        entityNumber: data.entity_id,
+                        entitySide: 1,
+                    },
+                ],
+            })
         }
 
         if (connections) {
-            addConnSide('1')
-            addConnSide('2')
+            addConnSide(connections['1'], '1')
+            addConnSide(connections['2'], '2')
             // power_switch only connections
-            addCopperConnSide('Cu0', 'copper')
-            addCopperConnSide('Cu1', 'copper')
+            addCopperConnSide(connections.Cu0, 'Cu0', 'copper')
+            addCopperConnSide(connections.Cu1, 'Cu1', 'copper')
         }
 
         if (neighbours) {
@@ -115,13 +143,16 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         connections: IConnection[],
         getType: (entityNumber: number) => string,
         entNrWhitelist?: Set<number>
-    ): { connections: IBPConnection; neighbours: number[] } {
+    ): { connections: IBPConnection | undefined; neighbours: number[] | undefined } {
         const serialized: IBPConnection = {}
         const neighbours: number[] = []
 
         for (const connection of connections) {
             const isEntity0 = connection.cps[0].entityNumber === entityNumber
-            const [thisE, otherE] = isEntity0 ? connection.cps : connection.cps.reverse()
+            // Not connection.cps.reverse() - that reordered the caller's connection in place
+            const [thisE, otherE] = isEntity0
+                ? connection.cps
+                : [connection.cps[1], connection.cps[0]]
             const entitySide = thisE.entitySide
             const color = connection.color
 
@@ -132,25 +163,29 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                     neighbours.push(otherE.entityNumber)
                 } else if (getType(entityNumber) === 'power-switch') {
                     const SIDE = `Cu${entitySide - 1}` as 'Cu0' | 'Cu1'
-                    if (serialized[SIDE] === undefined) {
-                        serialized[SIDE] = []
+                    let wires = serialized[SIDE]
+                    if (wires === undefined) {
+                        wires = []
+                        serialized[SIDE] = wires
                     }
-                    const c = serialized[SIDE] as IWireColor[]
-                    c.push({
+                    wires.push({
                         entity_id: otherE.entityNumber,
                         wire_id: 0,
                     })
                 }
             } else if (color === 'red' || color === 'green') {
                 const sideKey = entitySide as 1 | 2
-                if (serialized[sideKey] === undefined) {
-                    serialized[sideKey] = {}
+                let side = serialized[sideKey]
+                if (side === undefined) {
+                    side = {}
+                    serialized[sideKey] = side
                 }
-                const SIDE = serialized[sideKey] as IConnSide
-                if (SIDE[color] === undefined) {
-                    SIDE[color] = []
+                let wires = side[color]
+                if (wires === undefined) {
+                    wires = []
+                    side[color] = wires
                 }
-                SIDE[color].push({
+                wires.push({
                     entity_id: otherE.entityNumber,
                     circuit_id: otherE.entitySide,
                 })
@@ -204,7 +239,7 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
             .commit()
     }
 
-    private onCreateOrRemoveConnection(newValue: IConnection, oldValue: IConnection): void {
+    private onCreateOrRemoveConnection(newValue?: IConnection, oldValue?: IConnection): void {
         if (newValue) {
             this.emit('create', WireConnections.hash(newValue), newValue)
         } else if (oldValue) {
@@ -212,8 +247,13 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         }
     }
 
+    /** The hash must be one that getEntityConnectionHashes handed out. */
     public get(hash: string): IConnection {
-        return this.connections.get(hash)
+        const connection = this.connections.get(hash)
+        if (connection === undefined) {
+            throw new Error(`Connection ${hash} is indexed but missing from the connection map`)
+        }
+        return connection
     }
 
     public forEach(fn: (value: IConnection, key: string) => void): void {
@@ -351,30 +391,45 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         for (const conn of this.connections.values()) {
             const en0 = conn.cps[0].entityNumber
             const en1 = conn.cps[1].entityNumber
-            const id0 = getId(this.bp.entities.get(en0).type, conn.color, conn.cps[0].entitySide)
-            const id1 = getId(this.bp.entities.get(en1).type, conn.color, conn.cps[1].entitySide)
+            const id0 = getId(this.entityType(en0), conn.color, conn.cps[0].entitySide)
+            const id1 = getId(this.entityType(en1), conn.color, conn.cps[1].entitySide)
             wires.push([en0, id0, en1, id1])
         }
         return wires
+    }
+
+    /**
+     * Throws rather than skipping the wire: a connection to an entity the blueprint
+     * does not have cannot be serialized, and dropping it would silently export a
+     * blueprint that is missing wires.
+     */
+    private entityType(entityNumber: number): string {
+        const entity = this.bp.entities.get(entityNumber)
+        if (entity === undefined) {
+            throw new Error(
+                `Wire connects to entity ${entityNumber}, which is not in the blueprint`
+            )
+        }
+        return entity.type
     }
 
     // pre 2.0
     public serializeConnectionData(
         entityNumber: number,
         entNrWhitelist?: Set<number>
-    ): { connections: IBPConnection; neighbours: number[] } {
+    ): { connections: IBPConnection | undefined; neighbours: number[] | undefined } {
         const connections = this.getEntityConnections(entityNumber)
         return WireConnections.serialize(
             entityNumber,
             connections,
-            entityNumber => this.bp.entities.get(entityNumber).type,
+            entityNumber => this.entityType(entityNumber),
             entNrWhitelist
         )
     }
 
     public connectPowerPole(entityNumber: number): void {
         const entity = this.bp.entities.get(entityNumber)
-        if (entity.type !== 'electric-pole') return
+        if (entity === undefined || entity.type !== 'electric-pole') return
 
         const areaSize = (entity.maxWireDistance + 1) * 2
 
@@ -479,11 +534,11 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
             .filter(lines => lines.length === 3)
             .map(lines => lines.map(hashPoleSet))
 
-        const finalPoleSets: IPole[][] = []
+        const finalPoleSets: [IPole, IPole][] = []
         const addedMap: Set<string> = new Set()
 
-        while (poleSets.length) {
-            const poleSet = poleSets.shift()
+        let poleSet: [IPole, IPole] | undefined
+        while ((poleSet = poleSets.shift()) !== undefined) {
             const hash = hashPoleSet(poleSet)
 
             const formsATriangle = hashedTriangles
@@ -520,7 +575,10 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
 
         if (points.length === 0) return 0
 
-        return getPowerPoleRotation(this.bp.entities.get(entityNumber).position, points)
+        const pole = this.bp.entities.get(entityNumber)
+        if (pole === undefined) return 0
+
+        return getPowerPoleRotation(pole.position, points)
 
         function getPowerPoleRotation(centre: IPoint, points: IPoint[]): number {
             const sectorSum = points

@@ -1,7 +1,13 @@
 import { Container, Graphics, RenderTexture, Sprite } from 'pixi.js'
 import { Blueprint } from '../core/Blueprint'
-import { IConnection, IConnectionPoint } from '../core/WireConnections'
+import {
+    IConnection,
+    IConnectionPoint,
+    IDrawableConnection,
+    IEntityConnectionPoint,
+} from '../core/WireConnections'
 import U from '../core/generators/util'
+import { Entity } from '../core/Entity'
 import { IPoint, WireColor } from '../types'
 import { EntityContainer } from './EntityContainer'
 import G from '../common/globals'
@@ -105,7 +111,7 @@ export class WiresContainer extends Container {
         this.updateConnectedEntities(connection)
     }
 
-    public add(hash: string, connection: IConnection): void {
+    public add(hash: string, connection: IDrawableConnection): void {
         const sprite = this.getWireSprite(connection)
         this.addChild(sprite)
         this.connectionToSprite.set(hash, sprite)
@@ -128,7 +134,7 @@ export class WiresContainer extends Container {
                     ? conn.cps[1].entityNumber
                     : conn.cps[0].entityNumber
             const ec = EntityContainer.mappings.get(entNr)
-            if (ec.entity.type === 'electric-pole') {
+            if (ec?.entity.type === 'electric-pole') {
                 ec.redraw()
                 this.redrawEntityConnections(entNr)
             }
@@ -139,8 +145,7 @@ export class WiresContainer extends Container {
 
     private updateConnectedEntities(connection: IConnection): void {
         for (const cp of connection.cps) {
-            const ec = EntityContainer.mappings.get(cp.entityNumber)
-            ec.redraw()
+            EntityContainer.mappings.get(cp.entityNumber)?.redraw()
             this.update(cp.entityNumber)
         }
     }
@@ -155,39 +160,39 @@ export class WiresContainer extends Container {
         }
     }
 
-    private getWireSprite(connection: IConnection): Sprite {
+    private entityOf(cp: IEntityConnectionPoint): Entity {
+        const entity = this.bp.entities.get(cp.entityNumber)
+        if (entity === undefined) {
+            throw new Error(
+                `Wire connects to entity ${cp.entityNumber}, which is not in the blueprint`
+            )
+        }
+        return entity
+    }
+
+    private getWireSprite(connection: IDrawableConnection): Sprite {
         const getWirePos = (cp: IConnectionPoint, color: string): IPoint => {
-            if (cp.entityNumber) {
-                const entity = this.bp.entities.get(cp.entityNumber)
-                const point = entity.getWireConnectionPoint(color, cp.entitySide)
-                if (!point) {
-                    throw new Error('Could not find the wire connection point!')
-                }
-                return {
-                    x: (entity.position.x + point[0]) * 32,
-                    y: (entity.position.y + point[1]) * 32,
-                }
-            } else if (cp.position) {
+            if ('position' in cp) {
                 return {
                     x: cp.position.x * 32,
                     y: cp.position.y * 32,
                 }
             }
-        }
-        const getPos = (cp: IConnectionPoint): IPoint => {
-            if (cp.entityNumber) {
-                const entity = this.bp.entities.get(cp.entityNumber)
-                return entity.position
-            } else if (cp.position) {
-                return cp.position
+            const entity = this.entityOf(cp)
+            const point = entity.getWireConnectionPoint(color, cp.entitySide)
+            if (!point) {
+                throw new Error('Could not find the wire connection point!')
+            }
+            return {
+                x: (entity.position.x + point[0]) * 32,
+                y: (entity.position.y + point[1]) * 32,
             }
         }
-        const getMaxWireDistance = (cp: IConnectionPoint): number => {
-            if (cp.entityNumber) {
-                const entity = this.bp.entities.get(cp.entityNumber)
-                return entity.maxWireDistance
-            }
-        }
+        const getPos = (cp: IConnectionPoint): IPoint =>
+            'position' in cp ? cp.position : this.entityOf(cp).position
+        /** A loose end has no reach of its own; only the anchored ends constrain it. */
+        const getMaxWireDistance = (cp: IConnectionPoint): number | undefined =>
+            'position' in cp ? undefined : this.entityOf(cp).maxWireDistance
         const connectionsReach = U.pointInCircle(
             getPos(connection.cps[0]),
             getPos(connection.cps[1]),

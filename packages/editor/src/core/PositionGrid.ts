@@ -3,7 +3,7 @@ import { IPoint } from '../types'
 import FD, { getEntitySize } from './factorioData'
 import { Blueprint } from './Blueprint'
 import { Entity } from './Entity'
-import { IConnectionPoint } from './WireConnections'
+import { IEntityConnectionPoint } from './WireConnections'
 
 /** Anchor is in the middle */
 interface IArea {
@@ -116,7 +116,7 @@ export class PositionGrid {
     public getConnectionPointAtPosition(
         position: IPoint,
         color: string
-    ): IConnectionPoint | undefined {
+    ): IEntityConnectionPoint | undefined {
         const entity = this.getEntityAtPosition(position)
         if (entity === undefined) return undefined
         const rel_position = util.sumprod(position, -1, entity.position)
