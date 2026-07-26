@@ -929,6 +929,15 @@ export class BlueprintContainer extends Container {
         }
     }
 
+    /**
+     * How many tile sprites are currently drawn. One per tile of the loaded
+     * blueprint, unless a tile had nothing to draw with - see
+     * TileContainer.generateSprite.
+     */
+    public get tileSpriteCount(): number {
+        return this.tileSprites.children.length
+    }
+
     public addTileSprites(tileSprites: EntitySprite[]): void {
         if (tileSprites.length === 0) return
         this.tileSprites.addChild(...tileSprites)

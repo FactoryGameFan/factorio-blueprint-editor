@@ -70,6 +70,8 @@ export interface FbeTestApi {
     keyCombos: () => Record<string, string>
     /** How many wires the loaded blueprint would serialize. */
     wireCount: () => number
+    /** How many tile sprites the canvas is drawing. See tests/tiles.spec.ts. */
+    tileSpriteCount: () => number
 }
 
 /**
