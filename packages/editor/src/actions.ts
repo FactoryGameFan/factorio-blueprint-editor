@@ -192,7 +192,12 @@ export class ActionRegistry {
         this.sortedActions.push(a)
         this.sort()
     }
-    public get(name: string): Action {
+    /**
+     * Undefined for a name that was never registered. Deliberately not a throw:
+     * the one caller is importKeybinds, reading persisted user data that
+     * outlives any given set of action names.
+     */
+    public get(name: string): Action | undefined {
         return this.actions.get(name)
     }
     public forEach(cb: (action: Action) => void): void {
@@ -290,8 +295,17 @@ class Action {
     private modifiers?: Modifiers
     private callbacks: Callbacks
     private modifierCallbacks?: Callbacks
-    private isActive = false
-    private isActiveModifier = false
+    /*
+        The release callback of a press currently being held, rather than a
+        boolean saying there is one. `isActive = succeeded && !!onRelease` and
+        the later `if (isActive) callbacks.onRelease()` were the same invariant
+        stated twice, in two methods, in a form the compiler could not check -
+        holding the callback makes it one statement that it can. Undefined
+        covers both "nothing held" and "held, but this action has no release",
+        which the boolean also conflated and which callers never told apart.
+    */
+    private activeRelease: (() => void) | undefined
+    private activeModifierRelease: (() => void) | undefined
     private onKeyComboChange: () => void
 
     public constructor(name: string, data: IAction, onKeyComboChange: () => void) {
@@ -354,7 +368,9 @@ class Action {
 
     public set keyCombo(value: string) {
         const parts = value.split('+')
-        const getModifier = (name: string): keyof Modifiers => {
+        // Undefined for a part that is not a modifier name, which the loop below
+        // already treats as "this whole combo is unparseable" and bails on.
+        const getModifier = (name: string): keyof Modifiers | undefined => {
             switch (name) {
                 case 'Control':
                     return 'control'
@@ -374,7 +390,9 @@ class Action {
         }
 
         const last = parts[parts.length - 1]
-        const getTrigger = (name: string): ITrigger => {
+        // Undefined for the empty name, which is what an unbound combo
+        // serialises to - `if (!trigger) return` below is what handles it.
+        const getTrigger = (name: string): ITrigger | undefined => {
             switch (name) {
                 case 'ClickL':
                     return { button: MouseButton.Left }
@@ -412,13 +430,15 @@ class Action {
 
     private hasModifier(modifier: ModifierKey): boolean {
         if (!this.modifiers) return false
+        // Every field of Modifiers is optional, and an absent one means the
+        // action does not require that modifier - the same answer as false.
         switch (modifier) {
             case 'Control':
-                return this.modifiers.control
+                return this.modifiers.control ?? false
             case 'Shift':
-                return this.modifiers.shift
+                return this.modifiers.shift ?? false
             case 'Alt':
-                return this.modifiers.alt
+                return this.modifiers.alt ?? false
         }
     }
 
@@ -443,10 +463,10 @@ class Action {
         if (!this.triggerMatches(e)) return false
         if (!this.hasModifiers(modifiers)) return false
 
-        // assert(!this.isActive)
+        // assert(this.activeRelease === undefined)
 
         const succeeded = this.callbacks.onPress()
-        this.isActive = succeeded && !!this.callbacks.onRelease
+        this.activeRelease = succeeded ? this.callbacks.onRelease : undefined
         return succeeded
     }
     public release(e: TriggerEvent): void {
@@ -464,9 +484,9 @@ class Action {
         }
     }
     private forceReleaseB(): void {
-        if (this.isActive) {
-            this.callbacks.onRelease()
-            this.isActive = false
+        if (this.activeRelease) {
+            this.activeRelease()
+            this.activeRelease = undefined
         }
     }
 
@@ -475,19 +495,19 @@ class Action {
         if (!this.hasModifier(modifier)) return false
         if (!this.hasModifiers(modifiers)) return false
 
-        // assert(!this.isActiveModifier)
+        // assert(this.activeModifierRelease === undefined)
 
         const succeeded = this.modifierCallbacks.onPress()
-        this.isActiveModifier = succeeded && !!this.modifierCallbacks.onRelease
+        this.activeModifierRelease = succeeded ? this.modifierCallbacks.onRelease : undefined
         return succeeded
     }
     public releaseMod(modifier: ModifierKey): void {
         if (this.hasModifier(modifier)) this.forceReleaseM()
     }
     private forceReleaseM(): void {
-        if (this.isActiveModifier) {
-            this.modifierCallbacks.onRelease()
-            this.isActiveModifier = false
+        if (this.activeModifierRelease) {
+            this.activeModifierRelease()
+            this.activeModifierRelease = undefined
         }
     }
 
@@ -515,7 +535,21 @@ function importKeybinds(keybinds: Record<string, string>): void {
     if (!keybinds) return
 
     for (const [name, kc] of Object.entries(keybinds)) {
-        G.actions.get(name).keyCombo = kc
+        const action = G.actions.get(name)
+        /*
+            Skip rather than throw. These names come from localStorage and
+            outlive the action list that produced them, so an action renamed or
+            dropped in any release leaves one behind - and throwing here cost
+            far more than the one keybind: it abandoned the rest of the loop and
+            escaped into registerActions, which then never attached the
+            visibilitychange listener that writes keybinds back. The stale entry
+            was therefore unclearable by normal use and failed again every load.
+        */
+        if (action === undefined) {
+            console.warn(`Ignoring stored keybind for unknown action "${name}".`)
+            continue
+        }
+        action.keyCombo = kc
     }
 }
 
