@@ -45,31 +45,42 @@ test('stored keybinds are applied at startup', async ({ page }) => {
     expect(errors.join(' | ')).not.toContain('TypeError')
 })
 
-test('a keybind naming an action that no longer exists takes the rest down with it', async ({
-    page,
-}) => {
+test('a keybind naming an action that no longer exists is skipped, not fatal', async ({ page }) => {
     /*
-        Pins the bug rather than the intent.
+        The stale entry used to throw - ActionRegistry.get was declared
+        `: Action` but is a bare Map.get, so an unknown name gave undefined and
+        `.keyCombo = kc` threw. Inside the import loop, so it was never one lost
+        keybind: every entry after the stale one went with it, and which ones
+        survived was an accident of Object.entries order.
 
-        ActionRegistry.get is declared `: Action` but is a bare Map.get, so an
-        unknown name gives undefined and `.keyCombo = kc` throws. The throw
-        happens *inside* the import loop, so it is not one lost keybind - every
-        entry after the stale one is lost too, and the ordering is
-        Object.entries order, which makes which ones survive an accident of how
-        the object was serialised.
-
-        It also escapes importKeybinds entirely: the call is unguarded in
-        registerActions, so the `visibilitychange` listener registered after it
-        never gets attached and keybinds stop being persisted for the session.
-        That is the part that makes it self-perpetuating - the stale entry
-        cannot be cleaned up by normal use.
+        The stale entry is deliberately listed *first*, so a fix that only
+        stopped the throw without continuing the loop still fails this.
     */
     const errors = await withStoredKeybinds(page, {
         'no-such-action-anymore': 'KeyZ',
         rotate: 'KeyT',
     })
 
-    expect(errors.join(' | ')).toContain('TypeError')
-    // rotate came after the stale entry and never got applied.
-    expect(await keyCombos(page)).toEqual({})
+    expect(errors.join(' | ')).not.toContain('TypeError')
+    expect(await keyCombos(page)).toEqual({ rotate: 'KeyT' })
+})
+
+test('the stale entry is named in a warning rather than dropped silently', async ({ page }) => {
+    /*
+        Skipping quietly would leave a user whose keybind stopped working with
+        nothing to look at. The name is the whole value of the message - it is
+        what tells them which binding to set again.
+    */
+    const warnings: string[] = []
+    page.on('console', m => {
+        if (m.type() === 'warning') warnings.push(m.text())
+    })
+
+    await page.addInitScript(() => {
+        localStorage.setItem('keybinds2', JSON.stringify({ 'no-such-action-anymore': 'KeyZ' }))
+    })
+    await page.goto('/')
+    await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
+
+    expect(warnings.join(' | ')).toContain('no-such-action-anymore')
 })
