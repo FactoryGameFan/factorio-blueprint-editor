@@ -43,8 +43,10 @@ export class TrainStopEditor extends Editor {
         })
 
         limitTextbox.on('changed', () => {
-            let limit: number = parseInt(limitTextbox.text)
-            if (isNaN(limit)) {
+            // Undefined is the value that clears the limit, which is what an
+            // unparseable box means and what the setter above already writes.
+            let limit: number | undefined = parseInt(limitTextbox.text)
+            if (limit !== undefined && isNaN(limit)) {
                 limit = undefined
             }
 

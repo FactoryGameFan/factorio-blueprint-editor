@@ -15,8 +15,8 @@ export class Button<Data = undefined, Content extends Container = Container> ext
     /** Rollover Graphic */
     private readonly m_Hover: Sprite
 
-    /** Content of Control */
-    private m_Content: Content
+    /** Content of Control, absent when the control is showing nothing */
+    private m_Content: Content | undefined
 
     /** Data of Control */
     private m_Data: Data
@@ -80,15 +80,19 @@ export class Button<Data = undefined, Content extends Container = Container> ext
         this.m_Active.visible = active
     }
 
-    /** Control Content */
-    public get content(): Content {
+    /**
+     * Control Content. Undefined means the control is showing nothing, which is
+     * the state every caller already assigned to clear a slot and tested for
+     * before reading - the accessors were the only thing claiming otherwise.
+     */
+    public get content(): Content | undefined {
         return this.m_Content
     }
-    public set content(content: Content) {
-        if (
-            this.m_Content !== undefined ||
-            (this.m_Content !== undefined && content === undefined)
-        ) {
+    public set content(content: Content | undefined) {
+        // Was `A || (A && B)`, which is just `A` - the second clause could never
+        // decide anything, and reading as though it handled a separate
+        // clearing case is the only thing it did.
+        if (this.m_Content !== undefined) {
             this.removeChild(this.m_Content)
             this.m_Content.destroy()
             this.m_Content = undefined

@@ -123,13 +123,27 @@ export class ChestEditor extends Editor {
             filters.updateFilter(this.m_Filter, value)
         })
         this.onEntityChange('filters', () => {
-            if (this.m_Filter > -1) {
-                slider.value = filters.getFilterCount(this.m_Filter)
-            }
-            if (slider.value === undefined) {
+            /*
+                getFilterCount answers undefined for a filter carrying no stack
+                count. This used to assign that straight into `slider.value`,
+                which is typed number and does arithmetic on it in
+                updateButtonPosition - the visibility check below was then
+                reading the undefined back out of the slider. Held in a local
+                instead, so nothing has to launder an undefined through Slider.
+
+                One deliberate difference: the slider no longer *retains* the
+                undefined. Previously a later 'filters' event with no filter
+                selected would re-read it and hide again; now it does not. The
+                controls are already hidden at that point and only the
+                'selected' handler shows them, so the visible state is the same.
+            */
+            const count = this.m_Filter > -1 ? filters.getFilterCount(this.m_Filter) : slider.value
+            if (count === undefined) {
                 label.visible = false
                 slider.visible = false
                 textbox.visible = false
+            } else {
+                slider.value = count
             }
         })
     }
