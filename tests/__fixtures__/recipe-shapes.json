@@ -246,7 +246,7 @@
     "flamethrower-turret-recycling": ["false", "false", "1", "ok"],
     "fluid-wagon": ["false", "false", "1", "ok"],
     "fluid-wagon-recycling": ["false", "false", "1", "ok"],
-    "fluoroketone": ["true", "true", "THREW", "ok"],
+    "fluoroketone": ["true", "true", "3", "ok"],
     "fluoroketone-cold-barrel": ["true", "false", "3", "ok"],
     "fluoroketone-cold-barrel-recycling": ["false", "false", "1", "ok"],
     "fluoroketone-cooling": ["true", "true", "3", "ok"],
