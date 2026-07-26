@@ -98,6 +98,14 @@ const paintVisible = (page: Page): Promise<boolean | undefined> =>
     page.evaluate(() => (window as any).__fbe_test.paintContainerVisible())
 
 /*
+    How many entities the canvas is holding. Reuses the container tally #42 left
+    behind rather than adding a hook: one blueprint has been loaded, so the
+    static map holds exactly its entities, and placing a paste adds to both.
+*/
+const entityCount = (page: Page): Promise<number> =>
+    page.evaluate(() => (window as any).__fbe_test.entityContainerCount())
+
+/*
     A point the pointer can sit at that is off the canvas. Negative client
     coordinates do get dispatched, and BlueprintContainer then hides the paint
     container - which is the state the rotate tests below need, and the only one
@@ -284,18 +292,21 @@ test('flipping a paste with the pointer off the canvas keeps it', async ({ page 
     expect(await modeOf(page)).toBe('PAINT')
 })
 
-test('rotating a paste with the pointer off the canvas destroys it (issue #53)', async ({
-    page,
-}) => {
+test('rotating a paste with the pointer off the canvas keeps it (issue #53)', async ({ page }) => {
     /*
-        Pins the bug, not the intent. PaintBlueprintContainer.rotatedEntities
-        returns undefined while hidden, and BlueprintContainer.rotate destroys
-        the container before spawning what came back - so spawnPaintContainer
-        gets undefined, PaintBlueprintContainer's constructor throws on it, and
-        the catch drops to NONE. The paste is gone, with only a console error.
+        rotatedEntities used to return undefined while hidden, and rotate()
+        destroys the container before spawning what it returns - so
+        spawnPaintContainer got undefined, PaintBlueprintContainer's constructor
+        threw on it, and the catch dropped the whole paste to NONE with only a
+        console error. Keyboard actions are global, so the pointer being off the
+        canvas does not stop the rotate from firing.
 
-        Keyboard actions are global, so the pointer being off the canvas does
-        not stop the rotate from firing.
+        The container comes back visible rather than hidden, even though the
+        pointer has not returned. That is not a second bug being pinned here:
+        it is exactly what flipping while hidden does above, and matching flip
+        was the point. `isPointerInside` hit-tests gridData.x/y, which are world
+        coordinates rather than screen ones, so the re-hide at the end of
+        spawnPaintContainer does not fire for an off-canvas pointer.
     */
     const errors: string[] = []
     page.on('console', m => {
@@ -310,9 +321,33 @@ test('rotating a paste with the pointer off the canvas destroys it (issue #53)',
 
     await page.keyboard.press('KeyR')
 
-    expect(await modeOf(page)).toBe('NONE')
-    expect(await paintVisible(page)).toBeUndefined()
-    expect(errors.join(' | ')).toContain('Failed to create paint container')
+    expect(await modeOf(page)).toBe('PAINT')
+    expect(await paintVisible(page)).toBeDefined()
+    expect(errors.join(' | ')).not.toContain('Failed to create paint container')
+})
+
+test('a paste rotated while hidden is still placeable when the pointer returns', async ({
+    page,
+}) => {
+    /*
+        The rotate above proves the container survived; this proves it is still
+        usable, which is what the user lost. Places it and checks the blueprint
+        grew - a container that survived as a husk would pass the first test and
+        fail this one.
+    */
+    await openEditorWithEntities(page)
+    await copyIntoPaint(page)
+
+    await page.mouse.move(OFF_CANVAS.x, OFF_CANVAS.y)
+    await page.keyboard.press('KeyR')
+
+    // Well clear of the three chests, so the paste has somewhere to land.
+    const chest = await screenOf(page, 2)
+    await page.mouse.move(chest.x, chest.y + 200)
+    await page.mouse.down()
+    await page.mouse.up()
+
+    expect(await entityCount(page)).toBe(6)
 })
 
 test('the modes do not leak into one another', async ({ page }) => {
