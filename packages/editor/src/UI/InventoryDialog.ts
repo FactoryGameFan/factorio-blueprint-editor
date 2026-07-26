@@ -1,5 +1,5 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js'
-import FD from '../core/factorioData'
+import FD, { recipeIngredients, recipeResults } from '../core/factorioData'
 import G from '../common/globals'
 import F from './controls/functions'
 import { Dialog } from './controls/Dialog'
@@ -290,8 +290,8 @@ export class InventoryDialog extends Dialog {
             this.m_RecipeContainer,
             0,
             0,
-            recipe.ingredients,
-            recipe.results,
+            recipeIngredients(recipe),
+            recipeResults(recipe),
             recipe.energy_required
         )
     }

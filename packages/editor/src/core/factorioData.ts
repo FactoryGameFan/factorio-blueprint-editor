@@ -2,6 +2,8 @@ import { CircuitConnectorDefinition } from 'factorio:prototype'
 import { IconData } from 'factorio:prototype'
 import {
     RecipePrototype,
+    IngredientPrototype,
+    ProductPrototype,
     ItemPrototype,
     VirtualSignalPrototype,
     ModulePrototype,
@@ -100,6 +102,33 @@ function getModulesFor(entityName: string): ModulePrototype[] {
                     allowed_module_categories.includes(module.category)
             )
     )
+}
+
+/**
+ * A recipe's ingredient and result lists arrive in three shapes, not one, and
+ * these hand back an array for all of them.
+ *
+ * typed-factorio models both fields as `readonly X[] | undefined`, which covers
+ * two. The third is `{}`: the exporter writes Lua tables out as JSON, and an
+ * empty Lua table has no way to say whether it was a list or a map, so it encodes
+ * as an object. A recipe with no ingredients therefore arrives as `{}`, which is
+ * neither undefined nor an array - it survives a `!== undefined` guard and a
+ * `?? []` untouched and then throws "ingredients is not iterable" in the first
+ * for-of that reaches it.
+ *
+ * In the current data all three are populated: the ten `parameter-N` placeholders
+ * omit both fields, `recipe-unknown` has `{}` for both, and Space Age's
+ * `biter-egg` pairs `{}` ingredients with a real results array. The first of those
+ * is the one a player meets - a parametrised blueprint sets machines to
+ * `parameter-N`, and the info panel threw on hovering one.
+ */
+export function recipeIngredients(recipe: RecipePrototype): readonly IngredientPrototype[] {
+    return Array.isArray(recipe.ingredients) ? recipe.ingredients : []
+}
+
+/** @see recipeIngredients - same three shapes. */
+export function recipeResults(recipe: RecipePrototype): readonly ProductPrototype[] {
+    return Array.isArray(recipe.results) ? recipe.results : []
 }
 
 export function recipeSupportsModule(recipe: string, module: ModulePrototype): boolean {
