@@ -37,7 +37,8 @@ export class UIContainer extends Container {
         }
     }
 
-    public updateEntityInfoPanel(entity: Entity): void {
+    /** `undefined` hides the panel, which is what a hover-out sends. */
+    public updateEntityInfoPanel(entity: Entity | undefined): void {
         this.entityInfoPanel.updateVisualization(entity)
     }
 

@@ -231,12 +231,15 @@ export class BlueprintContainer extends Container {
                     this.on('globalpointermove', panModule._onPan)
                     return true
                 }
+                return false
             },
             panEnd: (): void => {
                 if (this.mode === EditorMode.PAN) {
                     this.off('globalpointermove', panModule._onPan)
                     this.setMode(EditorMode.NONE)
-                    this.cursor = null
+                    // pixi's setCursor does `mode || (mode = 'default')`, so this is
+                    // the same reset-to-default the `null` here used to mean.
+                    this.cursor = undefined
                 }
             },
         }
@@ -283,7 +286,8 @@ export class BlueprintContainer extends Container {
             })
         }
 
-        let constraint: boolean
+        // Tri-state: undefined until the first drag decides whether to lock an axis.
+        let constraint: boolean | undefined
         const build = (_x: number, _y: number, dx: number, dy: number): void => {
             if (constraint === undefined) {
                 const cX = Math.abs(Math.sign(dx))
@@ -597,7 +601,7 @@ export class BlueprintContainer extends Container {
             const H = Math.abs(endY - startPos.y) + 1
 
             for (const e of this.copyModeEntities) {
-                EntityContainer.mappings.get(e.entityNumber).cursorBox = undefined
+                EntityContainer.containerOf(e.entityNumber).cursorBox = undefined
             }
 
             this.copyModeEntities = this.bp.entityPositionGrid.getEntitiesInArea({
@@ -608,7 +612,7 @@ export class BlueprintContainer extends Container {
             })
 
             for (const e of this.copyModeEntities) {
-                EntityContainer.mappings.get(e.entityNumber).cursorBox = 'copy'
+                EntityContainer.containerOf(e.entityNumber).cursorBox = 'copy'
             }
         }
         this.copyModeUpdateFn(startPos.x, startPos.y)
@@ -630,7 +634,7 @@ export class BlueprintContainer extends Container {
             this.spawnPaintContainer(this.copyModeEntities)
         }
         for (const e of this.copyModeEntities) {
-            EntityContainer.mappings.get(e.entityNumber).cursorBox = undefined
+            EntityContainer.containerOf(e.entityNumber).cursorBox = undefined
         }
         this.copyModeEntities = []
     }
@@ -652,7 +656,7 @@ export class BlueprintContainer extends Container {
             const H = Math.abs(endY - startPos.y) + 1
 
             for (const e of this.deleteModeEntities) {
-                EntityContainer.mappings.get(e.entityNumber).cursorBox = undefined
+                EntityContainer.containerOf(e.entityNumber).cursorBox = undefined
             }
 
             this.deleteModeEntities = this.bp.entityPositionGrid.getEntitiesInArea({
@@ -663,7 +667,7 @@ export class BlueprintContainer extends Container {
             })
 
             for (const e of this.deleteModeEntities) {
-                EntityContainer.mappings.get(e.entityNumber).cursorBox = 'not_allowed'
+                EntityContainer.containerOf(e.entityNumber).cursorBox = 'not_allowed'
             }
         }
         this.deleteModeUpdateFn(startPos.x, startPos.y)
@@ -683,7 +687,7 @@ export class BlueprintContainer extends Container {
 
         if (cancel) {
             for (const e of this.deleteModeEntities) {
-                EntityContainer.mappings.get(e.entityNumber).cursorBox = undefined
+                EntityContainer.containerOf(e.entityNumber).cursorBox = undefined
             }
         } else {
             this.bp.removeEntities(this.deleteModeEntities)
@@ -961,8 +965,15 @@ export class BlueprintContainer extends Container {
         return rect
     }
 
-    public getPicture(): Promise<Blob> {
-        if (this.bp.isEmpty()) return
+    /**
+     * Rejects rather than resolving to nothing, on all three ways this can fail to
+     * produce an image. The bare `return` this used to do on an empty blueprint
+     * handed back `undefined` instead of a promise, so the caller's `.then` threw
+     * before its `.catch` was attached - and the only caller already refuses to ask
+     * for a picture of an empty blueprint, so that path was unreachable anyway.
+     */
+    public async getPicture(): Promise<Blob> {
+        if (this.bp.isEmpty()) throw new Error('Cannot take a picture of an empty blueprint')
 
         const frame = this.getBlueprintBounds()
         const texture = G.app.renderer.generateTexture({
@@ -975,11 +986,22 @@ export class BlueprintContainer extends Container {
         })
 
         const canvas = G.app.renderer.extract.canvas(texture)
+        // Held as a local because narrowing a property does not survive into the
+        // closure below.
+        const toBlob = canvas.toBlob?.bind(canvas)
+        if (toBlob === undefined) {
+            texture.destroy(true)
+            throw new Error('Canvas cannot produce a blob')
+        }
 
-        return new Promise(resolve => {
-            canvas.toBlob(blob => {
+        return new Promise((resolve, reject) => {
+            toBlob(blob => {
                 texture.destroy(true)
-                resolve(blob)
+                if (blob === null) {
+                    reject(new Error('Canvas failed to produce a blob'))
+                } else {
+                    resolve(blob)
+                }
             })
         })
     }
