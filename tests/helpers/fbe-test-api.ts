@@ -17,8 +17,18 @@ export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
     overlayInfoTally: () => OverlayTally
-    /** Defaults to the loaded blueprint; pass one to tally a book entry instead. */
-    spriteDataTally: (blueprint?: unknown) => SpriteDataTally
+    /**
+     * Defaults to the loaded blueprint; pass one to tally a book entry instead.
+     * `withGrid: false` withholds the position grid, the way the entity editor
+     * and paint previews draw.
+     */
+    spriteDataTally: (blueprint?: unknown, opts?: { withGrid?: boolean }) => SpriteDataTally
+    /**
+     * The bare-object path PaintEntityContainer draws with, for each direction.
+     * An `undefined` entry omits `direction` entirely, which is what exercises
+     * EntitySprite.getDrawData's `dir` default.
+     */
+    paintPreviewTally: (directions: (number | undefined)[]) => SpriteDataTally
 }
 
 /**

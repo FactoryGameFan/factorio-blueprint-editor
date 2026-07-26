@@ -14,6 +14,7 @@ import EDITOR, {
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,
     OverlayContainer,
+    FD,
     EntitySprite,
     getSpriteData,
     SPRITE_GENERATION_FAILED,
@@ -235,9 +236,15 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         caller can tally every blueprint of a book without loading each in turn -
         the position grid a Blueprint carries is populated as its entities are
         created, so no rendering is needed for the neighbour branches to work.
+
+        `withGrid: false` withholds the grid, which is what the entity editor
+        preview and the paint preview do. Nothing else in the suite draws an
+        entity that way, and the branches it reaches are different ones - a wall
+        with no neighbours, a belt with no connector index.
     */
-    spriteDataTally: (blueprint?: Blueprint) => {
+    spriteDataTally: (blueprint?: Blueprint, opts?: { withGrid?: boolean }) => {
         const target = blueprint ?? bp
+        const grid = opts?.withGrid === false ? undefined : target.entityPositionGrid
         const out: Record<string, string[]> = {}
         const realRandom = Math.random
         let seed = 1
@@ -247,10 +254,37 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         }
         try {
             for (const entity of target.entities.valuesArray()) {
-                const data = getSpriteData(
-                    EntitySprite.getDrawData(entity, target.entityPositionGrid)
-                ) as unknown
+                const data = getSpriteData(EntitySprite.getDrawData(entity, grid)) as unknown
                 ;(out[entity.name] ??= []).push(spriteDataDigest(data))
+            }
+        } finally {
+            Math.random = realRandom
+        }
+        return out
+    },
+    /*
+        The same digest for the bare `{ name, direction, directionType }` object
+        PaintEntityContainer draws with - no Entity, no position, no grid, and
+        none of the flags. That is the only caller that reaches
+        EntitySprite.getDrawData's defaults, since anything walking a blueprint
+        hands over an Entity that supplies every field.
+    */
+    paintPreviewTally: (directions: (number | undefined)[]) => {
+        const out: Record<string, string[]> = {}
+        const realRandom = Math.random
+        let seed = 1
+        Math.random = () => {
+            seed = (seed * 1103515245 + 12345) % 2147483648
+            return seed / 2147483648
+        }
+        try {
+            for (const name of Object.keys(FD.entities).sort()) {
+                for (const direction of directions) {
+                    const data = getSpriteData(
+                        EntitySprite.getDrawData({ name, direction })
+                    ) as unknown
+                    ;(out[name] ??= []).push(spriteDataDigest(data))
+                }
             }
         } finally {
             Math.random = realRandom
