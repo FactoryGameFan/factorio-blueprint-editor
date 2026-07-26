@@ -48,6 +48,11 @@ export interface FbeTestApi {
      * readers that throws on the awkward shapes.
      */
     recipeShapeTally: (blueprint?: unknown) => RecipeShapeTally
+    /**
+     * The interaction mode the canvas is in: NONE, EDIT, PAINT, PAN, COPY or
+     * DELETE. See tests/editor-mode-input.spec.ts.
+     */
+    editorMode: () => string
 }
 
 /**
