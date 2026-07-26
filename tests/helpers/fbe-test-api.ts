@@ -23,6 +23,12 @@ export type RecipeShapeTally = Record<string, string[]>
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
+    /**
+     * The size of `EntityContainer.mappings`, the static entity-number ->
+     * container index. Loading a blueprint should leave it holding exactly that
+     * blueprint's containers - see tests/entity-container-mappings.spec.ts.
+     */
+    entityContainerCount: () => number
     overlayInfoTally: () => OverlayTally
     /**
      * Defaults to the loaded blueprint; pass one to tally a book entry instead.
