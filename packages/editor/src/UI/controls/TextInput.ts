@@ -54,7 +54,9 @@ type PreviousData = {
 class OriginalTextInput extends Container {
     private _input_style: InputStyles
     private _placeholder: string
-    private _box_generator: BoxGenerator
+    // Absent when no `box` option was given, which _renderInternal already
+    // returns early on - the declaration was the only thing claiming otherwise.
+    private _box_generator: BoxGenerator | undefined
     private _box_cache: Record<State, Container>
     private _previous: Partial<PreviousData>
     private _dom_added: boolean
@@ -67,11 +69,13 @@ class OriginalTextInput extends Container {
     private _max_length: number
     private _multiline: boolean
     private _renderer: Renderer
-    private _canvas_bounds: IRect
-    private _box: Container
+    // Both are unset until the first render, and both are read through an
+    // `if (!...)` guard that predates this - see _renderInternal.
+    private _canvas_bounds: IRect | undefined
+    private _box: Container | undefined
     public state: State
 
-    public constructor(options?: Options) {
+    public constructor(options: Options) {
         super()
         this._input_style = {
             position: 'absolute',
@@ -86,7 +90,7 @@ class OriginalTextInput extends Container {
         if (options.box)
             this._box_generator =
                 typeof options.box === 'function' ? options.box : DefaultBoxGenerator(options.box)
-        else this._box_generator = null
+        else this._box_generator = undefined
 
         this._multiline = !!options.multiline
 
@@ -182,7 +186,11 @@ class OriginalTextInput extends Container {
 
     public setInputStyle<K extends keyof InputStyles>(key: K, value: InputStyles[K]): void {
         this._input_style[key] = value
-        this._dom_input.style[key] = value
+        // InputStyles is a Partial, so undefined is a value it can carry, and it
+        // means "no such style". The empty string is how CSSOM says that -
+        // assigning undefined would stringify to "undefined" and be dropped as
+        // an invalid value, leaving whatever was there before.
+        this._dom_input.style[key] = value ?? ''
 
         if (this._renderer) this._update()
     }
@@ -204,7 +212,7 @@ class OriginalTextInput extends Container {
         }
 
         for (const [key, value] of Object.entries(this._input_style)) {
-            this._dom_input.style[key as keyof InputStyles] = value
+            this._dom_input.style[key as keyof InputStyles] = value ?? ''
         }
     }
 
@@ -219,7 +227,14 @@ class OriginalTextInput extends Container {
     }
 
     private _onInputKeyDown(): void {
-        this._selection = [this._dom_input.selectionStart, this._dom_input.selectionEnd]
+        /*
+            The DOM types these `number | null`, null being what an input whose
+            type does not support selection answers. _createDOMInput only ever
+            makes a textarea or a text input, both of which do, so the null arm
+            is unreachable here - 0 rather than a throw because the only
+            consumer is a setSelectionRange call restoring a restricted value.
+        */
+        this._selection = [this._dom_input.selectionStart ?? 0, this._dom_input.selectionEnd ?? 0]
 
         // this.emit('keydown', e.keyCode)
     }
@@ -275,7 +290,7 @@ class OriginalTextInput extends Container {
     private _updateBox(): void {
         if (!this._box_generator) return
 
-        if (this._needsNewBoxCache()) this._buildBoxCache()
+        if (this._needsNewBoxCache()) this._buildBoxCache(this._box_generator)
 
         if (this.state === this._previous.state && this._box === this._box_cache[this.state]) return
 
@@ -336,18 +351,19 @@ class OriginalTextInput extends Container {
 
     // CACHING OF INPUT BOX GRAPHICS
 
-    private _buildBoxCache(): void {
+    /*
+        Takes the generator rather than reading the field, so the one caller's
+        `if (!this._box_generator) return` is what makes this callable at all.
+        The alternative was a second check here that could never fire.
+    */
+    private _buildBoxCache(box_generator: BoxGenerator): void {
         this._destroyBoxCache()
 
         const states = ['DEFAULT', 'FOCUSED', 'DISABLED']
         const input_bounds = this._getDOMInputBounds()
 
         for (const state of states) {
-            this._box_cache[state] = this._box_generator(
-                input_bounds.width,
-                input_bounds.height,
-                state
-            )
+            this._box_cache[state] = box_generator(input_bounds.width, input_bounds.height, state)
         }
 
         this._previous.input_bounds = input_bounds
@@ -356,7 +372,7 @@ class OriginalTextInput extends Container {
     private _destroyBoxCache(): void {
         if (this._box) {
             this.removeChild(this._box)
-            this._box = null
+            this._box = undefined
         }
 
         for (const obj of Object.values(this._box_cache)) {
@@ -416,7 +432,13 @@ class OriginalTextInput extends Container {
         return `matrix(${[m.a, m.b, m.c, m.d, m.tx, m.ty].join(',')})`
     }
 
-    private _comparePixiMatrices(m1: Matrix, m2: Matrix): boolean {
+    /*
+        Only the second parameter is widened. m1 is always `this.worldTransform`,
+        which pixi guarantees; m2 comes out of `_previous`, which is a Partial and
+        is empty until the first render. Saying `| undefined` on both would push
+        a check onto a caller that cannot pass one.
+    */
+    private _comparePixiMatrices(m1: Matrix, m2: Matrix | undefined): boolean {
         if (!m1 || !m2) return false
         return (
             m1.a === m2.a &&
@@ -428,7 +450,9 @@ class OriginalTextInput extends Container {
         )
     }
 
-    private _compareClientRects(r1: IRect, r2: IRect): boolean {
+    // Both widened here, unlike _comparePixiMatrices: r1 is `_canvas_bounds`,
+    // which is unset until the first _renderInternal.
+    private _compareClientRects(r1: IRect | undefined, r2: IRect | undefined): boolean {
         if (!r1 || !r2) return false
         return (
             r1.left === r2.left &&
