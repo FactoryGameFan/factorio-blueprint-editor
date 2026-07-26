@@ -204,6 +204,24 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         driving real pointer or keyboard input needs to assert on (issue #44).
     */
     editorMode: () => editor.mode,
+    /*
+        Where an entity sits on screen, so a spec can put the pointer on it.
+        Hovering is the only way into EDIT, and that is the entry point for
+        pipette, the entity editor and settings copy/paste (issue #44).
+    */
+    entityScreenPosition: (entityNumber: number) => editor.entityScreenPosition(entityNumber),
+    /*
+        Which entity is hovered. `editorMode` says EDIT at both ends of a move
+        from one entity to the next, so it cannot see a hover swap that stopped
+        happening.
+    */
+    hoveredEntityNumber: () => editor.hoveredEntityNumber,
+    /*
+        Whether the paint container is drawn, undefined when there is none.
+        `editorMode` says PAINT for both a shown and a hidden one, and the
+        difference is the whole of issue #53.
+    */
+    paintContainerVisible: () => editor.paintContainerVisible,
     loadingScreen,
     getBook: () => book,
     selectBookIndex: async (index: number) => {

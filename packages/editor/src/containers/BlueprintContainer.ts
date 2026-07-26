@@ -521,6 +521,20 @@ export class BlueprintContainer extends Container {
         return [(x - t.tx) / t.a, (y - t.ty) / t.d]
     }
 
+    /**
+     * world to screen, the exact inverse of toWorld.
+     *
+     * Only tests use this so far - it is what lets a spec put the pointer on a
+     * chosen entity, which every EDIT mode transition needs (issue #44). The
+     * pair is kept adjacent deliberately: a change to the viewport transform
+     * that updates one and not the other is a silent break, since nothing in
+     * the app itself round-trips them.
+     */
+    public toScreen(x: number, y: number): [number, number] {
+        const t = this.viewport.getTransform()
+        return [x * t.a + t.tx, y * t.d + t.ty]
+    }
+
     public get mode(): EditorMode {
         return this._mode
     }
