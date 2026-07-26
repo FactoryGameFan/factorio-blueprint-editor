@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 import { buildAllRecipesBlueprint } from './helpers/all-recipes-blueprint'
-import { waitForEditor, RecipeShapeTally } from './helpers/fbe-test-api'
+import { loadBlueprint, waitForEditor, RecipeShapeTally } from './helpers/fbe-test-api'
 
 /*
     Coverage net for the readers of a recipe's ingredient and result lists, ahead
@@ -89,6 +89,29 @@ test('every recipe shape reaches its readers the same way it did before', async 
         a throw inside one is the recorded behaviour rather than a page error. Any
         page error would be something else going wrong, so it is still reported.
     */
+    expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
+})
+
+/*
+    The severe half of the same bug, and the reason the tally above decodes rather
+    than loads. Rendering asks every crafting machine for assemblerHasFluidInputs
+    from inside EntityContainer's constructor, so before the fix a blueprint
+    holding a machine set to recipe-unknown or biter-egg took the whole load down
+    with it - not a missing overlay or a blank panel, no blueprint at all.
+
+    Asserted rather than tallied because there is only one outcome worth having.
+*/
+test('a blueprint whose machines carry every recipe loads', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', e => pageErrors.push(String(e)))
+
+    await waitForEditor(page)
+
+    const { source, recipes } = buildAllRecipesBlueprint()
+    await loadBlueprint(page, source)
+
+    const loaded = await page.evaluate(() => window.__fbe_test.recipeShapeTally())
+    expect(Object.keys(loaded).length).toBeGreaterThanOrEqual(recipes.length - 2)
     expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
 })
 

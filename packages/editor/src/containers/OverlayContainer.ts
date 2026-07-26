@@ -8,6 +8,8 @@ import FD, {
     hasModuleFunctionality,
     getModuleInventoryIndex,
     hasModuleIconsSuppressed,
+    recipeIngredients,
+    recipeResults,
 } from '../core/factorioData'
 import F from '../UI/controls/functions'
 import G from '../common/globals'
@@ -92,11 +94,11 @@ export class OverlayContainer extends Container {
                 if (isCraftingMachine(entity.entityData) && entity.recipe !== undefined) {
                     const recipe = FD.recipes[entity.recipe]
                     if (recipe) {
-                        // Both are optional: a recipe can have no ingredients or no results.
+                        // Either list can be absent or `{}`; see recipeIngredients.
                         const items =
-                            (fb.production_type === 'input'
-                                ? recipe.ingredients
-                                : recipe.results) ?? []
+                            fb.production_type === 'input'
+                                ? recipeIngredients(recipe)
+                                : recipeResults(recipe)
                         const fluids = items
                             .filter(item => item.type === 'fluid')
                             .map(fluid => fluid.name)

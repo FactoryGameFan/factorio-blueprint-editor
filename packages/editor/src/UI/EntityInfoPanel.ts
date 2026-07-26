@@ -5,6 +5,8 @@ import FD, {
     isCraftingMachine,
     isInserter,
     isTransportBeltConnectable,
+    recipeIngredients,
+    recipeResults,
 } from '../core/factorioData'
 import G from '../common/globals'
 import util from '../common/util'
@@ -198,8 +200,8 @@ export class EntityInfoPanel extends Panel {
                 this.m_RecipeContainer,
                 0,
                 20,
-                recipe.ingredients,
-                recipe.results,
+                recipeIngredients(recipe),
+                recipeResults(recipe),
                 recipe.energy_required
             )
             this.m_RecipeContainer.position.set(10, nextY)
@@ -217,14 +219,17 @@ export class EntityInfoPanel extends Panel {
                 this.m_RecipeIOContainer,
                 0,
                 20,
-                recipe.ingredients.map(i => ({
+                recipeIngredients(recipe).map(i => ({
                     ...i,
                     amount: roundToTwo((i.amount * newCraftingSpeed) / energy_required),
                 })),
-                recipe.results.map(r => ({
+                // A result states either an amount or an amount_min/amount_max
+                // range; every result in the current data states an amount.
+                recipeResults(recipe).map(r => ({
                     ...r,
                     amount: roundToTwo(
-                        ((r.amount * newCraftingSpeed) / energy_required) * (1 + productivity)
+                        (((r.amount ?? 0) * newCraftingSpeed) / energy_required) *
+                            (1 + productivity)
                     ),
                 })),
                 1
