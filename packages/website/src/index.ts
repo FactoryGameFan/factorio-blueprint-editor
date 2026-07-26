@@ -14,6 +14,7 @@ import EDITOR, {
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,
     OverlayContainer,
+    EntityContainer,
     FD,
     EntitySprite,
     EntityInfoPanel,
@@ -205,6 +206,13 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         bp = book.selectBlueprint(index)
         await editor.loadBlueprint(bp)
     },
+    /*
+        The size of EntityContainer.mappings, the static entity-number -> container
+        index. Loading a blueprint should leave it holding exactly that
+        blueprint's containers; anything above is retention from a previously
+        loaded one (issue #42).
+    */
+    entityContainerCount: () => EntityContainer.mappings.size,
     /*
         Per entity name, the number of children each entity's info overlay came
         out with, or -1 where it produced no overlay at all. Deliberately calls

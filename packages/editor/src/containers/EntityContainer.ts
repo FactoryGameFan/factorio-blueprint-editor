@@ -149,6 +149,30 @@ export class EntityContainer {
             this.m_Entity.off('splitterOutputPriority', this.redrawEntityInfo, this)
 
             this.m_Entity.off('destroy', onEntityDestroy)
+
+            /*
+                Replacing a blueprint never destroys the outgoing one's entities,
+                so nothing else takes these out of the index (issue #42). The
+                identity check is what makes this safe under the load ordering:
+                Editor.loadBlueprint runs the new blueprint's initBP() *before*
+                destroying the old container, so the new containers have already
+                claimed the entity numbers they share - and a blanket delete here
+                would remove the entries just written.
+            */
+            if (EntityContainer.mappings.get(this.m_Entity.entityNumber) === this) {
+                EntityContainer.mappings.delete(this.m_Entity.entityNumber)
+            }
+
+            // Unlinking alone would leave these for the GC; the old container was
+            // destroyed with pixi's default destroyChildren: false, so its sprites
+            // are merely detached from the stage.
+            for (const s of this.entitySprites) {
+                s.destroy()
+            }
+            this.visualizationArea.destroy()
+            if (this.entityInfo !== undefined) {
+                this.entityInfo.destroy()
+            }
         })
     }
 
