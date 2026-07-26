@@ -119,11 +119,22 @@ export class PaintBlueprintEntityContainer {
         this.checkBuildable()
     }
 
-    public placeEntityContainer(): Entity {
+    /**
+     * The entity this placed, or undefined where it placed none - which is the
+     * normal outcome of three of the four paths below, not a failure. A fast
+     * replace and a rotate-in-place both reuse an entity that already exists,
+     * and an unavailable area places nothing at all.
+     *
+     * The one caller, PaintBlueprintContainer.placeEntityContainer, is building
+     * an old-entity-number -> new-entity-number map to copy wires through, and
+     * already skips the undefined: only a genuinely new entity has a new number
+     * to map to.
+     */
+    public placeEntityContainer(): Entity | undefined {
         const position = this.entityPosition
         const direction = this.entity.direction
 
-        if (this.bpc.bp.fastReplaceEntity(this.entity.name, direction, position)) return
+        if (this.bpc.bp.fastReplaceEntity(this.entity.name, direction, position)) return undefined
 
         const snEnt = this.bpc.bp.entityPositionGrid.checkSameEntityAndDifferentDirection(
             this.entity.name,
@@ -132,10 +143,10 @@ export class PaintBlueprintEntityContainer {
         )
         if (snEnt) {
             snEnt.direction = direction
-            return
+            return undefined
         }
 
-        let ent: Entity
+        let ent: Entity | undefined
         if (this.bpc.bp.entityPositionGrid.isAreaAvailable(this.entity.name, position, direction)) {
             ent = this.bpc.bp.createEntity({
                 ...this.entity.serialize(),

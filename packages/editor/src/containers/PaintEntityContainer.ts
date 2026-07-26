@@ -87,7 +87,20 @@ export class PaintEntityContainer extends PaintContainer {
     private updateUndergroundBeltRotation(): void {
         const fd = FD.entities[this.name]
         if (isUndergroundBelt(fd)) {
-            const otherEntity = this.bpc.bp.entityPositionGrid.getOpposingEntity(
+            /*
+                getOpposingEntity answers an entity *number*, and the variable
+                holding it was named as though it were the entity - which is how
+                the resolve below ended up inside the branch, dereferencing a
+                Map.get result that nothing had checked.
+
+                Resolved before the branch instead, which is what both other
+                callers of getOpposingEntity already do (Entity.rotate and
+                OverlayContainer). Degrading rather than throwing matches them
+                too: an unresolvable number lands in the same arm as no opposing
+                entity at all, which is the arm that just leaves the direction
+                type alone.
+            */
+            const opposingEntityNumber = this.bpc.bp.entityPositionGrid.getOpposingEntity(
                 this.name,
                 (this.direction + 8) % 16,
                 {
@@ -97,13 +110,15 @@ export class PaintEntityContainer extends PaintContainer {
                 this.direction,
                 fd.max_distance
             )
+            const otherEntity =
+                opposingEntityNumber === undefined
+                    ? undefined
+                    : this.bpc.bp.entities.get(opposingEntityNumber)
+
             if (otherEntity) {
-                const oe = this.bpc.bp.entities.get(otherEntity)
-                this.directionType = oe.directionType === 'input' ? 'output' : 'input'
-            } else {
-                if (this.directionType === 'output') {
-                    this.directionType = 'input'
-                }
+                this.directionType = otherEntity.directionType === 'input' ? 'output' : 'input'
+            } else if (this.directionType === 'output') {
+                this.directionType = 'input'
             }
             this.redraw()
         }

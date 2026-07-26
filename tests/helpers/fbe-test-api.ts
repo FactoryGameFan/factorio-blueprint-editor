@@ -68,6 +68,8 @@ export interface FbeTestApi {
      * Empty when every action is default. See tests/keybinds.spec.ts.
      */
     keyCombos: () => Record<string, string>
+    /** How many wires the loaded blueprint would serialize. */
+    wireCount: () => number
 }
 
 /**
