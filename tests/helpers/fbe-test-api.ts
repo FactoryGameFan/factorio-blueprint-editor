@@ -13,6 +13,13 @@ export type OverlayTally = Record<string, number[]>
 /** Entity name -> sprite data digest per placement, "FAILED" if the generator threw. */
 export type SpriteDataTally = Record<string, string[]>
 
+/**
+ * Recipe name -> what each reader of its ingredient/result lists answered, in the
+ * order [assemblerHasFluidInputs, assemblerHasFluidOutputs, createEntityInfo child
+ * count]. "THREW" where the reader did not answer.
+ */
+export type RecipeShapeTally = Record<string, string[]>
+
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
@@ -29,6 +36,12 @@ export interface FbeTestApi {
      * EntitySprite.getDrawData's `dir` default.
      */
     paintPreviewTally: (directions: (number | undefined)[]) => SpriteDataTally
+    /**
+     * Keyed by the recipe each entity carries. Takes the blueprint rather than
+     * reading the loaded one: loading renders, and rendering is itself one of the
+     * readers that throws on the awkward shapes.
+     */
+    recipeShapeTally: (blueprint?: unknown) => RecipeShapeTally
 }
 
 /**

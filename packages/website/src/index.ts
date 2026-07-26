@@ -16,6 +16,7 @@ import EDITOR, {
     OverlayContainer,
     FD,
     EntitySprite,
+    EntityInfoPanel,
     getSpriteData,
     SPRITE_GENERATION_FAILED,
 } from '@fbe/editor'
@@ -289,6 +290,60 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         } finally {
             Math.random = realRandom
         }
+        return out
+    },
+    /*
+        Per recipe, what each reader of its ingredient and result lists answers,
+        or "THREW" where it did not answer at all.
+
+        The two fields hold three runtime shapes - a list, `{}`, or nothing - and
+        the readers disagree about which they handle: OverlayContainer defends
+        against the missing one, Entity's accessors against the missing one, and
+        EntityInfoPanel against neither. `{}` defeats all three, since it is
+        neither undefined nor iterable.
+
+        Keyed by recipe rather than by entity because that is what varies here; the
+        machine is the same one throughout. This walks every recipe in FD, not just
+        the ones the test blueprints use, which is the point - the shapes that
+        break are on recipes no real base contains.
+
+        Takes the blueprint to walk rather than reading the loaded one, and for the
+        same reason spriteDataTally does plus a sharper one: loading this blueprint
+        renders it, EntitySprite.getDrawData asks every crafting machine for
+        assemblerHasFluidInputs, and on the `{}` recipes that throws inside
+        EntityContainer's constructor and takes the whole load down. Decoding
+        without rendering is the only way to reach the readers one at a time.
+    */
+    recipeShapeTally: (blueprint?: Blueprint) => {
+        const bpToWalk = blueprint ?? bp
+        const out: Record<string, string[]> = {}
+        const attempt = (fn: () => unknown): string => {
+            try {
+                return String(fn())
+            } catch {
+                return 'THREW'
+            }
+        }
+        // A panel of its own rather than the live one, so the tally does not leave
+        // the app's info panel showing the last recipe walked.
+        const panel = new EntityInfoPanel()
+        for (const entity of bpToWalk.entities.valuesArray()) {
+            const recipe = entity.recipe
+            if (recipe === undefined) continue
+            out[recipe] = [
+                attempt(() => entity.assemblerHasFluidInputs),
+                attempt(() => entity.assemblerHasFluidOutputs),
+                attempt(() => {
+                    const info = OverlayContainer.createEntityInfo(entity, { x: 0, y: 0 })
+                    return info === undefined ? -1 : info.children.length
+                }),
+                attempt(() => {
+                    panel.updateVisualization(entity)
+                    return 'ok'
+                }),
+            ]
+        }
+        panel.destroy()
         return out
     },
 }
