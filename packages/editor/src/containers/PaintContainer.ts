@@ -116,7 +116,10 @@ export abstract class PaintContainer extends Container<EntitySprite> {
         this.moveAtCursor()
     }
 
-    protected setPosition(position?: IPoint): void {
+    // Not optional: all four call sites pass a position, and every branch below
+    // reads it. Unlike setNewPosition's `size`, where PaintWireContainer really
+    // does omit it and the undefined arm is the one it takes.
+    protected setPosition(position: IPoint): void {
         if (this._posConstraint === undefined) {
             this.position = position
         } else {

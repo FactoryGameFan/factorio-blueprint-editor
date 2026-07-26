@@ -228,6 +228,13 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         Empty means every action is on its default combo.
     */
     keyCombos: () => EDITOR.exportKeybinds(),
+    /*
+        The loaded blueprint's wires, in the form they would be serialized to a
+        blueprint string. Reads live editor state, unlike wire-connections.spec,
+        which walks a blueprint it decoded itself - pasting is the case that
+        needs the difference.
+    */
+    wireCount: () => bp.wireConnections.serializeBpWires().length,
     loadingScreen,
     getBook: () => book,
     selectBookIndex: async (index: number) => {
