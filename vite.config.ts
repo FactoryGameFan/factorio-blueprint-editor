@@ -149,6 +149,13 @@ export default defineConfig({
                 globals: {
                     console: 'readonly',
                     process: 'readonly',
+                    // Node's timer family. Declared as a group rather than
+                    // one at a time so the next script reaching for the other
+                    // half of a pair does not fail lint for it.
+                    setTimeout: 'readonly',
+                    clearTimeout: 'readonly',
+                    setInterval: 'readonly',
+                    clearInterval: 'readonly',
                 },
             },
         ],

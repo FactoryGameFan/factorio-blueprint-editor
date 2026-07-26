@@ -6,6 +6,7 @@
         "packages/worker"
     ],
     "scripts": {
+        "localpreview": "node scripts/localpreview.mjs",
         "start:website": "npm --workspace=@fbe/website run start",
         "preview:website": "npm --workspace=@fbe/website run preview",
         "start:exporter": "cd ./packages/exporter && cargo run --release",

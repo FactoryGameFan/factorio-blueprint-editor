@@ -14,10 +14,15 @@ Web-based Factorio blueprint viewer/editor using PixiJS. Fork adding Space Age D
 ## Key Commands
 
 ```fish
-# Dev server (from packages/website/)
-vp dev
+# Both dev servers at once, from the repo root - Vite on 8080 and the sprite
+# data on 8081. Checks both ports by name before spawning anything, and one
+# Ctrl-C stops the pair. This is the way to start them.
+npm run localpreview
 
-# Static file server for sprite data (separate terminal, from repo root)
+# ...or run them by hand in two terminals, if you want them separate.
+# Terminal 1, from packages/website/:
+vp dev --port 8080 --strictPort
+# Terminal 2, from the repo root:
 npx serve packages/exporter/data/output -l 8081 --cors
 
 # Build
@@ -177,19 +182,16 @@ Automated tests that load blueprint `.txt` files from `wormeyman-tests/` against
 
 **How it works:** Tests navigate to the editor, wait for init, then call `window.__fbe_test.getBlueprintOrBookFromSource()` and `loadBp()` via `page.evaluate()` to inject blueprints directly (avoiding URL length limits). Console warnings/errors and JS exceptions are captured per blueprint.
 
-**Prerequisites:** Both dev servers must be running before tests:
-
-- Terminal 1: `cd packages/website && vp dev` (Vite on port 8080)
-- Terminal 2: `npx serve packages/exporter/data/output -l 8081 --cors` (sprite data)
+**Prerequisites:** Both dev servers must be running before tests. `npm run localpreview` from the repo root starts both (Vite on 8080, sprite data on 8081) and stops both on Ctrl-C.
 
 Also run `npx playwright install` after any `@playwright/test` version bump. The bundled browser revision moves with it, and every spec then fails on a missing `chrome-headless-shell` executable - which reads like a suite-wide regression rather than a missing download.
 
-Start them in that order and check the port Vite reports. If something else already holds 8080, Vite silently falls back to 8081 and then proxies `/data` to itself, which looks like the sprite server failing rather than a port clash. Pin it with `vp dev --port 8080 --strictPort` to get a clear failure instead.
+The reason to prefer the script over two hand-started terminals is that both servers fail _quietly_ on a port clash, in the same direction. Vite without `--strictPort` falls back to 8081 and then proxies `/data` to itself, which looks like the sprite server failing rather than a port clash; `npx serve` moves to a random high port and says so in one line that scrolls away. `localpreview` checks both ports by name and refuses to start. Note its check probes both loopback families - Vite binds `localhost`, which is `::1` alone on macOS, so an IPv4-only probe reports 8080 free while Vite holds it.
 
-If 8080 is taken, run Vite elsewhere and point the specs at it with `FBE_BASE_URL` rather than editing `playwright.config.ts`. The sprite data server must stay on 8081 either way - the Vite dev proxy hardcodes it.
+If 8080 is taken, run Vite elsewhere and point the specs at it with `FBE_BASE_URL` rather than editing `playwright.config.ts`. The sprite data server must stay on 8081 either way - the Vite dev proxy hardcodes it, which is why `--port` only moves Vite.
 
 ```fish
-cd packages/website; vp dev --port 8090 --strictPort
+npm run localpreview -- --port 8090
 FBE_BASE_URL=http://localhost:8090 npx playwright test
 ```
 
