@@ -14,6 +14,7 @@ import { PositionGrid } from '../core/PositionGrid'
 import {
     getSpriteData,
     ExtendedSpriteData,
+    IDrawData,
     SPRITE_GENERATION_FAILED,
 } from '../core/spriteDataBuilder'
 import { UnknownEntitySprite } from './UnknownEntitySprite'
@@ -136,12 +137,16 @@ export class EntitySprite extends Sprite {
         return this.nextID
     }
 
-    public static getParts(
+    /**
+     * The IDrawData getSpriteData wants for an entity. Split out of getParts so
+     * that tests/sprite-data.spec.ts can digest the generated sprite data without
+     * going through texture loading - see the spriteDataTally hook in the website.
+     */
+    public static getDrawData(
         entity: IEntityData | Entity,
-        position?: IPoint,
         positionGrid?: PositionGrid
-    ): EntitySprite[] {
-        const spriteData = getSpriteData({
+    ): IDrawData {
+        return {
             dir: entity.direction,
 
             name: entity.name,
@@ -158,7 +163,15 @@ export class EntitySprite extends Sprite {
             railLayer: entity.railLayer,
             trainStopColor: entity.trainStopColor,
             modules: entity.modules,
-        })
+        }
+    }
+
+    public static getParts(
+        entity: IEntityData | Entity,
+        position?: IPoint,
+        positionGrid?: PositionGrid
+    ): EntitySprite[] {
+        const spriteData = getSpriteData(EntitySprite.getDrawData(entity, positionGrid))
 
         const entityColor =
             entity instanceof Entity ? entity.trainStopColor : (entity as IEntityData).entityColor

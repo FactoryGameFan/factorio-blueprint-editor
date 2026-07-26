@@ -82,6 +82,20 @@ export function dirEntry<T = SpriteData>(x: object, dirName: string): T {
 }
 
 /**
+ * The layers of a directional struct's entry for `dirName` - `dirEntry` followed
+ * by `layersOf`, which is how nearly every caller uses it.
+ *
+ * `layers` is optional on Sprite and Animation because a direction entry is
+ * allowed to be a bare sprite that is itself the only layer, which is what
+ * layersOf handles. Every entry these callers reach does carry layers in the
+ * current data.json; an entry missing for the direction entirely still throws,
+ * the same as reading `.layers` off undefined did.
+ */
+export function dirLayers(x: object, dirName: string): readonly SpriteData[] {
+    return layersOf(dirEntry(x, dirName))
+}
+
+/**
  * Coerce a SpriteVariations value to a SpriteData[] for array positions (e.g.
  * util.getRandomItem). At runtime variations are either an array of sprites or
  * a single sprite.

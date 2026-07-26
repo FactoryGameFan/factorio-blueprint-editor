@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { buildAllEntitiesBlueprint } from './helpers/all-entities-blueprint'
 import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint-files'
+import { loadBlueprint, waitForEditor, OverlayTally } from './helpers/fbe-test-api'
 
 /*
     Coverage net for OverlayContainer.createEntityInfo, ahead of clearing its 31
@@ -32,32 +33,10 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
 /** Cardinals only, matching sprite-generation.spec.ts - see the note there. */
 const DIRECTIONS = [0, 4, 8, 12]
 
-/** Entity name -> child count per placement. -1 means no overlay was produced. */
-type Tally = Record<string, number[]>
-
-declare global {
-    interface Window {
-        __fbe_test: {
-            getBlueprintOrBookFromSource: (source: string) => Promise<unknown>
-            loadBp: (bp: unknown) => Promise<void>
-            overlayInfoTally: () => Tally
-        }
-    }
-}
-
 type Page = import('@playwright/test').Page
 
-async function waitForEditor(page: Page): Promise<void> {
-    await page.goto('/')
-    await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
-}
-
-async function tallyFor(page: Page, source: string): Promise<Tally> {
-    await page.evaluate(async (src: string) => {
-        const t = window.__fbe_test
-        const bp = await t.getBlueprintOrBookFromSource(src)
-        await t.loadBp(bp)
-    }, source)
+async function tallyFor(page: Page, source: string): Promise<OverlayTally> {
+    await loadBlueprint(page, source)
     return page.evaluate(() => window.__fbe_test.overlayInfoTally())
 }
 

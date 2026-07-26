@@ -18,6 +18,7 @@ import FD, {
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
 import {
+    dirLayers,
     layersOf,
     sheetOf,
     sheetsOf,
@@ -114,7 +115,7 @@ import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
 import { need } from './need'
 
-interface IDrawData {
+export interface IDrawData {
     dir: number
 
     name: string
@@ -162,8 +163,9 @@ export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
 const generatorCache = new Map<string, (data: IDrawData) => readonly ExtendedSpriteData[]>()
 
 function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
-    if (generatorCache.has(data.name)) {
-        return generatorCache.get(data.name)(data)
+    const cached = generatorCache.get(data.name)
+    if (cached) {
+        return cached(data)
     }
 
     const entity = FD.entities[data.name]
@@ -309,7 +311,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
 
             const needs_cover = force_cover || !isConnected()
             if (needs_cover) {
-                let temp = dirEntry(fb.pipe_covers, util.getDirName(dir)).layers[0]
+                let temp = dirLayers(fb.pipe_covers, util.getDirName(dir))[0]
                 temp = addToShift(offset, util.duplicate(temp))
                 output.push(temp)
             }
@@ -541,12 +543,20 @@ function getBeltSprites(
     type BeltShape = 'straight' | 'right' | 'left' | 'start' | 'end'
 
     interface IFromTo extends IPoint {
+        /** Direction of this neighbour relative to the belt, as getNeighbourData gives it. */
+        relDir: number
         entity: Entity
     }
 
+    /*
+        `from` and `to` are the neighbouring belts feeding this one and being fed
+        by it, and either can be absent - a belt with nothing behind it has no
+        `from`. Every caller already tests them (`if (conn.from)`, `C.from && ...`
+        in getBeltSprites), so the optionality is what the code has always meant.
+    */
     interface IConnection {
-        from: IFromTo
-        to: IFromTo
+        from: IFromTo | undefined
+        to: IFromTo | undefined
         curve: BeltShape
     }
 
@@ -556,15 +566,22 @@ function getBeltSprites(
         direction: number,
         forceStraight = false
     ): IConnection {
-        let C = positionGrid.getNeighbourData(pos).map(d => {
+        /*
+            getNeighbourData's `entity` is undefined for an empty cell, so the
+            entries that survive the type check carry one. Rebuilding the entry
+            with the narrowed entity is what lets IFromTo keep saying `entity:
+            Entity` rather than pushing the check onto everything downstream.
+        */
+        let C = positionGrid.getNeighbourData(pos).map((d): IFromTo | undefined => {
+            const entity = d.entity
             if (
-                d.entity &&
-                (d.entity.type === 'transport-belt' ||
-                    d.entity.type === 'splitter' ||
-                    d.entity.type === 'underground-belt' ||
-                    d.entity.type === 'loader')
+                entity &&
+                (entity.type === 'transport-belt' ||
+                    entity.type === 'splitter' ||
+                    entity.type === 'underground-belt' ||
+                    entity.type === 'loader')
             ) {
-                return d
+                return { ...d, entity }
             }
         })
         // Rotate based on belt direction
@@ -574,23 +591,27 @@ function getBeltSprites(
         const C2 = C.map(d => {
             if (
                 !d ||
-                ((need(d, 'entity').type === 'underground-belt' ||
-                    need(d, 'entity').type === 'loader') &&
-                    need(d, 'entity').directionType === 'input')
+                ((d.entity.type === 'underground-belt' || d.entity.type === 'loader') &&
+                    d.entity.directionType === 'input')
             ) {
                 return
             }
-            if (need(d, 'entity').direction === (d.relDir + 8) % 16) {
+            if (d.entity.direction === (d.relDir + 8) % 16) {
                 return d
             }
         })
 
+        /*
+            Every call site passes a position that holds a belt, so this is only
+            `?.` rather than a throw because an empty cell answering "not a
+            splitter" is the same answer the checks below want anyway.
+        */
         const entAtPos = positionGrid.getEntityAtPosition(pos)
         if (
             forceStraight ||
-            need(entAtPos, 'type') === 'splitter' ||
-            need(entAtPos, 'type') === 'underground-belt' ||
-            need(entAtPos, 'type') === 'loader'
+            entAtPos?.type === 'splitter' ||
+            entAtPos?.type === 'underground-belt' ||
+            entAtPos?.type === 'loader'
         ) {
             return {
                 from: C[2],
@@ -689,6 +710,14 @@ function getBeltSprites(
                             return bas.ending_west_index || 16
                     }
             }
+            /*
+                Belts only ever face a cardinal, and every BeltShape is covered
+                above, so falling through means the caller passed something that
+                cannot happen. getSpriteData turns this into a named log line
+                and a placeholder box; returning a default index instead would
+                draw a silently wrong belt piece.
+            */
+            throw new Error(`no belt sprite index for shape '${type}' at direction ${dir}`)
         }
     }
 }
@@ -910,32 +939,32 @@ function draw_arithmetic_combinator(
         const operatorToSpriteData = (operator: ArithmeticOperation): Sprite4Way => {
             switch (operator) {
                 case '+':
-                    return e.plus_symbol_sprites
+                    return need(e, 'plus_symbol_sprites')
                 case '-':
-                    return e.minus_symbol_sprites
+                    return need(e, 'minus_symbol_sprites')
                 case '*':
-                    return e.multiply_symbol_sprites
+                    return need(e, 'multiply_symbol_sprites')
                 case '/':
-                    return e.divide_symbol_sprites
+                    return need(e, 'divide_symbol_sprites')
                 case '%':
-                    return e.modulo_symbol_sprites
+                    return need(e, 'modulo_symbol_sprites')
                 case '^':
-                    return e.power_symbol_sprites
+                    return need(e, 'power_symbol_sprites')
                 case '<<':
-                    return e.left_shift_symbol_sprites
+                    return need(e, 'left_shift_symbol_sprites')
                 case '>>':
-                    return e.right_shift_symbol_sprites
+                    return need(e, 'right_shift_symbol_sprites')
                 case 'AND':
-                    return e.and_symbol_sprites
+                    return need(e, 'and_symbol_sprites')
                 case 'OR':
-                    return e.or_symbol_sprites
+                    return need(e, 'or_symbol_sprites')
                 case 'XOR':
-                    return e.xor_symbol_sprites
+                    return need(e, 'xor_symbol_sprites')
                 default:
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
+        const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]
         if (data.operator) {
             out.push(
                 dirEntry(
@@ -969,6 +998,10 @@ function draw_artillery_turret(
                     return [0, -0.4]
                 case 12:
                     return [1, 0.31]
+                default:
+                    // Artillery turrets only face a cardinal - same reasoning as
+                    // getIndex above.
+                    throw new Error(`no artillery barrel shift for direction ${data.dir}`)
             }
         }
         return [...layersOf(need(e, 'base_picture')), barrel, base]
@@ -1005,7 +1038,7 @@ function draw_assembling_machine(
         if (need(e, 'graphics_set').always_draw_idle_animation) {
             return layersOf(need(e, 'graphics_set', 'idle_animation'))
         } else {
-            const out = [...getAnimation(need(e, 'graphics_set', 'animation'), data.dir).layers]
+            const out = [...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir))]
 
             const fbs = getFluidBoxes(
                 e,
@@ -1047,21 +1080,27 @@ function draw_assembling_machine(
 function draw_asteroid_collector(
     e: AsteroidCollectorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => getAnimation((e as any).graphics_set.animation, data.dir).layers
+    return (data: IDrawData) => layersOf(getAnimation((e as any).graphics_set.animation, data.dir))
 }
 function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const layers = need(e, 'graphics_set', 'animation_list')
             .filter(vis => vis.always_draw)
             .map(vis => vis.animation)
+            // A visualisation with nothing to draw contributes nothing; it should
+            // not cost the beacon the rest of its layers.
+            .filter(anim => anim !== undefined)
             // an animation either has layers or is itself the single layer
             .flatMap(vis => layersOf(vis))
 
         // Beacon module slots only ever hold modules; narrow from the base
-        // ItemPrototype to read module-only `tier`/`beacon_tint`.
-        const modules = (data.modules || []).map(name => FD.items[name] as ModulePrototype)
+        // ItemPrototype to read module-only `tier`/`beacon_tint`. An empty slot
+        // has no name and falls through to the has_empty_slot branch below.
+        const modules = (data.modules || []).map(name =>
+            name === undefined ? undefined : (FD.items[name] as ModulePrototype)
+        )
         const moduleLayers = need(e, 'graphics_set', 'module_visualisations')
-            .flatMap(vis => vis.slots)
+            .flatMap(vis => vis.slots ?? [])
             .flatMap((arr, i) => {
                 const module = modules[i]
                 if (module) {
@@ -1102,9 +1141,17 @@ function draw_beacon(e: BeaconPrototype): (data: IDrawData) => readonly SpriteDa
 function draw_boiler(e: BoilerPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const patches = []
+        /*
+            EnergySource is a discriminated union on `type`, but getEnergySource
+            can also answer undefined (a boiler prototype need not declare one),
+            and undefined has no `type` for the check to narrow through - so the
+            guard has to come first for `connections` and `pipe_covers` to be
+            readable at all. heat-exchanger is the only boiler with a heat source
+            and it carries both, same as the electric-mining-drill check above.
+        */
         const energy_source = getEnergySource(e)
-        if (energy_source.type === 'heat') {
-            for (const conn of energy_source.connections) {
+        if (energy_source && energy_source.type === 'heat') {
+            for (const conn of need(energy_source, 'connections')) {
                 let needsEnding = true
                 if (data.positionGrid) {
                     const pos = util.rotatePointBasedOnDir(conn.position, data.dir)
@@ -1123,7 +1170,7 @@ function draw_boiler(e: BoilerPrototype): (data: IDrawData) => readonly SpriteDa
                             util.rotatePointBasedOnDir([0, 1.5], data.dir),
                             util.duplicate(
                                 dirEntry(
-                                    energy_source.pipe_covers,
+                                    need(energy_source, 'pipe_covers'),
                                     util.getDirName((data.dir + 8) % 16)
                                 )
                             )
@@ -1132,13 +1179,19 @@ function draw_boiler(e: BoilerPrototype): (data: IDrawData) => readonly SpriteDa
                 }
             }
         }
-        return [...patches, ...e.pictures[util.getDirName(data.dir)].structure.layers]
+        return [
+            ...patches,
+            ...layersOf(
+                dirEntry<{ structure: SpriteData }>(need(e, 'pictures'), util.getDirName(data.dir))
+                    .structure
+            ),
+        ]
     }
 }
 function draw_burner_generator(
     e: BurnerGeneratorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => getAnimation((e as any).animation, data.dir).layers
+    return (data: IDrawData) => layersOf(getAnimation((e as any).animation, data.dir))
 }
 function isCargoBayLike(entity: { type: string } | undefined): boolean {
     return (
@@ -1246,7 +1299,7 @@ function draw_constant_combinator(
     e: ConstantCombinatorPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        return dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers
+        return dirLayers(need(e, 'sprites'), util.getDirName(data.dir))
     }
 }
 function draw_container(e: ContainerPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -1327,22 +1380,22 @@ function draw_decider_combinator(
         const operatorToSpriteData = (operator: ComparatorString): Sprite4Way => {
             switch (operator) {
                 case '<':
-                    return e.less_symbol_sprites
+                    return need(e, 'less_symbol_sprites')
                 case '>':
-                    return e.greater_symbol_sprites
+                    return need(e, 'greater_symbol_sprites')
                 case '≤':
-                    return e.less_or_equal_symbol_sprites
+                    return need(e, 'less_or_equal_symbol_sprites')
                 case '≥':
-                    return e.greater_or_equal_symbol_sprites
+                    return need(e, 'greater_or_equal_symbol_sprites')
                 case '=':
-                    return e.equal_symbol_sprites
+                    return need(e, 'equal_symbol_sprites')
                 case '≠':
-                    return e.not_equal_symbol_sprites
+                    return need(e, 'not_equal_symbol_sprites')
                 default:
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
+        const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]
         if (data.operator) {
             out.push(
                 dirEntry(
@@ -1356,7 +1409,7 @@ function draw_decider_combinator(
 }
 function draw_display_panel(e: DisplayPanelPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
+        const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]
         if (data.displayPanelIcon && data.displayPanelIcon.name) {
             // TODO: move this out
             const map = () => {
@@ -1427,7 +1480,7 @@ function draw_elevated_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
             ps = e.pictures[util.getDirName8Way(dir % 8)]
         }
         return [ps.stone_path_background, ps.stone_path, ps.backplates, ps.metals]
-            .filter(Boolean)
+            .filter(p => p !== undefined)
             .map(p => sheetOf(p))
     }
 }
@@ -1454,7 +1507,7 @@ function draw_elevated_straight_rail(
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
         ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), data.dir),
-        ...dirEntry(e.folded_animation, util.getDirName(data.dir)).layers,
+        ...dirLayers(e.folded_animation, util.getDirName(data.dir)),
     ]
 }
 function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -1518,22 +1571,22 @@ function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[]
                 if (rail) {
                     if (data.dir % 8 === 0) {
                         if (rail.position.y > data.position.y) {
-                            return need(e, 'vertical_rail_animation_left').layers
+                            return layersOf(need(e, 'vertical_rail_animation_left'))
                         }
-                        return need(e, 'vertical_rail_animation_right').layers
+                        return layersOf(need(e, 'vertical_rail_animation_right'))
                     } else {
                         if (rail.position.x > data.position.x) {
-                            return need(e, 'horizontal_rail_animation_left').layers
+                            return layersOf(need(e, 'horizontal_rail_animation_left'))
                         }
-                        return need(e, 'horizontal_rail_animation_right').layers
+                        return layersOf(need(e, 'horizontal_rail_animation_right'))
                     }
                 }
             }
 
             if (data.dir % 8 === 0) {
-                return need(e, 'vertical_animation').layers
+                return layersOf(need(e, 'vertical_animation'))
             }
-            return need(e, 'horizontal_animation').layers
+            return layersOf(need(e, 'horizontal_animation'))
         }
 
         if (data.dir % 8 === 0 && data.positionGrid) {
@@ -1552,8 +1605,8 @@ function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[]
 function draw_generator(e: GeneratorPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) =>
         data.dir % 8 === 0
-            ? need(e, 'vertical_animation').layers
-            : need(e, 'horizontal_animation').layers
+            ? layersOf(need(e, 'vertical_animation'))
+            : layersOf(need(e, 'horizontal_animation'))
 }
 function draw_heat_interface(
     e: HeatInterfacePrototype
@@ -1638,8 +1691,8 @@ function draw_infinity_container(
 }
 function draw_inserter(e: InserterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        let ho = util.duplicate(e.hand_open_picture)
-        let hb = util.duplicate(e.hand_base_picture)
+        let ho = util.duplicate(need(e, 'hand_open_picture'))
+        let hb = util.duplicate(need(e, 'hand_base_picture'))
 
         const handData = {
             anchorX: 0.5,
@@ -1779,6 +1832,20 @@ function draw_lane_splitter(e: LaneSplitterPrototype): (data: IDrawData) => read
         return out
     }
 }
+/**
+ * The layers a ground rail draws, back to front. Every non-empty direction entry
+ * in data.json carries all five, so a missing one is data going wrong rather
+ * than a layer to skip - unlike the elevated rails, which have no `ties` and
+ * filter for it.
+ */
+const RAIL_LAYER_KEYS = [
+    'stone_path_background',
+    'stone_path',
+    'ties',
+    'backplates',
+    'metals',
+] as const
+
 function draw_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = data.dir
@@ -1786,9 +1853,7 @@ function draw_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[]
         if (Object.entries(ps).length === 0) {
             ps = e.pictures[util.getDirName8Way(dir % 8)]
         }
-        return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals].map(p =>
-            sheetOf(p)
-        )
+        return RAIL_LAYER_KEYS.map(k => sheetOf(need(ps, k)))
     }
 }
 function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -1799,9 +1864,7 @@ function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
             if (Object.entries(ps).length === 0) {
                 ps = e.pictures[util.getDirName8Way(dir % 8)]
             }
-            return [ps.stone_path_background, ps.stone_path, ps.ties, ps.backplates, ps.metals].map(
-                p => sheetOf(p)
-            )
+            return RAIL_LAYER_KEYS.map(k => sheetOf(need(ps, k)))
         }
 
         if (data.positionGrid && dir % 4 === 0) {
@@ -1829,8 +1892,8 @@ function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
                         p,
                         util.duplicate(
                             dir % 8 === 0
-                                ? (FD.entities.gate as GatePrototype).horizontal_rail_base
-                                : (FD.entities.gate as GatePrototype).vertical_rail_base
+                                ? need(FD.entities.gate as GatePrototype, 'horizontal_rail_base')
+                                : need(FD.entities.gate as GatePrototype, 'vertical_rail_base')
                         )
                     )
                 )
@@ -1939,7 +2002,7 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
     switch (e.name) {
         case 'burner-mining-drill':
             return (data: IDrawData) =>
-                dirEntry(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir)).layers
+                dirLayers(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir))
 
         case 'pumpjack':
             return (data: IDrawData) => [
@@ -1956,7 +2019,7 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
         case 'big-mining-drill':
             return (data: IDrawData) => {
                 const dir = util.getDirName(data.dir)
-                const layers0 = dirEntry(need(e, 'graphics_set', 'animation'), dir).layers
+                const layers0 = dirLayers(need(e, 'graphics_set', 'animation'), dir)
 
                 const animDir = `${dir}_animation` as
                     | 'north_animation'
@@ -1999,28 +2062,30 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
 }
 function draw_offshore_pump(e: OffshorePumpPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) =>
-        dirEntry(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir)).layers
+        dirLayers(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir))
 }
 function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
+        // pipe and infinity-pipe both carry every junction sprite below; a
+        // missing one is data going wrong, not a pipe piece to leave undrawn.
         const pictures = need(e, 'pictures')
         if (data.positionGrid) {
             const conn = getFluidConnections(data.position, data.positionGrid)
 
             if (conn[0] && conn[1] && conn[2] && conn[3]) {
-                return [pictures.cross]
+                return [need(pictures, 'cross')]
             }
             if (conn[0] && conn[1] && conn[3]) {
-                return [pictures.t_up]
+                return [need(pictures, 't_up')]
             }
             if (conn[1] && conn[2] && conn[3]) {
-                return [pictures.t_down]
+                return [need(pictures, 't_down')]
             }
             if (conn[0] && conn[1] && conn[2]) {
-                return [pictures.t_right]
+                return [need(pictures, 't_right')]
             }
             if (conn[0] && conn[2] && conn[3]) {
-                return [pictures.t_left]
+                return [need(pictures, 't_left')]
             }
             if (conn[0] && conn[2]) {
                 // Only show window variant in continuous straight runs (3+ pipes)
@@ -2040,8 +2105,11 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
                     }
                 }
                 return useWindow
-                    ? [pictures.vertical_window_background, pictures.straight_vertical_window]
-                    : [pictures.straight_vertical]
+                    ? [
+                          need(pictures, 'vertical_window_background'),
+                          need(pictures, 'straight_vertical_window'),
+                      ]
+                    : [need(pictures, 'straight_vertical')]
             }
             if (conn[1] && conn[3]) {
                 let useWindow = false
@@ -2059,35 +2127,38 @@ function draw_pipe(e: PipePrototype): (data: IDrawData) => readonly SpriteData[]
                     }
                 }
                 return useWindow
-                    ? [pictures.horizontal_window_background, pictures.straight_horizontal_window]
-                    : [pictures.straight_horizontal]
+                    ? [
+                          need(pictures, 'horizontal_window_background'),
+                          need(pictures, 'straight_horizontal_window'),
+                      ]
+                    : [need(pictures, 'straight_horizontal')]
             }
             if (conn[0] && conn[1]) {
-                return [pictures.corner_up_right]
+                return [need(pictures, 'corner_up_right')]
             }
             if (conn[0] && conn[3]) {
-                return [pictures.corner_up_left]
+                return [need(pictures, 'corner_up_left')]
             }
             if (conn[1] && conn[2]) {
-                return [pictures.corner_down_right]
+                return [need(pictures, 'corner_down_right')]
             }
             if (conn[2] && conn[3]) {
-                return [pictures.corner_down_left]
+                return [need(pictures, 'corner_down_left')]
             }
             if (conn[0]) {
-                return [pictures.ending_up]
+                return [need(pictures, 'ending_up')]
             }
             if (conn[2]) {
-                return [pictures.ending_down]
+                return [need(pictures, 'ending_down')]
             }
             if (conn[1]) {
-                return [pictures.ending_right]
+                return [need(pictures, 'ending_right')]
             }
             if (conn[3]) {
-                return [pictures.ending_left]
+                return [need(pictures, 'ending_left')]
             }
         }
-        return [pictures.straight_vertical_single]
+        return [need(pictures, 'straight_vertical_single')]
     }
 }
 function draw_pipe_to_ground(e: PipeToGroundPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -2177,7 +2248,14 @@ function draw_reactor(e: ReactorPrototype): (data: IDrawData) => readonly Sprite
             patchSheet = addToShift(conn.position, patchSheet)
             patches.push(patchSheet)
         }
-        return [...patches, e.lower_layer_picture, ...need(e, 'picture', 'layers')]
+        const lower = e.lower_layer_picture
+        return [
+            ...patches,
+            // heating-tower has no lower layer; this used to put an undefined in
+            // the list for EntitySprite.getParts to skip.
+            ...(lower === undefined ? [] : [lower]),
+            ...need(e, 'picture', 'layers'),
+        ]
     }
 }
 function draw_roboport(e: RoboportPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -2210,21 +2288,21 @@ function draw_selector_combinator(
                         ? need(e, 'max_symbol_sprites')
                         : need(e, 'min_symbol_sprites')
                 case 'count':
-                    return e.count_symbol_sprites
+                    return need(e, 'count_symbol_sprites')
                 case 'random':
-                    return e.random_symbol_sprites
+                    return need(e, 'random_symbol_sprites')
                 case 'rocket-capacity':
-                    return e.rocket_capacity_sprites
+                    return need(e, 'rocket_capacity_sprites')
                 case 'stack-size':
-                    return e.stack_size_sprites
+                    return need(e, 'stack_size_sprites')
                 case 'quality-transfer':
                 case 'quality-filter':
-                    return e.quality_symbol_sprites
+                    return need(e, 'quality_symbol_sprites')
                 default:
                     throw new Error('Internal Error!')
             }
         }
-        const out = [...dirEntry(need(e, 'sprites'), util.getDirName(data.dir)).layers]
+        const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]
         if (data.operator) {
             out.push(
                 dirEntry(
@@ -2280,13 +2358,13 @@ function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly Spri
 }
 function draw_storage_tank(e: StorageTankPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
-        addToShift([0, 1], util.duplicate(need(e, 'pictures').window_background)),
+        addToShift([0, 1], util.duplicate(need(need(e, 'pictures'), 'window_background'))),
         setPropertyUsing(
             util.duplicate(sheetsOf(need(e, 'pictures', 'picture'))[0]),
             'x',
             'width',
             Math.floor(data.dir / 4) %
-                (sheetsOf(need(e, 'pictures', 'picture'))[0] as SheetMeta).frames
+                ((sheetsOf(need(e, 'pictures', 'picture'))[0] as SheetMeta).frames ?? 1)
         ),
     ]
 }
@@ -2303,12 +2381,12 @@ function draw_thruster(e: ThrusterPrototype): (data: IDrawData) => readonly Spri
 function draw_train_stop(e: TrainStopPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const dir = util.getDirName(data.dir)
-        let ta = util.duplicate(dirEntry(need(e, 'top_animations'), dir).layers[1])
+        let ta = util.duplicate(dirLayers(need(e, 'top_animations'), dir)[1])
         ta = setProperty(ta, 'tint', data.trainStopColor ? data.trainStopColor : e.color)
         return [
             dirEntry(need(e, 'rail_overlay_animations'), dir),
-            ...dirEntry(need(e, 'animations'), dir).layers,
-            ...dirEntry(need(e, 'top_animations'), dir).layers,
+            ...dirLayers(need(e, 'animations'), dir),
+            ...dirLayers(need(e, 'top_animations'), dir),
             ta,
             dirEntry(need(e, 'light1').picture, dir),
             dirEntry(need(e, 'light2').picture, dir),
@@ -2540,7 +2618,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
                     wall,
                     'x',
                     'width',
-                    util.getRandomInt(0, (wall as SheetMeta).line_length)
+                    util.getRandomInt(0, (wall as SheetMeta).line_length ?? 1)
                 )
             )
 
@@ -2584,7 +2662,10 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
                     sheetOf(need(pictures, 'filling')),
                     'x',
                     'width',
-                    util.getRandomInt(0, (pictures.filling as unknown as SheetMeta).line_length)
+                    util.getRandomInt(
+                        0,
+                        (pictures.filling as unknown as SheetMeta).line_length ?? 1
+                    )
                 )
                 filling = setProperty(filling, 'anchorX', 1.17)
                 sprites.push(filling)
