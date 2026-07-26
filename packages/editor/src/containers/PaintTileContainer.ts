@@ -76,11 +76,11 @@ export class PaintTileContainer extends PaintContainer {
     }
 
     public override rotatedEntities(_ccw?: boolean): Entity[] {
-        return undefined
+        throw new Error('A tile is not rotated by copying')
     }
 
     public override flippedEntities(_vertical: boolean): Entity[] {
-        return undefined
+        throw new Error('A tile is not flipped by copying')
     }
 
     protected override redraw(): void {

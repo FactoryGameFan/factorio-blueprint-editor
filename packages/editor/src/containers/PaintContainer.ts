@@ -162,12 +162,26 @@ export abstract class PaintContainer extends Container<EntitySprite> {
     // override
     public abstract rotate(ccw?: boolean): void
 
+    /**
+     * Whether rotating or flipping this container means replacing it with a
+     * container of transformed copies, rather than transforming it in place.
+     * This is the guard on the two below - `BlueprintContainer.rotate` and
+     * `.flip` ask it first and call them only when it answers true.
+     */
     // override
     public abstract canFlipOrRotateByCopying(): boolean
 
+    /**
+     * The copies to respawn with, valid only where `canFlipOrRotateByCopying()`
+     * is true. The three containers that answer false throw instead of returning
+     * anything, because there is no list that means "not applicable" - the
+     * caller destroys this container before spawning whatever comes back, so an
+     * empty array or undefined would take paint mode down with it.
+     */
     // override
     public abstract rotatedEntities(ccw?: boolean): Entity[]
 
+    /** As `rotatedEntities`, and guarded by the same predicate. */
     // override
     public abstract flippedEntities(vertical: boolean): Entity[]
 
