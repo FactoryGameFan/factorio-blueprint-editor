@@ -223,6 +223,11 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     */
     paintContainerVisible: () => editor.paintContainerVisible,
     /*
+        How many tile sprites are drawn. Nothing else asserts that tiles render
+        at all - the round-trip spec only checksums their positions in the model.
+    */
+    tileSpriteCount: () => editor.tileSpriteCount,
+    /*
         The keybinds that differ from their defaults, which is what
         importKeybinds was asked to apply and what exportKeybinds would persist.
         Empty means every action is on its default combo.

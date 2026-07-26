@@ -46,7 +46,16 @@ export class PaintTileContainer extends PaintContainer {
     }
 
     public override getItemName(): string {
-        return Tile.getItemName(this.name)
+        // Same shape as PaintEntityContainer's, and for the same reason: the
+        // abstract stays `string` because PaintContainer's constructor draws an
+        // icon from it, and something being painted is by definition something
+        // with an item to place it with. Naming the invariant beats widening
+        // the base and pushing a check onto the quickbar.
+        const itemName = Tile.getItemName(this.name)
+        if (itemName === undefined) {
+            throw new Error(`${this.name} is being painted but has no item to place it with`)
+        }
+        return itemName
     }
 
     public increaseSize(): void {
@@ -90,7 +99,11 @@ export class PaintTileContainer extends PaintContainer {
             this.position,
             PaintTileContainer.getTilePositions()
         )
-        this.addChild(...sprites)
+        // generateSprites can now come back empty, and pixi's addChild reads
+        // children[0] before checking the length.
+        if (sprites.length > 0) {
+            this.addChild(...sprites)
+        }
     }
 
     public override moveAtCursor(): void {

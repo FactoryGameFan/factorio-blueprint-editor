@@ -172,6 +172,11 @@ export class Editor {
      * destroyed whenever the pointer leaves the canvas, and `mode` reports
      * PAINT either way (issue #53).
      */
+    /** How many tile sprites the canvas is drawing. See tests/tiles.spec.ts. */
+    public get tileSpriteCount(): number {
+        return G.BPC.tileSpriteCount
+    }
+
     public get paintContainerVisible(): boolean | undefined {
         return G.BPC.paintContainer?.visible
     }

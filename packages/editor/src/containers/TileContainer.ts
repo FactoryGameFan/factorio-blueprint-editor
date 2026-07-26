@@ -9,13 +9,32 @@ export class TileContainer {
 
     public constructor(tile: Tile) {
         const sprite = TileContainer.generateSprite(tile.name, tile.x, tile.y)
-        this.tileSprites.push(sprite)
-        G.BPC.addTileSprites([sprite])
+        // A tile that could not be drawn contributes nothing rather than
+        // stopping the load - see generateSprite.
+        if (sprite !== undefined) {
+            this.tileSprites.push(sprite)
+            G.BPC.addTileSprites([sprite])
+        }
 
         tile.on('destroy', () => this.tileSprites.forEach(s => s.destroy()))
     }
 
-    public static generateSprite(name: string, x: number, y: number): EntitySprite {
+    /**
+     * Undefined where the prototype carries nothing to draw this tile with.
+     *
+     * Deliberately not a `need()`, which is how spriteDataBuilder reads optional
+     * prototype fields: that works there because `getSpriteData` wraps every
+     * generator in a try/catch and degrades to a placeholder box. Nothing wraps
+     * this - it is called straight from `BlueprintContainer.initBP`, so a throw
+     * takes the entire blueprint load down. That is the failure mode of issue
+     * #46, and issue #54 is the note not to reintroduce it at the read.
+     *
+     * Warned rather than skipped quietly, because the alternative outcome is an
+     * invisible hole in a floor, which is not something anyone would report
+     * accurately. Every tile in data.json draws today, so this is a guard on a
+     * shape the types permit and the data has never produced.
+     */
+    public static generateSprite(name: string, x: number, y: number): EntitySprite | undefined {
         const width = 64
         const height = 64
         const scale = 0.5
@@ -28,7 +47,13 @@ export class TileContainer {
 
         const variants = FD.tiles[name].variants
         if (variants.material_background === undefined) {
-            const variant = variants.main.find(v => (v.size || 1) === 1)
+            const variant = variants.main?.find(v => (v.size || 1) === 1)
+            if (variant?.picture === undefined || variant.count === undefined) {
+                console.warn(
+                    `Tile "${name}" has no single-tile "main" variant to draw with; leaving it blank.`
+                )
+                return undefined
+            }
             filename = variant.picture
             countX = variant.count
             countY = 1
@@ -67,11 +92,14 @@ export class TileContainer {
         position: IPoint,
         positions: IPoint[]
     ): EntitySprite[] {
-        return positions.map(p => {
+        // flatMap rather than map, so a tile with nothing to draw drops out
+        // instead of leaving an undefined for the caller to spread into pixi.
+        return positions.flatMap(p => {
             const s = TileContainer.generateSprite(name, p.x + position.x, p.y + position.y)
+            if (s === undefined) return []
             s.position.set(p.x * 32, p.y * 32)
             s.alpha = 0.5
-            return s
+            return [s]
         })
     }
 }
