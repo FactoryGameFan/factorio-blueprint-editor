@@ -133,6 +133,7 @@
         "solar-panel": ["2:b86cb635"],
         "space-platform-hub": ["15:3486a776"],
         "splitter": ["8:188df570", "8:4b96fdf2", "8:9ba6c22b", "8:b49efd1c"],
+        "stack-inserter": ["3:14e51b74", "3:18aeace5", "3:22fbb480", "3:e2536683"],
         "steam-engine": ["4:2264dd84", "4:4879a94e", "4:6624eb32", "4:778cff42"],
         "steam-turbine": ["4:118d7746", "4:24105b89", "4:5852db87", "4:9e447fd2"],
         "steel-chest": ["2:089fa637"],
@@ -289,6 +290,7 @@
         "solar-panel": ["2:b86cb635"],
         "space-platform-hub": ["15:3486a776"],
         "splitter": ["8:188df570", "8:4b96fdf2", "8:9ba6c22b", "8:b49efd1c"],
+        "stack-inserter": ["3:14e51b74", "3:18aeace5", "3:22fbb480", "3:e2536683"],
         "steam-engine": ["4:2264dd84", "4:4879a94e", "4:6624eb32", "4:778cff42"],
         "steam-turbine": ["4:118d7746", "4:24105b89", "4:5852db87", "4:9e447fd2"],
         "steel-chest": ["2:089fa637"],
@@ -856,6 +858,16 @@
         "solar-panel": ["2:b86cb635"],
         "space-platform-hub": ["15:3486a776"],
         "splitter": ["8:188df570", "8:4b96fdf2", "8:9ba6c22b", "8:b49efd1c"],
+        "stack-inserter": [
+            "3:14e51b74",
+            "3:18aeace5",
+            "3:22fbb480",
+            "3:e2536683",
+            "6:8613e23f",
+            "6:9a651857",
+            "6:ab4465f5",
+            "6:dcfa4890"
+        ],
         "steam-engine": ["4:2264dd84", "4:4879a94e"],
         "steam-turbine": ["4:5852db87", "4:9e447fd2"],
         "steel-chest": ["2:089fa637", "5:498125fe"],
@@ -2440,6 +2452,16 @@
             "7:a9f8e441",
             "7:e02a7944",
             "7:ed5b0da6"
+        ],
+        "stack-inserter": [
+            "3:14e51b74",
+            "3:18aeace5",
+            "3:22fbb480",
+            "3:e2536683",
+            "6:8613e23f",
+            "6:9a651857",
+            "6:ab4465f5",
+            "6:dcfa4890"
         ],
         "steam-engine": ["2:0b8e2d15", "2:e09b725f", "3:4dd44a95", "3:850bc307", "3:87954858"],
         "steam-turbine": [

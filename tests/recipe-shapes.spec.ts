@@ -63,15 +63,15 @@ test('every recipe shape reaches its readers the same way it did before', async 
     }, source)
 
     /*
-        Two of the placed recipes do not come back under their own name:
-        bpString's nameMigrations rewrites "stack-inserter" and
-        "fusion-reactor-equipment" in the raw string, so those entities arrive
-        carrying "bulk-inserter" and "fission-reactor-equipment" instead. That is a
-        separate bug - the version conditions guarding those rewrites are commented
-        out, so they apply to 2.0 blueprints where both names are current - and it
-        is not what this pins, so the count is asserted loosely.
+        Exact, and it is worth keeping exact. This count was `recipes.length - 2`
+        while the name migrations ran unconditionally (issue #40): the blueprint
+        declares a 2.0 version, and "stack-inserter" and "fusion-reactor-equipment"
+        were still being rewritten to "bulk-inserter" and
+        "fission-reactor-equipment", which are recipes of their own, so two of the
+        placed machines came back merged into another entry. Every recipe arriving
+        under the name it was placed with is what says the migrations are gated.
     */
-    expect(Object.keys(tally).length).toBeGreaterThanOrEqual(recipes.length - 2)
+    expect(Object.keys(tally).length).toBe(recipes.length)
 
     // The shapes this exists for. If the corpus ever stops carrying them the
     // fixture would still pass while testing nothing.

@@ -7,6 +7,7 @@ import FD from './factorioData'
 import blueprintSchema from './blueprintSchema.json'
 import { Blueprint } from './Blueprint'
 import { Book } from './Book'
+import { migrateNames } from './nameMigrations'
 
 class CorruptedBlueprintStringError {
     public error: unknown
@@ -81,49 +82,6 @@ const validate = new Ajv({
     allowUnionTypes: true,
 }).compile<StringData>(blueprintSchema)
 
-const nameMigrations: Record<string, string> = {
-    // if (blueprintVersion < getFactorioVersion(0, 17, 0))
-    '"raw-wood"': '"wood"',
-    '"science-pack-1"': '"automation-science-pack"',
-    '"science-pack-2"': '"logistic-science-pack"',
-    '"science-pack-3"': '"chemical-science-pack"',
-    '"high-tech-science-pack"': '"utility-science-pack"',
-    ',"recipe":"wood"': '',
-    ',"recipe":"steel-axe"': '',
-    ',"recipe":"iron-axe"': '',
-
-    // if (blueprintVersion < getFactorioVersion(0, 17, 10))
-    '"grass-1"': '"landfill"',
-
-    // if (blueprintVersion < getFactorioVersion(2, 0, 0))
-    ',"recipe":"rocket-control-unit"': '',
-    ',"name":"rocket-control-unit"': ',"name":"raw-fish"',
-    '"stack-inserter"': '"bulk-inserter"',
-    '"stack-filter-inserter"': '"bulk-inserter"',
-    '"filter-inserter"': '"fast-inserter"',
-    '"effectivity-module"': '"efficiency-module"',
-    '"effectivity-module-2"': '"efficiency-module-2"',
-    '"effectivity-module-3"': '"efficiency-module-3"',
-    '"used-up-uranium-fuel-cell"': '"depleted-uranium-fuel-cell"',
-    // '"straight-rail"': '"legacy-straight-rail"', -- must be done later since straight-rail are still in the game post 2.0
-    '"curved-rail"': '"legacy-curved-rail"',
-    '"logistic-chest-storage"': '"storage-chest"',
-    '"logistic-chest-buffer"': '"buffer-chest"',
-    '"logistic-chest-requester"': '"requester-chest"',
-    '"logistic-chest-active-provider"': '"active-provider-chest"',
-    '"logistic-chest-passive-provider"': '"passive-provider-chest"',
-    '"fusion-reactor-equipment"': '"fission-reactor-equipment"',
-    '"empty-barrel"': '"barrel"',
-    '"fill-water-barrel"': '"water-barrel"',
-    '"fill-crude-oil-barrel"': '"crude-oil-barrel"',
-    '"fill-petroleum-gas-barrel"': '"petroleum-gas-barrel"',
-    '"fill-light-oil-barrel"': '"light-oil-barrel"',
-    '"fill-heavy-oil-barrel"': '"heavy-oil-barrel"',
-    '"fill-lubricant-barrel"': '"lubricant-barrel"',
-    '"fill-sulfuric-acid-barrel"': '"sulfuric-acid-barrel"',
-}
-const nameMigrationsRegex = new RegExp(Object.keys(nameMigrations).join('|'), 'g')
-
 let loadWarnings: string[] = []
 
 function getAndClearLoadWarnings(): string[] {
@@ -169,10 +127,9 @@ function decode(str: string): Promise<Blueprint | Book> {
     return new Promise((resolve, reject) => {
         try {
             const decodedStr = Buffer.from(str.slice(1), 'base64')
-            const data = pako
-                .inflate(decodedStr, { toText: true })
-                .replace(nameMigrationsRegex, match => nameMigrations[match])
-            const parsedData = JSON.parse(data)
+            const parsedData = JSON.parse(pako.inflate(decodedStr, { toText: true }))
+            // Before validation, since the schema checks names against FD.
+            migrateNames(parsedData)
             resolve(parsedData)
         } catch (e) {
             reject(new CorruptedBlueprintStringError(e))

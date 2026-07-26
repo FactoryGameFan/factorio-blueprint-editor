@@ -23,6 +23,7 @@ import { IVisualization } from './generators'
 import { History } from './History'
 import { Tile } from './Tile'
 import { need } from './need'
+import { getFactorioVersion } from './factorioVersion'
 
 export interface IOilOutpostSettings extends Record<string, string | boolean | number> {
     DEBUG: boolean
@@ -41,14 +42,6 @@ const oilOutpostSettings: IOilOutpostSettings = {
     MIN_AFFECTED_ENTITIES: 1,
     BEACON_MODULE: 'speed-module-3',
 }
-
-// this is how it works in factorio but js doesn't support 64bit bitwise operations
-//  uint64_t(developerVersion) |
-// (uint64_t(minorVersion) << 16) |
-// (uint64_t(majorVersion) << 32) |
-// (uint64_t(mainVersion) << 48)
-const getFactorioVersion = (main = 2, major = 0, minor = 45): number =>
-    (minor << 16) + (major | (main << 16)) * 0xffffffff
 
 class OurMap<K, V> extends Map<K, V> {
     // The two arguments only ever make sense together - there is no key without

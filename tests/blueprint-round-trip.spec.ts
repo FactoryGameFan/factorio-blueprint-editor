@@ -163,6 +163,14 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
 /**
  * Captured before the Blueprint/History strictNullChecks cleanup. See the note
  * at the top of this file before changing any of it.
+ *
+ * `serializedHash` moved once since, from -488612622, when the legacy name
+ * migrations became version-aware (issue #40). The corpus declares 2.0.45 to
+ * 2.0.73 throughout, so nothing in it should have been migrated at all, and
+ * 9535 stack inserters across 7 of the 11 files were being rewritten to
+ * bulk-inserter on load and re-encoded that way. Only this hash moved: both
+ * position checksums and every count held, which is the signature of names
+ * changing under identical geometry.
  */
 const EXPECTED = {
     blueprints: 578,
@@ -173,5 +181,5 @@ const EXPECTED = {
     threw: 0,
     positionChecksum: -73939794,
     modelPositionChecksum: -126044361,
-    serializedHash: -488612622,
+    serializedHash: -883773190,
 }
