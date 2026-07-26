@@ -7,7 +7,7 @@ import {
     CanvasTextMetrics,
     RenderTexture,
 } from 'pixi.js'
-import FD, { ColorWithAlpha, getColor } from '../../core/factorioData'
+import FD, { ColorWithAlpha, getColor, recipeResults } from '../../core/factorioData'
 import { styles } from '../style'
 import G from '../../common/globals'
 import util from '../../common/util'
@@ -219,13 +219,43 @@ function CreateIcon(
         // inventory group icon is not present in FD.items
         FD.inventoryLayout.find(g => g.name === itemName)
 
+    if (item === undefined) {
+        throw new Error(`No item, fluid, recipe, signal or inventory group named ${itemName}`)
+    }
+
     if (item.icons) {
         return generateIcons(item.icons)
     } else if (item.icon) {
         return generateIcon(item.icon, item.icon_size)
-    } else {
-        throw new Error('Internal Error!')
     }
+
+    /*
+        A recipe that produces one thing carries no icon of its own and inherits
+        the product's, which is what Factorio displays for it - 241 of the 653
+        recipes. That is normally invisible here, because an item of the same name
+        resolves first and does have an icon. `fluoroketone` is the one name where
+        it does not: there is no item or fluid by that name, only the fluids
+        `fluoroketone-hot` and `fluoroketone-cold`, so the lookup fell through to
+        the recipe and threw, costing the entity its whole info overlay (issue #41).
+
+        Resolved one level deep rather than by recursing back into CreateIcon: the
+        product is an item or a fluid, both of which carry their own icon, and a
+        recipe naming a product that resolves to another recipe would otherwise be
+        a cycle.
+    */
+    const recipe = FD.recipes[itemName]
+    if (recipe !== undefined) {
+        const results = recipeResults(recipe)
+        const productName =
+            recipe.main_product || (results.length === 1 ? results[0].name : undefined)
+        const product =
+            productName === undefined ? undefined : FD.items[productName] || FD.fluids[productName]
+
+        if (product?.icons) return generateIcons(product.icons)
+        if (product?.icon) return generateIcon(product.icon, product.icon_size)
+    }
+
+    throw new Error(`No icon for ${itemName}`)
 
     function generateIcon(filename: string, icon_size: number = 64): Sprite {
         const texture = G.getTexture(filename, 0, 0, icon_size, icon_size)
