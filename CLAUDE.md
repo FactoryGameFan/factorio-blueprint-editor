@@ -224,6 +224,6 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 - Complex visualizations (crane arms, plasma effects, thruster flames) show only static base sprites
 - Blueprint book icons using planet names show no icon
 - Some entity types may have missing or incorrectly mapped textures
-- TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json). `spriteDataBuilder.ts` is now clear, so the remaining 52 are all UI and container code (Filters 6, Modules 5, globals 5, Book 4, TileContainer 4, then a long tail); use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly - see issue #22
+- TypeScript has pre-existing type errors in Space Age code (`as any` casts used where prototype types don't match runtime data from data.json). `spriteDataBuilder.ts` is now clear, so the remaining 36 are all UI and container code (globals 5, Book 4, TileContainer 4, the three paint containers 7 between them, then a long tail); use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly - see issue #22
 - `util.getDirName` throws for non-cardinal directions, so any `draw_*` that calls it fails for an entity placed diagonally and renders a placeholder box. `railgun-turret` hits this: the test corpus places it at directions 2 and 14. Pinned as current behaviour in `tests/__fixtures__/sprite-data.json`
 - Mobile is view-only - no editing, inventory, or keyboard shortcuts
