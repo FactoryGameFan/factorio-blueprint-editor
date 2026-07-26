@@ -14,7 +14,7 @@ import { loadData } from './core/factorioData'
 import G, { Logger } from './common/globals'
 import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
-import { BlueprintContainer, GridPattern } from './containers/BlueprintContainer'
+import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
 import { PaintTileContainer } from './containers/PaintTileContainer'
 import { UIContainer } from './UI/UIContainer'
 import { Dialog } from './UI/controls/Dialog'
@@ -114,6 +114,16 @@ export class Editor {
                 oilOutpostSettings[key] = settings[key]
             }
         }
+    }
+
+    /**
+     * The interaction mode the canvas is in, by name - NONE, EDIT, PAINT, PAN,
+     * COPY or DELETE. Exposed for tests/editor-mode-input.spec.ts, which is the
+     * first spec to drive real pointer and keyboard input (issue #44); the name
+     * rather than the enum member so a test does not have to import it.
+     */
+    public get mode(): string {
+        return EditorMode[G.BPC.mode]
     }
 
     public get debug(): boolean {

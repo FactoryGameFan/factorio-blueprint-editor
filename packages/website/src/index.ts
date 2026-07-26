@@ -198,6 +198,11 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
 ;(window as any).__fbe_test = {
     getBlueprintOrBookFromSource,
     loadBp,
+    /*
+        The interaction mode the canvas is in, by name. The first thing any spec
+        driving real pointer or keyboard input needs to assert on (issue #44).
+    */
+    editorMode: () => editor.mode,
     loadingScreen,
     getBook: () => book,
     selectBookIndex: async (index: number) => {
