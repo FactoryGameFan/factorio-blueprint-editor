@@ -90,20 +90,45 @@ function getAndClearLoadWarnings(): string[] {
     return warnings
 }
 
-function stripUnknownEntities(data: StringData): string[] {
-    const strippedNames = new Set<string>()
+/**
+ * The prototype names a blueprint used that this build does not have, by kind.
+ * Both kinds have to be dropped before the blueprint reaches the model: an
+ * unknown entity throws in the sprite builder, and an unknown tile throws in
+ * TileContainer, which reads `FD.tiles[name].variants` (issue #46).
+ */
+interface StrippedNames {
+    entities: string[]
+    tiles: string[]
+}
+
+function stripUnknownPrototypes(data: StringData): StrippedNames {
+    const strippedEntities = new Set<string>()
+    const strippedTiles = new Set<string>()
     const stripBlueprint = (bp: IBlueprint): void => {
         if (bp.entities) {
             const before = bp.entities.length
             bp.entities = bp.entities.filter(e => {
                 if (!FD.entities[e.name]) {
-                    strippedNames.add(e.name)
+                    strippedEntities.add(e.name)
                     return false
                 }
                 return true
             })
             if (bp.entities.length < before) {
                 console.warn(`Stripped ${before - bp.entities.length} unknown entities`)
+            }
+        }
+        if (bp.tiles) {
+            const before = bp.tiles.length
+            bp.tiles = bp.tiles.filter(t => {
+                if (!FD.tiles[t.name]) {
+                    strippedTiles.add(t.name)
+                    return false
+                }
+                return true
+            })
+            if (bp.tiles.length < before) {
+                console.warn(`Stripped ${before - bp.tiles.length} unknown tiles`)
             }
         }
     }
@@ -120,7 +145,7 @@ function stripUnknownEntities(data: StringData): string[] {
     } else if (data.blueprint_book) {
         stripBook(data.blueprint_book.blueprints)
     }
-    return [...strippedNames]
+    return { entities: [...strippedEntities], tiles: [...strippedTiles] }
 }
 
 function decode(str: string): Promise<Blueprint | Book> {
@@ -143,12 +168,18 @@ function decode(str: string): Promise<Blueprint | Book> {
             console.warn('Blueprint validation warnings (loading anyway):', JSON.stringify(errors))
             loadWarnings.push('Blueprint had validation warnings (loaded anyway)')
         }
-        // Always strip unknown entities - they crash during rendering if they
-        // reach Blueprint.ts (e.g., mod entities like ee-infinity-loader)
-        const strippedNames = stripUnknownEntities(data as StringData)
-        if (strippedNames.length > 0) {
+        // Always strip unknown names - they crash during rendering if they reach
+        // Blueprint.ts (e.g., mod entities like ee-infinity-loader, or a tile from
+        // a Factorio version newer than the exporter ran against)
+        const stripped = stripUnknownPrototypes(data as StringData)
+        if (stripped.entities.length > 0) {
             loadWarnings.push(
-                `Skipped ${strippedNames.length} unknown entit${strippedNames.length === 1 ? 'y' : 'ies'}: ${strippedNames.join(', ')}`
+                `Skipped ${stripped.entities.length} unknown entit${stripped.entities.length === 1 ? 'y' : 'ies'}: ${stripped.entities.join(', ')}`
+            )
+        }
+        if (stripped.tiles.length > 0) {
+            loadWarnings.push(
+                `Skipped ${stripped.tiles.length} unknown tile${stripped.tiles.length === 1 ? '' : 's'}: ${stripped.tiles.join(', ')}`
             )
         }
 

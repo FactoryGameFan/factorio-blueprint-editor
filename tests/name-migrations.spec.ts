@@ -1,5 +1,5 @@
-import { deflateSync } from 'zlib'
 import { test, expect } from '@playwright/test'
+import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
 
 /*
     The legacy prototype renames in nameMigrations.ts apply per blueprint, by the
@@ -18,17 +18,9 @@ import { test, expect } from '@playwright/test'
     two servers that have to be up.
 */
 
-/** How Factorio packs a version into the blueprint's `version` field. */
-const version = (main: number, major: number, minor: number): number =>
-    main * 2 ** 48 + major * 2 ** 32 + minor * 2 ** 16
-
 const V_0_16 = version(0, 16, 51)
 const V_1_1 = version(1, 1, 107)
 const V_2_0 = version(2, 0, 55)
-
-/** The encoding bpString.decode() reads: version byte, then deflated JSON. */
-const encode = (blueprint: Record<string, unknown>): string =>
-    `0${deflateSync(Buffer.from(JSON.stringify({ blueprint }))).toString('base64')}`
 
 interface Loaded {
     entities: string[]
