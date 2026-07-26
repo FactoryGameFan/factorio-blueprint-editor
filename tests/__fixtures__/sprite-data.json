@@ -639,13 +639,7 @@
         "elevated-half-diagonal-rail": ["4:4fd6bcb7", "4:5b181fda", "4:7658a127", "4:873cd155"],
         "elevated-straight-rail": ["4:5c16d026", "4:d2810a23", "4:e1aa574e", "4:e3233f7b"],
         "express-splitter": ["8:666218a4", "8:6eac2873", "8:dac52e66", "8:ed3cace2"],
-        "express-transport-belt": [
-            "3:50449222",
-            "3:5aa56f96",
-            "3:8faf094e",
-            "3:fedb4d14",
-            "FAILED"
-        ],
+        "express-transport-belt": ["3:50449222", "3:5aa56f96", "3:8faf094e", "3:fedb4d14"],
         "express-underground-belt": [
             "5:6aef8e0c",
             "5:763c03c1",
@@ -667,7 +661,7 @@
             "6:e4745a8b"
         ],
         "fast-splitter": ["8:45740ba6", "8:70edab50", "8:af25bacb", "8:b58d48c8"],
-        "fast-transport-belt": ["3:0199143e", "3:5e80de94", "3:9f341680", "3:b96d0530", "FAILED"],
+        "fast-transport-belt": ["3:0199143e", "3:5e80de94", "3:9f341680", "3:b96d0530"],
         "fast-underground-belt": [
             "5:0823b02a",
             "5:260b50ef",
@@ -905,10 +899,10 @@
             "8:c02c37ad",
             "8:f94058e3"
         ],
-        "transport-belt": ["3:02711554", "3:497f6788", "3:66c354ae", "3:b9d1f44c", "FAILED"],
+        "transport-belt": ["3:02711554", "3:497f6788", "3:66c354ae", "3:b9d1f44c"],
         "turbo-loader": ["3:312e0e27", "3:6a288043"],
         "turbo-splitter": ["8:12c10abd", "8:3b75e7a0", "8:7c360d4c", "8:9a89a8e7"],
-        "turbo-transport-belt": ["3:0bfc93b3", "3:52c984a7", "3:697d0007", "3:aacfb70b", "FAILED"],
+        "turbo-transport-belt": ["3:0bfc93b3", "3:52c984a7", "3:697d0007", "3:aacfb70b"],
         "turbo-underground-belt": [
             "5:0a164991",
             "5:0b139c47",
@@ -947,27 +941,75 @@
             "2:1ec5a67a",
             "2:1ec5a67a"
         ],
-        "arithmetic-combinator": ["2:34aa592f", "2:1bcf1eab", "2:4673b2ac", "2:3a0e52ee", "FAILED"],
-        "artillery-turret": ["4:c2a8f70d", "4:849b53d8", "4:09767d50", "4:ec9d7e67", "FAILED"],
-        "artillery-wagon": ["6:3c92482e", "6:9e18233e", "6:5a10aff6", "6:81f48d06", "6:97eee097"],
-        "assembling-machine-1": ["2:8c126754", "2:8c126754", "2:8c126754", "2:8c126754", "FAILED"],
-        "assembling-machine-2": ["2:05686fc8", "2:05686fc8", "2:05686fc8", "2:05686fc8", "FAILED"],
-        "assembling-machine-3": ["2:3f084360", "2:3f084360", "2:3f084360", "2:3f084360", "FAILED"],
-        "asteroid-collector": ["2:b613d106", "2:64e3dc58", "2:7196fcd4", "2:b9823469", "FAILED"],
+        "arithmetic-combinator": [
+            "2:34aa592f",
+            "2:1bcf1eab",
+            "2:4673b2ac",
+            "2:3a0e52ee",
+            "2:34aa592f"
+        ],
+        "artillery-turret": ["4:c2a8f70d", "4:849b53d8", "4:09767d50", "4:ec9d7e67", "4:c2a8f70d"],
+        "artillery-wagon": ["6:3c92482e", "6:9e18233e", "6:5a10aff6", "6:81f48d06", "6:3c92482e"],
+        "assembling-machine-1": [
+            "2:8c126754",
+            "2:8c126754",
+            "2:8c126754",
+            "2:8c126754",
+            "2:8c126754"
+        ],
+        "assembling-machine-2": [
+            "2:05686fc8",
+            "2:05686fc8",
+            "2:05686fc8",
+            "2:05686fc8",
+            "2:05686fc8"
+        ],
+        "assembling-machine-3": [
+            "2:3f084360",
+            "2:3f084360",
+            "2:3f084360",
+            "2:3f084360",
+            "2:3f084360"
+        ],
+        "asteroid-collector": [
+            "2:b613d106",
+            "2:64e3dc58",
+            "2:7196fcd4",
+            "2:b9823469",
+            "2:b613d106"
+        ],
         "beacon": ["5:62a95325", "5:62a95325", "5:62a95325", "5:62a95325", "5:62a95325"],
-        "big-electric-pole": ["1:6bacc388", "1:8ba1a617", "1:b0acec29", "1:1920b2fc", "1:a24365bd"],
-        "big-mining-drill": ["17:77b3ec28", "17:b385b840", "17:0fc03108", "17:8ec67003", "FAILED"],
-        "biochamber": ["3:b2f5065c", "3:b2f5065c", "3:b2f5065c", "3:b2f5065c", "FAILED"],
+        "big-electric-pole": ["1:6bacc388", "1:8ba1a617", "1:b0acec29", "1:1920b2fc", "1:6bacc388"],
+        "big-mining-drill": [
+            "17:77b3ec28",
+            "17:b385b840",
+            "17:0fc03108",
+            "17:8ec67003",
+            "17:77b3ec28"
+        ],
+        "biochamber": ["3:b2f5065c", "3:b2f5065c", "3:b2f5065c", "3:b2f5065c", "3:b2f5065c"],
         "biolab": ["2:30cd8c77", "2:30cd8c77", "2:30cd8c77", "2:30cd8c77", "2:30cd8c77"],
         "blue-chest": ["2:7d097e99", "2:7d097e99", "2:7d097e99", "2:7d097e99", "2:7d097e99"],
-        "boiler": ["5:2f54ad12", "5:4c3c50d5", "5:5844079f", "5:6dee90fa", "FAILED"],
+        "boiler": ["5:2f54ad12", "5:4c3c50d5", "5:5844079f", "5:6dee90fa", "5:2f54ad12"],
         "bottomless-chest": ["2:a80a9d69", "2:a80a9d69", "2:a80a9d69", "2:a80a9d69", "2:a80a9d69"],
         "buffer-chest": ["2:86816171", "2:86816171", "2:86816171", "2:86816171", "2:86816171"],
-        "bulk-inserter": ["3:b1ebdbfa", "3:9dcdcba2", "3:1a7e3d69", "3:8be428c5", "3:19e083f5"],
-        "burner-generator": ["2:e09b725f", "2:0b8e2d15", "2:e09b725f", "2:0b8e2d15", "FAILED"],
-        "burner-inserter": ["3:6f4acc29", "3:ca754e03", "3:2b93478c", "3:23c96fbe", "3:06b15982"],
-        "burner-mining-drill": ["2:5a05aec3", "2:76febf43", "2:c263ae5e", "2:97b66334", "FAILED"],
-        "captive-biter-spawner": ["2:26deb24e", "2:26deb24e", "2:26deb24e", "2:26deb24e", "FAILED"],
+        "bulk-inserter": ["3:b1ebdbfa", "3:9dcdcba2", "3:1a7e3d69", "3:8be428c5", "3:b1ebdbfa"],
+        "burner-generator": ["2:e09b725f", "2:0b8e2d15", "2:e09b725f", "2:0b8e2d15", "2:e09b725f"],
+        "burner-inserter": ["3:6f4acc29", "3:ca754e03", "3:2b93478c", "3:23c96fbe", "3:6f4acc29"],
+        "burner-mining-drill": [
+            "2:5a05aec3",
+            "2:76febf43",
+            "2:c263ae5e",
+            "2:97b66334",
+            "2:5a05aec3"
+        ],
+        "captive-biter-spawner": [
+            "2:26deb24e",
+            "2:26deb24e",
+            "2:26deb24e",
+            "2:26deb24e",
+            "2:26deb24e"
+        ],
         "cargo-bay": ["5:d40e4267", "5:d40e4267", "5:d40e4267", "5:d40e4267", "5:d40e4267"],
         "cargo-landing-pad": [
             "13:bccc3ca7",
@@ -983,10 +1025,16 @@
             "2:69ebec7c",
             "2:69ebec7c"
         ],
-        "cargo-wagon": ["3:f31225fe", "3:74b86925", "3:595d3990", "3:5ce699af", "3:5382b723"],
+        "cargo-wagon": ["3:f31225fe", "3:74b86925", "3:595d3990", "3:5ce699af", "3:f31225fe"],
         "centrifuge": ["6:5ca9d563", "6:5ca9d563", "6:5ca9d563", "6:5ca9d563", "6:5ca9d563"],
-        "chemical-plant": ["6:fd5c56ec", "6:b122c853", "6:c4a6f09c", "6:fc1864f3", "FAILED"],
-        "constant-combinator": ["2:7b6ceb11", "2:118fa040", "2:64f4f99d", "2:8b39342d", "FAILED"],
+        "chemical-plant": ["6:fd5c56ec", "6:b122c853", "6:c4a6f09c", "6:fc1864f3", "6:fd5c56ec"],
+        "constant-combinator": [
+            "2:7b6ceb11",
+            "2:118fa040",
+            "2:64f4f99d",
+            "2:8b39342d",
+            "2:7b6ceb11"
+        ],
         "crash-site-chest-1": [
             "2:28e3800b",
             "2:28e3800b",
@@ -1001,41 +1049,47 @@
             "2:51eee361",
             "2:51eee361"
         ],
-        "crusher": ["2:293eb70d", "2:5971bca6", "2:293eb70d", "2:5971bca6", "FAILED"],
-        "cryogenic-plant": ["7:eed8a241", "7:eed8a241", "7:eed8a241", "7:eed8a241", "FAILED"],
-        "curved-rail-a": ["5:5a0cc68f", "5:5d753636", "5:49758e60", "5:3b870fbd", "FAILED"],
-        "curved-rail-b": ["5:e6ff169b", "5:8e6d9e48", "5:cab41dbe", "5:92c383cc", "FAILED"],
-        "decider-combinator": ["2:89aff679", "2:f6f93e1d", "2:57736a61", "2:d7baec1d", "FAILED"],
-        "display-panel": ["2:f2b3e4f5", "2:89fb1345", "2:f99fcaf5", "2:759dd031", "FAILED"],
+        "crusher": ["2:293eb70d", "2:5971bca6", "2:293eb70d", "2:5971bca6", "2:293eb70d"],
+        "cryogenic-plant": ["7:eed8a241", "7:eed8a241", "7:eed8a241", "7:eed8a241", "7:eed8a241"],
+        "curved-rail-a": ["5:5a0cc68f", "5:5d753636", "5:49758e60", "5:3b870fbd", "5:5a0cc68f"],
+        "curved-rail-b": ["5:e6ff169b", "5:8e6d9e48", "5:cab41dbe", "5:92c383cc", "5:e6ff169b"],
+        "decider-combinator": [
+            "2:89aff679",
+            "2:f6f93e1d",
+            "2:57736a61",
+            "2:d7baec1d",
+            "2:89aff679"
+        ],
+        "display-panel": ["2:f2b3e4f5", "2:89fb1345", "2:f99fcaf5", "2:759dd031", "2:f2b3e4f5"],
         "dummy-elevated-curved-rail-a": [
             "4:fe63169a",
             "4:3138d7b0",
             "4:9655f064",
             "4:8a183396",
-            "FAILED"
+            "4:fe63169a"
         ],
         "dummy-elevated-curved-rail-b": [
             "4:7175749e",
             "4:7abad73c",
             "4:12ae5bc8",
             "4:fef82e04",
-            "FAILED"
+            "4:7175749e"
         ],
         "dummy-elevated-half-diagonal-rail": [
             "4:7b5e45ca",
             "4:01543412",
             "4:7b5e45ca",
             "4:01543412",
-            "FAILED"
+            "4:7b5e45ca"
         ],
         "dummy-elevated-straight-rail": [
             "4:38c8301e",
             "4:227bafbc",
             "4:38c8301e",
             "4:227bafbc",
-            "FAILED"
+            "4:38c8301e"
         ],
-        "dummy-rail-ramp": ["0:811c9dc5", "0:811c9dc5", "0:811c9dc5", "0:811c9dc5", "FAILED"],
+        "dummy-rail-ramp": ["0:811c9dc5", "0:811c9dc5", "0:811c9dc5", "0:811c9dc5", "0:811c9dc5"],
         "dummy-rail-support": [
             "0:811c9dc5",
             "0:811c9dc5",
@@ -1051,7 +1105,13 @@
             "2:cd86c7c5"
         ],
         "electric-furnace": ["2:3723ab1a", "2:3723ab1a", "2:3723ab1a", "2:3723ab1a", "2:3723ab1a"],
-        "electric-mining-drill": ["6:d8923149", "8:79587f6c", "7:fff4ccce", "8:ec214b2c", "FAILED"],
+        "electric-mining-drill": [
+            "6:d8923149",
+            "8:79587f6c",
+            "7:fff4ccce",
+            "8:ec214b2c",
+            "6:d8923149"
+        ],
         "electromagnetic-plant": [
             "2:8c86a981",
             "2:8c86a981",
@@ -1064,63 +1124,87 @@
             "4:bc5b6248",
             "4:8794c4a4",
             "4:48a23dfe",
-            "FAILED"
+            "4:5b56ba78"
         ],
         "elevated-curved-rail-b": [
             "4:e2f0cd42",
             "4:a2f12c22",
             "4:112bac66",
             "4:eb1fd234",
-            "FAILED"
+            "4:e2f0cd42"
         ],
         "elevated-half-diagonal-rail": [
             "4:5b181fda",
             "4:873cd155",
             "4:5b181fda",
             "4:873cd155",
-            "FAILED"
+            "4:5b181fda"
         ],
         "elevated-straight-rail": [
             "4:d2810a23",
             "4:e1aa574e",
             "4:d2810a23",
             "4:e1aa574e",
-            "FAILED"
+            "4:d2810a23"
         ],
-        "express-loader": ["3:9cc01836", "3:627a6139", "3:826d7fae", "3:bb1b767d", "FAILED"],
-        "express-splitter": ["8:dac52e66", "8:6eac2873", "8:ed3cace2", "8:666218a4", "FAILED"],
+        "express-loader": ["3:9cc01836", "3:627a6139", "3:826d7fae", "3:bb1b767d", "3:9cc01836"],
+        "express-splitter": ["8:dac52e66", "8:6eac2873", "8:ed3cace2", "8:666218a4", "8:dac52e66"],
         "express-transport-belt": [
             "3:8faf094e",
             "3:50449222",
             "3:fedb4d14",
             "3:5aa56f96",
-            "FAILED"
+            "3:8faf094e"
         ],
         "express-underground-belt": [
             "5:77be4711",
             "5:763c03c1",
             "5:6aef8e0c",
             "5:b6e74208",
-            "FAILED"
+            "5:77be4711"
         ],
         "factorio-logo-11tiles": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
         "factorio-logo-16tiles": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
         "factorio-logo-22tiles": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
-        "fast-inserter": ["3:3d8856b9", "3:6448aad3", "3:4e068884", "3:929adc56", "3:ad68fbf2"],
-        "fast-loader": ["3:772db63e", "3:b362043d", "3:fe889b56", "3:07a1e5d9", "FAILED"],
-        "fast-splitter": ["8:70edab50", "8:af25bacb", "8:b58d48c8", "8:45740ba6", "FAILED"],
-        "fast-transport-belt": ["3:5e80de94", "3:9f341680", "3:0199143e", "3:b96d0530", "FAILED"],
-        "fast-underground-belt": ["5:260b50ef", "5:f200dc37", "5:0823b02a", "5:d749d806", "FAILED"],
-        "flamethrower-turret": ["8:72c4bf05", "8:132bfba9", "8:6d1dcf61", "8:c24c280d", "FAILED"],
-        "fluid-wagon": ["2:3f74dcbb", "2:3ddaa52f", "2:e4b2c563", "2:634b11bf", "2:797f5cf4"],
-        "foundry": ["2:19459e2d", "2:19459e2d", "2:19459e2d", "2:19459e2d", "FAILED"],
+        "fast-inserter": ["3:3d8856b9", "3:6448aad3", "3:4e068884", "3:929adc56", "3:3d8856b9"],
+        "fast-loader": ["3:772db63e", "3:b362043d", "3:fe889b56", "3:07a1e5d9", "3:772db63e"],
+        "fast-splitter": ["8:70edab50", "8:af25bacb", "8:b58d48c8", "8:45740ba6", "8:70edab50"],
+        "fast-transport-belt": [
+            "3:5e80de94",
+            "3:9f341680",
+            "3:0199143e",
+            "3:b96d0530",
+            "3:5e80de94"
+        ],
+        "fast-underground-belt": [
+            "5:260b50ef",
+            "5:f200dc37",
+            "5:0823b02a",
+            "5:d749d806",
+            "5:260b50ef"
+        ],
+        "flamethrower-turret": [
+            "8:72c4bf05",
+            "8:132bfba9",
+            "8:6d1dcf61",
+            "8:c24c280d",
+            "8:72c4bf05"
+        ],
+        "fluid-wagon": ["2:3f74dcbb", "2:3ddaa52f", "2:e4b2c563", "2:634b11bf", "2:3f74dcbb"],
+        "foundry": ["2:19459e2d", "2:19459e2d", "2:19459e2d", "2:19459e2d", "2:19459e2d"],
         "fulgoran-ruin-attractor": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
-        "fusion-generator": ["4:e2261a67", "4:363119cf", "4:a143a0e6", "4:1b041bf3", "FAILED"],
+        "fusion-generator": ["4:e2261a67", "4:363119cf", "4:a143a0e6", "4:1b041bf3", "4:e2261a67"],
         "fusion-reactor": ["2:e7d0e908", "2:e7d0e908", "2:e7d0e908", "2:e7d0e908", "2:e7d0e908"],
-        "gate": ["2:c4b5ce00", "2:9e76c0b0", "2:c4b5ce00", "2:9e76c0b0", "2:9e76c0b0"],
-        "gun-turret": ["4:03985afa", "4:8037203d", "4:eae19d4e", "4:fdf32057", "4:15e4e0c0"],
-        "half-diagonal-rail": ["5:df1f2647", "5:a28ccae3", "5:df1f2647", "5:a28ccae3", "FAILED"],
-        "heat-exchanger": ["6:dfb468b6", "6:8adad6a3", "6:530d59ec", "6:c2fc1103", "FAILED"],
+        "gate": ["2:c4b5ce00", "2:9e76c0b0", "2:c4b5ce00", "2:9e76c0b0", "2:c4b5ce00"],
+        "gun-turret": ["4:03985afa", "4:8037203d", "4:eae19d4e", "4:fdf32057", "4:03985afa"],
+        "half-diagonal-rail": [
+            "5:df1f2647",
+            "5:a28ccae3",
+            "5:df1f2647",
+            "5:a28ccae3",
+            "5:df1f2647"
+        ],
+        "heat-exchanger": ["6:dfb468b6", "6:8adad6a3", "6:530d59ec", "6:c2fc1103", "6:dfb468b6"],
         "heat-interface": ["1:d196ef02", "1:d196ef02", "1:d196ef02", "1:d196ef02", "1:d196ef02"],
         "heat-pipe": ["1:bc42ba65", "1:bc42ba65", "1:bc42ba65", "1:bc42ba65", "1:bc42ba65"],
         "heating-tower": ["6:69d3325b", "6:69d3325b", "6:69d3325b", "6:69d3325b", "6:69d3325b"],
@@ -1130,18 +1214,30 @@
             "3:0914b6de",
             "3:98889d5f",
             "3:71253f40",
-            "3:eb0613b8"
+            "3:06695c6d"
         ],
         "infinity-chest": ["2:78cd9b62", "2:78cd9b62", "2:78cd9b62", "2:78cd9b62", "2:78cd9b62"],
         "infinity-pipe": ["1:48de4745", "1:48de4745", "1:48de4745", "1:48de4745", "1:48de4745"],
-        "inserter": ["3:675d229b", "3:8dfb56b5", "3:07706f62", "3:30259dbc", "3:36dd5df4"],
+        "inserter": ["3:675d229b", "3:8dfb56b5", "3:07706f62", "3:30259dbc", "3:675d229b"],
         "iron-chest": ["2:71244eab", "2:71244eab", "2:71244eab", "2:71244eab", "2:71244eab"],
         "lab": ["3:db9ccc45", "3:db9ccc45", "3:db9ccc45", "3:db9ccc45", "3:db9ccc45"],
         "land-mine": ["1:7519ec65", "1:7519ec65", "1:7519ec65", "1:7519ec65", "1:7519ec65"],
-        "lane-splitter": ["2:739a1913", "2:f261a101", "2:e2282fa6", "2:fc828b35", "FAILED"],
-        "laser-turret": ["4:d59a91db", "4:8b9fb704", "4:69449b33", "4:701c66bb", "4:4d381ed1"],
-        "legacy-curved-rail": ["5:acfa770d", "5:629e78f4", "5:f5d5405e", "5:1009a6f5", "FAILED"],
-        "legacy-straight-rail": ["5:8ef56c77", "5:f558b799", "5:8ef56c77", "5:f558b799", "FAILED"],
+        "lane-splitter": ["2:739a1913", "2:f261a101", "2:e2282fa6", "2:fc828b35", "2:739a1913"],
+        "laser-turret": ["4:d59a91db", "4:8b9fb704", "4:69449b33", "4:701c66bb", "4:d59a91db"],
+        "legacy-curved-rail": [
+            "5:acfa770d",
+            "5:629e78f4",
+            "5:f5d5405e",
+            "5:1009a6f5",
+            "5:acfa770d"
+        ],
+        "legacy-straight-rail": [
+            "5:8ef56c77",
+            "5:f558b799",
+            "5:8ef56c77",
+            "5:f558b799",
+            "5:8ef56c77"
+        ],
         "lightning-collector": [
             "2:3bfde8e0",
             "2:3bfde8e0",
@@ -1150,17 +1246,17 @@
             "2:3bfde8e0"
         ],
         "lightning-rod": ["2:e945bf50", "2:e945bf50", "2:e945bf50", "2:e945bf50", "2:e945bf50"],
-        "linked-belt": ["1:82991c26", "1:4de0d33d", "1:491f662f", "1:be3d7dab", "1:489effde"],
+        "linked-belt": ["1:82991c26", "1:4de0d33d", "1:491f662f", "1:be3d7dab", "1:82991c26"],
         "linked-chest": ["2:8be9bb75", "2:8be9bb75", "2:8be9bb75", "2:8be9bb75", "2:8be9bb75"],
-        "loader": ["3:4db192ea", "3:48f42815", "3:0c477b12", "3:1883c1b9", "FAILED"],
-        "loader-1x1": ["3:4db192ea", "3:48f42815", "3:0c477b12", "3:1883c1b9", "FAILED"],
-        "locomotive": ["3:b90ad8f0", "3:859e5327", "3:476c2af2", "3:5c48d579", "3:60536161"],
+        "loader": ["3:4db192ea", "3:48f42815", "3:0c477b12", "3:1883c1b9", "3:4db192ea"],
+        "loader-1x1": ["3:4db192ea", "3:48f42815", "3:0c477b12", "3:1883c1b9", "3:4db192ea"],
+        "locomotive": ["3:b90ad8f0", "3:859e5327", "3:476c2af2", "3:5c48d579", "3:b90ad8f0"],
         "long-handed-inserter": [
             "3:6f7203fc",
             "3:c5f9faab",
             "3:a605f1c6",
             "3:2917c75e",
-            "3:24846478"
+            "3:6f7203fc"
         ],
         "market": ["1:11985d9d", "1:11985d9d", "1:11985d9d", "1:11985d9d", "1:11985d9d"],
         "medium-electric-pole": [
@@ -1168,7 +1264,7 @@
             "1:c61c5339",
             "1:07036778",
             "1:f5748ab0",
-            "1:0c5f550c"
+            "1:a9ef2e21"
         ],
         "nuclear-reactor": [
             "15:3232afb1",
@@ -1177,10 +1273,10 @@
             "15:3232afb1",
             "15:3232afb1"
         ],
-        "offshore-pump": ["3:8c5b4b2b", "3:5d9f3a0b", "3:f65570e5", "3:10e903aa", "FAILED"],
-        "oil-refinery": ["7:9607bf52", "7:3aa7a88b", "7:6ac79443", "7:167aca03", "FAILED"],
-        "one-way-valve": ["3:77456194", "3:4797221a", "3:d1470de8", "3:b7d2c598", "FAILED"],
-        "overflow-valve": ["3:db9fc230", "3:0e9aa01e", "3:2ab19014", "3:029f06a4", "FAILED"],
+        "offshore-pump": ["3:8c5b4b2b", "3:5d9f3a0b", "3:f65570e5", "3:10e903aa", "3:8c5b4b2b"],
+        "oil-refinery": ["7:9607bf52", "7:3aa7a88b", "7:6ac79443", "7:167aca03", "7:9607bf52"],
+        "one-way-valve": ["3:77456194", "3:4797221a", "3:d1470de8", "3:b7d2c598", "3:77456194"],
+        "overflow-valve": ["3:db9fc230", "3:0e9aa01e", "3:2ab19014", "3:029f06a4", "3:db9fc230"],
         "passive-provider-chest": [
             "2:c022490c",
             "2:c022490c",
@@ -1189,7 +1285,7 @@
             "2:c022490c"
         ],
         "pipe": ["1:ef3c13f7", "1:ef3c13f7", "1:ef3c13f7", "1:ef3c13f7", "1:ef3c13f7"],
-        "pipe-to-ground": ["2:48056b2d", "2:1db81ad9", "2:6ec55bf5", "2:cb4abb9b", "FAILED"],
+        "pipe-to-ground": ["2:48056b2d", "2:1db81ad9", "2:6ec55bf5", "2:cb4abb9b", "2:48056b2d"],
         "power-switch": ["3:19557fd1", "3:19557fd1", "3:19557fd1", "3:19557fd1", "3:19557fd1"],
         "programmable-speaker": [
             "2:d4b8f7fa",
@@ -1199,21 +1295,27 @@
             "2:d4b8f7fa"
         ],
         "proxy-container": ["2:79044bc9", "2:79044bc9", "2:79044bc9", "2:79044bc9", "2:79044bc9"],
-        "pump": ["3:7ad6219d", "3:59dff575", "3:fe9469b4", "3:4a1dccb1", "FAILED"],
-        "pumpjack": ["4:59d247b6", "4:cb2a48fd", "4:ae96b477", "4:8b6b12ac", "FAILED"],
+        "pump": ["3:7ad6219d", "3:59dff575", "3:fe9469b4", "3:4a1dccb1", "3:7ad6219d"],
+        "pumpjack": ["4:59d247b6", "4:cb2a48fd", "4:ae96b477", "4:8b6b12ac", "4:59d247b6"],
         "radar": ["2:87dde1a0", "2:87dde1a0", "2:87dde1a0", "2:87dde1a0", "2:87dde1a0"],
-        "rail-chain-signal": ["2:5f7a79aa", "2:cc4135f8", "2:a248327e", "2:c6e17d22", "2:858d1f0d"],
-        "rail-ramp": ["3:714edd77", "3:eea935cd", "3:6b8e5534", "3:ca81f490", "FAILED"],
-        "rail-signal": ["2:259b6347", "2:2e4bee01", "2:f026d241", "2:2ef2ff12", "2:3c8c4418"],
-        "rail-support": ["1:a8e5895a", "1:707225f4", "1:80dc585f", "1:9b158d9e", "1:40822601"],
-        "railgun-turret": ["8:afa96fcc", "8:e754e7c2", "8:6394f41e", "8:c6a0f240", "FAILED"],
-        "recycler": ["2:560d6f6a", "2:8f12311c", "2:bbd37fbc", "2:2e433d17", "FAILED"],
+        "rail-chain-signal": ["2:5f7a79aa", "2:cc4135f8", "2:a248327e", "2:c6e17d22", "2:5f7a79aa"],
+        "rail-ramp": ["3:714edd77", "3:eea935cd", "3:6b8e5534", "3:ca81f490", "3:714edd77"],
+        "rail-signal": ["2:259b6347", "2:2e4bee01", "2:f026d241", "2:2ef2ff12", "2:259b6347"],
+        "rail-support": ["1:a8e5895a", "1:707225f4", "1:80dc585f", "1:9b158d9e", "1:a8e5895a"],
+        "railgun-turret": ["8:afa96fcc", "8:e754e7c2", "8:6394f41e", "8:c6a0f240", "8:afa96fcc"],
+        "recycler": ["2:560d6f6a", "2:8f12311c", "2:bbd37fbc", "2:2e433d17", "2:560d6f6a"],
         "red-chest": ["2:c022490c", "2:c022490c", "2:c022490c", "2:c022490c", "2:c022490c"],
         "requester-chest": ["2:7d097e99", "2:7d097e99", "2:7d097e99", "2:7d097e99", "2:7d097e99"],
         "roboport": ["5:c95e6620", "5:c95e6620", "5:c95e6620", "5:c95e6620", "5:c95e6620"],
         "rocket-silo": ["7:11e017a4", "7:11e017a4", "7:11e017a4", "7:11e017a4", "7:11e017a4"],
-        "rocket-turret": ["5:b0166cda", "5:cb236a14", "5:e148f0e4", "5:fa09a684", "5:3dd245da"],
-        "selector-combinator": ["2:3dda1610", "2:7a0ee4ee", "2:17a981f3", "2:b0b78012", "FAILED"],
+        "rocket-turret": ["5:b0166cda", "5:cb236a14", "5:e148f0e4", "5:fa09a684", "5:b0166cda"],
+        "selector-combinator": [
+            "2:3dda1610",
+            "2:7a0ee4ee",
+            "2:17a981f3",
+            "2:b0b78012",
+            "2:3dda1610"
+        ],
         "simple-entity-with-force": [
             "2:089fa637",
             "2:089fa637",
@@ -1233,7 +1335,7 @@
             "1:1d482b65",
             "1:57985197",
             "1:79d94a79",
-            "1:8b08f0e5"
+            "1:685ccfa6"
         ],
         "small-lamp": ["2:988e4aa4", "2:988e4aa4", "2:988e4aa4", "2:988e4aa4", "2:988e4aa4"],
         "solar-panel": ["2:b86cb635", "2:b86cb635", "2:b86cb635", "2:b86cb635", "2:b86cb635"],
@@ -1244,34 +1346,40 @@
             "15:3486a776",
             "15:3486a776"
         ],
-        "splitter": ["8:188df570", "8:9ba6c22b", "8:b49efd1c", "8:4b96fdf2", "FAILED"],
-        "stack-inserter": ["3:18aeace5", "3:e2536683", "3:22fbb480", "3:14e51b74", "3:cb312dde"],
-        "steam-engine": ["4:2264dd84", "4:4879a94e", "4:778cff42", "4:6624eb32", "FAILED"],
-        "steam-turbine": ["4:5852db87", "4:9e447fd2", "4:24105b89", "4:118d7746", "FAILED"],
+        "splitter": ["8:188df570", "8:9ba6c22b", "8:b49efd1c", "8:4b96fdf2", "8:188df570"],
+        "stack-inserter": ["3:18aeace5", "3:e2536683", "3:22fbb480", "3:14e51b74", "3:18aeace5"],
+        "steam-engine": ["4:2264dd84", "4:4879a94e", "4:778cff42", "4:6624eb32", "4:2264dd84"],
+        "steam-turbine": ["4:5852db87", "4:9e447fd2", "4:24105b89", "4:118d7746", "4:5852db87"],
         "steel-chest": ["2:089fa637", "2:089fa637", "2:089fa637", "2:089fa637", "2:089fa637"],
         "steel-furnace": ["2:fee62a1a", "2:fee62a1a", "2:fee62a1a", "2:fee62a1a", "2:fee62a1a"],
         "stone-furnace": ["2:09de3121", "2:09de3121", "2:09de3121", "2:09de3121", "2:09de3121"],
         "stone-wall": ["2:b0b0254f", "2:b0b0254f", "2:b0b0254f", "2:b0b0254f", "2:b0b0254f"],
         "storage-chest": ["2:58432b30", "2:58432b30", "2:58432b30", "2:58432b30", "2:58432b30"],
-        "storage-tank": ["6:3fec5dbf", "6:3c7d9a57", "6:d76197bb", "6:b1630f17", "FAILED"],
-        "straight-rail": ["5:d12a128f", "5:774900d8", "5:d12a128f", "5:774900d8", "FAILED"],
-        "substation": ["1:863b89c7", "1:af5b81bb", "1:9bc7bd84", "1:58105aae", "1:07a438da"],
-        "tesla-turret": ["6:52cd3284", "6:502860b2", "6:4ef2e5d4", "6:360f244e", "6:1f9eb5c4"],
+        "storage-tank": ["6:3fec5dbf", "6:3c7d9a57", "6:d76197bb", "6:b1630f17", "6:3fec5dbf"],
+        "straight-rail": ["5:d12a128f", "5:774900d8", "5:d12a128f", "5:774900d8", "5:d12a128f"],
+        "substation": ["1:863b89c7", "1:af5b81bb", "1:9bc7bd84", "1:58105aae", "1:863b89c7"],
+        "tesla-turret": ["6:52cd3284", "6:502860b2", "6:4ef2e5d4", "6:360f244e", "6:52cd3284"],
         "thruster": ["2:4fe38668", "2:4fe38668", "2:4fe38668", "2:4fe38668", "2:4fe38668"],
-        "top-up-valve": ["3:18a71212", "3:edcb598c", "3:05a732fa", "3:e79c3966", "FAILED"],
-        "train-stop": ["8:fecfa01f", "8:c02c37ad", "8:7e4a2b54", "8:e08a6b97", "FAILED"],
-        "transport-belt": ["3:02711554", "3:b9d1f44c", "3:66c354ae", "3:497f6788", "FAILED"],
-        "turbo-loader": ["3:f01cdc54", "3:6a288043", "3:545f282e", "3:b7b4b8cb", "FAILED"],
-        "turbo-splitter": ["8:12c10abd", "8:3b75e7a0", "8:7c360d4c", "8:9a89a8e7", "FAILED"],
-        "turbo-transport-belt": ["3:697d0007", "3:0bfc93b3", "3:aacfb70b", "3:52c984a7", "FAILED"],
+        "top-up-valve": ["3:18a71212", "3:edcb598c", "3:05a732fa", "3:e79c3966", "3:18a71212"],
+        "train-stop": ["8:fecfa01f", "8:c02c37ad", "8:7e4a2b54", "8:e08a6b97", "8:fecfa01f"],
+        "transport-belt": ["3:02711554", "3:b9d1f44c", "3:66c354ae", "3:497f6788", "3:02711554"],
+        "turbo-loader": ["3:f01cdc54", "3:6a288043", "3:545f282e", "3:b7b4b8cb", "3:f01cdc54"],
+        "turbo-splitter": ["8:12c10abd", "8:3b75e7a0", "8:7c360d4c", "8:9a89a8e7", "8:12c10abd"],
+        "turbo-transport-belt": [
+            "3:697d0007",
+            "3:0bfc93b3",
+            "3:aacfb70b",
+            "3:52c984a7",
+            "3:697d0007"
+        ],
         "turbo-underground-belt": [
             "5:1c434b34",
             "5:6880ae8a",
             "5:c7ec5395",
             "5:0b139c47",
-            "FAILED"
+            "5:1c434b34"
         ],
-        "underground-belt": ["5:5020d1c3", "5:40a1d0e7", "5:76f48ba6", "5:93896192", "FAILED"],
+        "underground-belt": ["5:5020d1c3", "5:40a1d0e7", "5:76f48ba6", "5:93896192", "5:5020d1c3"],
         "wooden-chest": ["2:e43920b0", "2:e43920b0", "2:e43920b0", "2:e43920b0", "2:e43920b0"]
     },
     "real": {

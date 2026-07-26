@@ -115,22 +115,43 @@ import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
 import { need } from './need'
 
+/**
+ * What a `draw_*` function gets to work with.
+ *
+ * Everything a caller can leave out is `| undefined` here rather than required,
+ * because two of the four getParts call sites do leave things out - the paint
+ * preview passes a bare `{ name, direction, directionType }` with no position
+ * and no grid, and the entity editor preview passes an Entity but no grid. The
+ * fields that stay required are the ones EntitySprite.getDrawData defaults, and
+ * it defaults them because the alternative reads worse everywhere: `data.dir`
+ * appears in `data.dir / 4` arithmetic throughout the file.
+ */
 export interface IDrawData {
+    /** Defaulted to 0 (north) by getDrawData, matching what getParts already does. */
     dir: number
 
     name: string
-    positionGrid: PositionGrid
+    /** Absent when nothing was placed yet - the paint and editor previews. */
+    positionGrid: PositionGrid | undefined
+    /** Only meaningful alongside `positionGrid`; getDrawData defaults it to the origin. */
     position: IPoint
+    /** Defaulted to false by getDrawData. */
     generateConnector: boolean
 
     displayPanelIcon: undefined | ISignal
+    /** Defaulted to false by getDrawData. */
     assemblerHasFluidInputs: boolean
+    /** Defaulted to false by getDrawData. */
     assemblerHasFluidOutputs: boolean
-    dirType: string
+    /** Undefined for anything that is not an underground belt or loader. */
+    dirType: string | undefined
+    /** Defaulted to false by getDrawData. */
     selectorCombinatorSelectMax: boolean
     operator: undefined | ComparatorString | ArithmeticOperation | SelectorCombinatorOperation
     railLayer: string | undefined
-    trainStopColor: ColorWithAlpha
+    /** Undefined for a train stop left the default colour. */
+    trainStopColor: ColorWithAlpha | undefined
+    /** Defaulted to [] by getDrawData; an entry is undefined for an empty slot. */
     modules: (string | undefined)[]
 }
 
@@ -398,10 +419,17 @@ function getHeatConnections(position: IPoint, positionGrid: PositionGrid): boole
 
 // X, H, V, SE, SW, NE and NW.
 function getBeltWireConnectionIndex(
-    positionGrid: PositionGrid,
+    positionGrid: PositionGrid | undefined,
     position: IPoint,
     dir: number
 ): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+    /*
+        Reached from generateConnection for a transport belt, which the entity
+        editor preview and the paint preview both draw without a grid. Nothing
+        placed means no neighbouring belts, which is index 0 - the standalone
+        connector, and the same answer this falls through to below.
+    */
+    if (!positionGrid) return 0
     let C = positionGrid.getNeighbourData(position).map(d => {
         if (
             d.entity &&
@@ -1202,7 +1230,7 @@ function isCargoBayLike(entity: { type: string } | undefined): boolean {
 function getCargoBayConnectionSprites(
     connections: any,
     position: IPoint,
-    positionGrid: PositionGrid
+    positionGrid: PositionGrid | undefined
 ): SpriteData[] {
     if (!connections || !positionGrid) return []
 
@@ -1616,8 +1644,10 @@ function draw_heat_interface(
 function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         if (data.positionGrid) {
+            // Held in a local because the narrowing does not survive the closure.
+            const positionGrid = data.positionGrid
             const getOpt = (): SpriteVariations => {
-                const conn = getHeatConnections(data.position, data.positionGrid)
+                const conn = getHeatConnections(data.position, positionGrid)
                 if (conn[0] && conn[1] && conn[2] && conn[3]) {
                     return need(e, 'connection_sprites').cross
                 }
@@ -2582,9 +2612,12 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
         const pictures = need(e, 'pictures')
 
         if (data.positionGrid) {
+            // Held in a local because the narrowing does not survive the
+            // spawnFilling closure further down.
+            const positionGrid = data.positionGrid
             const sprites = []
 
-            const conn = data.positionGrid
+            const conn = positionGrid
                 .getNeighbourData(data.position)
                 .map(
                     ({ entity, relDir }) =>
@@ -2622,7 +2655,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
                 )
             )
 
-            const neighbourDirections = data.positionGrid
+            const neighbourDirections = positionGrid
                 .getNeighbourData(data.position)
                 .filter(
                     ({ entity, relDir }) =>
@@ -2650,9 +2683,7 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
                 [0, 1],
             ]
                 .map(o => {
-                    const ent = data.positionGrid.getEntityAtPosition(
-                        util.sumprod(data.position, o)
-                    )
+                    const ent = positionGrid.getEntityAtPosition(util.sumprod(data.position, o))
                     return !!ent && ent.type === 'wall'
                 })
                 .every(e => e)
