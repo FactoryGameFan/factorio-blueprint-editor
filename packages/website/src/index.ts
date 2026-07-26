@@ -222,6 +222,12 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         difference is the whole of issue #53.
     */
     paintContainerVisible: () => editor.paintContainerVisible,
+    /*
+        The keybinds that differ from their defaults, which is what
+        importKeybinds was asked to apply and what exportKeybinds would persist.
+        Empty means every action is on its default combo.
+    */
+    keyCombos: () => EDITOR.exportKeybinds(),
     loadingScreen,
     getBook: () => book,
     selectBookIndex: async (index: number) => {

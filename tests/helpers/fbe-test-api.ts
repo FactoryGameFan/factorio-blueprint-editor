@@ -61,6 +61,13 @@ export interface FbeTestApi {
     entityScreenPosition: (entityNumber: number) => { x: number; y: number } | undefined
     /** The hovered entity's number, or undefined in any mode but EDIT. */
     hoveredEntityNumber: () => number | undefined
+    /** Whether the paint container is drawn; undefined when there is none. */
+    paintContainerVisible: () => boolean | undefined
+    /**
+     * Action name -> key combo, for the actions not on their default combo.
+     * Empty when every action is default. See tests/keybinds.spec.ts.
+     */
+    keyCombos: () => Record<string, string>
 }
 
 /**
