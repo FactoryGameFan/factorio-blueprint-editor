@@ -7,7 +7,8 @@ import F from './controls/functions'
 import { colors } from './style'
 
 class QuickbarSlot extends Slot<string | undefined> {
-    public get itemName(): string {
+    /** Undefined for an empty slot, which is what unassignItem leaves behind. */
+    public get itemName(): string | undefined {
         return this.data
     }
 
@@ -78,14 +79,18 @@ export class QuickbarPanel extends Panel {
         return button
     }
 
-    public generateSlots(itemNames?: string[]): void {
+    /** Positional: index i is slot i, and a hole leaves that slot empty. */
+    public generateSlots(itemNames?: (string | undefined)[]): void {
         for (let r = 0; r < this.rows; r++) {
             for (let i = 0; i < 10; i++) {
                 const quickbarSlot = new QuickbarSlot()
                 quickbarSlot.position.set((36 + 2) * i + (i > 4 ? 38 : 0), 38 * r)
 
-                if (itemNames && itemNames[r * 10 + i]) {
-                    quickbarSlot.assignItem(itemNames[r * 10 + i])
+                // Read into a local: the index is a loop `let`, so TypeScript
+                // will not carry the truthiness test across to the use.
+                const itemName = itemNames?.[r * 10 + i]
+                if (itemName) {
+                    quickbarSlot.assignItem(itemName)
                 }
 
                 quickbarSlot.on('pointerdown', e => {
@@ -152,7 +157,12 @@ export class QuickbarPanel extends Panel {
         this.generateSlots(itemNames)
     }
 
-    public serialize(): string[] {
+    /*
+        One entry per slot, so an empty slot is a hole rather than a gap closed
+        up - generateSlots indexes this positionally, and compacting it would
+        slide every later item one place left on the next load.
+    */
+    public serialize(): (string | undefined)[] {
         return this.slots.map(s => s.itemName)
     }
 

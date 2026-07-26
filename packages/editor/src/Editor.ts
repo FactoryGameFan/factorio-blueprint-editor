@@ -92,10 +92,11 @@ export class Editor {
         G.BPC.gridPattern = pattern
     }
 
-    public get quickbarItems(): string[] {
+    /** One entry per slot, undefined where the slot is empty. */
+    public get quickbarItems(): (string | undefined)[] {
         return G.UI.quickbarPanel.serialize()
     }
-    public set quickbarItems(items: string[]) {
+    public set quickbarItems(items: (string | undefined)[]) {
         G.UI.quickbarPanel.generateSlots(items)
     }
 

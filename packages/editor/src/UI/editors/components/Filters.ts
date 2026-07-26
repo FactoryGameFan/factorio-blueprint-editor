@@ -4,7 +4,7 @@ import FD from '../../../core/factorioData'
 import G from '../../../common/globals'
 import F from '../../controls/functions'
 import { Slot } from '../../controls/Slot'
-import { Entity, EntityEvents, IFilter } from '../../../core/Entity'
+import { Entity, EntityEvents, IFilterSlot } from '../../../core/Entity'
 
 /** Module Slots for Entity */
 export class Filters extends Container<Slot<number>> {
@@ -79,7 +79,12 @@ export class Filters extends Container<Slot<number>> {
     private readonly m_Amount: boolean
 
     /** Field to hold data for module visualization */
-    private m_Filters: IFilter[]
+    /*
+        One entry per slot, so an empty slot is present with no name - which is
+        what makes this IFilterSlot[] rather than IFilter[]. Entity's setter is
+        built for exactly this and strips the nameless entries on the way in.
+    */
+    private m_Filters: IFilterSlot[]
 
     public constructor(entity: Entity, amount = false) {
         super()
@@ -132,7 +137,10 @@ export class Filters extends Container<Slot<number>> {
      * Return filter count of specific filter
      * @param index Index of filter
      */
-    public getFilterCount(index: number): number {
+    public getFilterCount(index: number): number | undefined {
+        // Undefined for a filter with no stack count, which a logistic section
+        // filter is free to be - ChestEditor reads that as "hide the count
+        // controls" and has always had the check for it.
         return this.m_Filters[index].count
     }
 
@@ -175,7 +183,15 @@ export class Filters extends Container<Slot<number>> {
                     if (this.m_Amount) {
                         if (slot.content !== undefined) {
                             const text = slot.children[1] as Text
-                            if (text.text !== slotFilter.count.toString()) {
+                            /*
+                                `?? 1` matches what was actually drawn, not a
+                                guess: the icon below is built by
+                                CreateIconWithAmount, whose `amount` defaults to
+                                1, so a filter with no count rendered as "1".
+                                Comparing against "undefined" would have made
+                                every such slot look stale and rebuild forever.
+                            */
+                            if (text.text !== (slotFilter.count ?? 1).toString()) {
                                 slot.content = undefined
                             }
                         }

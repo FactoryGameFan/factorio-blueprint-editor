@@ -10,8 +10,13 @@ export class Modules extends Container<Slot<number>> {
     /** Blueprint Editor Entity reference */
     private readonly m_Entity: Entity
 
-    /** Field to hold data for module visualization */
-    private readonly m_Modules: string[]
+    /**
+     * Field to hold data for module visualization. An entry is undefined for an
+     * empty slot, which is what right-clicking a slot writes and what every read
+     * of this array already checks for - `Entity.modules` has said so since the
+     * Entity batch, and this was the only thing narrowing it back.
+     */
+    private readonly m_Modules: (string | undefined)[]
 
     public constructor(entity: Entity) {
         super()
@@ -28,8 +33,12 @@ export class Modules extends Container<Slot<number>> {
             slot.position.set(slotIndex * 38, 0)
             slot.data = slotIndex
             slot.on('pointerdown', this.onSlotPointerDown, this)
-            if (this.m_Modules[slotIndex] !== undefined) {
-                slot.content = F.CreateIcon(this.m_Modules[slotIndex])
+            // Read into a local first: `slotIndex` is a loop `let`, so
+            // TypeScript will not carry a narrowing of `m_Modules[slotIndex]`
+            // from the test to the use.
+            const module = this.m_Modules[slotIndex]
+            if (module !== undefined) {
+                slot.content = F.CreateIcon(module)
             }
             this.addChild(slot)
         }
@@ -50,8 +59,8 @@ export class Modules extends Container<Slot<number>> {
         this.once('destroyed', () => this.m_Entity.off(event, fn))
     }
 
-    /** Update Content Icon */
-    private updateContent(slot: Slot<number>, module: string): void {
+    /** Update Content Icon. An undefined module empties the slot. */
+    private updateContent(slot: Slot<number>, module: string | undefined): void {
         if (module === undefined) {
             if (slot.content !== undefined) {
                 slot.content = undefined

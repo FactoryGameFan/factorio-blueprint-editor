@@ -49,6 +49,18 @@ export interface IFilter {
     count?: number
 }
 
+/**
+ * A filter as the editor's UI holds it, which is one entry per *slot* rather
+ * than one per set filter - so an empty slot is present with no name.
+ *
+ * Only the `filters` setter takes these, and it drops the empty ones on the way
+ * in (`list.filter(f => !!f.name)`), which is why the getter can still answer
+ * the narrower `IFilter[]`: nothing without a name is ever stored.
+ */
+export interface IFilterSlot extends Omit<IFilter, 'name'> {
+    name: string | undefined
+}
+
 // TODO: Handle the modules within the class differently so that modules would stay in the same place during editing the blueprint
 
 export interface EntityEvents {
@@ -447,9 +459,18 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
         }
     }
-    public set filters(list: IFilter[] | undefined) {
+    /*
+        Takes the wider slot shape while the getter above answers IFilter[].
+        TypeScript only asks that the getter type be assignable to the setter
+        type, and the filter below is what makes the difference safe.
+    */
+    public set filters(list: IFilterSlot[] | undefined) {
+        // The predicate is the whole point of this filter, and saying so is what
+        // lets the narrower IFilter[] reach the per-entity setters below.
         const FILTERS =
-            list === undefined || list.length === 0 ? undefined : list.filter(f => !!f.name)
+            list === undefined || list.length === 0
+                ? undefined
+                : list.filter((f): f is IFilter => !!f.name)
         switch (this.name) {
             case 'splitter':
             case 'fast-splitter':
