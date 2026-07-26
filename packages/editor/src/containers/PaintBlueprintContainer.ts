@@ -108,8 +108,19 @@ export class PaintBlueprintContainer extends PaintContainer {
         return true
     }
 
+    /*
+        No visibility check, matching flippedEntities below. There was one, and
+        it cost the paste: rotate() destroys the container before spawning what
+        this returns, so returning undefined while hidden fed undefined to
+        PaintBlueprintContainer's constructor, which threw, and the catch in
+        spawnPaintContainer dropped the whole paste to EditorMode.NONE with only
+        a console error (issue #53).
+
+        Rotating needs no cursor position - getRotatedCopy does not read one -
+        which is what separates this from moveAtCursor and placeEntityContainer,
+        where the check is load-bearing and stays.
+    */
     public override rotatedEntities(ccw?: boolean): Entity[] {
-        if (!this.visible) return undefined
         const result = []
         for (const [e] of this.entities) {
             result.push(e.getRotatedCopy(ccw))

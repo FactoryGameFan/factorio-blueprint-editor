@@ -53,6 +53,14 @@ export interface FbeTestApi {
      * DELETE. See tests/editor-mode-input.spec.ts.
      */
     editorMode: () => string
+    /**
+     * Where the entity sits in client coordinates - the space a synthetic
+     * pointer move takes - or undefined if the loaded blueprint has no such
+     * entity. Hovering one is the only way into EDIT.
+     */
+    entityScreenPosition: (entityNumber: number) => { x: number; y: number } | undefined
+    /** The hovered entity's number, or undefined in any mode but EDIT. */
+    hoveredEntityNumber: () => number | undefined
 }
 
 /**

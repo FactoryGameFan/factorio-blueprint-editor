@@ -19,6 +19,7 @@ import { PaintTileContainer } from './containers/PaintTileContainer'
 import { UIContainer } from './UI/UIContainer'
 import { Dialog } from './UI/controls/Dialog'
 import { ActionRegistry, MouseButton } from './actions'
+import { IPoint } from './types'
 
 export class Editor {
     public async init(canvas: HTMLCanvasElement, logger?: Logger): Promise<void> {
@@ -124,6 +125,54 @@ export class Editor {
      */
     public get mode(): string {
         return EditorMode[G.BPC.mode]
+    }
+
+    /**
+     * Where an entity currently sits in screen coordinates, or undefined if no
+     * blueprint is loaded or it holds no such entity.
+     *
+     * The counterpart to `mode` for issue #44: asserting that hovering an entity
+     * enters EDIT first needs a way to put the pointer on one, and the editor
+     * only ever mapped screen -> world. Kept here rather than in the spec so the
+     * tile -> world pixel convention stays inside the package that owns it.
+     *
+     * The point returned is the entity's centre, which is always inside one of
+     * the tiles it occupies - so it hits the same position grid cell the hover
+     * lookup reads, for a 1x1 entity on a half-tile centre as much as for an
+     * even-sized one.
+     *
+     * These are client coordinates, the same space GridData reads pointer
+     * events in, so a test can pass them straight to a synthetic pointer move
+     * without correcting for the canvas offset.
+     */
+    public entityScreenPosition(entityNumber: number): IPoint | undefined {
+        const entity = G.bp?.entities.get(entityNumber)
+        if (entity === undefined) return undefined
+        const [x, y] = G.BPC.toScreen(entity.position.x * 32, entity.position.y * 32)
+        return { x, y }
+    }
+
+    /**
+     * Which entity the canvas currently considers hovered, or undefined when
+     * none is - which is every mode but EDIT.
+     *
+     * `mode` alone cannot tell a test that the hover moved from one entity to
+     * the next, since both ends of that move report EDIT (issue #44).
+     */
+    public get hoveredEntityNumber(): number | undefined {
+        return G.BPC.hoverContainer?.entity.entityNumber
+    }
+
+    /**
+     * Whether the paint container is currently drawn, or undefined when there
+     * is no paint container at all.
+     *
+     * The two are worth telling apart: the container is hidden rather than
+     * destroyed whenever the pointer leaves the canvas, and `mode` reports
+     * PAINT either way (issue #53).
+     */
+    public get paintContainerVisible(): boolean | undefined {
+        return G.BPC.paintContainer?.visible
     }
 
     public get debug(): boolean {
