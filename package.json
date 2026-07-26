@@ -21,9 +21,9 @@
         "test:e2e:report": "npx playwright test --reporter=list"
     },
     "devDependencies": {
-        "@playwright/test": "^1.58.2",
+        "@playwright/test": "^1.62.0",
         "@types/node": "^26.1.1",
-        "typed-factorio": "^3.35.0",
+        "typed-factorio": "^3.36.0",
         "typescript": "^7.0.2",
         "vite-plus": "0.2.6"
     },
