@@ -10,6 +10,30 @@ import { CursorBoxSpecification } from 'factorio:prototype'
 export class EntityContainer {
     public static readonly mappings: Map<number, EntityContainer> = new Map()
 
+    /**
+     * The container drawing `entityNumber`, for callers holding an entity that is
+     * live in the current blueprint.
+     *
+     * `mappings` is an index into `bp.entities`, not an independent store:
+     * `initBP` constructs a container for every entity and the constructor is the
+     * only thing that writes, while the only delete is on that same entity's
+     * `destroy`. So an entity reached through `bp.entityPositionGrid` or through a
+     * stored wire connection always has a container, and a miss means the two have
+     * drifted apart rather than that the caller asked for something reasonable -
+     * the same signal `PositionGrid.entityAt` gives.
+     *
+     * `mappings` stays public for the lookups where absence is a real answer:
+     * `OverlayContainer` asks about `entityForCopyData`, which is remembered
+     * across the entity being deleted.
+     */
+    public static containerOf(entityNumber: number): EntityContainer {
+        const ec = EntityContainer.mappings.get(entityNumber)
+        if (ec === undefined) {
+            throw new Error(`Entity ${entityNumber} has no container`)
+        }
+        return ec
+    }
+
     private static _updateGroups: Map<string, Set<string>>
     private static get updateGroups(): Map<string, Set<string>> {
         if (!EntityContainer._updateGroups) {
@@ -22,7 +46,7 @@ export class EntityContainer {
     private entityInfo: Container | undefined
     private entitySprites: EntitySprite[] = []
     /** This is only a reference */
-    private cursorBoxContainer: Container
+    private cursorBoxContainer: Container | undefined
     /** This is only a reference */
     private undergroundLine: Container | undefined
 
@@ -203,12 +227,13 @@ export class EntityContainer {
             })
             .reduce<Map<string, Set<string>>>((map, cV) => {
                 for (const k of cV.is) {
-                    if (map.has(k)) {
-                        for (const v of cV.updates) {
-                            map.get(k).add(v)
-                        }
-                    } else {
+                    const updates = map.get(k)
+                    if (updates === undefined) {
                         map.set(k, new Set(cV.updates))
+                    } else {
+                        for (const v of cV.updates) {
+                            updates.add(v)
+                        }
                     }
                 }
                 return map
@@ -226,9 +251,11 @@ export class EntityContainer {
         }
     }
 
-    public set cursorBox(type: keyof CursorBoxSpecification) {
+    /** `undefined` removes the box, which is how every hover-out and mode exit clears it. */
+    public set cursorBox(type: keyof CursorBoxSpecification | undefined) {
         if (this.cursorBoxContainer) {
             this.cursorBoxContainer.destroy()
+            this.cursorBoxContainer = undefined
         }
         if (type !== undefined) {
             this.cursorBoxContainer = G.BPC.overlayContainer.createCursorBox(
@@ -320,7 +347,7 @@ export class EntityContainer {
             G.bp.entityPositionGrid
                 .getEntitiesInArea(area)
                 .filter(e => e.type === 'gate')
-                .forEach(entity => EntityContainer.mappings.get(entity.entityNumber).redraw())
+                .forEach(entity => EntityContainer.containerOf(entity.entityNumber).redraw())
         } else {
             const entities = G.bp.entityPositionGrid.getSurroundingEntities(area)
 
@@ -343,7 +370,7 @@ export class EntityContainer {
             entities
                 .filter(entity => updatesEntities.has(entity.name))
                 .forEach(entity => {
-                    EntityContainer.mappings.get(entity.entityNumber).redraw()
+                    EntityContainer.containerOf(entity.entityNumber).redraw()
                     if (entity.type === 'transport-belt') {
                         G.BPC.wiresContainer.update(entity.entityNumber)
                     }
