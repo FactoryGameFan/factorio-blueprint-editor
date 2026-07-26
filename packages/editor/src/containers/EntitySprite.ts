@@ -147,22 +147,33 @@ export class EntitySprite extends Sprite {
         positionGrid?: PositionGrid
     ): IDrawData {
         return {
-            dir: entity.direction,
+            /*
+                A caller may leave the direction out - PaintEntityContainer is the
+                one that does - and 0 is north, which is the same default getParts
+                already applies further down when picking a filename by direction.
+            */
+            dir: entity.direction ?? 0,
 
             name: entity.name,
             positionGrid,
-            position: entity.position,
-            generateConnector: entity.generateConnector,
+            /*
+                Only read behind a `data.positionGrid` guard, and a caller with a
+                grid always has a position, so the origin here is never the one
+                that gets used - it exists so the draw functions can do plain
+                arithmetic on it.
+            */
+            position: entity.position ?? { x: 0, y: 0 },
+            generateConnector: entity.generateConnector ?? false,
 
             dirType: entity.directionType,
-            selectorCombinatorSelectMax: entity.selectorCombinatorSelectMax,
+            selectorCombinatorSelectMax: entity.selectorCombinatorSelectMax ?? false,
             operator: entity.operator,
             displayPanelIcon: entity.displayPanelIcon,
-            assemblerHasFluidInputs: entity.assemblerHasFluidInputs,
-            assemblerHasFluidOutputs: entity.assemblerHasFluidOutputs,
+            assemblerHasFluidInputs: entity.assemblerHasFluidInputs ?? false,
+            assemblerHasFluidOutputs: entity.assemblerHasFluidOutputs ?? false,
             railLayer: entity.railLayer,
             trainStopColor: entity.trainStopColor,
-            modules: entity.modules,
+            modules: entity.modules ?? [],
         }
     }
 
