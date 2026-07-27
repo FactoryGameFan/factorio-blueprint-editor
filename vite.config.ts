@@ -159,10 +159,16 @@ export default defineConfig({
                 },
             },
             {
-                files: ['scripts/**/*.mjs'],
+                // tools/ joins scripts/ here: the oracle probes are Node
+                // scripts run by hand against a local Factorio, not part of any
+                // build or test, and they reach for the same globals.
+                files: ['scripts/**/*.mjs', 'tools/**/*.mjs'],
                 globals: {
                     console: 'readonly',
                     process: 'readonly',
+                    // zlib round trips through Buffer, which the oracle probes
+                    // use to build blueprint strings.
+                    Buffer: 'readonly',
                     // Node's timer family. Declared as a group rather than
                     // one at a time so the next script reaching for the other
                     // half of a pair does not fail lint for it.
