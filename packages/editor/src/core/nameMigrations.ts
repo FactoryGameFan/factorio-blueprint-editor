@@ -51,11 +51,22 @@ const migrations: readonly Migration[] = [
             'effectivity-module-2': 'efficiency-module-2',
             'effectivity-module-3': 'efficiency-module-3',
             'used-up-uranium-fuel-cell': 'depleted-uranium-fuel-cell',
-            // 'straight-rail': 'legacy-straight-rail' is still missing. It could
-            // be added now that the renames are gated - straight-rail only had to
-            // stay out while they ran unconditionally, since it is still in the
-            // game post 2.0 - but it changes how existing pre-2.0 blueprints load,
-            // so it wants its own change.
+            /*
+                `straight-rail` -> `legacy-straight-rail` is absent from this
+                table on purpose, and is *not* missing behaviour: Blueprint.ts
+                does that rename in its entity loop, gated on the same pre-2.0
+                check this table is gated by. This comment used to say the row
+                "is still missing", which was true when it was written and had
+                gone stale unnoticed because nothing covered either statement -
+                see tests/name-migrations.spec.ts and issue #47.
+
+                Why it sits there rather than here is worth keeping: unlike every
+                name in this table, `straight-rail` is *also* a live 2.0
+                prototype, so it is the one rename that would corrupt modern
+                blueprints if the gating ever came off. Leaving it out of the
+                table keeps it from being swept along by a future change to how
+                the table is applied.
+            */
             'curved-rail': 'legacy-curved-rail',
             'logistic-chest-storage': 'storage-chest',
             'logistic-chest-buffer': 'buffer-chest',
