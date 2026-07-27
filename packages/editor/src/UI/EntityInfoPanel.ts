@@ -17,6 +17,11 @@ import { Panel } from './controls/Panel'
 import { styles } from './style'
 
 function template(strings: TemplateStringsArray, ...keys: (number | string)[]) {
+    // `unknown | X` is `unknown`, so the Record arm is absorbed and this
+    // annotation says nothing - which is why the body casts twice below. The
+    // intent (positional values, or one object keyed by name) wants a real
+    // union, and the casts should go with it: issue #81.
+    // oxlint-disable-next-line typescript/no-redundant-type-constituents
     return (...values: (unknown | Record<string, unknown>)[]) => {
         const result = [strings[0].replace('\n', '')]
         keys.forEach((key, i) => {

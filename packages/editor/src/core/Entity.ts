@@ -333,7 +333,7 @@ export class Entity extends EventEmitter<EntityEvents> {
     /** List of all modules. Slots that are undefined don't have a populated module. */
     public get modules(): (string | undefined)[] {
         const items = this.m_rawEntity.items
-        const out = new Array(this.moduleSlots)
+        const out = Array.from<string | undefined>({ length: this.moduleSlots })
         if (!items) return out
         if (!Array.isArray(items)) {
             throw new Error('Old format for items!')

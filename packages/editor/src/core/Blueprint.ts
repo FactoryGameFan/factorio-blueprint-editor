@@ -672,7 +672,9 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             }
             entity.direction = p.direction
             if (PUMPJACK_MODULE !== 'none') {
-                entity.modules = new Array(entity.moduleSlots).fill(PUMPJACK_MODULE)
+                entity.modules = Array.from<string>({ length: entity.moduleSlots }).fill(
+                    PUMPJACK_MODULE
+                )
             }
         }
 

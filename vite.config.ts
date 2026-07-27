@@ -90,6 +90,20 @@ export default defineConfig({
             'typescript/no-dynamic-delete': 'error',
             'typescript/no-empty-object-type': 'error',
             'typescript/no-explicit-any': 'off',
+            /*
+                ignoreStatic, because four of this rule's reports are static
+                methods passed as plain functions - EntitySprite.compareFn to
+                Array#sort, and Entity/Tile.getItemName to getIconPairs. All
+                three take everything they use as parameters and never touch
+                `this`, so there is nothing to unbind. The rule's own option for
+                exactly this, rather than a suppression.
+
+                The instance-method reports it still makes are real and are
+                fixed at the source: those handlers are arrow properties now, so
+                they carry their own `this` and keep one stable identity per
+                instance for `off()` to match on.
+            */
+            'typescript/unbound-method': ['warn', { ignoreStatic: true }],
             'typescript/no-extra-non-null-assertion': 'error',
             'typescript/no-extraneous-class': 'error',
             'typescript/no-invalid-void-type': 'error',

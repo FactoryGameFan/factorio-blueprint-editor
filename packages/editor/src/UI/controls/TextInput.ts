@@ -2,6 +2,10 @@ import { Renderer, Container, DestroyOptions, Graphics, Matrix } from 'pixi.js'
 import { FunctionKeys } from 'utility-types'
 import { colors, styles } from '../style'
 
+// A union of literals with `string` *is* `string`, so these three check
+// nothing - `boxGenerator(w, h, 'DEFULT')` compiles. Dropping `| string`
+// needs checking against what reaches BoxGenerator first: issue #81.
+// oxlint-disable-next-line typescript/no-redundant-type-constituents
 type State = 'FOCUSED' | 'DISABLED' | 'DEFAULT' | string
 
 type BoxGenerator = (w: number, h: number, state: State) => Container
