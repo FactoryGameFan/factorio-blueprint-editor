@@ -57,6 +57,31 @@ export class UIContainer extends Container {
         }
     }
 
+    /**
+     * Where the topmost open dialog sits, in the client coordinates a synthetic
+     * pointer event takes, or undefined when no dialog is open.
+     *
+     * Same purpose as `BlueprintContainer.toScreen`: the dialogs are drawn with
+     * pixi, so nothing outside the canvas can find a control to click, and
+     * every dialog positions itself relative to the screen centre. A spec that
+     * knows a dialog's own layout constants can locate a control from this.
+     * See tests/chest-editor.spec.ts.
+     */
+    public get topDialogBounds(): { x: number; y: number; width: number; height: number } {
+        const dialogs = this.dialogsContainer.children
+        const top = dialogs[dialogs.length - 1]
+        if (top === undefined) {
+            throw new Error('no dialog is open')
+        }
+        const at = top.toGlobal({ x: 0, y: 0 })
+        return { x: at.x, y: at.y, width: top.width, height: top.height }
+    }
+
+    /** How many dialogs are open. 0 when the canvas has none. */
+    public get openDialogCount(): number {
+        return this.dialogsContainer.children.length
+    }
+
     public createInventory(
         title: string | undefined,
         itemsFilter: string[] | undefined,

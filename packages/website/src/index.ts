@@ -316,6 +316,14 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     constantCombinatorFilters: (entityNumber: number) =>
         entityOf(entityNumber).constantCombinatorFilters,
     /*
+        The dialogs are drawn with pixi, so nothing outside the canvas can find
+        a control inside one to click. These two are the entity editor's
+        equivalent of entityScreenPosition: a count, and where the topmost
+        dialog sits in client coordinates.
+    */
+    openDialogCount: () => editor.openDialogCount,
+    topDialogBounds: () => editor.topDialogBounds,
+    /*
         The size of EntityContainer.mappings, the static entity-number -> container
         index. Loading a blueprint should leave it holding exactly that
         blueprint's containers; anything above is retention from a previously
