@@ -121,6 +121,11 @@ export interface FbeTestApi {
      * something the model can use. See tests/pre-2-0-shape-migrations.spec.ts.
      */
     constantCombinatorFilters: (entityNumber: number) => string[]
+    /**
+     * An entity's modules, one entry per slot with undefined for an empty one -
+     * so the positions matter, not just the set. See tests/paste-modules.spec.ts.
+     */
+    entityModules: (entityNumber: number) => (string | undefined)[]
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     openDialogCount: () => number
     /**

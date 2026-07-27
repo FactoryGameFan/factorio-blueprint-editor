@@ -322,6 +322,12 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         equivalent of entityScreenPosition: a count, and where the topmost
         dialog sits in client coordinates.
     */
+    /*
+        Modules by slot, and what the entity would accept. `modules` is a
+        positional array - undefined for an empty slot - so a spec can see a
+        module that moved, which a set or a count could not (issue #100).
+    */
+    entityModules: (entityNumber: number) => entityOf(entityNumber).modules,
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
     /*

@@ -1077,8 +1077,17 @@ export class Entity extends EventEmitter<EntityEvents> {
         const aM = this.acceptedModules
         if (aM.length > 0 && sourceEntity.acceptedModules) {
             if (sourceEntity.modules && sourceEntity.modules.length > 0) {
+                /*
+                    map, not filter. `modules` is positional - one entry per
+                    slot, undefined for an empty one - so dropping the entries
+                    rather than blanking them slid every module behind a gap
+                    forward, and a source holding two modules in its back slots
+                    pasted them into the front ones (issue #100). A module the
+                    target will not accept still goes, it just leaves its slot
+                    empty instead of closing it.
+                */
                 this.modules = sourceEntity.modules
-                    .filter(m => m !== undefined && aM.includes(m))
+                    .map(m => (m !== undefined && aM.includes(m) ? m : undefined))
                     .slice(0, this.moduleSlots)
             } else {
                 this.modules = []
