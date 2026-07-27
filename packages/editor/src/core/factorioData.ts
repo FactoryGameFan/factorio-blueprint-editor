@@ -819,8 +819,13 @@ export function getColor(
     }
 }
 
-// @ts-ignore
-const FD: {
+/**
+ * Everything `data.json` carries, as the rest of the editor reads it.
+ *
+ * Named rather than inline so a fixture or a mock can say what shape it is
+ * standing in for, and so the assertion below has something to point at.
+ */
+export interface FactorioData {
     items: Record<string, ItemPrototype>
     fluids: Record<string, FluidPrototype>
     signals: Record<string, VirtualSignalPrototype>
@@ -835,7 +840,22 @@ const FD: {
     // treesAndRocks: Record<string, TreeOrRock>
 
     getModulesFor: (entityName: string) => ModulePrototype[]
-} = {}
+}
+
+/*
+    Empty until `loadData` runs, which fills in all twelve properties before
+    anything reads one - the same fill-in-later invariant `G` carries in
+    common/globals.ts, and asserted the same way it is there.
+
+    This used to be a `@ts-ignore` over the declaration. The claim was fine; the
+    suppression was the wrong shape for it. `@ts-ignore` silences *everything*
+    reported on the next line, so a property whose type stopped resolving would
+    have gone as quietly as the one error being waved through, and it would have
+    kept doing so after the reason for it went away. The assertion says the one
+    thing being claimed and leaves every other error on the line reported
+    (issue #84).
+*/
+const FD = {} as FactorioData
 
 export function loadData(str: string): void {
     const data = JSON.parse(str)
