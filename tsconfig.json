@@ -13,10 +13,17 @@
 
         // Incrementally migrating to full `strict` (TS7 defaults it true). The
         // umbrella stays off; sub-flags are enabled one batch at a time as the
-        // codebase is cleaned. `strictNullChecks` is now on with its errors
-        // ratcheted down via scripts/type-check-baseline.json; once that reaches 0,
-        // `strictPropertyInitialization` (~1 error) rides along and `strict: true`
-        // replaces this whole block. See issue #22.
+        // codebase is cleaned. `strictNullChecks` is on and its baseline in
+        // scripts/type-check-baseline.json has reached 0.
+        //
+        // What is left before `strict: true` can replace this block is
+        // `strictPropertyInitialization`, which this comment used to put at
+        // ~1 error. Measured after strictNullChecks hit 0, it is 24 - a batch of
+        // its own, not a rider. All but one are TS2564 "no initializer and not
+        // definitely assigned", concentrated in UI/controls (TextInput 5,
+        // Checkbox 3, Slider 2, Button, Slot) and the paint containers; the
+        // exception is Filters.m_Filters, which is also read before assignment.
+        // See issue #22.
         "strict": false,
         "noImplicitThis": true,
         "alwaysStrict": true,
