@@ -20,6 +20,24 @@ export type SpriteDataTally = Record<string, string[]>
  */
 export type RecipeShapeTally = Record<string, string[]>
 
+/** A filter as `Entity.filters` answers it: 1-based slot index, item name, count. */
+export interface TestFilter {
+    index: number
+    name: string
+    count?: number
+}
+
+/**
+ * The wider shape the setter takes, one entry per *slot*, so an empty slot is
+ * present with no name. Mirrors the editor's `IFilterSlot`, structurally rather
+ * than by import - the editor does not export it and this only needs the shape.
+ */
+export interface TestFilterSlot {
+    index: number
+    name: string | undefined
+    count?: number
+}
+
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
@@ -79,6 +97,19 @@ export interface FbeTestApi {
     encodeLoaded: () => Promise<string>
     /** Make the book's blueprint at this flattened index the active one. */
     selectBookIndex: (index: number) => Promise<void>
+    /**
+     * What `Entity.filters` answers, or undefined for an entity type that has
+     * none. See tests/chest-filters.spec.ts.
+     */
+    entityFilters: (entityNumber: number) => TestFilter[] | undefined
+    /**
+     * A write through `Entity.set filters`. Real input reaches that setter only
+     * via paste-settings, which always sends a full list taken from another
+     * entity; this covers what paste cannot say - clearing a chest, and the
+     * partial slot lists the chest editor sends, which is commented out of the
+     * editor factory and so unreachable through the UI.
+     */
+    setEntityFilters: (entityNumber: number, list: TestFilterSlot[] | undefined) => void
 }
 
 /**
