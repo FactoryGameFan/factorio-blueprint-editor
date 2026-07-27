@@ -161,16 +161,14 @@ test('the input carries the styles TextInput was constructed with', async ({ pag
         lineHeight: '1',
         fontFamily: 'Roboto, sans-serif',
         /*
-            Empty, and that is a bug being recorded rather than the expected
-            answer. style.ts has `fontSize: 14`, a number, and TextInput
-            interpolates it straight into a CSS value - so the element is asked
-            for `font-size: 14`, which has no unit, is invalid, and is dropped.
-            Every text box in the editor renders at the browser default instead
-            of 14px. Left alone here because fixing it changes what the UI looks
-            like, which does not belong in a type-error batch; this line moves
-            when someone fixes it.
+            This line used to read `''`, recording issue #60 rather than the
+            expected answer: style.ts has `fontSize: 14`, a number, and
+            TextInput interpolated it straight into a CSS value, so the element
+            was asked for `font-size: 14` - no unit, invalid, dropped by the
+            CSSOM - and every text box rendered at the browser default. The
+            comment said this line would move when someone fixed it. It has.
         */
-        fontSize: '',
+        fontSize: '14px',
     })
 })
 
