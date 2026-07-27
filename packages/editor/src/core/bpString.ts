@@ -244,7 +244,18 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                     throw new Error('Network response was not ok.')
                 })
 
-            // TODO: add dropbox support https://www.dropbox.com/s/ID?raw=1
+            /*
+                Dropbox is deliberately unsupported - see #98, closed wontfix, which
+                records the probes. Two things a future handler would have to reckon
+                with, neither obvious from the cases below: a share link is now
+                `/scl/fi/<id>/<name>?rlkey=...`, and the `rlkey` is required, so the
+                handler would have to preserve the incoming query string - every case
+                here rebuilds from `pathParts` and throws the query away. And a link
+                missing it answers the HTML login page at status 200, so the `ok`
+                check above passes and the markup reaches decode() as a corrupt
+                blueprint string. That second one is a property of fetchData rather
+                than of Dropbox, and so applies to every source below.
+            */
             switch (url.hostname.replace(/^www\./, '').split('.')[0]) {
                 case 'pastebin':
                     return fetchData(`https://pastebin.com/raw/${pathParts[0]}`).then(r => r.text())
