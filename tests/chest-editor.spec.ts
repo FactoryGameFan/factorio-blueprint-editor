@@ -256,7 +256,18 @@ test('right clicking a filled slot clears the filter', async ({ page }) => {
     */
     const errors = await loadChests(page)
     await openEditorOn(page, 1)
-    expect(await filtersOf(page, 1)).toEqual([{ index: 1, name: 'iron-plate', count: 1 }])
+    // The precondition rather than the thing under test. quality and comparator
+    // are here because #88 made Entity.filters carry them.
+    expect(await filtersOf(page, 1)).toEqual([
+        {
+            index: 1,
+            name: 'iron-plate',
+            count: 1,
+            quality: 'normal',
+            comparator: '=',
+            max_count: undefined,
+        },
+    ])
 
     const slot = await filterSlotAt(page, 0)
     await page.mouse.move(slot.x, slot.y)

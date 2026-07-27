@@ -20,11 +20,17 @@ export type SpriteDataTally = Record<string, string[]>
  */
 export type RecipeShapeTally = Record<string, string[]>
 
-/** A filter as `Entity.filters` answers it: 1-based slot index, item name, count. */
+/**
+ * A filter as `Entity.filters` answers it: 1-based slot index, item name, count,
+ * plus the 2.0 fields that used to be dropped on the way through (#88).
+ */
 export interface TestFilter {
     index: number
     name: string
     count?: number
+    quality?: string
+    comparator?: string
+    max_count?: number
 }
 
 /**
@@ -32,10 +38,8 @@ export interface TestFilter {
  * present with no name. Mirrors the editor's `IFilterSlot`, structurally rather
  * than by import - the editor does not export it and this only needs the shape.
  */
-export interface TestFilterSlot {
-    index: number
+export interface TestFilterSlot extends Omit<TestFilter, 'name'> {
     name: string | undefined
-    count?: number
 }
 
 export interface FbeTestApi {

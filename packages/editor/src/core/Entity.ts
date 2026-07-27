@@ -49,6 +49,21 @@ export interface IFilter {
     name: string
     /** If stacking is allowed, how many shall be stacked */
     count?: number
+    /*
+        The 2.0 fields this used to drop (issue #88). Optional because the
+        entities sharing this shape do not all have them - a splitter filter is
+        a bare name, and the pre-2.0 migration produces index/name/count - but
+        for logistic chests they are the norm rather than the exception: every
+        one of the 3461 filters in the corpus carries `quality` and `comparator`
+        and 90 carry `max_count`.
+
+        Absent is not the same as `normal` here. Factorio reads a filter with no
+        quality as accepting any quality, so dropping the field on the way
+        through is a silent change of meaning, not a cosmetic loss.
+    */
+    quality?: string
+    comparator?: ComparatorString
+    max_count?: number
 }
 
 /**
@@ -618,7 +633,19 @@ export class Entity extends EventEmitter<EntityEvents> {
         const out: IFilter[] = []
         for (const filter of sections[0].filters) {
             if (!filter.name) continue
-            out.push({ index: filter.index, name: filter.name, count: filter.count })
+            out.push({
+                index: filter.index,
+                name: filter.name,
+                count: filter.count,
+                // Carried rather than dropped since #88. Listed one by one on
+                // purpose: a LogisticFilter also holds `type`,
+                // `minimum_delivery_count` and `import_from`, which nothing
+                // reads, and spreading the raw filter would put them into the
+                // model as though something did.
+                quality: filter.quality,
+                comparator: filter.comparator,
+                max_count: filter.max_count,
+            })
         }
         return out
     }
@@ -661,17 +688,34 @@ export class Entity extends EventEmitter<EntityEvents> {
                 ? undefined
                 : wanted.map(f => {
                       /*
-                          A slot still holding the same item keeps the fields
-                          IFilter cannot carry: every filter in the corpus has
-                          quality and comparator, and the editor models neither,
-                          so rebuilding each entry from scratch would strip them
-                          off untouched slots as a side effect of editing one.
-                          A slot that changed hands is written as the three
-                          fields the editor does model - pasting cannot bring
-                          quality with it, since it travels as IFilter.
+                          Two layers, and the order is the point.
+
+                          `before` is the filter this slot already held, kept
+                          when the slot still holds the same item. That is what
+                          stops a caller writing a partial filter - the chest
+                          editor rebuilding the whole list to change one slot,
+                          say - from stripping fields it never meant to touch.
+
+                          `f` goes on top, so anything the incoming filter
+                          actually carries wins. Since #88 that includes quality
+                          and comparator, which means preservation can no longer
+                          make them unchangeable: a caller that knows the value
+                          sets it, one that does not leaves it alone.
+
+                          A LogisticFilter can also hold `type`,
+                          `minimum_delivery_count` and `import_from`, none of
+                          which IFilter models. Those survive only through
+                          `before`, which is why it is a spread of the raw
+                          filter rather than a rebuild.
                       */
                       const before = held.find(h => h.index === f.index && h.name === f.name)
-                      return { ...before, index: f.index, name: f.name, count: f.count ?? 1 }
+                      return {
+                          ...before,
+                          ...f,
+                          index: f.index,
+                          name: f.name,
+                          count: f.count ?? before?.count ?? 1,
+                      }
                   })
 
         next.sections = [first, ...sections.slice(1)]
