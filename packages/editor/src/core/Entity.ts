@@ -27,6 +27,7 @@ import FD, {
     isLoader,
     isMiningDrill,
     isLogisticContainer,
+    isModule,
     isRoboport,
     isUndergroundBelt,
     mapBoundingBox,
@@ -85,6 +86,35 @@ export interface IFilterSlot extends Omit<IFilter, 'name'> {
  * deliberately not here; `wagonInventory` handles that shape.
  */
 const CONTAINER_TYPES = new Set(['container', 'logistic-container', 'infinity-container'])
+
+/**
+ * Pairs of *different* types whose settings Factorio's own copy carries, as
+ * source type -> target types.
+ *
+ * Every one was tried against the game rather than reasoned about
+ * (`tools/oracle/fixtures/copy-settings-cross-type.json`), including one that
+ * does nothing: an assembling machine onto a plain `container` leaves it
+ * untouched, so a chest with no logistic requests is not in here.
+ *
+ * Only `assembling-machine` is listed as a source, not every crafting machine.
+ * That is what #94 asks for and what was measured; a furnace has a fixed recipe
+ * and was not probed, so it stays out rather than being assumed.
+ */
+const CROSS_TYPE_PASTE = new Map<string, Set<string>>([
+    ['assembling-machine', new Set(['logistic-container', 'inserter'])],
+    ['train-stop', new Set(['locomotive'])],
+    ['locomotive', new Set(['train-stop'])],
+])
+
+/**
+ * How many seconds of production the game requests per ingredient when a
+ * machine's settings are copied onto a logistic chest. Measured; see
+ * `recipeIngredientRequests`.
+ */
+const REQUEST_SECONDS = 30
+
+/** Factorio's crafting time when a recipe declares no `energy_required` */
+const DEFAULT_CRAFTING_TIME = 0.5
 
 /**
  * Whether two settings hold the same value, for the settings that are objects
@@ -1269,7 +1299,63 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     public canPasteSettings(sourceEntity: Entity): boolean {
-        return sourceEntity !== this && sourceEntity.type === this.type
+        if (sourceEntity === this) return false
+        if (sourceEntity.type === this.type) return true
+        return CROSS_TYPE_PASTE.get(sourceEntity.type)?.has(this.type) ?? false
+    }
+
+    /**
+     * The requests Factorio writes onto a logistic chest when a crafting
+     * machine's settings are copied onto it: thirty seconds of production of
+     * each **item** ingredient, floored.
+     *
+     * Measured, not derived - #94 recorded
+     * `min(amount, ceil(amount * speed / energy_required))`, which is a different
+     * rule and gives different numbers. What the game does
+     * (`tools/oracle/fixtures/copy-settings-cross-type.json`):
+     *
+     * | machine | recipe | ingredient | requested |
+     * | --- | --- | --- | --- |
+     * | assembling-machine-1 (0.5) | electronic-circuit (0.5s) | iron-plate x1 | 30 |
+     * | assembling-machine-2 (0.75) | electronic-circuit | iron-plate x1 | 45 |
+     * | assembling-machine-2 | processing-unit (10s) | advanced-circuit x2 | 4 |
+     * | assembling-machine-3 (1.25) | processing-unit | advanced-circuit x2 | 7 |
+     *
+     * 4 and 7 come from 4.5 and 7.5, so it floors rather than rounds. Modules
+     * count: the same machine with two speed modules asked for 62 where its base
+     * rate says 63, which is float error in the game's own arithmetic and comes
+     * out the same here because the multiplication happens in the same order.
+     *
+     * Fluid ingredients are dropped - a chest cannot request one, and the game
+     * leaves them out rather than requesting zero.
+     */
+    private get recipeIngredientRequests(): IFilter[] {
+        const recipe = this.recipe === undefined ? undefined : FD.recipes[this.recipe]
+        if (recipe === undefined) return []
+
+        const time = recipe.energy_required ?? DEFAULT_CRAFTING_TIME
+        const speed = this.effectiveCraftingSpeed
+
+        return recipeIngredients(recipe)
+            .filter(ingredient => ingredient.type !== 'fluid')
+            .map((ingredient, i) => ({
+                index: i + 1,
+                name: ingredient.name,
+                count: Math.floor((REQUEST_SECONDS * ingredient.amount * speed) / time),
+            }))
+    }
+
+    /** Crafting speed including whatever modules are in the machine, as the game counts it */
+    private get effectiveCraftingSpeed(): number {
+        const ed = this.entityData
+        const base = isCraftingMachine(ed) ? ed.crafting_speed : 1
+        const bonus = this.modules.reduce((sum, name) => {
+            if (name === undefined) return sum
+            const item = FD.items[name]
+            if (item === undefined || !isModule(item)) return sum
+            return sum + (item.effect?.speed ?? 0)
+        }, 0)
+        return base * (1 + bonus)
     }
 
     /** Paste relevant data from source entity */
@@ -1398,6 +1484,55 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (this.type === 'rocket-silo' && sourceEntity.type === 'rocket-silo') {
             this.launchToOrbitAutomatically = sourceEntity.launchToOrbitAutomatically
             this.useTransitionalRequests = sourceEntity.useTransitionalRequests
+        }
+
+        /*
+            The cross-type pairs, which `canPasteSettings` refused outright until
+            now. Each one was measured against the game rather than taken from
+            #94's TODO - see `CROSS_TYPE_PASTE` and
+            `tools/oracle/fixtures/copy-settings-cross-type.json`.
+
+            Note what happens above when the source has no recipe: the filters
+            block sends `this.filters = []`, which clears the target. That is the
+            game's behaviour too - a machine with no recipe copied onto a chest
+            empties its requests rather than leaving them - so it is left to do
+            its work rather than special-cased here.
+        */
+
+        // PASTE A MACHINE'S INGREDIENTS ONTO A LOGISTIC CHEST AS REQUESTS
+        if (sourceEntity.type === 'assembling-machine' && this.type === 'logistic-container') {
+            const requests = sourceEntity.recipeIngredientRequests
+            if (requests.length > 0) {
+                this.filters = requests.slice(0, this.maxFilters)
+            }
+        }
+
+        // PASTE A MACHINE'S INGREDIENTS ONTO AN INSERTER AS FILTERS
+        if (sourceEntity.type === 'assembling-machine' && this.type === 'inserter') {
+            const ingredients = sourceEntity.recipeIngredientRequests
+            if (ingredients.length > 0) {
+                /*
+                    Names only. The game writes an inserter's filters without
+                    counts - the thirty-seconds arithmetic is a chest's business,
+                    and an inserter filter has nowhere to put a number.
+                */
+                this.filters = ingredients
+                    .map(({ index, name }) => ({ index, name }))
+                    .slice(0, this.maxFilters)
+            }
+        }
+
+        // PASTE COLOUR BETWEEN A TRAIN STOP AND A LOCOMOTIVE
+        if (
+            (sourceEntity.type === 'train-stop' && this.type === 'locomotive') ||
+            (sourceEntity.type === 'locomotive' && this.type === 'train-stop')
+        ) {
+            /*
+                Colour only, in both directions. A stop's name stays its own -
+                measured: a locomotive copied onto a train stop left the stop's
+                `station` untouched.
+            */
+            this.color = sourceEntity.color
         }
 
         this.m_BP.history.commitTransaction()

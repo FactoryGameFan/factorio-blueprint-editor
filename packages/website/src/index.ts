@@ -381,6 +381,13 @@ const testApi = {
             panel.destroy()
         }
     },
+    /*
+        Whether the copy cursor box is drawn - the outline shown on a settings
+        copy source while hovering a valid target. The only visible consequence
+        of Entity.canPasteSettings, and so the only way to tell a pair the editor
+        refuses from one it accepts and then writes nothing for.
+    */
+    copyCursorBoxVisible: () => editor.copyCursorBoxVisible,
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
     /*

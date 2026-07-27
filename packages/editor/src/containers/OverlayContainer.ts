@@ -397,6 +397,18 @@ export class OverlayContainer extends Container {
         }
     }
 
+    /**
+     * Whether the copy cursor box is drawn - the outline that appears on the
+     * copy source while hovering an entity its settings can be pasted onto.
+     *
+     * It is the only thing `Entity.canPasteSettings` shows a user before they
+     * click, so it is what tells a pair the editor refuses from a pair it accepts
+     * and then does nothing for. See tests/paste-cross-type-settings.spec.ts.
+     */
+    public get copyCursorBoxVisible(): boolean {
+        return this.copyCursorBox !== undefined
+    }
+
     public updateCopyCursorBox(forceDisable = false): void {
         if (
             !forceDisable &&

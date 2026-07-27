@@ -113,6 +113,13 @@ export interface FbeTestApi {
      * chest nor a partial slot list; the chest editor can do both since #87, and
      * tests/chest-editor.spec.ts drives it that way.
      */
+    /**
+     * Whether the copy cursor box is drawn on a settings-copy source. The only
+     * visible effect of `Entity.canPasteSettings`, which is otherwise
+     * unobservable for a pair that is accepted but writes nothing. See
+     * tests/paste-cross-type-settings.spec.ts.
+     */
+    copyCursorBoxVisible: () => boolean
     setEntityFilters: (entityNumber: number, list: TestFilterSlot[] | undefined) => void
     /**
      * Writes a cargo wagon's nested inventory - bar and slot filters together.

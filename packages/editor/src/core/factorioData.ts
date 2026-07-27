@@ -230,7 +230,14 @@ export function isTransportBeltConnectable(
     }
 }
 
-function isModule(item: ItemPrototype): item is ModulePrototype {
+/**
+ * Exported for `Entity.effectiveCraftingSpeed`, which sums the speed bonus of
+ * whatever is in a machine's module slots. It uses the guard rather than
+ * `getModule` because that throws for a non-module, and a paste that threw would
+ * lose everything else it was carrying - here a non-module simply contributes no
+ * speed.
+ */
+export function isModule(item: ItemPrototype): item is ModulePrototype {
     const type: ModulePrototype['type'] = 'module'
     return item.type === type
 }
