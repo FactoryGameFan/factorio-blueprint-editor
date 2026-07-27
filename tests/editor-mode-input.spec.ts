@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import { suppressToasts } from './helpers/toasts'
 
 /*
     The first spec that dispatches real pointer and keyboard input (issue #44).
@@ -51,6 +52,7 @@ const hoveredEntityNumber = (page: Page): Promise<number | undefined> =>
     page.evaluate(() => (window as any).__fbe_test.hoveredEntityNumber())
 
 async function openEditor(page: Page): Promise<{ x: number; y: number }> {
+    await suppressToasts(page)
     await page.goto('/')
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
 

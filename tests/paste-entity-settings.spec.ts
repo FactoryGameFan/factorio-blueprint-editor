@@ -4,6 +4,7 @@ import {
     decodeBlueprintString as decode,
     packVersion as version,
 } from './helpers/encode-blueprint'
+import { suppressToasts } from './helpers/toasts'
 
 /*
     The same-type half of #94: the settings `pasteSettings` did not carry.
@@ -111,6 +112,7 @@ const SILOS = pair(
 )
 
 async function openEditor(page: Page, source: string): Promise<void> {
+    await suppressToasts(page)
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
     await page.locator(CANVAS).waitFor()

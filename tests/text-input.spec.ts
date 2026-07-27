@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import { suppressToasts } from './helpers/toasts'
 
 /*
     The first coverage `UI/controls/TextInput.ts` has had.
@@ -40,6 +41,7 @@ const TRAIN_STOP = encode({
 
 /** Loads the train stop and answers where it is on screen. */
 async function loadTrainStop(page: Page): Promise<{ x: number; y: number }> {
+    await suppressToasts(page)
     await page.goto('/')
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
     await page.evaluate(async (src: string) => {
