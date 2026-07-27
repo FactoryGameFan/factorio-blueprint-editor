@@ -989,7 +989,9 @@ function draw_arithmetic_combinator(
                 case 'XOR':
                     return need(e, 'xor_symbol_sprites')
                 default:
-                    throw new Error('Internal Error!')
+                    throw new Error(
+                        `${e.name} has no sprite for arithmetic operation "${String(operator)}"`
+                    )
             }
         }
         const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]
@@ -1420,7 +1422,9 @@ function draw_decider_combinator(
                 case '≠':
                     return need(e, 'not_equal_symbol_sprites')
                 default:
-                    throw new Error('Internal Error!')
+                    throw new Error(
+                        `${e.name} has no sprite for decider comparator "${String(operator)}"`
+                    )
             }
         }
         const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]
@@ -2338,7 +2342,9 @@ function draw_selector_combinator(
                 case 'quality-filter':
                     return need(e, 'quality_symbol_sprites')
                 default:
-                    throw new Error('Internal Error!')
+                    throw new Error(
+                        `${e.name} has no sprite for selector operation "${String(operator)}"`
+                    )
             }
         }
         const out = [...dirLayers(need(e, 'sprites'), util.getDirName(data.dir))]

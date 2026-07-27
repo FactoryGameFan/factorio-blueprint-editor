@@ -236,8 +236,17 @@ function isModule(item: ItemPrototype): item is ModulePrototype {
 }
 export function getModule(name: string): ModulePrototype {
     const item = FD.items[name]
-    if (isModule(item)) return item
-    else throw new Error('Internal Error!')
+    /*
+        Two different failures, told apart (issue #55). An absent name used to
+        reach `isModule(undefined)` and die on `.type` with a TypeError naming
+        nothing; a present but non-module item reached a bare "Internal Error!".
+        Callers pass a name off an entity's module slots, so either one means
+        the blueprint and FD disagree, and which way round is the first thing
+        anyone debugging it needs.
+    */
+    if (item === undefined) throw new Error(`No item named ${name}`)
+    if (!isModule(item)) throw new Error(`Item ${name} is a ${item.type}, not a module`)
+    return item
 }
 
 /*
