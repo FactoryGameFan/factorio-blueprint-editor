@@ -596,18 +596,96 @@ export type WaitConditionType =
     | 'passenger-present'
     | 'passenger-not-present'
 
-export interface ISchedule {
-    locomotives: number[]
-    schedule: {
-        station: string
-        wait_conditions: {
-            compare_type: CompareType
-            type: WaitConditionType
+/**
+ * A wait condition in the pre-2.0 shape, the one `blueprintSchema.json` still
+ * constrains - `WaitConditionType` is that schema's enum.
+ */
+export interface IWaitCondition {
+    compare_type: CompareType
+    type: WaitConditionType
 
-            ticks?: number
-            condition?: ICondition
-        }[]
-    }[]
+    ticks?: number
+    condition?: ICondition
+}
+
+/** Pre-2.0, a schedule was a flat list of these and nothing else. */
+export interface ILegacyScheduleRecord {
+    station: string
+    wait_conditions: IWaitCondition[]
+}
+
+/**
+ * The same idea in the 2.0 shape, whose `type` is deliberately a bare `string`.
+ *
+ * The two spellings differ: the pre-2.0 enum above has `passenger-not-present`
+ * and the game writes `passenger_not_present` in a 2.0 record - measured, see
+ * `tools/oracle/fixtures/copy-settings-schedule.json`. Only four of the names
+ * were observed there, so enumerating the rest from that sample would be a guess
+ * that rejects valid data. `blueprintSchema.json` constrains this shape no
+ * further than "an object" for the same reason, and the editor reads neither
+ * spelling - it carries a schedule verbatim.
+ */
+export interface IScheduleWaitCondition {
+    compare_type?: CompareType
+    type: string
+
+    ticks?: number
+    condition?: ICondition
+}
+
+/**
+ * One stop in a 2.0 schedule.
+ *
+ * Every field is optional because a record is allowed to be a bare rail target
+ * with no station, and because 2.0 added three flags that only some records
+ * carry. Measured, an ordinary station record blueprints as `station` plus
+ * `wait_conditions` and nothing else.
+ */
+export interface IScheduleRecord {
+    station?: string
+    wait_conditions?: IScheduleWaitCondition[]
+    temporary?: boolean
+    allows_unloading?: boolean
+    created_by_interrupt?: boolean
+}
+
+/** A 2.0 interrupt: conditions that divert the train to `targets`. */
+export interface IScheduleInterrupt {
+    name?: string
+    conditions?: IScheduleWaitCondition[]
+    targets?: IScheduleRecord[]
+    inside_interrupt?: boolean
+}
+
+/**
+ * What a train's schedule is, in the two shapes a blueprint can carry it.
+ *
+ * Pre-2.0 it was a flat list of records. 2.0 wrapped that in an object and added
+ * interrupts and a schedule group, which is what the game writes now - measured
+ * against 2.1.12, `tools/oracle/fixtures/copy-settings-schedule.json`. Both are
+ * described in `blueprintSchema.json`'s `oneOf`, the second as a bare object.
+ *
+ * The editor carries a schedule verbatim rather than editing one; it is typed
+ * out this far so that copying a schedule between locomotives (issue #115) moves
+ * something with a known shape rather than an `unknown`.
+ */
+export type ScheduleData =
+    | ILegacyScheduleRecord[]
+    | {
+          records?: IScheduleRecord[]
+          group?: string
+          interrupts?: IScheduleInterrupt[]
+      }
+
+export interface ISchedule {
+    /**
+     * Every locomotive on this schedule. The game writes one entry per distinct
+     * schedule rather than one per locomotive, so two locomotives holding the
+     * same schedule appear here together - measured, and reproduced by
+     * `Blueprint.setSchedule`.
+     */
+    locomotives: number[]
+    schedule: ScheduleData
 }
 
 export interface IIcon {

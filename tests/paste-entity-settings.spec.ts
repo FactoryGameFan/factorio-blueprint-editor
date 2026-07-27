@@ -263,3 +263,132 @@ test('the target holds its own copy of a pasted settings object', async ({ page 
 
     expect((await serialized(page, 1)).inventory).toEqual(WAGON_INVENTORY)
 })
+
+/*
+    The locomotive schedule - issue #115, the last item of #94's 2019 TODO.
+
+    Structurally unlike everything above it. The other settings are fields on the
+    entity; a schedule is not on the entity at all. It lives on the blueprint, as
+    an entry in a top-level `schedules` list naming the locomotives that share it,
+    so these assert the blueprint's `schedules` rather than a serialized entity -
+    and `Entity.schedule` reaches through to `Blueprint` rather than to
+    `m_rawEntity`.
+
+    What the game does was measured, not taken from the TODO, and two of the three
+    tests exist because of what the measurement said rather than what the TODO
+    did. `tools/oracle/fixtures/copy-settings-schedule.json`: the copy carries
+    records, interrupts and the schedule group; it replaces rather than merges;
+    and a source with no schedule CLEARS the target's. That last one is the case
+    an implementation that only ever writes gets wrong, and no test of a
+    successful paste can see it.
+
+    Note what is deliberately not asserted: whether the target got a copy of the
+    schedule object or a reference to it. The blueprint format shares one entry
+    between locomotives on the same schedule - `locomotives: [1, 2]`, which the
+    first test pins - so sharing is the correct shape here, not the bug it would
+    be for the wagon inventory above.
+*/
+
+const SCHEDULE = {
+    records: [
+        { station: 'Alpha', wait_conditions: [{ type: 'time', compare_type: 'and', ticks: 600 }] },
+        { station: 'Beta', wait_conditions: [{ type: 'full', compare_type: 'and' }] },
+    ],
+    group: 'Ore Run',
+    interrupts: [
+        {
+            name: 'Refuel',
+            conditions: [{ type: 'passenger_not_present', compare_type: 'and' }],
+            targets: [
+                {
+                    station: 'Depot',
+                    wait_conditions: [{ type: 'inactivity', compare_type: 'and', ticks: 300 }],
+                },
+            ],
+            inside_interrupt: false,
+        },
+    ],
+}
+
+/** A second, obviously different schedule, for the target to already be holding. */
+const OTHER_SCHEDULE = {
+    records: [{ station: 'Gamma', wait_conditions: [{ type: 'empty', compare_type: 'and' }] }],
+}
+
+/** Two locomotives far enough apart to both be hoverable, with the given schedules. */
+const locomotives = (schedules: { locomotives: number[]; schedule: unknown }[]): string =>
+    encode({
+        item: 'blueprint',
+        version: version(2, 0, 55),
+        entities: [
+            {
+                entity_number: 1,
+                name: 'locomotive',
+                position: { x: 0.5, y: 0.5 },
+                orientation: 0.25,
+            },
+            {
+                entity_number: 2,
+                name: 'locomotive',
+                position: { x: 12.5, y: 0.5 },
+                orientation: 0.25,
+            },
+        ],
+        schedules,
+    })
+
+/** The whole `schedules` list the loaded blueprint would serialize. */
+async function serializedSchedules(page: Page): Promise<any> {
+    const encoded = await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    return decode(encoded).blueprint.schedules
+}
+
+test('a locomotive carries its schedule, and the two then share one entry', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+
+    await openEditor(page, locomotives([{ locomotives: [1], schedule: SCHEDULE }]))
+    await pasteSettings(page, 1, 2)
+
+    /*
+        One entry listing both, not two entries - which is how the game itself
+        blueprints two locomotives holding the same schedule, and is why this
+        asserts the whole list rather than looking up entity 2's own entry.
+    */
+    expect(await serializedSchedules(page)).toEqual([{ locomotives: [1, 2], schedule: SCHEDULE }])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+test('a pasted schedule replaces the one the target was already on', async ({ page }) => {
+    /*
+        The target starts on its own schedule, so this separates replace from
+        merge - a blank target cannot. `Gamma` has to be gone entirely, and its
+        entry with it, since entity 2 was the only locomotive on it.
+    */
+    await openEditor(
+        page,
+        locomotives([
+            { locomotives: [1], schedule: SCHEDULE },
+            { locomotives: [2], schedule: OTHER_SCHEDULE },
+        ])
+    )
+    await pasteSettings(page, 1, 2)
+
+    expect(await serializedSchedules(page)).toEqual([{ locomotives: [1, 2], schedule: SCHEDULE }])
+})
+
+test('pasting from a locomotive with no schedule clears the target’s', async ({ page }) => {
+    /*
+        Measured behaviour, and the one an implementation that only ever writes
+        gets wrong: the game's copy from a scheduleless locomotive empties the
+        target's schedule rather than leaving it alone.
+
+        Entity 2 was the only locomotive on the only schedule, so the whole
+        `schedules` key goes - absent, the way a blueprint that never had one
+        serializes, rather than an empty array.
+    */
+    await openEditor(page, locomotives([{ locomotives: [2], schedule: OTHER_SCHEDULE }]))
+    await pasteSettings(page, 1, 2)
+
+    expect(await serializedSchedules(page)).toBeUndefined()
+})

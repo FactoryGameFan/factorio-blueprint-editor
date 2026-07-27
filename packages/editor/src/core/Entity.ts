@@ -11,6 +11,7 @@ import {
     SelectorCombinatorOperation,
     LogisticSection,
     LogisticSections,
+    ScheduleData,
 } from '../types'
 import util from '../common/util'
 import { IllegalFlipError } from '../containers/PaintContainer'
@@ -988,6 +989,28 @@ export class Entity extends EventEmitter<EntityEvents> {
             .commit()
     }
 
+    /**
+     * The schedule this locomotive is on, or undefined for one on none.
+     *
+     * The odd one out among the accessors here: it is not a field of
+     * `m_rawEntity` at all. A schedule lives on the blueprint, as an entry in a
+     * top-level `schedules` list naming the locomotives that share it, so this
+     * reads and writes through `Blueprint` rather than through the raw entity.
+     * That is why there is no `sameSetting` check and no `emit` - `setSchedule`
+     * owns the history entry, and nothing in the UI draws a schedule.
+     *
+     * Undefined is a real value to write, not a no-op: Factorio's own copy from a
+     * locomotive with no schedule **clears** the target's
+     * (`tools/oracle/fixtures/copy-settings-schedule.json`).
+     */
+    public get schedule(): ScheduleData | undefined {
+        return this.m_BP.getSchedule(this.entityNumber)
+    }
+
+    public set schedule(schedule: ScheduleData | undefined) {
+        this.m_BP.setSchedule(this.entityNumber, schedule)
+    }
+
     /** The same field as `color`, under the name the sprite builder reads it by. */
     public get trainStopColor(): ColorWithAlpha | undefined {
         return this.color
@@ -1474,6 +1497,17 @@ export class Entity extends EventEmitter<EntityEvents> {
         // PASTE LOCOMOTIVE SETTINGS
         if (this.type === 'locomotive' && sourceEntity.type === 'locomotive') {
             this.color = sourceEntity.color
+            /*
+                Schedule included, which is issue #115 and the last item of the
+                2019 TODO #94 worked through. Measured rather than assumed: the
+                game's own copy carries records, interrupts and the schedule
+                group, replaces whatever the target was on rather than merging,
+                and clears the target when the source has no schedule - which is
+                why this assigns unconditionally instead of guarding on the
+                source having one. See
+                `tools/oracle/fixtures/copy-settings-schedule.json`.
+            */
+            this.schedule = sourceEntity.schedule
         }
 
         // PASTE CARGO WAGON SETTINGS

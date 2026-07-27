@@ -30,11 +30,16 @@ This is the part that saves time, and it is not "open a disassembler":
 
 ## Scripts
 
-| Script                          | What it asks                                                                  |
-| ------------------------------- | ----------------------------------------------------------------------------- |
-| `probe-section-index.mjs`       | First pass at #91, all cases in one blueprint                                 |
-| `probe-section-index-cases.mjs` | The same, one blueprint per case so each import code is attributable          |
-| `probe-editor-output.mjs`       | Imports a string from a file - used to feed the game this editor's own output |
+| Script                               | What it asks                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `probe-section-index.mjs`            | First pass at #91, all cases in one blueprint                                 |
+| `probe-section-index-cases.mjs`      | The same, one blueprint per case so each import code is attributable          |
+| `probe-editor-output.mjs`            | Imports a string from a file - used to feed the game this editor's own output |
+| `probe-copy-settings.mjs`            | What `copy_settings` carries between two entities of one type (#94)           |
+| `probe-copy-settings-cross-type.mjs` | The same across different types (#94)                                         |
+| `probe-filter-count-cap.mjs`         | How many filters a logistic section takes before an import fails (#93)        |
+| `probe-schedule-api.mjs`             | Which schedule API 2.x actually has - written to stop guessing at it (#115)   |
+| `probe-copy-settings-schedule.mjs`   | Whether a settings copy carries a locomotive's schedule (#115)                |
 
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
@@ -61,6 +66,18 @@ so CI stays offline.
   string and got a single `import_stack` code of -1 for the lot, which could not
   be attributed - and worse, entities _did_ come back, so -1 looked like it might
   mean something other than what it does. Splitting them made the answer obvious.
+- **`help()` is gone in 2.1.** `LuaEntity`/`LuaTrain` have no such key, so the
+  usual way of asking an object what it can do does not work. The install ships
+  `doc-html/runtime-api.json`, which is the whole runtime API as data and is a
+  better source than either `help()` or `strings` on the binary - it is what
+  `probe-schedule-api.mjs` should have started with.
+- **Include a control that can invalidate the probe itself.** Not a control for
+  the behaviour, one for the measurement. `probe-copy-settings-schedule.mjs` runs
+  a case where `copy_settings` is never called, because `create_blueprint` groups
+  a train's locomotives into one `schedules` entry on its own - without that case
+  a merged entry would have looked like a successful copy. The filter-count probe
+  learned the same lesson the expensive way, reading 50 as a cap when it was the
+  game deduplicating 50 cycled item names.
 
 ## Fixture policy
 

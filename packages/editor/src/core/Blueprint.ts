@@ -7,6 +7,7 @@ import {
     InventoryPosition,
     IPoint,
     ISchedule,
+    ScheduleData,
     LogisticFilter,
     LogisticSection,
     LogisticSections,
@@ -104,7 +105,19 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
     // unused blueprint properties
     private readonly description?: string
-    private readonly schedules?: ISchedule[]
+    /*
+        Boxed, unlike its neighbours, because it is the one of them that changes:
+        `setSchedule` rewrites it when a locomotive is pasted onto (issue #115),
+        and that goes through `history` so it undoes with everything else.
+        `History.updateValue` takes an object and a key, and `keyof this` never
+        includes a private member, so handing it `this` does not type check and
+        casting around that would mean asserting a lie about the class. A box it
+        can address honestly is cheaper than either.
+
+        Still carried verbatim in every other respect - the editor has no schedule
+        editor, and nothing reads the contents.
+    */
+    private readonly scheduleStore: { schedules?: ISchedule[] } = {}
     private readonly absolute_snapping?: boolean
     private readonly snap_to_grid?: IPoint
     private readonly position_relative_to_grid?: IPoint
@@ -366,7 +379,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             }
 
             this.description = data.description
-            this.schedules = data.schedules
+            this.scheduleStore.schedules = data.schedules
             this.absolute_snapping = data['absolute-snapping']
             this.snap_to_grid = data['snap-to-grid']
             this.position_relative_to_grid = data['position-relative-to-grid']
@@ -773,6 +786,73 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         }
     }
 
+    /**
+     * The schedule the locomotive with this entity number is on, or undefined for
+     * one that is on none.
+     *
+     * A schedule lives on the blueprint rather than on the entity - `schedules` is
+     * a top-level list of `{locomotives, schedule}` - so this is the only way an
+     * `Entity` can reach its own.
+     */
+    public getSchedule(entityNumber: number): ScheduleData | undefined {
+        return this.scheduleStore.schedules?.find(s => s.locomotives.includes(entityNumber))
+            ?.schedule
+    }
+
+    /**
+     * Puts a locomotive on `schedule`, or takes it off whatever it was on when
+     * that is undefined.
+     *
+     * Three behaviours here are measured rather than chosen, from
+     * `tools/oracle/fixtures/copy-settings-schedule.json`:
+     *
+     * - it **replaces**. A locomotive already on a schedule is taken off that one
+     *   first, so nothing merges.
+     * - **undefined clears**, and is a real case rather than a no-op: the game's
+     *   own copy from a locomotive with no schedule empties the target's, and the
+     *   resulting blueprint has no `schedules` key at all.
+     * - locomotives holding the **same** schedule share one entry, the way the
+     *   game writes it, rather than getting one entry each.
+     *
+     * The sameness test is a JSON compare, which is exact for the case that
+     * matters - a paste assigns the source's own schedule object, so the two
+     * stringify identically. A separately built but equal schedule whose keys are
+     * in another order would get its own entry, which is still valid output.
+     */
+    public setSchedule(entityNumber: number, schedule: ScheduleData | undefined): void {
+        const key = schedule === undefined ? undefined : JSON.stringify(schedule)
+
+        const next = (this.scheduleStore.schedules ?? [])
+            .map(s => ({
+                ...s,
+                locomotives: s.locomotives.filter(n => n !== entityNumber),
+            }))
+            .filter(s => s.locomotives.length > 0)
+
+        if (key !== undefined) {
+            const existing = next.find(s => JSON.stringify(s.schedule) === key)
+            if (existing) {
+                existing.locomotives = [...existing.locomotives, entityNumber]
+            } else {
+                next.push({ locomotives: [entityNumber], schedule: schedule as ScheduleData })
+            }
+        }
+
+        /*
+            Absent rather than empty when nothing is left, so a blueprint that has
+            had its last schedule removed serializes without the key, the way one
+            that never had any does.
+        */
+        this.history
+            .updateValue(
+                this.scheduleStore,
+                'schedules',
+                next.length > 0 ? next : undefined,
+                'Change train schedule'
+            )
+            .commit()
+    }
+
     public serialize(): IBlueprint {
         if (!this.icons.size) {
             this.generateIcons()
@@ -824,7 +904,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             version: getFactorioVersion(),
             label: this.name,
             description: this.description,
-            schedules: this.schedules,
+            schedules: this.scheduleStore.schedules,
             'absolute-snapping': this.absolute_snapping,
             'snap-to-grid': this.snap_to_grid,
             'position-relative-to-grid': this.position_relative_to_grid,
