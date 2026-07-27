@@ -33,12 +33,12 @@ class Book {
 
     private saveActiveBlueprint(): number {
         if (this._active) {
-            const [, activeIndex] = saveBlueprint(
-                this.blueprints,
-                this._activeIndex,
-                this._active.serialize()
-            )
-            return activeIndex
+            const res = saveBlueprint(this.blueprints, this._activeIndex, this._active.serialize())
+            // Not finding a slot used to answer undefined, which serialize() then
+            // wrote into `active_index` - a required number - and JSON.stringify
+            // dropped, producing a book with no active_index at all. 0 is what
+            // the no-active-blueprint branch below already answers.
+            return res.saved ? res.index : 0
         }
         return 0
     }
@@ -117,7 +117,16 @@ function getFlattenedActiveIndex(bps: IBlueprintBookEntry[] = [], active_index: 
     return res
 }
 
-function getBlueprintAtFlattenedActiveIndex(bps: IBlueprintBookEntry[], index: number): IBlueprint {
+/**
+ * The blueprint at flattened index `index`, or undefined where the index does
+ * not land on one - `selectBlueprint` feeds the answer straight to the
+ * `Blueprint` constructor, whose parameter is optional, so undefined degrades
+ * to an empty blueprint rather than throwing.
+ */
+function getBlueprintAtFlattenedActiveIndex(
+    bps: IBlueprintBookEntry[],
+    index: number
+): IBlueprint | undefined {
     const search = (bps: IBlueprintBookEntry[] = [], index: number): number | IBlueprint => {
         let i = index
         for (const { blueprint, blueprint_book } of bps) {
@@ -140,31 +149,39 @@ function getBlueprintAtFlattenedActiveIndex(bps: IBlueprintBookEntry[], index: n
     return typeof ret === 'number' ? undefined : ret
 }
 
-function saveBlueprint(
-    bps: IBlueprintBookEntry[] = [],
-    index: number,
-    bp: IBlueprint
-): [number, number] {
+/**
+ * The outcome of searching a book's entries for a flattened index. Exactly one
+ * of the two cases holds, which the `[number, number]` tuple this replaces could
+ * not say: it carried the answer in whichever slot was not undefined, and the
+ * recursive call read `newI === undefined` to mean "saved" - a meaning nothing
+ * in the type mentioned.
+ */
+type SaveResult =
+    /** Written into the entry at top-level index `index`. */
+    | { saved: true; index: number }
+    /** Not in these entries; `remaining` blueprints of the search index are left to skip. */
+    | { saved: false; remaining: number }
+
+function saveBlueprint(bps: IBlueprintBookEntry[] = [], index: number, bp: IBlueprint): SaveResult {
     let i = index
     for (let j = 0; j < bps.length; j++) {
         const { blueprint, blueprint_book } = bps[j]
         if (blueprint) {
             if (i === 0) {
                 bps[j].blueprint = bp
-                return [undefined, j]
+                return { saved: true, index: j }
             }
             i -= 1
         } else if (blueprint_book) {
-            const [newI, activeIndex] = saveBlueprint(blueprint_book.blueprints, i, bp)
-            if (newI === undefined) {
-                blueprint_book.active_index = activeIndex
-                return [undefined, j]
-            } else {
-                i = newI
+            const res = saveBlueprint(blueprint_book.blueprints, i, bp)
+            if (res.saved) {
+                blueprint_book.active_index = res.index
+                return { saved: true, index: j }
             }
+            i = res.remaining
         }
     }
-    return [i, undefined]
+    return { saved: false, remaining: i }
 }
 
 export { Book }
