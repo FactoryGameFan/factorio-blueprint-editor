@@ -28,6 +28,11 @@ for (const bp of blueprintFiles) {
                 if (text.includes('[Object]') || text.includes('[Array]')) {
                     try {
                         const args = await Promise.all(
+                            // `a` is a JSHandle, whose toString() yields
+                            // "JSHandle@object" rather than anything about the
+                            // value - so this fallback puts junk in the report on
+                            // exactly the args that would not serialise: issue #81.
+                            // oxlint-disable-next-line typescript/no-base-to-string
                             msg.args().map(a => a.jsonValue().catch(() => a.toString()))
                         )
                         fullText = args
