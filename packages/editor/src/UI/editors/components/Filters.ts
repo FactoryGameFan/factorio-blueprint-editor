@@ -148,7 +148,7 @@ export class Filters extends Container<Slot<number>> {
     private m_UpdateFilters(): void {
         const slots = this.m_Entity.filterSlots
         if (slots > 0) {
-            this.m_Filters = new Array(slots)
+            this.m_Filters = Array.from<IFilterSlot>({ length: slots })
             const filters = this.m_Entity.filters
             if (filters !== undefined) {
                 for (const item of filters) {
