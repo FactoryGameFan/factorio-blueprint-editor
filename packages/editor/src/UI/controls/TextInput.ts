@@ -506,7 +506,17 @@ export class TextInput extends OriginalTextInput {
             input: {
                 fontFamily: styles.controls.textbox.fontFamily,
                 fontWeight: styles.controls.textbox.fontWeight,
-                fontSize: `${styles.controls.textbox.fontSize}`,
+                /*
+                    The `px` is the fix for issue #60. `styles.controls.textbox`
+                    is shaped like a pixi TextStyle, where `fontSize` is a
+                    number and wants to stay one, so the unit belongs here at
+                    the CSS end rather than in style.ts - which is what the
+                    `width` line below has always done. Without it the element
+                    was asked for `font-size: 14`, which has no unit, is
+                    invalid, and was dropped by the CSSOM, leaving every text
+                    box in the editor at the browser default instead of 14px.
+                */
+                fontSize: `${styles.controls.textbox.fontSize}px`,
                 width: `${width}px`,
                 color: `black`,
             },
