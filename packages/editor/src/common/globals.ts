@@ -30,13 +30,29 @@ const logger: Logger = msg => {
     }
 }
 
-/* oxlint-disable no-unassigned-vars -- type placeholders for the exported globals object; values are set on its properties at runtime */
-let app: Application<Renderer<HTMLCanvasElement>>
-let BPC: BlueprintContainer
-let UI: UIContainer
-let bp: Blueprint
-let actions: ActionRegistry
-/* oxlint-enable no-unassigned-vars */
+/**
+ * The globals Editor.init assigns on its way up, before anything reads them.
+ *
+ * These five used to be `let` declarations with no initialiser, there only to
+ * give the exported object its property types - the values were always assigned
+ * to the object's properties (`G.BPC = ...`), never to the variables, which
+ * stayed undefined for the life of the module. So the object literal captured
+ * five undefineds and each of them was a "used before being assigned" error,
+ * held off with an oxlint-disable that had to explain the same thing in prose.
+ *
+ * Declaring the shape says it once, in the type, and lets the object literal
+ * carry only what genuinely has a value at module scope.
+ */
+interface Globals {
+    debug: boolean
+    app: Application<Renderer<HTMLCanvasElement>>
+    BPC: BlueprintContainer
+    UI: UIContainer
+    bp: Blueprint
+    actions: ActionRegistry
+    getTexture: typeof getTexture
+    logger: Logger
+}
 
 const started = new Map<string, Promise<Texture>>()
 const textureCache = new Map<string, Texture>()
@@ -86,13 +102,10 @@ function getTexture(path: string, x = 0, y = 0, w = 0, h = 0): Texture {
     return t
 }
 
+// The cast is the whole of the "assigned by Editor.init" protocol, in one place
+// rather than spread across five declarations.
 export default {
     debug,
-    BPC,
-    UI,
-    app,
-    bp,
-    actions,
     getTexture,
     logger,
-}
+} as Globals
