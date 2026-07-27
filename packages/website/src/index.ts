@@ -159,6 +159,18 @@ editor
 
             .then(() => createWelcomeMessage())
             .catch(error => createBPImportError(error))
+
+            /*
+                Only now does the test hook go on `window`. It is the signal every
+                spec waits for, so it has to mean the data is loaded and the
+                initial blueprint is on screen, not merely that this module has
+                run (issue #109). It comes after the catch on purpose: a source
+                that fails to import is a state specs still need to drive.
+            */
+            .then(() => {
+                ;(window as any).__fbe_test = testApi
+            })
+            .catch(error => createErrorMessage('Could not finish starting up.', error))
     })
     .catch(error => {
         createErrorMessage('Something went wrong.', error, Infinity)
@@ -232,8 +244,22 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         })
 })
 
-// Expose loading functions for Playwright test automation
-;(window as any).__fbe_test = {
+/*
+    The Playwright test API. Built here, but not put on `window` until startup
+    has finished - see the `.then` above that assigns it, and issue #109.
+
+    Every spec waits for `window.__fbe_test` and treats its arrival as "the
+    editor is ready". That was only true by luck: this used to be assigned
+    synchronously while `editor.init()` - which fetches data.json and calls
+    `loadData` - was still in flight, so a spec could start work against an
+    empty `FD`. Measured with data.json held back 1.5s, the first call after the
+    hook appeared failed with `Cannot read properties of undefined (reading
+    'wooden-chest')` from `stripUnknownPrototypes`, and kept failing for the
+    length of the delay. Warm, the gap is 0ms, which is why it only ever showed
+    up under load or on a cold start - as two to five random specs failing per
+    full run, each passing in isolation.
+*/
+const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
     /*
