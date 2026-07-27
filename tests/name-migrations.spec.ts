@@ -62,6 +62,52 @@ test.beforeEach(async ({ page }) => {
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
 })
 
+test('a pre-2.0 straight rail becomes a legacy one, and a 2.0 one does not (#47)', async ({
+    page,
+}) => {
+    /*
+        `straight-rail` is the awkward one in this family: it is a live 2.0
+        prototype *and* the pre-2.0 name for what 2.0 calls
+        `legacy-straight-rail`. So the rename can only be applied to blueprints
+        that declare below 2.0 - applying it unconditionally is exactly the
+        corruption #40 describes.
+
+        The rename does happen, and has for a while, but not from
+        nameMigrations.ts's table: it is a version-gated special case in
+        Blueprint.ts's entity loop. The table still carries a comment saying the
+        row "is still missing", which is what #47 was written against and is now
+        out of date. Nothing covered either statement, which is why the comment
+        could go stale unnoticed - this is that coverage.
+
+        Both directions in one test on purpose: the migration and the guard
+        against it are the same line, and a test for only one of them would pass
+        with that line deleted or with the version check dropped.
+    */
+    const migrated = await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: V_1_1,
+            entities: [{ entity_number: 1, name: 'straight-rail', position: { x: 0.5, y: 0.5 } }],
+        })
+    )
+    expect(migrated.entities).toEqual(['legacy-straight-rail'])
+
+    const untouched = await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: V_2_0,
+            entities: [{ entity_number: 1, name: 'straight-rail', position: { x: 0.5, y: 0.5 } }],
+        })
+    )
+    expect(untouched.entities).toEqual(['straight-rail'])
+
+    // The migrated name has to resolve against FD or bpString strips the entity,
+    // and it has to render, since load() draws.
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
 test('a 2.0 blueprint keeps the names it was written with (issue #40)', async ({ page }) => {
     const loaded = await load(
         page,
