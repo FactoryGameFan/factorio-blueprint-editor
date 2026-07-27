@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RecipePrototype } from 'factorio:prototype'
-import { localisedName, recipeIngredients, recipeResults } from './factorioData'
+import FD, { loadData, localisedName, recipeIngredients, recipeResults } from './factorioData'
 
 /*
     recipeIngredients/recipeResults exist because the two fields arrive in three
@@ -83,5 +83,75 @@ describe('localisedName', () => {
     it('stringifies the number and boolean forms LocalisedString allows', () => {
         expect(localisedName({ localised_name: 42 })).toBe('42')
         expect(localisedName({ localised_name: false })).toBe('false')
+    })
+})
+
+/*
+    Reading FD before loadData has run - issue #109.
+
+    An unloaded FD used to be silent. Every property was simply absent, so the
+    first read answered undefined and the failure surfaced wherever that undefined
+    was next indexed: the reported shape was `Cannot read properties of undefined
+    (reading 'requester-chest')` thrown inside an AJV custom keyword, in a spec
+    that had nothing to do with the change being made. Nothing in that message
+    names FD, loadData, or data.json, so it reads as a regression in whatever code
+    happens to be nearby.
+
+    One test rather than four, walking the lifecycle in order, because the guards
+    are one-shot and the module instance is shared: loadData replaces them, so a
+    separate "it" asserting the throw would pass or fail on whether the one
+    calling loadData had run first. Isolating them would need vi.resetModules and
+    a dynamic import, which this package's tsconfig does not allow.
+*/
+describe('FD before loadData', () => {
+    /** Every property loadData fills in, which is every property FD has. */
+    const KEYS = [
+        'items',
+        'fluids',
+        'signals',
+        'recipes',
+        'entities',
+        'tiles',
+        'inventoryLayout',
+        'utilitySprites',
+        'utilityConstants',
+        'guiStyle',
+        'defines',
+        'getModulesFor',
+    ] as const
+
+    it('names the property and the cause, then gets out of the way once loaded', () => {
+        // Unloaded. Every property says why it has nothing, naming itself.
+        for (const key of KEYS) {
+            expect(() => FD[key], `FD.${key} answered instead of throwing`).toThrow(
+                new RegExp(`FD\\.${key} was read before data\\.json was loaded`)
+            )
+        }
+        expect(() => FD.entities).toThrow(/loadData/)
+
+        // Enough of a data.json for loadData to copy; it reads only `entities`.
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        loadData(JSON.stringify(Object.fromEntries(KEYS.map(k => [k, {}]))))
+        log.mockRestore()
+
+        for (const key of KEYS) {
+            expect(() => FD[key], `FD.${key} still throws after loadData`).not.toThrow()
+        }
+        expect(FD.entities).toEqual({})
+
+        /*
+            And left plain data properties behind. This is the reason the guard is
+            an accessor pair rather than a Proxy, and the reason loadData needed no
+            changes to adopt it: the setter swaps itself for a data property on the
+            first write. One that stayed an accessor would put a call on every FD
+            read in the editor's hottest paths.
+        */
+        for (const key of KEYS) {
+            const d = Object.getOwnPropertyDescriptor(FD, key)
+            expect(d, `FD.${key} has no own property after loadData`).toBeDefined()
+            expect(d !== undefined && 'value' in d, `FD.${key} is still an accessor`).toBe(true)
+            expect(d?.writable, `FD.${key} is not writable`).toBe(true)
+            expect(d?.enumerable, `FD.${key} is not enumerable`).toBe(true)
+        }
     })
 })
