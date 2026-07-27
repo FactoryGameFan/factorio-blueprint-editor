@@ -1,0 +1,89 @@
+{
+    "question": "Is utility_constants.max_logistic_filter_count (1000) a cap per entity or per section, and what happens when a blueprint exceeds it?",
+    "issue": 93,
+    "answer": "Per SECTION. One section holding 1001 filters refuses the entire blueprint string - import_stack returns -1 and no entities arrive, the same failure shape as the index-0 finding in #91. Two sections of 1000 each (2000 filters on one chest) import cleanly, so there is no per-entity total.",
+    "secondFinding": "Within a section the game keeps one filter per item name, the LAST one by index. The same item at indices 1, 2 and 3 comes back as a single filter whose index is 3. The cap is checked against the declared list length before that collapse: 1000 filters cycling 50 distinct items imports and returns 50.",
+    "whyItMatters": "Entity.pasteSettings slices the incoming filter list at Entity.filterSlots, which for requester and buffer chests is a hardcoded 30. The cap that belongs there is the game's real one, and the consequence of exceeding it is not a truncated chest but an unimportable blueprint string, so the write path should hold the line at 1000 per section.",
+    "provenance": {
+        "capturedFrom": "2.1.12 (build 87038, mac-arm64, steam)",
+        "capturedOn": "2026-07-27",
+        "method": "tools/oracle/probe-filter-count-cap.mjs - headless import_stack + get_blueprint_entities",
+        "blueprintVersionStamp": "2.0.73",
+        "constantConfirmedInFactorioData": "max_logistic_filter_count = 1000 at tags 2.0.45, 2.0.73 and 2.1.12 (core/prototypes/utility-constants.lua). Note logistic_slots_per_row = 10 is present at 2.0.73 but absent at 2.0.45.",
+        "caveat": "The only Factorio on this machine is 2.1.12; this editor targets 2.0.45-2.0.73. The behaviour is assumed stable across that range but was not measured on a 2.0.x binary. factorio.com/download/archive/ has 2.0.73 if it ever needs settling."
+    },
+    "cases": [
+        {
+            "subject": "requester-chest request_filters, 1 section, 3 distinct items",
+            "role": "control - establishes the shape imports at all",
+            "declaredFilters": 3,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [3],
+            "returnedHighestIndex": [3]
+        },
+        {
+            "subject": "requester-chest request_filters, 1 section, same item at indices 1, 2, 3",
+            "role": "control - detects whether cycling a short item list measures a cap or a dedupe",
+            "declaredFilters": 3,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [1],
+            "returnedHighestIndex": [3]
+        },
+        {
+            "subject": "requester-chest request_filters, 1 section",
+            "role": "what the editor draws today",
+            "declaredFilters": 30,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [30],
+            "returnedHighestIndex": [30]
+        },
+        {
+            "subject": "requester-chest request_filters, 1 section",
+            "declaredFilters": 999,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [50],
+            "returnedHighestIndex": [999],
+            "note": "50 returned because the probe cycles 50 distinct item names; the collapse is the dedupe above, not the cap"
+        },
+        {
+            "subject": "requester-chest request_filters, 1 section",
+            "role": "exactly max_logistic_filter_count",
+            "declaredFilters": 1000,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [50],
+            "returnedHighestIndex": [1000]
+        },
+        {
+            "subject": "requester-chest request_filters, 1 section",
+            "role": "one over the cap",
+            "declaredFilters": 1001,
+            "importCode": -1,
+            "entities": 0,
+            "returnedSectionFilterCounts": [],
+            "returnedHighestIndex": []
+        },
+        {
+            "subject": "requester-chest request_filters, 2 sections of 600",
+            "role": "1200 filters on one entity - over 1000 in total, under it per section",
+            "declaredFilters": 1200,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [50, 50],
+            "returnedHighestIndex": [600, 600]
+        },
+        {
+            "subject": "requester-chest request_filters, 2 sections of 1000",
+            "role": "2000 filters on one entity, each section at the cap",
+            "declaredFilters": 2000,
+            "importCode": 0,
+            "entities": 1,
+            "returnedSectionFilterCounts": [50, 50],
+            "returnedHighestIndex": [1000, 1000]
+        }
+    ]
+}

@@ -422,8 +422,24 @@ export class Entity extends EventEmitter<EntityEvents> {
             .commit()
     }
 
-    /** Count of filter slots */
-    public get filterSlots(): number {
+    /**
+     * How many filters the entity can hold, which is a different question from
+     * how many slots `filterSlots` draws for it.
+     *
+     * Every branch here reads the data. The one that cannot - a requester or
+     * buffer chest, which declares no `max_logistic_slots` because 2.0 keeps
+     * requests in sections that hold as many filters as they like - falls to the
+     * game's own limit rather than to a number someone picked.
+     *
+     * `max_logistic_filter_count` is 1000, and the oracle says it is enforced
+     * **per section**: two sections of 1000 on one chest import cleanly, one
+     * section of 1001 makes `import_stack` return -1 and refuses the entire
+     * blueprint string - not the extra filters, the whole string, the same
+     * failure shape as the index-0 section in #91. The editor writes section 0
+     * and stops (see `logisticChestFilters`), so per section is per chest here.
+     * Captured in `tools/oracle/fixtures/filter-count-cap.json`.
+     */
+    public get maxFilters(): number {
         if (this.type === 'splitter') return 1
         const ed = this.entityData
         if (
@@ -435,13 +451,33 @@ export class Entity extends EventEmitter<EntityEvents> {
         if ((isLogisticContainer(ed) || isRoboport(ed)) && ed.max_logistic_slots !== undefined) {
             return ed.max_logistic_slots
         }
+        if (
+            isLogisticContainer(ed) &&
+            (ed.logistic_mode === 'requester' || ed.logistic_mode === 'buffer')
+        ) {
+            return FD.utilityConstants.max_logistic_filter_count
+        }
+        return 0
+    }
+
+    /**
+     * Count of filter slots to draw.
+     *
+     * The same as `maxFilters` for everything except the two chests that have no
+     * declared limit, where drawing the real one would mean a grid of 1000. Those
+     * get a fixed 30, raised to fit whatever the blueprint arrived holding - a
+     * guess, and the subject of issue #93, which is a question about what the UI
+     * should offer rather than about what the entity can hold. Nothing that
+     * decides what gets *written* should read this; read `maxFilters` instead.
+     */
+    public get filterSlots(): number {
         if (this.name === 'buffer-chest' || this.name === 'requester-chest') {
             return this.logisticChestFilters.reduce(
                 (max, filter) => Math.max(max, filter.index),
-                30 // TODO: find a way to fix this properly
+                30 // TODO: find a way to fix this properly (issue #93)
             )
         }
-        return 0
+        return this.maxFilters
     }
 
     /** List of all filter(s) for splitters, inserters and logistic chests */
@@ -1102,9 +1138,15 @@ export class Entity extends EventEmitter<EntityEvents> {
         const aF = this.acceptedFilters
         if (aF.length > 0 && sourceEntity.acceptedFilters) {
             if (sourceEntity.filters && sourceEntity.filters.length > 0) {
+                /*
+                    Capped by what the target can hold, not by what its dialog
+                    draws. This read `filterSlots`, so a requester or buffer
+                    chest silently dropped everything past the 30th filter -
+                    a UI layout constant deciding how much data survived a copy.
+                */
                 this.filters = sourceEntity.filters
                     .filter(f => aF.includes(f.name))
-                    .slice(0, this.filterSlots)
+                    .slice(0, this.maxFilters)
             } else {
                 this.filters = []
             }
