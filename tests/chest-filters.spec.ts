@@ -4,6 +4,7 @@ import {
     decodeBlueprintString as decode,
     packVersion as version,
 } from './helpers/encode-blueprint'
+import type { TestFilterSlot } from './helpers/fbe-test-api'
 
 /*
     Writing a logistic chest's filters (issue #64).
@@ -57,6 +58,8 @@ type Page = import('@playwright/test').Page
       requester chest has none and falls to the name-based branch's 30.
     5 and 6 are the request-from-buffers pair: a source with the flag set and no
       filters, and a target with no request_filters field at all.
+    7 and 8 are the quality pair (#88): a source whose one filter carries every
+      field `IFilter` did not used to model, and an empty target.
 */
 const CHESTS = encode({
     item: 'blueprint',
@@ -123,6 +126,29 @@ const CHESTS = encode({
             request_filters: { sections: [{ index: 1 }], request_from_buffers: true },
         },
         { entity_number: 6, name: 'requester-chest', position: { x: 5.5, y: 0.5 } },
+        {
+            entity_number: 7,
+            name: 'buffer-chest',
+            position: { x: 6.5, y: 0.5 },
+            request_filters: {
+                sections: [
+                    {
+                        index: 1,
+                        filters: [
+                            {
+                                index: 1,
+                                name: 'iron-plate',
+                                quality: 'rare',
+                                comparator: '>',
+                                count: 10,
+                                max_count: 400,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+        { entity_number: 8, name: 'buffer-chest', position: { x: 7.5, y: 0.5 } },
     ],
 })
 
@@ -158,14 +184,11 @@ const filtersOf = (page: Page, entityNumber: number): Promise<Filter[] | undefin
 const setFilters = (
     page: Page,
     entityNumber: number,
-    list: { index: number; name: string | undefined; count?: number }[] | undefined
+    list: TestFilterSlot[] | undefined
 ): Promise<void> =>
     page.evaluate(
         ([n, l]) =>
-            window.__fbe_test.setEntityFilters(
-                n as number,
-                l as { index: number; name: string | undefined; count?: number }[] | undefined
-            ),
+            window.__fbe_test.setEntityFilters(n as number, l as TestFilterSlot[] | undefined),
         [entityNumber, list] as const
     )
 
@@ -218,9 +241,30 @@ test('pasting settings copies a logistic chest filter onto another chest', async
         names the throw and so proves the gesture arrived.
     */
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+    /*
+        quality and comparator are here because #88 made `Entity.filters` carry
+        them; before that the getter rebuilt each filter as index/name/count and
+        a paste dropped them. `max_count` is undefined rather than absent
+        because the getter names every field it reads, the same way `count` has
+        always come back undefined for a filter without one.
+    */
     expect(await filtersOf(page, 2)).toEqual([
-        { index: 1, name: 'iron-plate', count: 200 },
-        { index: 2, name: 'copper-plate', count: 50 },
+        {
+            index: 1,
+            name: 'iron-plate',
+            count: 200,
+            quality: 'normal',
+            comparator: '=',
+            max_count: undefined,
+        },
+        {
+            index: 2,
+            name: 'copper-plate',
+            count: 50,
+            quality: 'normal',
+            comparator: '=',
+            max_count: undefined,
+        },
     ])
 })
 
@@ -243,8 +287,22 @@ test('a pasted filter survives being serialized and read back', async ({ page })
     }, encoded)
 
     expect(await filtersOf(page, 2)).toEqual([
-        { index: 1, name: 'iron-plate', count: 200 },
-        { index: 2, name: 'copper-plate', count: 50 },
+        {
+            index: 1,
+            name: 'iron-plate',
+            count: 200,
+            quality: 'normal',
+            comparator: '=',
+            max_count: undefined,
+        },
+        {
+            index: 2,
+            name: 'copper-plate',
+            count: 50,
+            quality: 'normal',
+            comparator: '=',
+            max_count: undefined,
+        },
     ])
 })
 
@@ -300,7 +358,16 @@ test('an empty slot in the middle of the list is not written', async ({ page }) 
         { index: 2, name: 'copper-plate', count: 50 },
     ])
 
-    expect(await filtersOf(page, 1)).toEqual([{ index: 2, name: 'copper-plate', count: 50 }])
+    expect(await filtersOf(page, 1)).toEqual([
+        {
+            index: 2,
+            name: 'copper-plate',
+            count: 50,
+            quality: 'normal',
+            comparator: '=',
+            max_count: undefined,
+        },
+    ])
 })
 
 test('undo puts a chest filter back', async ({ page }) => {
@@ -398,6 +465,81 @@ test('pasting a request-from-buffers chest that has no filters', async ({ page }
 
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
     expect((await serializedRequestFilters(page, 6))?.request_from_buffers).toBe(true)
+})
+
+test('pasting carries a filter quality, comparator and max_count across (#88)', async ({
+    page,
+}) => {
+    /*
+        Issue #88. Every one of the 3461 filters in the corpus carries `quality`
+        and `comparator`, and 90 carry `max_count`, but `IFilter` was
+        index/name/count - so the getter built fresh objects that dropped them
+        and a paste silently downgraded a rare-quality request to no quality at
+        all, which Factorio reads as "any quality" rather than as normal.
+
+        Asserted against the serialized output because that is where the fields
+        end up; the model half is the next test.
+    */
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+
+    await openEditorWithChests(page)
+
+    await pasteSettings(page, 7, 8)
+
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+    expect((await serializedRequestFilters(page, 8)).sections[0].filters).toEqual([
+        {
+            index: 1,
+            name: 'iron-plate',
+            quality: 'rare',
+            comparator: '>',
+            count: 10,
+            max_count: 400,
+        },
+    ])
+})
+
+test('the model reports a filter quality rather than hiding it', async ({ page }) => {
+    /*
+        The other half: the fields have to reach `Entity.filters`, not merely
+        survive in the raw entity. If the getter kept dropping them the paste
+        above could still pass by copying the raw object wholesale, and every
+        reader - the chest editor included - would go on seeing an unqualified
+        filter.
+    */
+    await openEditorWithChests(page)
+
+    expect(await filtersOf(page, 7)).toEqual([
+        {
+            index: 1,
+            name: 'iron-plate',
+            quality: 'rare',
+            comparator: '>',
+            count: 10,
+            max_count: 400,
+        },
+    ])
+})
+
+test("an incoming filter's own quality wins over the one the slot held", async ({ page }) => {
+    /*
+        The setter preserves the fields `IFilter` could not carry when a slot
+        keeps the same item, which is what stops a partial write stripping them.
+        Now that it can carry them, an incoming value has to beat the preserved
+        one - otherwise the preservation would make quality permanently
+        unchangeable the moment anything gains a way to set it.
+    */
+    await openEditorWithChests(page)
+
+    await setFilters(page, 7, [{ index: 1, name: 'iron-plate', count: 10, quality: 'legendary' }])
+
+    expect((await serializedRequestFilters(page, 7)).sections[0].filters[0]).toMatchObject({
+        quality: 'legendary',
+        // Untouched by this write, so still preserved from what was there.
+        comparator: '>',
+        max_count: 400,
+    })
 })
 
 test('a storage chest takes a filter through its single slot', async ({ page }) => {
