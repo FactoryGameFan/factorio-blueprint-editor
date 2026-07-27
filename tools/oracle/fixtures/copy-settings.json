@@ -1,0 +1,112 @@
+{
+    "question": "For the same-type pairs listed in pasteSettings' TODO, which fields does Factorio's own settings copy actually carry?",
+    "issue": 94,
+    "method": "Place a configured source and a blank target on a cleared surface, call LuaEntity.copy_settings(source) - the same operation shift+RMB / shift+LMB performs - then blueprint the pair. The result is read as BlueprintEntity fields rather than runtime properties, because that is the shape the editor works in and so exactly what pasteSettings has to reproduce.",
+    "answer": "Every field the TODO lists for these pairs is copied, plus two it does not mention (manual_trains_limit, use_transitional_requests). One field it names no longer exists under that name: auto_launch became launch_to_orbit_automatically in 2.0.",
+    "provenance": {
+        "capturedFrom": "2.1.12 (build 87038, mac-arm64, steam)",
+        "capturedOn": "2026-07-27",
+        "method": "tools/oracle/probe-copy-settings.mjs - headless create_entity + copy_settings + create_blueprint",
+        "caveat": "The only Factorio on this machine is 2.1.12; this editor targets 2.0.45-2.0.73. Behaviour is assumed stable across that range but was not measured on a 2.0.x binary. factorio.com/download/archive/ has 2.0.73 if it ever needs settling."
+    },
+    "probeGotchas": [
+        "create_blueprint defaults include_trains and include_station_names to FALSE. The first run captured no locomotive or cargo wagon at all and an empty station name, which reads as 'copy_settings does not carry these' and is not what it means - the capture was dropping them, not the game.",
+        "playback_mode is one of local | surface | global. An invalid value makes the whole configure step throw, leaving both speakers at defaults - which reads as a successful copy of nothing.",
+        "launch_to_orbit_automatically is a create_entity parameter, not an assignable LuaEntity property, so the source has to be built with it rather than configured afterwards."
+    ],
+    "cases": [
+        {
+            "pair": "train-stop -> train-stop",
+            "copied": {
+                "station": "Iron Pickup",
+                "color": { "r": 0.9, "g": 0.1, "b": 0.1, "a": 0.5 },
+                "manual_trains_limit": 3
+            },
+            "note": "manual_trains_limit is not in the TODO. The editor already has a getter and setter for it."
+        },
+        {
+            "pair": "locomotive -> locomotive",
+            "copied": { "color": { "r": 0.1, "g": 0.2, "b": 0.9, "a": 0.5 } },
+            "note": "enable_logistics_while_moving appears on both, but at its default of false on the source too, so this capture does not say whether it is copied or merely defaulted."
+        },
+        {
+            "pair": "cargo-wagon -> cargo-wagon",
+            "copied": {
+                "inventory": {
+                    "bar": 10,
+                    "filters": [
+                        {
+                            "index": 1,
+                            "name": "iron-plate",
+                            "quality": "normal",
+                            "comparator": "="
+                        },
+                        {
+                            "index": 2,
+                            "name": "copper-plate",
+                            "quality": "normal",
+                            "comparator": "="
+                        }
+                    ]
+                }
+            },
+            "note": "A wagon nests bar and filters under `inventory`; a chest carries `bar` at the top level. Same two concepts, two shapes."
+        },
+        {
+            "pair": "steel-chest -> steel-chest",
+            "copied": { "bar": 4 },
+            "note": "set_bar(5) on the runtime inventory serializes as bar: 4, so the blueprint field is zero-based. The editor copies the raw field across and does no arithmetic, so this only matters when reading a fixture."
+        },
+        {
+            "pair": "programmable-speaker -> programmable-speaker",
+            "copied": {
+                "parameters": {
+                    "playback_volume": 0.8,
+                    "playback_mode": "global",
+                    "allow_polyphony": true,
+                    "volume_controlled_by_signal": false
+                },
+                "alert_parameters": {
+                    "show_alert": true,
+                    "show_on_map": true,
+                    "icon_signal_id": { "name": "iron-plate" },
+                    "alert_message": "Probe alert"
+                }
+            }
+        },
+        {
+            "pair": "rocket-silo -> rocket-silo",
+            "copied": {
+                "launch_to_orbit_automatically": true,
+                "use_transitional_requests": true
+            },
+            "note": "The TODO calls this launch-when-rocket-has-items and the pre-2.0 field was auto_launch, which no longer exists on LuaEntity at all - a first probe recorded `LuaEntity doesn't contain key auto_launch` and looked like the feature had been removed. It was renamed. use_transitional_requests copies alongside it and is not in the TODO."
+        },
+        {
+            "pair": "requester-chest -> requester-chest",
+            "role": "control - a pair the editor already implements",
+            "copied": {
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 100
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "notCovered": [
+        "The three cross-type pairs in the TODO - assembling-machine to requester chest, assembling-machine to filter inserter, and train-stop to locomotive colour. All are refused by canPasteSettings, which requires sourceEntity.type === this.type, so they need that gate relaxed before any of them can be written.",
+        "Locomotive schedule. No schedule model in the editor, and zero instances across the 578 blueprints in wormeyman-tests/."
+    ]
+}

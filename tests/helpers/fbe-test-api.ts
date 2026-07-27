@@ -115,6 +115,16 @@ export interface FbeTestApi {
      */
     setEntityFilters: (entityNumber: number, list: TestFilterSlot[] | undefined) => void
     /**
+     * Writes a cargo wagon's nested inventory - bar and slot filters together.
+     * A write rather than a read because it exists to show the target holds its
+     * own copy of a pasted settings object and not a reference to the source's;
+     * one paste cannot tell those apart. See tests/paste-entity-settings.spec.ts.
+     */
+    setWagonInventory: (
+        entityNumber: number,
+        inventory: { bar?: number; filters?: { index: number; name: string }[] } | undefined
+    ) => void
+    /**
      * The signal names a constant combinator holds, flattened across all its
      * sections. The only reader of `control_behavior.sections`, and so the only
      * way to see whether the pre-2.0 migration that builds it produced

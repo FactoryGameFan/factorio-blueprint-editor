@@ -335,6 +335,19 @@ const testApi = {
         entityOf(entityNumber).filters = list
     },
     /*
+        A cargo wagon's inventory limit and slot filters, which it nests in one
+        field. Written here rather than read, because the thing it exists to
+        check cannot be seen in a single paste: whether the target ended up with
+        its own copy of the source's object or a reference to it. Change the
+        target, then look at the source (tests/paste-entity-settings.spec.ts).
+    */
+    setWagonInventory: (
+        entityNumber: number,
+        inventory: { bar?: number; filters?: { index: number; name: string }[] } | undefined
+    ) => {
+        entityOf(entityNumber).wagonInventory = inventory
+    },
+    /*
         A constant combinator's signals. The only reader of
         control_behavior.sections there is, which makes it the only way to ask
         whether the pre-2.0 migration that builds that field produced something
