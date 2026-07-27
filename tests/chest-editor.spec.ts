@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import { suppressToasts } from './helpers/toasts'
 
 /*
     The logistic chest editor (issue #87).
@@ -131,6 +132,7 @@ async function load(page: Page, source: string): Promise<string[]> {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))
 
+    await suppressToasts(page)
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
     await page.evaluate(async (src: string) => {

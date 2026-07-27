@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import { suppressToasts } from './helpers/toasts'
 
 /*
     Module slot positions through paste-settings (issue #100).
@@ -117,6 +118,7 @@ async function loadMachines(page: Page): Promise<string[]> {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))
 
+    await suppressToasts(page)
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
     await page.evaluate(async (src: string) => {
