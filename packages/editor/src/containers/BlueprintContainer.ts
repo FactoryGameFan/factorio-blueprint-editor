@@ -103,8 +103,45 @@ export class BlueprintContainer extends Container {
     private readonly entityPaintSlot: Container<PaintEntityContainer | PaintBlueprintContainer>
     private readonly wirePaintSlot: Container<PaintWireContainer>
 
-    public hoverContainer: EntityContainer
-    public paintContainer: PaintContainer
+    /*
+        Both are genuinely absent most of the time - `hoverContainer` only while
+        the pointer is over an entity, `paintContainer` only while something is
+        being placed - and both are assigned undefined to clear them. Editor.ts
+        and OverlayContainer already read them with `?.` and `!== undefined`,
+        which is the shape agreeing with itself.
+
+        Everything else reads them having first checked `mode`, and a mode of
+        EDIT or PAINT is exactly the statement that the matching one exists.
+        TypeScript cannot connect an enum to a field's definedness, so the
+        invariant gets a named reader below rather than 35 local guards for a
+        case none of them can actually reach.
+    */
+    public hoverContainer: EntityContainer | undefined
+    public paintContainer: PaintContainer | undefined
+
+    /**
+     * The hovered entity's container, which EDIT mode guarantees.
+     *
+     * Throws rather than hand back an undefined that would be dereferenced one
+     * line later with nothing but "of undefined" to say - the same signal
+     * `PositionGrid.entityAt()` and `EntityContainer.containerOf()` give when
+     * their own invariant has drifted. Reading it outside EDIT is a bug in the
+     * caller, not a state to handle.
+     */
+    public get hovered(): EntityContainer {
+        if (this.hoverContainer === undefined) {
+            throw new Error('hoverContainer read while nothing is hovered')
+        }
+        return this.hoverContainer
+    }
+
+    /** The container being placed, which PAINT mode guarantees. @see hovered */
+    public get painting(): PaintContainer {
+        if (this.paintContainer === undefined) {
+            throw new Error('paintContainer read while not in PAINT mode')
+        }
+        return this.paintContainer
+    }
 
     private _entityForCopyData: Entity
     private copyModeEntities: Entity[] = []
@@ -186,13 +223,13 @@ export class BlueprintContainer extends Container {
 
         this.on('pointerover', () => {
             if (this.mode === EditorMode.PAINT) {
-                this.paintContainer.show()
+                this.painting.show()
             }
             this.updateHoverContainer()
         })
         this.on('pointerout', () => {
             if (this.mode === EditorMode.PAINT) {
-                this.paintContainer.hide()
+                this.painting.hide()
             }
             this.updateHoverContainer()
         })
@@ -295,13 +332,13 @@ export class BlueprintContainer extends Container {
                 if (cX !== cY) {
                     constraint = true
                     if (cX === 1) {
-                        this.paintContainer.setPosConstraint(Axis.X)
+                        this.painting.setPosConstraint(Axis.X)
                     } else {
-                        this.paintContainer.setPosConstraint(Axis.Y)
+                        this.painting.setPosConstraint(Axis.Y)
                     }
                 }
             }
-            this.paintContainer.placeEntityContainer()
+            this.painting.placeEntityContainer()
         }
 
         let draggingCreateMode = false
@@ -310,7 +347,7 @@ export class BlueprintContainer extends Container {
 
             draggingCreateMode = true
 
-            this.paintContainer.placeEntityContainer()
+            this.painting.placeEntityContainer()
 
             this.gridData.on('update32', build)
 
@@ -322,7 +359,7 @@ export class BlueprintContainer extends Container {
             draggingCreateMode = false
 
             constraint = undefined
-            this.paintContainer.setPosConstraint(undefined)
+            this.painting.setPosConstraint(undefined)
 
             this.gridData.off('update32', build)
         }
@@ -330,11 +367,11 @@ export class BlueprintContainer extends Container {
         this.openEditor = (): boolean => {
             if (this.mode === EditorMode.EDIT) {
                 if (G.debug) {
-                    console.log(this.hoverContainer.entity.serialize())
+                    console.log(this.hovered.entity.serialize())
                 }
 
                 Dialog.closeAll()
-                G.UI.createEditor(this.hoverContainer.entity)
+                G.UI.createEditor(this.hovered.entity)
                 return true
             }
             return false
@@ -350,10 +387,10 @@ export class BlueprintContainer extends Container {
         const mine = (): void => {
             if (remove) {
                 if (this.mode === EditorMode.EDIT) {
-                    this.bp.removeEntity(this.hoverContainer.entity)
+                    this.bp.removeEntity(this.hovered.entity)
                 }
                 if (this.mode === EditorMode.PAINT) {
-                    this.paintContainer.removeContainerUnder()
+                    this.painting.removeContainerUnder()
                 }
             }
         }
@@ -495,7 +532,7 @@ export class BlueprintContainer extends Container {
     public copyEntitySettings(): boolean {
         if (this.mode === EditorMode.EDIT) {
             // Store reference to source entity
-            this._entityForCopyData = this.hoverContainer.entity
+            this._entityForCopyData = this.hovered.entity
             this.updateCopyCursorBox()
             return true
         }
@@ -505,7 +542,7 @@ export class BlueprintContainer extends Container {
     public pasteEntitySettings(): boolean {
         if (this._entityForCopyData && this.mode === EditorMode.EDIT) {
             // Hand over reference of source entity to target entity for pasting data
-            this.hoverContainer.entity.pasteSettings(this._entityForCopyData)
+            this.hovered.entity.pasteSettings(this._entityForCopyData)
             return true
         }
         return false
@@ -546,23 +583,23 @@ export class BlueprintContainer extends Container {
 
     public rotate(ccw: boolean): void {
         if (this.mode === EditorMode.EDIT) {
-            this.hoverContainer.entity.rotate(ccw, true)
+            this.hovered.entity.rotate(ccw, true)
         } else if (this.mode === EditorMode.PAINT) {
-            if (this.paintContainer.canFlipOrRotateByCopying()) {
-                const copies = this.paintContainer.rotatedEntities(ccw)
-                this.paintContainer.destroy()
+            if (this.painting.canFlipOrRotateByCopying()) {
+                const copies = this.painting.rotatedEntities(ccw)
+                this.painting.destroy()
                 this.spawnPaintContainer(copies, 0)
             } else {
-                this.paintContainer.rotate(ccw)
+                this.painting.rotate(ccw)
             }
         }
     }
 
     public flip(vertical: boolean): void {
-        if (this.mode === EditorMode.PAINT && this.paintContainer.canFlipOrRotateByCopying()) {
+        if (this.mode === EditorMode.PAINT && this.painting.canFlipOrRotateByCopying()) {
             try {
-                const copies = this.paintContainer.flippedEntities(vertical)
-                this.paintContainer.destroy()
+                const copies = this.painting.flippedEntities(vertical)
+                this.painting.destroy()
                 this.spawnPaintContainer(copies, 0)
             } catch (e) {
                 if (e instanceof IllegalFlipError) {
@@ -576,7 +613,7 @@ export class BlueprintContainer extends Container {
 
     public pipette(): void {
         if (this.mode === EditorMode.EDIT) {
-            const entity = this.hoverContainer.entity
+            const entity = this.hovered.entity
             const itemName = Entity.getItemName(entity.name)
             if (itemName !== undefined) {
                 const direction =
@@ -586,7 +623,7 @@ export class BlueprintContainer extends Container {
                 this.spawnPaintContainer(itemName, direction)
             }
         } else if (this.mode === EditorMode.PAINT) {
-            this.paintContainer.destroy()
+            this.painting.destroy()
         }
         this.exitCopyMode(true)
         this.exitDeleteMode(true)
@@ -594,13 +631,13 @@ export class BlueprintContainer extends Container {
 
     public moveEntity(offset: IPoint) {
         if (this.mode === EditorMode.EDIT) {
-            this.hoverContainer.entity.moveBy(offset)
+            this.hovered.entity.moveBy(offset)
         }
     }
 
     public enterCopyMode(): boolean {
         if (this.mode === EditorMode.COPY) return false
-        if (this.mode === EditorMode.PAINT) this.paintContainer.destroy()
+        if (this.mode === EditorMode.PAINT) this.painting.destroy()
 
         this.updateHoverContainer(true)
         this.setMode(EditorMode.COPY)
@@ -655,7 +692,7 @@ export class BlueprintContainer extends Container {
 
     public enterDeleteMode(): boolean {
         if (this.mode === EditorMode.DELETE) return false
-        if (this.mode === EditorMode.PAINT) this.paintContainer.destroy()
+        if (this.mode === EditorMode.PAINT) this.painting.destroy()
 
         this.updateHoverContainer(true)
         this.setMode(EditorMode.DELETE)
@@ -724,7 +761,7 @@ export class BlueprintContainer extends Container {
 
     private updateHoverContainer(forceRemove = false): void {
         const removeHoverContainer = (): void => {
-            this.hoverContainer.pointerOutEventHandler()
+            this.hovered.pointerOutEventHandler()
             this.hoverContainer = undefined
             this.setMode(EditorMode.NONE)
             this.cursor = 'inherit'
@@ -1031,7 +1068,7 @@ export class BlueprintContainer extends Container {
 
     public spawnPaintContainer(itemNameOrEntities: string | Entity[], direction = 0): void {
         if (this.mode === EditorMode.PAINT) {
-            this.paintContainer.destroy()
+            this.painting.destroy()
         }
 
         this.updateHoverContainer(true)
@@ -1076,10 +1113,10 @@ export class BlueprintContainer extends Container {
         }
 
         if (!this.isPointerInside) {
-            this.paintContainer.hide()
+            this.painting.hide()
         }
 
-        this.paintContainer.on('destroyed', () => {
+        this.painting.on('destroyed', () => {
             this.paintContainer = undefined
             this.setMode(EditorMode.NONE)
             this.updateHoverContainer()
