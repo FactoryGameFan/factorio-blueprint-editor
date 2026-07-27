@@ -1,0 +1,76 @@
+{
+    "question": "Does Factorio import a LogisticSection whose index is 0?",
+    "issue": 91,
+    "answer": "No. The entire blueprint string fails to import: import_stack returns -1 and no entities arrive. Not the section dropped, not the entity dropped - the whole string is refused.",
+    "provenance": {
+        "capturedFrom": "2.1.12 (build 87038, mac-arm64, steam)",
+        "capturedOn": "2026-07-26",
+        "method": "tools/oracle/probe-section-index-cases.mjs - headless import_stack + get_blueprint_entities",
+        "blueprintVersionStamp": "2.0.73",
+        "caveat": "The only Factorio on this machine is 2.1.12; this editor targets 2.0.45-2.0.73. The behaviour is assumed stable across that range but was not measured on a 2.0.x binary. factorio.com/download/archive/ has 2.0.73 if it ever needs settling."
+    },
+    "cases": [
+        {
+            "subject": "storage-chest request_filters",
+            "sectionIndex": 0,
+            "filters": 1,
+            "importCode": -1,
+            "entities": 0
+        },
+        {
+            "subject": "storage-chest request_filters",
+            "sectionIndex": 1,
+            "filters": 1,
+            "importCode": 0,
+            "entities": 1,
+            "returnedIndex": 1,
+            "returnedFilters": 1
+        },
+        {
+            "subject": "storage-chest request_filters",
+            "sectionIndex": 2,
+            "filters": 1,
+            "importCode": 0,
+            "entities": 1,
+            "returnedIndex": 1,
+            "returnedFilters": 0
+        },
+        {
+            "subject": "storage-chest request_filters",
+            "sectionIndex": 0,
+            "filters": 0,
+            "importCode": -1,
+            "entities": 0
+        },
+        {
+            "subject": "storage-chest request_filters",
+            "sectionIndex": 1,
+            "filters": 0,
+            "importCode": 0,
+            "entities": 1,
+            "returnedIndex": 1,
+            "returnedFilters": 0
+        },
+        {
+            "subject": "constant-combinator control_behavior.sections",
+            "sectionIndex": 0,
+            "filters": 1,
+            "importCode": -1,
+            "entities": 0
+        },
+        {
+            "subject": "constant-combinator control_behavior.sections",
+            "sectionIndex": 1,
+            "filters": 1,
+            "importCode": 0,
+            "entities": 1,
+            "returnedIndex": 1,
+            "returnedFilters": 1
+        }
+    ],
+    "endToEnd": {
+        "note": "This editor's own output for a pre-2.0 blueprint whose migrations ran, imported into the game.",
+        "beforePR90_index0": { "importCode": -1, "entities": 0 },
+        "afterPR90_index1": { "importCode": 0, "entities": 2, "settingsIntact": true }
+    }
+}

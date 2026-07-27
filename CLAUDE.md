@@ -155,6 +155,32 @@ Common patterns for `draw_*` functions:
 - **`EnergySource` is a discriminated union on `type`, but `getEnergySource` can also answer `undefined`,** and `undefined` has no `type` for the check to narrow through. `if (es.type === 'heat')` therefore narrows nothing and `.connections` / `.pipe_covers` stay unreadable - the guard has to be `if (es && es.type === 'heat')`.
 - **The same layer key is not uniformly present across a family of entities.** Ground rails carry all five picture layers for every non-empty direction; elevated rails have no `ties`, `rail-ramp` has no `backplates` or `metals`, and `heating-tower` is a reactor with no `lower_layer_picture`. So `draw_rail` can use `need()` and `draw_elevated_rail` has to filter - probe `data.json` per entity rather than per type.
 
+## Asking the real game (tools/oracle/)
+
+When the editor has to agree with Factorio and the answer is not in the data,
+ask the game rather than reasoning about it. `tools/oracle/` runs the real binary
+headless - a throwaway mod imports a blueprint string with `import_stack`, dumps
+`get_blueprint_entities()` as JSON and `error()`s out - against an isolated
+config so it never touches the real install. See its README for the gotchas;
+the method is borrowed from `/Users/ericjohnson/GitHub/FactorioMapWebUI/test/oracle/`.
+
+**Try the sources in this order**: the Lua prototypes in
+`github.com/wube/factorio-data` (a git tag per release - check out the version
+you target, not the newest), then the oracle, then the unstripped binary. Most
+questions stop at the first. Grep the **definition site**
+(`name *= *"<thing>"`), not a bare name.
+
+Fixtures live in `tools/oracle/fixtures/` and carry their provenance, including
+the binary version they came from - the installed game is 2.1.12 while this
+editor targets 2.0.45 to 2.0.73, so a capture is evidence about 2.1 unless
+stated otherwise. Never hand-edit a fixture to make something pass; a mismatch is
+a finding. Nothing under `tests/` needs Factorio - the committed fixtures do the
+asserting, so CI stays offline.
+
+What it has settled so far: a `LogisticSection` at `index: 0` makes the **whole
+blueprint string fail to import** (issue #91), which is why both pre-2.0 shape
+migrations in `Blueprint.ts` number from 1.
+
 ## Cloudflare Deployment
 
 The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom

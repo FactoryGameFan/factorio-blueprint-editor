@@ -153,10 +153,18 @@ test('a migrated section is numbered the way Factorio numbers sections', async (
         1 is what the corpus says: measured over wormeyman-tests/, all 4645
         `request_filters` sections are at index 1 or 2, and all 1452
         `control_behavior` sections run 1 through 15, contiguous from 1. Nothing
-        anywhere is at 0. Writing 1 makes the migrated output indistinguishable
-        from what Factorio itself writes, which is the safe answer whether or
-        not Factorio would also have tolerated a 0 - a question that needs the
-        game to settle and is recorded in #89 rather than assumed here.
+        anywhere is at 0.
+
+        Factorio has since been asked directly (#91), and the answer is stronger
+        than "1 is tidier": a section at index 0 makes **the whole blueprint
+        string fail to import** - `import_stack` answers -1 and no entities
+        arrive at all. Not the section dropped, not the entity dropped, the
+        string refused. So before this was fixed, any pre-2.0 blueprint with a
+        logistic chest or a constant combinator became, on export, a string the
+        game would not take.
+
+        Measured with tools/oracle/, recorded in
+        tools/oracle/fixtures/section-index.json against Factorio 2.1.12.
     */
     await load(page, OLD_COMBINATOR)
     const cb = (await serializedEntity(page, 1)).control_behavior
