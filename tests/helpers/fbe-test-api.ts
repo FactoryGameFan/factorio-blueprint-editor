@@ -103,11 +103,11 @@ export interface FbeTestApi {
      */
     entityFilters: (entityNumber: number) => TestFilter[] | undefined
     /**
-     * A write through `Entity.set filters`. Real input reaches that setter only
-     * via paste-settings, which always sends a full list taken from another
-     * entity; this covers what paste cannot say - clearing a chest, and the
-     * partial slot lists the chest editor sends, which is commented out of the
-     * editor factory and so unreachable through the UI.
+     * A write through `Entity.set filters`, saying the value directly where the
+     * UI can only say it through a dialog layout. Paste-settings always sends a
+     * full list taken from another entity, so it can express neither clearing a
+     * chest nor a partial slot list; the chest editor can do both since #87, and
+     * tests/chest-editor.spec.ts drives it that way.
      */
     setEntityFilters: (entityNumber: number, list: TestFilterSlot[] | undefined) => void
     /**
