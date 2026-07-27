@@ -28,13 +28,27 @@ npx serve packages/exporter/data/output -l 8081 --cors
 # Build
 cd packages/website && vp build
 
-# Type check. strictNullChecks is on and this is clean - see issue #22, closed.
-npx tsc --noEmit -p packages/editor/tsconfig.json
-
 # Format + lint + type check, every package, one command. This is the one to
 # run before pushing, and it is what CI runs. `lint.options.typeCheck` is true
 # in vite.config.ts, which it could not be until packages/website's 15 type
 # errors were cleared (issue #78). `--fix` applies the format and lint fixes.
+#
+# This is the type check, and it is a real one - measured, it reports plain tsc
+# diagnostics (a `const x: number = 'nope'` comes back as typescript(TS2322)),
+# not only type-aware lint rules, and it covers tests/ as well as src. It
+# resolves each file against the tsconfig that owns it, so editor files are
+# checked under packages/editor/tsconfig.json rather than the root one.
+#
+# There is deliberately no root `tsc` script any more. The root tsconfig is a
+# base to extend - no `include`, no `lib`, and `node` in `types` for the
+# Playwright specs - so running bare `tsc` against it compiled the whole tree
+# under settings no package builds with and reported 5 errors that neither a
+# build nor `vp check` sees: editor code checked against node's fetch types
+# (`r.json()` gives `unknown`, not `any`) and website code against node
+# globals. Every package is at 0 under its own project. To check one package
+# on its own, name its project - that is what the gate below does:
+#
+#   npx tsc --noEmit -p packages/editor/tsconfig.json
 #
 # Prefer it over `vp fmt --check` plus `vp lint`: it ends with an error and
 # warning count, so a tailed log still shows a failure. Tailing `vp lint` and

@@ -11,7 +11,6 @@
         "preview:website": "npm --workspace=@fbe/website run preview",
         "start:exporter": "cd ./packages/exporter && cargo run --release",
         "build:website": "npm --workspace=@fbe/website run build",
-        "type-check": "tsc",
         "type-check:gate": "node scripts/type-check-gate.mjs",
         "test:unit": "npm --workspace=@fbe/editor run test:unit",
         "lint": "vp lint .",
