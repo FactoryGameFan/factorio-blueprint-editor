@@ -78,6 +78,48 @@ export interface IFilterSlot extends Omit<IFilter, 'name'> {
     name: string | undefined
 }
 
+/**
+ * The types that carry a top-level `bar` - a chest's inventory limiter.
+ *
+ * A cargo wagon has the same limiter but nests it under `inventory`, so it is
+ * deliberately not here; `wagonInventory` handles that shape.
+ */
+const CONTAINER_TYPES = new Set(['container', 'logistic-container', 'infinity-container'])
+
+/**
+ * Whether two settings hold the same value, for the settings that are objects
+ * rather than scalars - a speaker's parameters, a wagon's inventory, a colour.
+ *
+ * Not `util.areObjectsEquivalent`, which compares one level deep: a wagon's
+ * `inventory` holds a `filters` array, and two equal-but-distinct arrays are
+ * different references, so it would answer false for two wagons that match.
+ *
+ * Key order could in principle differ between two entities that mean the same
+ * thing, in which case this answers false and the setter writes a value equal to
+ * the one already there. That costs one redundant history entry and nothing
+ * else, which is the right way round: the alternative is a paste that silently
+ * does nothing.
+ */
+function sameSetting<T>(a: T | undefined, b: T | undefined): boolean {
+    if (a === b) return true
+    if (a === undefined || b === undefined) return false
+    return JSON.stringify(a) === JSON.stringify(b)
+}
+
+/**
+ * A detached copy of a settings object, so two entities never share one.
+ *
+ * `pasteSettings` reads straight off the source entity's raw data, and assigning
+ * that object to the target would leave both pointing at it - editing one would
+ * edit the other, and undo would restore an object the other still holds.
+ *
+ * `util.duplicate` throws on undefined rather than answering it (see #64), so
+ * the guard is load-bearing, not defensive.
+ */
+function copySetting<T>(value: T | undefined): T | undefined {
+    return value === undefined ? undefined : (util.duplicate(value) as T)
+}
+
 export interface EntityEvents {
     destroy: []
     position: [newValue: IPoint, oldValue: IPoint]
@@ -95,6 +137,13 @@ export interface EntityEvents {
     requestFromBufferChest: []
     station: []
     manualTrainsLimit: []
+    color: []
+    speakerParameters: []
+    speakerAlertParameters: []
+    inventoryBar: []
+    wagonInventory: []
+    launchToOrbitAutomatically: []
+    useTransitionalRequests: []
 }
 
 /** Entity Base Class */
@@ -876,8 +925,29 @@ export class Entity extends EventEmitter<EntityEvents> {
         return this.m_BP.wireConnections.getEntityConnections(this.entityNumber).length > 0
     }
 
-    public get trainStopColor(): ColorWithAlpha | undefined {
+    /**
+     * The entity's colour. Locomotives, train stops and lamps each carry one.
+     *
+     * Factorio's own settings copy carries it between two train stops and
+     * between two locomotives (`tools/oracle/fixtures/copy-settings.json`), which
+     * is what `pasteSettings` uses this setter for.
+     */
+    public get color(): ColorWithAlpha | undefined {
         return this.m_rawEntity.color
+    }
+
+    public set color(color: ColorWithAlpha | undefined) {
+        if (sameSetting(this.m_rawEntity.color, color)) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'color', copySetting(color), 'Change color')
+            .onDone(() => this.emit('color'))
+            .commit()
+    }
+
+    /** The same field as `color`, under the name the sprite builder reads it by. */
+    public get trainStopColor(): ColorWithAlpha | undefined {
+        return this.color
     }
 
     /** Entity Train Stop Station name */
@@ -905,6 +975,128 @@ export class Entity extends EventEmitter<EntityEvents> {
         this.m_BP.history
             .updateValue(this.m_rawEntity, 'manual_trains_limit', limit, 'Change trains limit')
             .onDone(() => this.emit('manualTrainsLimit'))
+            .commit()
+    }
+
+    /** Programmable speaker volume, playback mode and polyphony */
+    public get speakerParameters(): IEntity['parameters'] {
+        return this.m_rawEntity.parameters
+    }
+
+    public set speakerParameters(parameters: IEntity['parameters']) {
+        if (sameSetting(this.m_rawEntity.parameters, parameters)) return
+
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'parameters',
+                copySetting(parameters),
+                'Change speaker parameters'
+            )
+            .onDone(() => this.emit('speakerParameters'))
+            .commit()
+    }
+
+    /** Programmable speaker alert message, icon and where it shows */
+    public get speakerAlertParameters(): IEntity['alert_parameters'] {
+        return this.m_rawEntity.alert_parameters
+    }
+
+    public set speakerAlertParameters(parameters: IEntity['alert_parameters']) {
+        if (sameSetting(this.m_rawEntity.alert_parameters, parameters)) return
+
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'alert_parameters',
+                copySetting(parameters),
+                'Change speaker alert parameters'
+            )
+            .onDone(() => this.emit('speakerAlertParameters'))
+            .commit()
+    }
+
+    /**
+     * How much of a chest's inventory is blocked off, the red X limiter.
+     *
+     * A cargo wagon says the same thing under `inventory`, not here - see
+     * `wagonInventory`. Two shapes for the two kinds of container, which is why
+     * this is not one accessor.
+     */
+    public get inventoryBar(): number | undefined {
+        return this.m_rawEntity.bar
+    }
+
+    public set inventoryBar(bar: number | undefined) {
+        if (this.m_rawEntity.bar === bar) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'bar', bar, 'Change inventory limit')
+            .onDone(() => this.emit('inventoryBar'))
+            .commit()
+    }
+
+    /** A cargo wagon's inventory limit and slot filters, which it nests together */
+    public get wagonInventory(): IEntity['inventory'] {
+        return this.m_rawEntity.inventory
+    }
+
+    public set wagonInventory(inventory: IEntity['inventory']) {
+        if (sameSetting(this.m_rawEntity.inventory, inventory)) return
+
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'inventory',
+                copySetting(inventory),
+                'Change wagon inventory'
+            )
+            .onDone(() => this.emit('wagonInventory'))
+            .commit()
+    }
+
+    /**
+     * Whether a rocket silo launches on its own once the rocket is full.
+     *
+     * Pre-2.0 this was `auto_launch`; the field the editor writes is the 2.0
+     * name. A probe that set the old one reported `LuaEntity doesn't contain key
+     * auto_launch` and looked like the feature had gone - it was renamed
+     * (`tools/oracle/fixtures/copy-settings.json`).
+     */
+    public get launchToOrbitAutomatically(): boolean | undefined {
+        return this.m_rawEntity.launch_to_orbit_automatically
+    }
+
+    public set launchToOrbitAutomatically(launch: boolean | undefined) {
+        if (this.m_rawEntity.launch_to_orbit_automatically === launch) return
+
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'launch_to_orbit_automatically',
+                launch,
+                'Change automatic launch'
+            )
+            .onDone(() => this.emit('launchToOrbitAutomatically'))
+            .commit()
+    }
+
+    /** The silo's transitional request setting, which the game copies alongside the launch flag */
+    public get useTransitionalRequests(): boolean | undefined {
+        return this.m_rawEntity.use_transitional_requests
+    }
+
+    public set useTransitionalRequests(use: boolean | undefined) {
+        if (this.m_rawEntity.use_transitional_requests === use) return
+
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'use_transitional_requests',
+                use,
+                'Change transitional requests'
+            )
+            .onDone(() => this.emit('useTransitionalRequests'))
             .commit()
     }
 
@@ -1155,6 +1347,57 @@ export class Entity extends EventEmitter<EntityEvents> {
         // PASTE REQUESTER CHEST SETTINGS
         if (this.name === 'requester-chest' && sourceEntity.name === 'requester-chest') {
             this.requestFromBufferChest = sourceEntity.requestFromBufferChest
+        }
+
+        /*
+            The rest of the same-type pairs from #94's TODO. What each one
+            carries was measured against the game rather than taken from the
+            list: a source and a blank target placed headless, `copy_settings`
+            called, and the pair blueprinted - see
+            `tools/oracle/fixtures/copy-settings.json`. Two fields turned up that
+            the TODO does not mention (`manual_trains_limit` here,
+            `use_transitional_requests` below) and one it does mention had been
+            renamed.
+
+            `canPasteSettings` already requires both entities to share a `type`,
+            so each check below could name one side. Both are named anyway, the
+            way the splitter block above does, because that gate is exactly what
+            the cross-type half of #94 will have to relax.
+        */
+
+        // PASTE TRAIN STOP SETTINGS
+        if (this.type === 'train-stop' && sourceEntity.type === 'train-stop') {
+            this.station = sourceEntity.station
+            this.color = sourceEntity.color
+            this.manualTrainsLimit = sourceEntity.manualTrainsLimit
+        }
+
+        // PASTE LOCOMOTIVE SETTINGS
+        if (this.type === 'locomotive' && sourceEntity.type === 'locomotive') {
+            this.color = sourceEntity.color
+        }
+
+        // PASTE CARGO WAGON SETTINGS
+        if (this.type === 'cargo-wagon' && sourceEntity.type === 'cargo-wagon') {
+            // bar and filters together, since a wagon nests them in one field
+            this.wagonInventory = sourceEntity.wagonInventory
+        }
+
+        // PASTE CONTAINER INVENTORY LIMIT
+        if (CONTAINER_TYPES.has(this.type) && CONTAINER_TYPES.has(sourceEntity.type)) {
+            this.inventoryBar = sourceEntity.inventoryBar
+        }
+
+        // PASTE PROGRAMMABLE SPEAKER SETTINGS
+        if (this.type === 'programmable-speaker' && sourceEntity.type === 'programmable-speaker') {
+            this.speakerParameters = sourceEntity.speakerParameters
+            this.speakerAlertParameters = sourceEntity.speakerAlertParameters
+        }
+
+        // PASTE ROCKET SILO SETTINGS
+        if (this.type === 'rocket-silo' && sourceEntity.type === 'rocket-silo') {
+            this.launchToOrbitAutomatically = sourceEntity.launchToOrbitAutomatically
+            this.useTransitionalRequests = sourceEntity.useTransitionalRequests
         }
 
         this.m_BP.history.commitTransaction()
