@@ -181,6 +181,17 @@ export class Editor {
         return G.BPC.paintContainer?.visible
     }
 
+    /**
+     * Whether the copy cursor box is drawn on the settings-copy source.
+     *
+     * The one visible consequence of `Entity.canPasteSettings`, and so the only
+     * way a spec can tell a pair the editor refuses from one it accepts and
+     * writes nothing for. See tests/paste-cross-type-settings.spec.ts.
+     */
+    public get copyCursorBoxVisible(): boolean {
+        return G.BPC.overlayContainer.copyCursorBoxVisible
+    }
+
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     public get openDialogCount(): number {
         return G.UI.openDialogCount

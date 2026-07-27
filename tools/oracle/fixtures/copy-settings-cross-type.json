@@ -1,0 +1,116 @@
+{
+    "question": "Which cross-type settings copies does Factorio allow, and what do they write? In particular, what request counts does an assembling machine put on a logistic chest?",
+    "issue": 94,
+    "answer": "All three cross-type pairs the TODO names are allowed and do real work: assembling machine -> logistic chest (requests), assembling machine -> inserter (filters), and train stop <-> locomotive (colour, both directions). An assembling machine onto a plain container does nothing.",
+    "theFormulaInTheIssueIsWrong": {
+        "recorded": "Math.min(ingredientAmount, Math.ceil((ingredientAmount * craftingSpeed) / recipe.energy_required))",
+        "measured": "Math.floor((30 * ingredientAmount * craftingSpeed) / recipe.energy_required)",
+        "reading": "Thirty seconds of production of each ingredient, floored. The two rules disagree on every case probed: for assembling-machine-2 on electronic-circuit the recorded rule gives 1 iron plate where the game asks for 30.",
+        "flooring": "assembling-machine-2 on processing-unit gives 4.5 advanced circuits and asks for 4; assembling-machine-3 gives 7.5 and asks for 7. Floor, not round.",
+        "modules": "The machine's actual speed counts, not its prototype's. assembling-machine-2 with two speed modules (0.75 * 1.4) asked for 62 iron plates where the arithmetic says 63 - float error in the game's own multiplication, which JavaScript reproduces when the terms are multiplied in the same order.",
+        "fluids": "Fluid ingredients are left out entirely rather than requested at zero - processing-unit's sulfuric acid does not appear."
+    },
+    "provenance": {
+        "capturedFrom": "2.1.12 (build 87038, mac-arm64, steam)",
+        "capturedOn": "2026-07-27",
+        "method": "tools/oracle/probe-copy-settings-cross-type.mjs - headless create_entity + copy_settings + create_blueprint",
+        "caveat": "The only Factorio on this machine is 2.1.12; this editor targets 2.0.45-2.0.73. Behaviour is assumed stable across that range but was not measured on a 2.0.x binary."
+    },
+    "cases": [
+        {
+            "pair": "assembling-machine-1 (electronic-circuit) -> requester-chest",
+            "craftingSpeed": 0.5,
+            "energyRequired": 0.5,
+            "note": "electronic-circuit declares no energy_required; 0.5 is the prototype default, which these numbers confirm",
+            "wrote": [
+                { "name": "iron-plate", "recipeAmount": 1, "count": 30 },
+                { "name": "copper-cable", "recipeAmount": 3, "count": 90 }
+            ]
+        },
+        {
+            "pair": "assembling-machine-2 (electronic-circuit) -> requester-chest",
+            "craftingSpeed": 0.75,
+            "energyRequired": 0.5,
+            "wrote": [
+                { "name": "iron-plate", "recipeAmount": 1, "count": 45 },
+                { "name": "copper-cable", "recipeAmount": 3, "count": 135 }
+            ]
+        },
+        {
+            "pair": "assembling-machine-2 (processing-unit) -> requester-chest",
+            "craftingSpeed": 0.75,
+            "energyRequired": 10,
+            "wrote": [
+                { "name": "electronic-circuit", "recipeAmount": 20, "count": 45 },
+                { "name": "advanced-circuit", "recipeAmount": 2, "count": 4, "exact": 4.5 }
+            ],
+            "note": "sulfuric-acid x5 is a fluid and is absent from the result"
+        },
+        {
+            "pair": "assembling-machine-3 (processing-unit) -> requester-chest",
+            "craftingSpeed": 1.25,
+            "energyRequired": 10,
+            "wrote": [
+                { "name": "electronic-circuit", "recipeAmount": 20, "count": 75 },
+                { "name": "advanced-circuit", "recipeAmount": 2, "count": 7, "exact": 7.5 }
+            ]
+        },
+        {
+            "pair": "assembling-machine-2 + 2 speed modules (electronic-circuit) -> requester-chest",
+            "craftingSpeed": "0.75 * 1.4",
+            "energyRequired": 0.5,
+            "wrote": [
+                { "name": "iron-plate", "recipeAmount": 1, "count": 62, "arithmeticSays": 63 },
+                { "name": "copper-cable", "recipeAmount": 3, "count": 188, "arithmeticSays": 189 }
+            ],
+            "note": "One short of the exact figure, in the game's own float arithmetic. This is the case that proves modules are counted at all."
+        },
+        {
+            "pair": "assembling-machine-2 (electronic-circuit) -> buffer-chest",
+            "wrote": [
+                { "name": "iron-plate", "count": 45 },
+                { "name": "copper-cable", "count": 135 }
+            ],
+            "note": "A buffer chest takes the requests the same way a requester chest does"
+        },
+        {
+            "pair": "assembling-machine-2 (no recipe) -> requester-chest holding requests",
+            "wrote": "nothing - and the chest's existing requests were CLEARED, leaving an empty section"
+        },
+        {
+            "pair": "assembling-machine-2 (electronic-circuit) -> fast-inserter",
+            "wrote": {
+                "filters": [
+                    { "index": 1, "name": "iron-plate" },
+                    { "index": 2, "name": "copper-cable" }
+                ],
+                "use_filters": true
+            },
+            "note": "Ingredient names only. An inserter filter carries no count, so none of the thirty-seconds arithmetic appears here."
+        },
+        {
+            "pair": "assembling-machine-2 (electronic-circuit) -> steel-chest",
+            "role": "control - a cross-type pair that should do nothing",
+            "wrote": "nothing. A plain container has no requests to write, and the game leaves it alone, which is why `container` is not in the editor's CROSS_TYPE_PASTE map."
+        },
+        {
+            "pair": "train-stop (red, named) -> locomotive",
+            "wrote": { "color": "the stop's red", "copy_color_from_train_stop": false },
+            "note": "The name is not carried. The game also clears copy_color_from_train_stop, which the editor does not model."
+        },
+        {
+            "pair": "locomotive (blue) -> train-stop",
+            "wrote": { "color": "the locomotive's blue" },
+            "note": "The stop kept its own station name, so colour really is the whole of this pair in both directions"
+        },
+        {
+            "pair": "requester-chest -> requester-chest",
+            "role": "control - a same-type pair known to copy",
+            "wrote": "the source's request_filters, unchanged"
+        }
+    ],
+    "notImplemented": [
+        "import_from: \"nauvis\" rides along on every request the game writes. It is a Space Age interplanetary-import field the editor does not model, and it is deliberately not written - a blueprint that arrives carrying one keeps it, since the filter setter preserves fields it does not know.",
+        "copy_color_from_train_stop, set to false on a locomotive that receives a stop's colour. Not modelled by IEntity."
+    ]
+}
