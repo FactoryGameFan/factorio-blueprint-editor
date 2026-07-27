@@ -84,7 +84,7 @@ const loadingScreen = {
 }
 
 console.log(
-    '\n%cLooking for the source?\nhttps://github.com/Teoxoy/factorio-blueprint-editor\n',
+    '\n%cLooking for the source?\nhttps://github.com/wormeyman/factorio-blueprint-editor/tree/wormeyman-space-age-support\n',
     'color: #1f79aa; font-weight: bold'
 )
 
