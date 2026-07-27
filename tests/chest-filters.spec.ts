@@ -22,9 +22,10 @@ import {
     The rest go through the `setEntityFilters` hook, because paste cannot say
     what they need to say: it always sends a full list copied off another
     entity, so it can neither clear a chest nor send the partial slot lists the
-    chest editor sends. That editor is commented out of
-    UI/editors/factory.ts ("TODO: update using sections"), so the UI has no
-    other way to the setter at all.
+    chest editor sends. Those two now have a UI route as well - #87 put
+    `ChestEditor` back in the factory and `tests/chest-editor.spec.ts` clicks
+    real slots - but this stays separate on purpose: it says the value directly,
+    where the other has to go through a dialog layout to say anything at all.
 
     The shapes here are the ones the corpus actually holds. Measured over
     wormeyman-tests/: 4631 entities carry a `request_filters` object, every

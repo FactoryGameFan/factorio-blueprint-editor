@@ -297,8 +297,9 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         the paste-settings path a spec can drive with real input; writing covers
         what that path cannot say, since paste always sends a full list copied
         off another entity - clearing a chest, and the partial slot lists the
-        chest editor sends. That editor is commented out of the editor factory
-        (see UI/editors/factory.ts), so the setter has no other way in.
+        chest editor sends. The chest editor drives those through real clicks in
+        tests/chest-editor.spec.ts now that #87 has it back in the factory; this
+        stays because it says them directly, without a dialog layout in between.
     */
     entityFilters: (entityNumber: number) => entityOf(entityNumber).filters,
     setEntityFilters: (
