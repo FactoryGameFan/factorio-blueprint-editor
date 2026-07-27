@@ -15,7 +15,7 @@ export class Recipe extends Slot<undefined> {
 
         this.m_Entity = entity
         this.updateContent(this.m_Entity.recipe)
-        this.on('pointerdown', this.onSlotPointerDown, this)
+        this.on('pointerdown', this.onSlotPointerDown)
 
         this.onEntityChange('recipe', recipe => this.updateContent(recipe))
     }
@@ -41,7 +41,8 @@ export class Recipe extends Slot<undefined> {
     }
 
     /** Event handler for click on slot */
-    private onSlotPointerDown(e: FederatedPointerEvent): void {
+    /** Arrow property: handed to a pointerdown listener. */
+    private readonly onSlotPointerDown = (e: FederatedPointerEvent): void => {
         e.stopPropagation()
         if (e.button === 0) {
             G.UI.createInventory('Select Recipe', this.m_Entity.acceptedRecipes, name => {

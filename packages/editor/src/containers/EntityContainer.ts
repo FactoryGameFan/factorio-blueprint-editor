@@ -131,9 +131,9 @@ export class EntityContainer {
         this.m_Entity.on('position', onPositionChange)
         this.m_Entity.on('modules', onModulesChange)
 
-        this.m_Entity.on('filters', this.redrawEntityInfo, this)
-        this.m_Entity.on('splitterInputPriority', this.redrawEntityInfo, this)
-        this.m_Entity.on('splitterOutputPriority', this.redrawEntityInfo, this)
+        this.m_Entity.on('filters', this.redrawEntityInfo)
+        this.m_Entity.on('splitterInputPriority', this.redrawEntityInfo)
+        this.m_Entity.on('splitterOutputPriority', this.redrawEntityInfo)
 
         this.m_Entity.on('destroy', onEntityDestroy)
 
@@ -144,9 +144,9 @@ export class EntityContainer {
             this.m_Entity.off('position', onPositionChange)
             this.m_Entity.off('modules', onModulesChange)
 
-            this.m_Entity.off('filters', this.redrawEntityInfo, this)
-            this.m_Entity.off('splitterInputPriority', this.redrawEntityInfo, this)
-            this.m_Entity.off('splitterOutputPriority', this.redrawEntityInfo, this)
+            this.m_Entity.off('filters', this.redrawEntityInfo)
+            this.m_Entity.off('splitterInputPriority', this.redrawEntityInfo)
+            this.m_Entity.off('splitterOutputPriority', this.redrawEntityInfo)
 
             this.m_Entity.off('destroy', onEntityDestroy)
 
@@ -315,7 +315,13 @@ export class EntityContainer {
         }
     }
 
-    private redrawEntityInfo(): void {
+    /*
+        An arrow property, not a method, because it is handed to Entity's
+        emitter as a listener. That gives it one stable identity per container
+        for the paired off() to match on, and its own `this` - so the emitter's
+        third context argument is no longer needed at either end.
+    */
+    private readonly redrawEntityInfo = (): void => {
         if (
             this.m_Entity.moduleSlots !== 0 ||
             this.m_Entity.type === 'splitter' ||

@@ -32,7 +32,7 @@ export class Modules extends Container<Slot<number>> {
             const slot = new Slot<number>()
             slot.position.set(slotIndex * 38, 0)
             slot.data = slotIndex
-            slot.on('pointerdown', this.onSlotPointerDown, this)
+            slot.on('pointerdown', this.onSlotPointerDown)
             // Read into a local first: `slotIndex` is a loop `let`, so
             // TypeScript will not carry a narrowing of `m_Modules[slotIndex]`
             // from the test to the use.
@@ -72,7 +72,8 @@ export class Modules extends Container<Slot<number>> {
     }
 
     /** Event handler for click on slot */
-    private onSlotPointerDown(e: FederatedPointerEvent): void {
+    /** Arrow property: handed to a pointerdown listener. */
+    private readonly onSlotPointerDown = (e: FederatedPointerEvent): void => {
         e.stopPropagation()
         const slot = e.target as Slot<number>
         const index = slot.data

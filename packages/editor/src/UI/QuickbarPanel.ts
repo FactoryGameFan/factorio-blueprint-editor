@@ -43,7 +43,14 @@ export class QuickbarPanel extends Panel {
 
         this.rows = rows
         this.iHeight = 24 + rows * 38
-        this.slots = new Array<QuickbarSlot>(rows * 10)
+        // Dense, not sparse. generateSlots below fills every index 0..rows*10-1
+        // before anything reads this, so the two are equivalent today - but
+        // serialize() maps over it, and `.map` *skips* holes while it would call
+        // `s.itemName` on a dense undefined. So if a slot ever did go unfilled,
+        // sparse would silently return a shorter array and slide the quickbar one
+        // place left on the next load, where dense throws instead. Loud beats
+        // silently wrong for something that persists.
+        this.slots = Array.from<QuickbarSlot>({ length: rows * 10 })
 
         this.slotsContainer = new Container()
         this.slotsContainer.position.set(12, 12)
@@ -53,7 +60,7 @@ export class QuickbarPanel extends Panel {
 
         const t = QuickbarPanel.createTriangleButton(15, 14)
         t.position.set((this.iWidth - t.width) / 2, (this.iHeight - t.height) / 2)
-        t.on('pointerdown', this.changeActiveQuickbar, this)
+        t.on('pointerdown', this.changeActiveQuickbar)
         this.addChild(t)
     }
 
@@ -148,7 +155,8 @@ export class QuickbarPanel extends Panel {
         G.BPC.spawnPaintContainer(itemName)
     }
 
-    public changeActiveQuickbar(): void {
+    /** Arrow property: handed to a pointerdown listener. @see EntityContainer.redrawEntityInfo */
+    public readonly changeActiveQuickbar = (): void => {
         this.slotsContainer.removeChildren()
 
         let itemNames = this.serialize()

@@ -401,11 +401,11 @@ export class BlueprintContainer extends Container {
 
         this.pasteEntitySettingsStart = (): boolean => {
             const isValid = this.pasteEntitySettings()
-            if (isValid) this.gridData.on('update32', this.pasteEntitySettings, this)
+            if (isValid) this.gridData.on('update32', this.pasteEntitySettings)
             return isValid
         }
         this.pasteEntitySettingsEnd = (): void => {
-            this.gridData.off('update32', this.pasteEntitySettings, this)
+            this.gridData.off('update32', this.pasteEntitySettings)
         }
         this.pasteEntitySettingsModifiersStart = (): boolean => {
             this.copySettingsActive = true
@@ -539,7 +539,11 @@ export class BlueprintContainer extends Container {
         return false
     }
 
-    public pasteEntitySettings(): boolean {
+    /*
+        Arrow property: registered on gridData for the duration of a paste drag
+        and removed again, so it needs one identity across the on/off pair.
+    */
+    public readonly pasteEntitySettings = (): boolean => {
         if (this._entityForCopyData && this.mode === EditorMode.EDIT) {
             // Hand over reference of source entity to target entity for pasting data
             this.hovered.entity.pasteSettings(this._entityForCopyData)
