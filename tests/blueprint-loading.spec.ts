@@ -28,12 +28,37 @@ for (const bp of blueprintFiles) {
                 if (text.includes('[Object]') || text.includes('[Array]')) {
                     try {
                         const args = await Promise.all(
-                            // `a` is a JSHandle, whose toString() yields
-                            // "JSHandle@object" rather than anything about the
-                            // value - so this fallback puts junk in the report on
-                            // exactly the args that would not serialise: issue #81.
-                            // oxlint-disable-next-line typescript/no-base-to-string
-                            msg.args().map(a => a.jsonValue().catch(() => a.toString()))
+                            /*
+                                `jsonValue()` rejects on anything that will not
+                                structured-clone - an Error, a circular object, a
+                                DOM node - which is exactly when the report most
+                                needs detail. The fallback used to be
+                                `a.toString()`, and `a` is a JSHandle, so that
+                                only ever said "JSHandle@object" (issue #81).
+
+                                Asking the page to describe the value instead
+                                gets something real across: an Error's name and
+                                message, otherwise its class. The outer catch is
+                                for the handle being disposed before we ask.
+                            */
+                            msg.args().map(a =>
+                                a.jsonValue().catch(() =>
+                                    a
+                                        .evaluate((v: unknown) => {
+                                            if (v instanceof Error) {
+                                                return `${v.name}: ${v.message}`
+                                            }
+                                            const tag = Object.prototype.toString.call(v)
+                                            const name = (
+                                                v as { constructor?: { name?: string } } | null
+                                            )?.constructor?.name
+                                            return name && !tag.includes(name)
+                                                ? `${tag} (${name})`
+                                                : tag
+                                        })
+                                        .catch(() => '<unserialisable>')
+                                )
+                            )
                         )
                         fullText = args
                             .map(a => (typeof a === 'string' ? a : JSON.stringify(a)))
