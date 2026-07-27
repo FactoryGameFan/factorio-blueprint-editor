@@ -17,22 +17,35 @@ import { Panel } from './controls/Panel'
 import { styles } from './style'
 import { beltThroughput, inserterThroughput } from '../core/throughput'
 
+/*
+    A tagged template whose holes are either positions or names: `${0}` reads
+    the first argument, `${'craftingSpeed'}` reads that property off a single
+    object argument. The two forms are not mixed - a template uses one or the
+    other, and `entityInfoTemplate` below is the named kind.
+
+    The parameter used to be `(unknown | Record<string, unknown>)[]`, which is
+    just `unknown[]` - the Record arm is absorbed - so it documented an intent
+    the type did not carry, and the body cast its way through twice to compensate
+    (issue #81). Saying it as an overloaded pair puts the check where the intent
+    was and removes both casts.
+*/
+type NamedValues = Record<string, string | number>
+
+function template(
+    strings: TemplateStringsArray,
+    ...keys: number[]
+): (...values: (string | number)[]) => string
+function template(strings: TemplateStringsArray, ...keys: string[]): (values: NamedValues) => string
 function template(strings: TemplateStringsArray, ...keys: (number | string)[]) {
-    // `unknown | X` is `unknown`, so the Record arm is absorbed and this
-    // annotation says nothing - which is why the body casts twice below. The
-    // intent (positional values, or one object keyed by name) wants a real
-    // union, and the casts should go with it: issue #81.
-    // oxlint-disable-next-line typescript/no-redundant-type-constituents
-    return (...values: (unknown | Record<string, unknown>)[]) => {
+    return (...values: [NamedValues] | (string | number)[]) => {
         const result = [strings[0].replace('\n', '')]
-        keys.forEach((key, i) => {
-            result.push(
+        for (const [i, key] of keys.entries()) {
+            const value =
                 typeof key === 'number'
-                    ? (values as string[])[key]
-                    : (values[0] as Record<string, string>)[key],
-                strings[i + 1]
-            )
-        })
+                    ? (values as (string | number)[])[key]
+                    : (values[0] as NamedValues)[key]
+            result.push(String(value), strings[i + 1])
+        }
         return result.join('')
     }
 }

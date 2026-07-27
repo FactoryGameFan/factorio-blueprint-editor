@@ -2,11 +2,14 @@ import { Renderer, Container, DestroyOptions, Graphics, Matrix } from 'pixi.js'
 import { FunctionKeys } from 'utility-types'
 import { colors, styles } from '../style'
 
-// A union of literals with `string` *is* `string`, so these three check
-// nothing - `boxGenerator(w, h, 'DEFULT')` compiles. Dropping `| string`
-// needs checking against what reaches BoxGenerator first: issue #81.
-// oxlint-disable-next-line typescript/no-redundant-type-constituents
-type State = 'FOCUSED' | 'DISABLED' | 'DEFAULT' | string
+/*
+    The three states a box can be drawn for. This used to carry `| string`,
+    which absorbed all three literals and left the type meaning `string` - so
+    `boxGenerator(w, h, 'DEFULT')` compiled (issue #81). Checked against what
+    actually reaches it before narrowing: every `_setState` call passes one of
+    these three, and `_buildBoxCache` builds exactly these three.
+*/
+type State = 'FOCUSED' | 'DISABLED' | 'DEFAULT'
 
 type BoxGenerator = (w: number, h: number, state: State) => Container
 
@@ -20,7 +23,13 @@ type Style = {
     }
 }
 
-type Styles = Record<Lowercase<State>, Style>
+/*
+    `default` is the only one a caller must supply; the other two fall back to
+    it. That was already the behaviour - `DefaultBoxGenerator` filled them in -
+    and the sole caller in this file does pass `default` and `focused` with
+    `disabled` commented out, so a type demanding all three would reject it.
+*/
+type Styles = { default: Style } & Partial<Record<Lowercase<State>, Style>>
 
 type Options = {
     renderer: Renderer
@@ -61,7 +70,9 @@ class OriginalTextInput extends Container {
     // Absent when no `box` option was given, which _renderInternal already
     // returns early on - the declaration was the only thing claiming otherwise.
     private _box_generator: BoxGenerator | undefined
-    private _box_cache: Record<State, Container>
+    // Partial because it starts empty and is filled by _buildBoxCache; the
+    // reads below say what to do when a state is missing rather than assuming.
+    private _box_cache: Partial<Record<State, Container>>
     private _previous: Partial<PreviousData>
     private _dom_added: boolean
     private _dom_visible: boolean
@@ -298,10 +309,19 @@ class OriginalTextInput extends Container {
 
         if (this.state === this._previous.state && this._box === this._box_cache[this.state]) return
 
+        /*
+            _buildBoxCache fills all three states, so a miss means it has not
+            run - and this is reached from onRender with no try/catch above it,
+            so drawing no box is the answer rather than throwing and taking the
+            frame with it.
+        */
+        const box = this._box_cache[this.state]
+        if (box === undefined) return
+
         if (this._box) this.removeChild(this._box)
 
-        this._box = this._box_cache[this.state]
-        this.addChildAt(this._box, 0)
+        this._box = box
+        this.addChildAt(box, 0)
         this._previous.state = this.state
     }
 
@@ -363,7 +383,7 @@ class OriginalTextInput extends Container {
     private _buildBoxCache(box_generator: BoxGenerator): void {
         this._destroyBoxCache()
 
-        const states = ['DEFAULT', 'FOCUSED', 'DISABLED']
+        const states: State[] = ['DEFAULT', 'FOCUSED', 'DISABLED']
         const input_bounds = this._getDOMInputBounds()
 
         for (const state of states) {
@@ -468,13 +488,14 @@ class OriginalTextInput extends Container {
 }
 
 function DefaultBoxGenerator(styles: Styles): BoxGenerator {
-    if (styles.default) {
-        styles.focused = styles.focused || styles.default
-        styles.disabled = styles.disabled || styles.default
-    }
-
     return (w, h, state) => {
-        const style = styles[state.toLowerCase() as Lowercase<State>]
+        /*
+            Falls back to `default` at read time. This used to be done by
+            assigning the missing entries onto `styles` up front, which mutated
+            the object the caller passed in; the fallback says the same thing
+            without reaching back into someone else's literal.
+        */
+        const style = styles[state.toLowerCase() as Lowercase<State>] ?? styles.default
         const box = new Graphics()
 
         if (style.rounded) box.roundRect(0, 0, w, h, style.rounded)
