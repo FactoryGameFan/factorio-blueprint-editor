@@ -50,8 +50,8 @@ async function load(
         // unresolvable name actually throws.
         await api.loadBp(bp)
         return {
-            entities: [...bp.entities.values()].map((e: any) => e.name).sort(),
-            tiles: [...bp.tiles.values()].map((t: any) => t.name).sort(),
+            entities: [...bp.entities.values()].map((e: any): string => e.name).sort(),
+            tiles: [...bp.tiles.values()].map((t: any): string => t.name).sort(),
         }
     }, encodeBlueprint(blueprint))
 

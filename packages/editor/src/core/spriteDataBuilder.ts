@@ -1911,8 +1911,17 @@ function draw_straight_rail(e: RailPrototype): (data: IDrawData) => readonly Spr
                 .map(e => util.sumprod(e.position, -1, data.position))
                 // Rotate relative to mid point
                 .map(p => util.rotatePointBasedOnDir(p, dir).y)
-                // Remove duplicates
-                .sort()
+                /*
+                    Sorts to group duplicates for the dedupe below. Numeric, not
+                    the default: `.sort()` compares stringified numbers, which is
+                    wrong in general even though it cannot bite here - the only
+                    offsets a 2x2 rail can produce are -0.5 and 0.5, and those
+                    happen to order the same either way. Measured across the
+                    corpus: this runs 24 times and every one is a single value,
+                    so nothing here was ever exercised with two. tests/rail-gate-bases.spec.ts
+                    is the case that does.
+                */
+                .sort((a, b) => a - b)
                 .filter((y, i, arr) => i === 0 || y !== arr[i - 1])
                 // Reverse rotate relative to mid point
                 .map(y => util.rotatePointBasedOnDir([0, y], (16 - dir) % 16))
