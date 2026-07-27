@@ -1,0 +1,586 @@
+{
+    "question": "Does LuaEntity.copy_settings carry a locomotive's schedule between two locomotives, and what shape does the copied schedule take in a blueprint?",
+    "issue": 115,
+    "probe": "tools/oracle/probe-copy-settings-schedule.mjs",
+    "apiProbe": "tools/oracle/probe-schedule-api.mjs",
+    "binary": "Version: 2.1.12 (build 87038, mac-arm64, steam)",
+    "versionCaveat": "Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range. The 2.0 schedule shape (records/interrupts/group) is assumed stable across it and was NOT measured on a 2.0.x binary.",
+    "findings": [
+        "copy_settings between two locomotives DOES carry the schedule - records, interrupts and the schedule group all arrive on the target.",
+        "It REPLACES rather than merges: a target holding its own record ('Gamma') ends up with exactly the source's two records and nothing of its own.",
+        "A source with NO schedule CLEARS the target's. The target went from one record to zero and the resulting blueprint has no `schedules` key at all. This is the case an implementation that only ever writes will get wrong.",
+        "In the blueprint, two locomotives holding the same schedule are written as ONE `schedules` entry with both entity numbers in `locomotives`, not as two entries.",
+        "The 2.0 blueprint shape is an OBJECT - {records, group, interrupts} - not the 1.1 flat array of {station, wait_conditions}. `ISchedule` in packages/editor/src/types.ts still describes only the 1.1 form.",
+        "LuaTrain.schedule, the 1.1 property, is nil in 2.1. The API is LuaTrain.get_schedule() returning a LuaSchedule; method list taken from the install's own doc-html/runtime-api.json rather than guessed."
+    ],
+    "controls": [
+        "'no copy_settings called at all' is what makes the first case mean anything: without a copy the target stays empty AND the blueprint lists only the source in `locomotives` ([25], not [25,26]). So the merged entry in the other cases records a real copy, not create_blueprint grouping trains together.",
+        "Each case puts its two locomotives on disconnected rail segments and asserts `sourceAndTargetAreTheSameTrain` is false. Two locomotives on one segment are one train and share a schedule automatically, which would look exactly like a successful copy."
+    ],
+    "cases": [
+        {
+            "label": "loco -> loco, source has a schedule, target blank",
+            "copySettingsCalled": true,
+            "sourceAndTargetAreTheSameTrain": false,
+            "sourceSchedule": {
+                "group": "Ore Run",
+                "record_count": 2,
+                "interrupt_count": 1,
+                "records": [
+                    {
+                        "station": "Alpha",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "time",
+                                "compare_type": "and",
+                                "ticks": 600
+                            }
+                        ]
+                    },
+                    {
+                        "station": "Beta",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "full",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": [
+                    {
+                        "name": "Refuel",
+                        "inside_interrupt": false,
+                        "conditions": [
+                            {
+                                "type": "passenger_not_present",
+                                "compare_type": "and"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "station": "Depot",
+                                "temporary": false,
+                                "allows_unloading": true,
+                                "created_by_interrupt": false,
+                                "has_rail": false,
+                                "wait_conditions": [
+                                    {
+                                        "type": "inactivity",
+                                        "compare_type": "and",
+                                        "ticks": 300
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "targetScheduleBefore": {
+                "record_count": 0,
+                "interrupt_count": 0,
+                "records": {},
+                "interrupts": {}
+            },
+            "targetScheduleAfter": {
+                "group": "Ore Run",
+                "record_count": 2,
+                "interrupt_count": 1,
+                "records": [
+                    {
+                        "station": "Alpha",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "time",
+                                "compare_type": "and",
+                                "ticks": 600
+                            }
+                        ]
+                    },
+                    {
+                        "station": "Beta",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "full",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": [
+                    {
+                        "name": "Refuel",
+                        "inside_interrupt": false,
+                        "conditions": [
+                            {
+                                "type": "passenger_not_present",
+                                "compare_type": "and"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "station": "Depot",
+                                "temporary": false,
+                                "allows_unloading": true,
+                                "created_by_interrupt": false,
+                                "has_rail": false,
+                                "wait_conditions": [
+                                    {
+                                        "type": "inactivity",
+                                        "compare_type": "and",
+                                        "ticks": 300
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "blueprintSchedules": [
+                {
+                    "locomotives": [25, 26],
+                    "schedule": {
+                        "records": [
+                            {
+                                "station": "Alpha",
+                                "wait_conditions": [
+                                    {
+                                        "type": "time",
+                                        "compare_type": "and",
+                                        "ticks": 600
+                                    }
+                                ]
+                            },
+                            {
+                                "station": "Beta",
+                                "wait_conditions": [
+                                    {
+                                        "type": "full",
+                                        "compare_type": "and"
+                                    }
+                                ]
+                            }
+                        ],
+                        "group": "Ore Run",
+                        "interrupts": [
+                            {
+                                "name": "Refuel",
+                                "conditions": [
+                                    {
+                                        "type": "passenger_not_present",
+                                        "compare_type": "and"
+                                    }
+                                ],
+                                "targets": [
+                                    {
+                                        "station": "Depot",
+                                        "wait_conditions": [
+                                            {
+                                                "type": "inactivity",
+                                                "compare_type": "and",
+                                                "ticks": 300
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "inside_interrupt": false
+                            }
+                        ]
+                    }
+                }
+            ],
+            "errors": []
+        },
+        {
+            "label": "CONTROL no copy_settings called at all",
+            "copySettingsCalled": false,
+            "sourceAndTargetAreTheSameTrain": false,
+            "sourceSchedule": {
+                "group": "Ore Run",
+                "record_count": 2,
+                "interrupt_count": 1,
+                "records": [
+                    {
+                        "station": "Alpha",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "time",
+                                "compare_type": "and",
+                                "ticks": 600
+                            }
+                        ]
+                    },
+                    {
+                        "station": "Beta",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "full",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": [
+                    {
+                        "name": "Refuel",
+                        "inside_interrupt": false,
+                        "conditions": [
+                            {
+                                "type": "passenger_not_present",
+                                "compare_type": "and"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "station": "Depot",
+                                "temporary": false,
+                                "allows_unloading": true,
+                                "created_by_interrupt": false,
+                                "has_rail": false,
+                                "wait_conditions": [
+                                    {
+                                        "type": "inactivity",
+                                        "compare_type": "and",
+                                        "ticks": 300
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "targetScheduleBefore": {
+                "record_count": 0,
+                "interrupt_count": 0,
+                "records": {},
+                "interrupts": {}
+            },
+            "targetScheduleAfter": {
+                "record_count": 0,
+                "interrupt_count": 0,
+                "records": {},
+                "interrupts": {}
+            },
+            "blueprintSchedules": [
+                {
+                    "locomotives": [25],
+                    "schedule": {
+                        "records": [
+                            {
+                                "station": "Alpha",
+                                "wait_conditions": [
+                                    {
+                                        "type": "time",
+                                        "compare_type": "and",
+                                        "ticks": 600
+                                    }
+                                ]
+                            },
+                            {
+                                "station": "Beta",
+                                "wait_conditions": [
+                                    {
+                                        "type": "full",
+                                        "compare_type": "and"
+                                    }
+                                ]
+                            }
+                        ],
+                        "group": "Ore Run",
+                        "interrupts": [
+                            {
+                                "name": "Refuel",
+                                "conditions": [
+                                    {
+                                        "type": "passenger_not_present",
+                                        "compare_type": "and"
+                                    }
+                                ],
+                                "targets": [
+                                    {
+                                        "station": "Depot",
+                                        "wait_conditions": [
+                                            {
+                                                "type": "inactivity",
+                                                "compare_type": "and",
+                                                "ticks": 300
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "inside_interrupt": false
+                            }
+                        ]
+                    }
+                }
+            ],
+            "errors": []
+        },
+        {
+            "label": "CONTROL target already had a different schedule",
+            "copySettingsCalled": true,
+            "sourceAndTargetAreTheSameTrain": false,
+            "sourceSchedule": {
+                "group": "Ore Run",
+                "record_count": 2,
+                "interrupt_count": 1,
+                "records": [
+                    {
+                        "station": "Alpha",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "time",
+                                "compare_type": "and",
+                                "ticks": 600
+                            }
+                        ]
+                    },
+                    {
+                        "station": "Beta",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "full",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": [
+                    {
+                        "name": "Refuel",
+                        "inside_interrupt": false,
+                        "conditions": [
+                            {
+                                "type": "passenger_not_present",
+                                "compare_type": "and"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "station": "Depot",
+                                "temporary": false,
+                                "allows_unloading": true,
+                                "created_by_interrupt": false,
+                                "has_rail": false,
+                                "wait_conditions": [
+                                    {
+                                        "type": "inactivity",
+                                        "compare_type": "and",
+                                        "ticks": 300
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "targetScheduleBefore": {
+                "record_count": 1,
+                "interrupt_count": 0,
+                "records": [
+                    {
+                        "station": "Gamma",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "empty",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": {}
+            },
+            "targetScheduleAfter": {
+                "group": "Ore Run",
+                "record_count": 2,
+                "interrupt_count": 1,
+                "records": [
+                    {
+                        "station": "Alpha",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "time",
+                                "compare_type": "and",
+                                "ticks": 600
+                            }
+                        ]
+                    },
+                    {
+                        "station": "Beta",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "full",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": [
+                    {
+                        "name": "Refuel",
+                        "inside_interrupt": false,
+                        "conditions": [
+                            {
+                                "type": "passenger_not_present",
+                                "compare_type": "and"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "station": "Depot",
+                                "temporary": false,
+                                "allows_unloading": true,
+                                "created_by_interrupt": false,
+                                "has_rail": false,
+                                "wait_conditions": [
+                                    {
+                                        "type": "inactivity",
+                                        "compare_type": "and",
+                                        "ticks": 300
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "blueprintSchedules": [
+                {
+                    "locomotives": [25, 26],
+                    "schedule": {
+                        "records": [
+                            {
+                                "station": "Alpha",
+                                "wait_conditions": [
+                                    {
+                                        "type": "time",
+                                        "compare_type": "and",
+                                        "ticks": 600
+                                    }
+                                ]
+                            },
+                            {
+                                "station": "Beta",
+                                "wait_conditions": [
+                                    {
+                                        "type": "full",
+                                        "compare_type": "and"
+                                    }
+                                ]
+                            }
+                        ],
+                        "group": "Ore Run",
+                        "interrupts": [
+                            {
+                                "name": "Refuel",
+                                "conditions": [
+                                    {
+                                        "type": "passenger_not_present",
+                                        "compare_type": "and"
+                                    }
+                                ],
+                                "targets": [
+                                    {
+                                        "station": "Depot",
+                                        "wait_conditions": [
+                                            {
+                                                "type": "inactivity",
+                                                "compare_type": "and",
+                                                "ticks": 300
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "inside_interrupt": false
+                            }
+                        ]
+                    }
+                }
+            ],
+            "errors": []
+        },
+        {
+            "label": "CONTROL source has no schedule, target does",
+            "copySettingsCalled": true,
+            "sourceAndTargetAreTheSameTrain": false,
+            "sourceSchedule": {
+                "record_count": 0,
+                "interrupt_count": 0,
+                "records": {},
+                "interrupts": {}
+            },
+            "targetScheduleBefore": {
+                "record_count": 1,
+                "interrupt_count": 0,
+                "records": [
+                    {
+                        "station": "Gamma",
+                        "temporary": false,
+                        "allows_unloading": true,
+                        "created_by_interrupt": false,
+                        "has_rail": false,
+                        "wait_conditions": [
+                            {
+                                "type": "empty",
+                                "compare_type": "and"
+                            }
+                        ]
+                    }
+                ],
+                "interrupts": {}
+            },
+            "targetScheduleAfter": {
+                "record_count": 0,
+                "interrupt_count": 0,
+                "records": {},
+                "interrupts": {}
+            },
+            "blueprintSchedules": null,
+            "errors": []
+        }
+    ]
+}
