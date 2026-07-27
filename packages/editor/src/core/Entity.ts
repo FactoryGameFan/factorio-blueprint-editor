@@ -78,8 +78,6 @@ export interface IFilterSlot extends Omit<IFilter, 'name'> {
     name: string | undefined
 }
 
-// TODO: Handle the modules within the class differently so that modules would stay in the same place during editing the blueprint
-
 export interface EntityEvents {
     destroy: []
     position: [newValue: IPoint, oldValue: IPoint]
