@@ -9,6 +9,8 @@ import {
     ArithmeticOperation,
     ISignal,
     SelectorCombinatorOperation,
+    LogisticSection,
+    LogisticSections,
 } from '../types'
 import util from '../common/util'
 import { IllegalFlipError } from '../containers/PaintContainer'
@@ -621,16 +623,64 @@ export class Entity extends EventEmitter<EntityEvents> {
         return out
     }
     private set logisticChestFilters(filters: IFilter[] | undefined) {
-        throw new Error('TODO: set logisticChestFilters')
+        const current = this.m_rawEntity.request_filters
+        if (Array.isArray(current)) {
+            throw new Error('pre 2.0 format!')
+        }
 
-        // if (filters === undefined && this.m_rawEntity.request_filters === undefined) return
-        // if (util.areArraysEquivalent(filters, this.m_rawEntity.request_filters)) return
+        /*
+            The getter answers [] for a chest with no filters, so the incoming
+            undefined - which is what `set filters` sends for an empty list -
+            has to become one too before the comparison. areArraysEquivalent
+            answers false for two undefineds rather than true.
+        */
+        const wanted = filters ?? []
+        if (util.areArraysEquivalent(wanted, this.logisticChestFilters)) return
 
-        // this.m_BP.history
-        //     .updateValue(this.m_rawEntity, 'request_filters', filters, 'Change chest filter')
-        //     .onDone(() => this.emit('logisticChestFilters'))
-        //     .onDone(() => this.emit('filters'))
-        //     .commit()
+        /*
+            This writes the whole request_filters object, so everything it does
+            not own has to be carried across rather than rebuilt. Measured over
+            the corpus, that is not hypothetical: 433 of these objects carry
+            request_from_buffers (which has a setter of its own writing to the
+            same field), 54 carry trash_not_requested (which has no reader at
+            all, so nothing would notice it going), and 14 hold a second section
+            - invisible to the model either way, since the getter reads section 0
+            and stops. Only that section's filter list is this setter's to
+            replace.
+        */
+        const next: LogisticSections = current === undefined ? {} : util.duplicate(current)
+        const sections = next.sections ?? []
+        // Every section in the corpus is numbered from 1, so that is what a
+        // chest that had none gets. Note the pre-2.0 migration in Blueprint.ts
+        // writes 0 instead; that path is pinned by its own tests, left alone.
+        const first: LogisticSection = sections[0] ?? { index: 1 }
+        const held = first.filters ?? []
+
+        first.filters =
+            wanted.length === 0
+                ? undefined
+                : wanted.map(f => {
+                      /*
+                          A slot still holding the same item keeps the fields
+                          IFilter cannot carry: every filter in the corpus has
+                          quality and comparator, and the editor models neither,
+                          so rebuilding each entry from scratch would strip them
+                          off untouched slots as a side effect of editing one.
+                          A slot that changed hands is written as the three
+                          fields the editor does model - pasting cannot bring
+                          quality with it, since it travels as IFilter.
+                      */
+                      const before = held.find(h => h.index === f.index && h.name === f.name)
+                      return { ...before, index: f.index, name: f.name, count: f.count ?? 1 }
+                  })
+
+        next.sections = [first, ...sections.slice(1)]
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'request_filters', next, 'Change chest filter')
+            .onDone(() => this.emit('logisticChestFilters'))
+            .onDone(() => this.emit('filters'))
+            .commit()
     }
 
     private get infinityChestFilters(): IFilter[] | undefined {
@@ -657,10 +707,20 @@ export class Entity extends EventEmitter<EntityEvents> {
     public set requestFromBufferChest(request: boolean) {
         if (this.requestFromBufferChest === request) return
 
-        const obj = util.duplicate(this.m_rawEntity.request_filters) || {}
-        if (Array.isArray(obj)) {
+        const current = this.m_rawEntity.request_filters
+        if (Array.isArray(current)) {
             throw new Error('pre 2.0 format!')
         }
+        /*
+            The undefined case is handled before the copy rather than after it.
+            `util.duplicate` is JSON.parse(JSON.stringify(x)), and on undefined
+            that is JSON.parse("undefined"), which throws - so the `|| {}` this
+            used to fall back on never ran. A chest with no request_filters at
+            all is exactly what pasteSettings hands it: the filter write above
+            creates nothing when the source has no filters, and this line is the
+            next one (issue #64).
+        */
+        const obj: LogisticSections = current === undefined ? {} : util.duplicate(current)
         obj.request_from_buffers = request
 
         this.m_BP.history

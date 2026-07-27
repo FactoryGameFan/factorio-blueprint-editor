@@ -15,6 +15,7 @@ import EDITOR, {
     getAndClearLoadWarnings,
     OverlayContainer,
     EntityContainer,
+    Entity,
     FD,
     EntitySprite,
     EntityInfoPanel,
@@ -44,6 +45,19 @@ function element<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 
 const editor = new Editor()
+
+/**
+ * The loaded blueprint's entity by number, for the test hooks below. A miss
+ * means the spec named an entity its blueprint does not have, which is worth
+ * saying rather than an undefined that reaches `.filters` a line later.
+ */
+function entityOf(entityNumber: number): Entity {
+    const entity = bp.entities.get(entityNumber)
+    if (entity === undefined) {
+        throw new Error(`no entity ${entityNumber} in the loaded blueprint`)
+    }
+    return entity
+}
 
 let t0 = performance.now()
 
@@ -278,6 +292,21 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         nothing at all.
     */
     encodeLoaded: () => encode(book || bp),
+    /*
+        An entity's filters, and a write through the same setter. Reading covers
+        the paste-settings path a spec can drive with real input; writing covers
+        what that path cannot say, since paste always sends a full list copied
+        off another entity - clearing a chest, and the partial slot lists the
+        chest editor sends. That editor is commented out of the editor factory
+        (see UI/editors/factory.ts), so the setter has no other way in.
+    */
+    entityFilters: (entityNumber: number) => entityOf(entityNumber).filters,
+    setEntityFilters: (
+        entityNumber: number,
+        list: { index: number; name: string | undefined; count?: number }[] | undefined
+    ) => {
+        entityOf(entityNumber).filters = list
+    },
     /*
         The size of EntityContainer.mappings, the static entity-number -> container
         index. Loading a blueprint should leave it holding exactly that

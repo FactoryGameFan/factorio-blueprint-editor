@@ -12,6 +12,7 @@ import { Editor } from './Editor'
 import FD, { localisedName } from './core/factorioData'
 import { OverlayContainer } from './containers/OverlayContainer'
 import { EntityContainer } from './containers/EntityContainer'
+import { Entity } from './core/Entity'
 import { EntitySprite } from './containers/EntitySprite'
 import { EntityInfoPanel } from './UI/EntityInfoPanel'
 import { getSpriteData, SPRITE_GENERATION_FAILED } from './core/spriteDataBuilder'
@@ -37,6 +38,9 @@ export {
     localisedName,
     OverlayContainer,
     EntityContainer,
+    // For the entityFilters/setEntityFilters test hooks in packages/website,
+    // which look an entity up by number and need to name what they got back.
+    Entity,
     EntitySprite,
     EntityInfoPanel,
     getSpriteData,
