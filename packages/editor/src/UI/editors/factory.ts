@@ -18,7 +18,9 @@ import { TrainStopEditor } from './TrainStopEditor'
  *
  * @param entityNumber - Entity Number for which to create Editor for
  */
-export function createEditor(entity: Entity): Editor {
+export function createEditor(entity: Entity): Editor | undefined {
+    // undefined is the common answer, not a failure: most entities have no
+    // editor at all, which is why the sole caller is already an `if (editor)`.
     let editor: Editor
     switch (entity.name) {
         // Assembly Machines

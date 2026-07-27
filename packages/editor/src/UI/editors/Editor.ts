@@ -1,5 +1,6 @@
 import EventEmitter from 'eventemitter3'
 import { Entity, EntityEvents } from '../../core/Entity'
+import { localisedName } from '../../core/factorioData'
 import { Dialog } from '../controls/Dialog'
 import { Preview } from './components/Preview'
 import { Recipe } from './components/Recipe'
@@ -22,7 +23,7 @@ export abstract class Editor extends Dialog {
      * @param entity - Reference to Entity Data
      */
     public constructor(width: number, height: number, entity: Entity) {
-        super(width, height, entity.entityData.localised_name as string)
+        super(width, height, localisedName(entity.entityData))
 
         // Store reference to entity for later use
         this.m_Entity = entity

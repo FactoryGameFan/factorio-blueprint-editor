@@ -5,6 +5,7 @@ import FD, {
     isCraftingMachine,
     isInserter,
     isTransportBeltConnectable,
+    localisedName,
     recipeIngredients,
     recipeResults,
 } from '../core/factorioData'
@@ -109,7 +110,7 @@ export class EntityInfoPanel extends Panel {
         this.visible = true
         let nextY = this.title.position.y + this.title.height + 10
 
-        this.m_EntityName.text = `Name: ${FD.entities[entity.name].localised_name}`
+        this.m_EntityName.text = `Name: ${localisedName(FD.entities[entity.name])}`
         this.m_EntityName.position.set(10, nextY)
         nextY = this.m_EntityName.position.y + this.m_EntityName.height + 10
 
@@ -245,9 +246,18 @@ export class EntityInfoPanel extends Panel {
             e.entityData.type === 'loader'
 
         const inserterData = entity.entityData
-        if (isInserter(inserterData)) {
+        /*
+            stackSize is null only for an entity that is not an inserter and
+            carries no override_stack_size, so the isInserter narrowing beside it
+            already rules that out - but the narrowing is on entityData and the
+            getter reads it again, which TypeScript cannot connect. Tested rather
+            than asserted: if it ever is null the speed line is left off, which
+            is a missing line and not a thrown panel.
+        */
+        const stackSize = entity.inserterStackSize
+        if (isInserter(inserterData) && stackSize !== null) {
             // Details for inserters
-            let speed = containerToContainer(inserterData.rotation_speed, entity.inserterStackSize)
+            let speed = containerToContainer(inserterData.rotation_speed, stackSize)
             const tiles = entity.name === 'long-handed-inserter' ? 2 : 1
             // const fromP = util.rotatePointBasedOnDir([0, -tiles], entity.direction)
             const toP = util.rotatePointBasedOnDir([0, tiles], entity.direction)
@@ -261,11 +271,7 @@ export class EntityInfoPanel extends Panel {
             )
             const toData = to?.entityData
             if (to && isBelt(to) && toData && isTransportBeltConnectable(toData)) {
-                speed = containerToBelt(
-                    inserterData.rotation_speed,
-                    toData.speed,
-                    entity.inserterStackSize
-                )
+                speed = containerToBelt(inserterData.rotation_speed, toData.speed, stackSize)
             }
             this.m_entityInfo.text = `Speed: ${roundToTwo(
                 speed

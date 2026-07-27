@@ -1,5 +1,5 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js'
-import FD, { recipeIngredients, recipeResults } from '../core/factorioData'
+import FD, { localisedName, recipeIngredients, recipeResults } from '../core/factorioData'
 import G from '../common/globals'
 import F from './controls/functions'
 import { Dialog } from './controls/Dialog'
@@ -47,8 +47,8 @@ export class InventoryDialog extends Dialog {
     /** Container for Recipe Tooltip */
     private readonly m_RecipeContainer: Container
 
-    /** Hovered item for item pointerout check */
-    private m_hoveredItem: string
+    /** Hovered item for item pointerout check; undefined when nothing is hovered. */
+    private m_hoveredItem: string | undefined
 
     /** Content height (px) of each inventory group container, for scroll clamping */
     private readonly m_ContentHeights = new Map<Container, number>()
@@ -65,8 +65,11 @@ export class InventoryDialog extends Dialog {
 
     public constructor(
         title = 'Inventory',
-        itemsFilter?: string[],
-        selectedCallBack?: (selectedItem: string) => void
+        itemsFilter: string[] | undefined,
+        // Not optional: picking an item is the whole point of the dialog, and all
+        // five call sites pass one. Optional only made the invocation below a
+        // type error, with nothing to do about it that was not a fiction.
+        selectedCallBack: (selectedItem: string) => void
     ) {
         super(404, 442, title)
 
@@ -279,12 +282,12 @@ export class InventoryDialog extends Dialog {
 
         const item = FD.items[recipeName]
         if (item && item.subgroup === 'creative') {
-            this.m_RecipeLabel.text = `[CREATIVE] - ${item.localised_name}`
+            this.m_RecipeLabel.text = `[CREATIVE] - ${localisedName(item)}`
         }
 
         const recipe = FD.recipes[recipeName]
         if (recipe === undefined) return
-        this.m_RecipeLabel.text = recipe.localised_name
+        this.m_RecipeLabel.text = localisedName(recipe)
 
         F.CreateRecipe(
             this.m_RecipeContainer,

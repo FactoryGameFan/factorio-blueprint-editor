@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { RecipePrototype } from 'factorio:prototype'
-import { recipeIngredients, recipeResults } from './factorioData'
+import { localisedName, recipeIngredients, recipeResults } from './factorioData'
 
 /*
     recipeIngredients/recipeResults exist because the two fields arrive in three
@@ -45,5 +45,43 @@ describe('recipeIngredients / recipeResults', () => {
 
         expect(recipeIngredients(r)).toEqual([])
         expect(recipeResults(r)).toBe(results)
+    })
+})
+
+/*
+    localisedName covers the same kind of gap one field over: typed-factorio types
+    localised_name as the nested LocalisedString Factorio resolves at runtime,
+    while the exporter resolves it first, so every one of the 1352 in data.json is
+    a plain string. The four readers were split between assigning it to a pixi
+    Text (a type error), interpolating it into a template literal (silently
+    "[object Object]" for any other shape) and an `as string` cast.
+*/
+describe('localisedName', () => {
+    it('passes the resolved string every prototype in data.json actually carries', () => {
+        expect(localisedName({ localised_name: 'Iron plate' })).toBe('Iron plate')
+    })
+
+    it('answers an empty string where the optional field is absent', () => {
+        expect(localisedName({})).toBe('')
+    })
+
+    it('renders the nested form rather than dropping it', () => {
+        // The shape Factorio itself uses. Nothing in data.json has it today, and
+        // the point of joining rather than returning '' is that one arriving
+        // later looks wrong on screen instead of vanishing.
+        expect(localisedName({ localised_name: ['item-name.iron-plate'] })).toBe(
+            'item-name.iron-plate'
+        )
+    })
+
+    it('flattens a nested form with substitutions', () => {
+        expect(localisedName({ localised_name: ['item-name.plate', ['metal.iron'], 'x2'] })).toBe(
+            'item-name.plate metal.iron x2'
+        )
+    })
+
+    it('stringifies the number and boolean forms LocalisedString allows', () => {
+        expect(localisedName({ localised_name: 42 })).toBe('42')
+        expect(localisedName({ localised_name: false })).toBe('false')
     })
 })

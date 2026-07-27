@@ -6,7 +6,14 @@ import { Slot } from './controls/Slot'
 import F from './controls/functions'
 import { colors } from './style'
 
-class WireSlot extends Slot<string | undefined> {
+/*
+    Slot<string>, not the Slot<string | undefined> QuickbarSlot uses. The two
+    look alike but a quickbar slot can be emptied - unassignItem sets its data
+    back to undefined - while every wire slot is constructed and named in the
+    same breath below, and there are exactly three of them for as long as the
+    panel exists. Nothing ever clears one.
+*/
+class WireSlot extends Slot<string> {
     public get wireName(): string {
         return this.data
     }
