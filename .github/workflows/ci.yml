@@ -52,10 +52,16 @@ jobs:
       # Kept alongside `vp check` rather than folded into it. The two answer
       # different questions: vp check asks "does this type-check under the flags
       # that are on", the gate asks "has the count gone above the committed
-      # baseline". The baseline is 0 today, so this is currently redundant - it
-      # earns its place at the next flag flip, where the count starts non-zero
-      # and ratchets down (issue #77). Note that migration cannot use the
-      # ratchet while typeCheck is on, since vp check tolerates nothing.
+      # baseline". This is the flag flip that finally makes the difference pay -
+      # the baseline is 24 and ratcheting down (issue #77).
+      #
+      # The two can only both be true at once because they read *different
+      # projects*. The gate reads packages/editor/tsconfig.strict.json, which
+      # turns on the flag being migrated to; vp check reads the ordinary
+      # tsconfig.json and stays at 0 throughout. Turning the flag on in the root
+      # config instead would fail this job's `vp check` step above on the first
+      # commit and keep failing until the last, whatever the baseline said,
+      # since vp check exits non-zero before the gate ever runs.
       - name: Type-check gate
         if: ${{ !cancelled() }}
         run: npm run type-check:gate

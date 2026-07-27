@@ -1,0 +1,28 @@
+{
+    // Temporary scaffolding for issue #77, the last flag before `strict: true`.
+    //
+    // It exists because the two CI checks disagree about what a migration in
+    // progress looks like. `vp check .` runs with `lint.options.typeCheck` on and
+    // tolerates nothing, so turning `strictPropertyInitialization` on in the root
+    // tsconfig would fail CI on the first commit and stay failing until the last
+    // one - whatever `scripts/type-check-baseline.json` said, since the gate runs
+    // after `vp check` has already exited non-zero. The issue's own plan (flip the
+    // flag, raise the baseline to 24, ratchet down) does not survive that.
+    //
+    // Pointing the ratchet at this project instead splits the two questions apart.
+    // `vp check` keeps asking "does this compile under the flags that are on",
+    // and stays green throughout; the gate asks "has the count under the flag we
+    // are migrating *to* gone down", and can start non-zero. That is the case
+    // CLAUDE.md says the gate was kept for.
+    //
+    // Nothing builds with this project and no editor source file is owned by it -
+    // `vp check` resolves each file to `tsconfig.json` in this directory. It is
+    // read by `scripts/type-check-gate.mjs` and by nothing else.
+    //
+    // It should be deleted, with the flag moved into the root `strict: true`, once
+    // the baseline reaches 0. See scripts/type-check-baseline.json.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "strictPropertyInitialization": true
+    }
+}
