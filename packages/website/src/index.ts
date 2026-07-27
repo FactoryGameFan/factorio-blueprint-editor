@@ -308,6 +308,14 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         entityOf(entityNumber).filters = list
     },
     /*
+        A constant combinator's signals. The only reader of
+        control_behavior.sections there is, which makes it the only way to ask
+        whether the pre-2.0 migration that builds that field produced something
+        the model can read, rather than only something that serializes.
+    */
+    constantCombinatorFilters: (entityNumber: number) =>
+        entityOf(entityNumber).constantCombinatorFilters,
+    /*
         The size of EntityContainer.mappings, the static entity-number -> container
         index. Loading a blueprint should leave it holding exactly that
         blueprint's containers; anything above is retention from a previously

@@ -255,7 +255,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                                 name: f.signal.name,
                                 count: f.count,
                             }))
-                            const section: LogisticSection = { index: 0, filters }
+                            const section: LogisticSection = { index: 1, filters }
                             e.control_behavior.sections = { sections: [section] }
                             delete e.control_behavior.filters
                         }
@@ -330,7 +330,19 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                                     name: f.name,
                                     count: f.count === undefined ? 1 : f.count,
                                 }))
-                                const section: LogisticSection = { index: 0, filters }
+                                /*
+                                    1, not 0: every section Factorio writes is
+                                    numbered from 1 - measured over the corpus,
+                                    all 4645 request_filters sections are at 1
+                                    or 2 and all 1452 control_behavior ones run
+                                    1 to 15. Nothing in this editor could see
+                                    the difference, since every reader indexes
+                                    the array positionally rather than by the
+                                    section's own index, so a 0 round-tripped
+                                    here perfectly and showed up only in the
+                                    game (issue #89).
+                                */
+                                const section: LogisticSection = { index: 1, filters }
                                 out.sections = [section]
                             }
                             e.request_filters = out

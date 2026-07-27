@@ -110,6 +110,13 @@ export interface FbeTestApi {
      * editor factory and so unreachable through the UI.
      */
     setEntityFilters: (entityNumber: number, list: TestFilterSlot[] | undefined) => void
+    /**
+     * The signal names a constant combinator holds, flattened across all its
+     * sections. The only reader of `control_behavior.sections`, and so the only
+     * way to see whether the pre-2.0 migration that builds it produced
+     * something the model can use. See tests/pre-2-0-shape-migrations.spec.ts.
+     */
+    constantCombinatorFilters: (entityNumber: number) => string[]
 }
 
 /**
