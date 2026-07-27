@@ -248,6 +248,14 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         await editor.loadBlueprint(bp)
     },
     /*
+        The blueprint string a copy would put on the clipboard, which for a loaded
+        book is Book.serialize(). Nothing else reaches that method: the round-trip
+        spec serializes the selected Blueprint, never the book around it, so the
+        active_index Book writes - its own and each nested book's - was read by
+        nothing at all.
+    */
+    encodeLoaded: () => encode(book || bp),
+    /*
         The size of EntityContainer.mappings, the static entity-number -> container
         index. Loading a blueprint should leave it holding exactly that
         blueprint's containers; anything above is retention from a previously

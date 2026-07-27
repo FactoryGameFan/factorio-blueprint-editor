@@ -72,6 +72,13 @@ export interface FbeTestApi {
     wireCount: () => number
     /** How many tile sprites the canvas is drawing. See tests/tiles.spec.ts. */
     tileSpriteCount: () => number
+    /**
+     * The blueprint string a copy would produce - `Book.serialize()` when a book
+     * is loaded, which nothing else reaches. See tests/book-serialize.spec.ts.
+     */
+    encodeLoaded: () => Promise<string>
+    /** Make the book's blueprint at this flattened index the active one. */
+    selectBookIndex: (index: number) => Promise<void>
 }
 
 /**
