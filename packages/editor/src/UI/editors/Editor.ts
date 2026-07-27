@@ -73,9 +73,10 @@ export abstract class Editor extends Dialog {
      * @param x - Horizontal position of Filter Slots from top left corner
      * @param y - Vertical position of Filter Slots from top left corner
      * @param counts - Shall filter counts be shown
+     * @param columns - Slots to a row
      */
-    protected addFilters(x = 208, y = 83, amount = false): Filters {
-        const filters = new Filters(this.m_Entity, amount)
+    protected addFilters(x = 208, y = 83, amount = false, columns?: number): Filters {
+        const filters = new Filters(this.m_Entity, amount, columns)
         filters.position.set(x, y)
         this.addChild(filters)
 

@@ -86,12 +86,35 @@ export class Filters extends Container<Slot<number>> {
     */
     private m_Filters: IFilterSlot[]
 
-    public constructor(entity: Entity, amount = false) {
+    /**
+     * Slots to a row. Six is what every filter dialog used to draw, and is still
+     * what the inserter one wants - its five slots fit a single row. The logistic
+     * chests pass the game's own `logistic_slots_per_row` instead, since their
+     * grid is large enough for the width to matter (issue #93).
+     */
+    private readonly m_Columns: number
+
+    /**
+     * Slots drawn, fixed when they are created.
+     *
+     * `Entity.filterSlots` is not constant for a logistic chest - it is a floor
+     * raised to whatever the chest is holding, so clearing a filter above the
+     * floor lowers it. The slots themselves are only ever built once, in the
+     * constructor, so re-reading it would leave `m_Filters` shorter than the
+     * children `m_UpdateSlots` walks and throw on the first one past the end.
+     * A chest arriving with a request at index 45 and having it cleared did
+     * exactly that (issue #93).
+     */
+    private readonly m_SlotCount: number
+
+    public constructor(entity: Entity, amount = false, columns = 6) {
         super()
 
         // Store entity data reference for later usage
         this.m_Entity = entity
         this.m_Amount = amount
+        this.m_Columns = columns
+        this.m_SlotCount = entity.filterSlots
 
         // Get filters from entity
         this.m_UpdateFilters()
@@ -99,7 +122,10 @@ export class Filters extends Container<Slot<number>> {
         // Create slots for entity
         for (let slotIndex = 0; slotIndex < this.m_Filters.length; slotIndex++) {
             const slot = new Slot<number>()
-            slot.position.set(Math.floor((slotIndex % 6) * 38), Math.floor(slotIndex / 6) * 38)
+            slot.position.set(
+                Math.floor((slotIndex % this.m_Columns) * 38),
+                Math.floor(slotIndex / this.m_Columns) * 38
+            )
             slot.data = slotIndex
             slot.on('pointerdown', this.onSlotPointerDown, this)
             this.addChild(slot)
@@ -146,7 +172,13 @@ export class Filters extends Container<Slot<number>> {
 
     /** Update local filters array */
     private m_UpdateFilters(): void {
-        const slots = this.m_Entity.filterSlots
+        /*
+            Never below the slots on screen, and never below what the entity is
+            holding either - a write while the dialog is open can push a filter
+            past the grid, and an entry with nowhere to draw is better than one
+            the array does not have at all.
+        */
+        const slots = Math.max(this.m_SlotCount, this.m_Entity.filterSlots)
         if (slots > 0) {
             this.m_Filters = Array.from<IFilterSlot>({ length: slots })
             const filters = this.m_Entity.filters
