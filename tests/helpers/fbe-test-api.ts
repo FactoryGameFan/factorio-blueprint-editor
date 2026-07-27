@@ -126,6 +126,12 @@ export interface FbeTestApi {
      * so the positions matter, not just the set. See tests/paste-modules.spec.ts.
      */
     entityModules: (entityNumber: number) => (string | undefined)[]
+    /**
+     * The detail line EntityInfoPanel shows for this entity - the inserter or
+     * belt speed line, the crafting block for a machine. See
+     * tests/inserter-throughput.spec.ts.
+     */
+    entityInfoText: (entityNumber: number) => string
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     openDialogCount: () => number
     /**

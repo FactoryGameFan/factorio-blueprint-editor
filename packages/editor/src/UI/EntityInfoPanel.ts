@@ -15,6 +15,7 @@ import { Entity } from '../core/Entity'
 import F from './controls/functions'
 import { Panel } from './controls/Panel'
 import { styles } from './style'
+import { beltThroughput, inserterThroughput } from '../core/throughput'
 
 function template(strings: TemplateStringsArray, ...keys: (number | string)[]) {
     // `unknown | X` is `unknown`, so the Record arm is absorbed and this
@@ -39,26 +40,6 @@ function template(strings: TemplateStringsArray, ...keys: (number | string)[]) {
 const entityInfoTemplate = template`
 Crafting speed: ${'craftingSpeed'} ${'speedMultiplier'}
 Power consumption: ${'energyUsage'} kW ${'energyMultiplier'}`
-
-const SIZE_OF_ITEM_ON_BELT = 0.25
-
-const getBeltSpeed = (beltSpeed: number): number => beltSpeed * 60 * (1 / SIZE_OF_ITEM_ON_BELT) * 2
-
-const containerToContainer = (rotationSpeed: number, n: number): number => rotationSpeed * 60 * n
-
-/**
-    nr of items to ignore the time it takes to place them on a belt
-
-    because: first item is being placed instantly and also in front so
-    this also reduces the time it takes to put down the second item by about 75%
-*/
-const NR_OF_ITEMS_TO_IGNORE = 1.75
-const containerToBelt = (rotationSpeed: number, beltSpeed: number, n: number): number => {
-    const armTime = 1 / (rotationSpeed * 60)
-    const itemTime = (1 / (beltSpeed * 60)) * SIZE_OF_ITEM_ON_BELT
-    return n / (armTime + itemTime * Math.max(n - NR_OF_ITEMS_TO_IGNORE, 0))
-}
-// TODO: add beltToContainer
 
 const roundToTwo = (n: number): number => Math.round(n * 100) / 100
 const roundToFour = (n: number): number => Math.round(n * 10000) / 10000
@@ -99,6 +80,19 @@ export class EntityInfoPanel extends Panel {
             this.m_RecipeContainer,
             this.m_RecipeIOContainer
         )
+    }
+
+    /**
+     * The detail line the panel is currently showing - the speed line for an
+     * inserter or a belt, the crafting block for a machine, empty when nothing
+     * is hovered.
+     *
+     * Read-only, and here so a spec can assert on what the panel says: it is
+     * drawn with pixi, so there is no other way to see it from outside the
+     * canvas. See tests/inserter-throughput.spec.ts.
+     */
+    public get infoText(): string {
+        return this.m_entityInfo.text
     }
 
     public updateVisualization(entity?: Entity): void {
@@ -262,25 +256,52 @@ export class EntityInfoPanel extends Panel {
         const stackSize = entity.inserterStackSize
         if (isInserter(inserterData) && stackSize !== null) {
             // Details for inserters
-            let speed = containerToContainer(inserterData.rotation_speed, stackSize)
             const tiles = entity.name === 'long-handed-inserter' ? 2 : 1
-            // const fromP = util.rotatePointBasedOnDir([0, -tiles], entity.direction)
-            const toP = util.rotatePointBasedOnDir([0, tiles], entity.direction)
-            // const from = G.bp.entities.get(
-            //     G.bp.entityPositionGrid.getCellAtPosition(
-            //         util.sumprod(entity.position, fromP)
-            //     )
-            // )
-            const to = G.bp.entityPositionGrid.getEntityAtPosition(
-                util.sumprod(entity.position, toP)
-            )
-            const toData = to?.entityData
-            if (to && isBelt(to) && toData && isTransportBeltConnectable(toData)) {
-                speed = containerToBelt(inserterData.rotation_speed, toData.speed, stackSize)
+
+            /*
+                The belt speed at one end of the swing, or undefined where that
+                end is not a belt.
+
+                Which end is which comes from the prototypes rather than from
+                guessing: every inserter declares `pickup_position` at a negative
+                offset and `insert_position` at a positive one - {0, -1} and
+                {0, 1.2} for all of them but long-handed, which is {0, -2} and
+                {0, 2.2}. So the negative offset is the pickup side.
+
+                That the two positions are also in `data.json` means `tiles`
+                below could read them instead of switching on the name, which is
+                the pattern this codebase otherwise avoids. Left alone here: it
+                is right for all six inserters that exist, and the 1.2 would
+                bring a rounding question that has nothing to do with #96.
+            */
+            const beltSpeedAt = (offset: readonly [number, number]): number | undefined => {
+                const at = G.bp.entityPositionGrid.getEntityAtPosition(
+                    util.sumprod(
+                        entity.position,
+                        util.rotatePointBasedOnDir(offset, entity.direction)
+                    )
+                )
+                if (at === undefined || !isBelt(at)) return undefined
+                const data = at.entityData
+                return isTransportBeltConnectable(data) ? data.speed : undefined
             }
+
+            /*
+                Both ends, not only the destination. The pickup lookup was
+                written out here and commented out, so an inserter taking items
+                off a belt was reported at the container-to-container rate -
+                too high, with nothing on screen to say so (issue #96).
+            */
+            const speed = inserterThroughput({
+                rotationSpeed: inserterData.rotation_speed,
+                stackSize,
+                sourceBeltSpeed: beltSpeedAt([0, -tiles]),
+                destBeltSpeed: beltSpeedAt([0, tiles]),
+            })
+
             this.m_entityInfo.text = `Speed: ${roundToTwo(
                 speed
-            )} items/s\n> changes if inserter unloads to a belt`
+            )} items/s\n> depends on what sits at each end`
             this.m_entityInfo.position.set(10, nextY)
             nextY = this.m_entityInfo.position.y + this.m_entityInfo.height + 20
         }
@@ -288,7 +309,7 @@ export class EntityInfoPanel extends Panel {
         const beltData = entity.entityData
         if (isBelt(entity) && isTransportBeltConnectable(beltData)) {
             // Details for belts
-            this.m_entityInfo.text = `Speed: ${roundToTwo(getBeltSpeed(beltData.speed))} items/s`
+            this.m_entityInfo.text = `Speed: ${roundToTwo(beltThroughput(beltData.speed))} items/s`
             this.m_entityInfo.position.set(10, nextY)
         }
     }

@@ -328,6 +328,20 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
         module that moved, which a set or a count could not (issue #100).
     */
     entityModules: (entityNumber: number) => entityOf(entityNumber).modules,
+    /*
+        What the info panel says about an entity. Builds a panel of its own
+        rather than reading the live one, the same way recipeShapeTally does, so
+        the app's panel is not left showing whatever a spec last asked about.
+    */
+    entityInfoText: (entityNumber: number) => {
+        const panel = new EntityInfoPanel()
+        try {
+            panel.updateVisualization(entityOf(entityNumber))
+            return panel.infoText
+        } finally {
+            panel.destroy()
+        }
+    },
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
     /*
