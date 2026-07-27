@@ -117,6 +117,15 @@ export interface FbeTestApi {
      * something the model can use. See tests/pre-2-0-shape-migrations.spec.ts.
      */
     constantCombinatorFilters: (entityNumber: number) => string[]
+    /** How many dialogs are open. See tests/chest-editor.spec.ts. */
+    openDialogCount: () => number
+    /**
+     * Where the topmost open dialog sits, in the client coordinates a synthetic
+     * pointer event takes. Dialogs are drawn with pixi, so this plus the
+     * dialog's own layout constants is the only way for a spec to click a
+     * control inside one. Throws when nothing is open.
+     */
+    topDialogBounds: () => { x: number; y: number; width: number; height: number }
 }
 
 /**

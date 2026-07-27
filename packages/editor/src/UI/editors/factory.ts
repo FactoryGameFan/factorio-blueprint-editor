@@ -1,6 +1,7 @@
 import { Entity } from '../../core/Entity'
 import { Editor } from './Editor'
 import { BeaconEditor } from './BeaconEditor'
+import { ChestEditor } from './ChestEditor'
 import { InserterEditor } from './InserterEditor'
 import { MachineEditor } from './MachineEditor'
 import { MiningEditor } from './MiningEditor'
@@ -59,13 +60,12 @@ export function createEditor(entity: Entity): Editor | undefined {
             break
         }
         // Chests
-        // TODO: update using sections
-        // case 'buffer-chest':
-        // case 'requester-chest':
-        // case 'storage-chest': {
-        //     editor = new ChestEditor(entity)
-        //     break
-        // }
+        case 'buffer-chest':
+        case 'requester-chest':
+        case 'storage-chest': {
+            editor = new ChestEditor(entity)
+            break
+        }
         // Temp
         case 'lab':
         case 'electric-furnace':

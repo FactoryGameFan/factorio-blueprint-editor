@@ -181,6 +181,19 @@ export class Editor {
         return G.BPC.paintContainer?.visible
     }
 
+    /** How many dialogs are open. See tests/chest-editor.spec.ts. */
+    public get openDialogCount(): number {
+        return G.UI.openDialogCount
+    }
+
+    /**
+     * Where the topmost open dialog sits in client coordinates, so a spec can
+     * click a control drawn inside it. Throws when nothing is open.
+     */
+    public get topDialogBounds(): { x: number; y: number; width: number; height: number } {
+        return G.UI.topDialogBounds
+    }
+
     public get debug(): boolean {
         return G.debug
     }
