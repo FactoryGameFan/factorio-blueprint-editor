@@ -1,5 +1,6 @@
 import { GUI } from 'dat.gui'
-import EDITOR, { Blueprint, Book, GridPattern, Editor, FD } from '@fbe/editor'
+import EDITOR, { Blueprint, Book, GridPattern, Editor, FD, localisedName } from '@fbe/editor'
+import { storedJson } from './storage'
 
 GUI.TEXT_CLOSED = 'Close Settings'
 GUI.TEXT_OPEN = 'Open Settings'
@@ -129,9 +130,9 @@ export function initSettingsPane(
             editor.limitWireReach = limitWireReach
         })
 
-    if (localStorage.getItem('oilOutpostSettings')) {
-        const settings = JSON.parse(localStorage.getItem('oilOutpostSettings'))
-        editor.oilOutpostSettings = settings
+    const oilOutpostStored = storedJson<typeof editor.oilOutpostSettings>('oilOutpostSettings')
+    if (oilOutpostStored) {
+        editor.oilOutpostSettings = oilOutpostStored
     }
     window.addEventListener('visibilitychange', () =>
         localStorage.setItem('oilOutpostSettings', JSON.stringify(editor.oilOutpostSettings))
@@ -146,15 +147,21 @@ export function initSettingsPane(
     })
 
     function getModulesObjFor(entityName: string): Record<string, string> {
-        return FD.getModulesFor(entityName)
-            .sort((a, b) => a.order.localeCompare(b.order))
-            .reduce<Record<string, string>>(
-                (obj, item) => {
-                    obj[item.localised_name as string] = item.name
-                    return obj
-                },
-                { None: 'none' }
-            )
+        return (
+            FD.getModulesFor(entityName)
+                // `order` is optional on ItemPrototype and 7 of the 340 items in
+                // data.json omit it - no module does today, but a comparator that
+                // can throw would take the whole settings pane with it, and there
+                // is nothing catching above this. Unordered sorts first.
+                .sort((a, b) => (a.order ?? '').localeCompare(b.order ?? ''))
+                .reduce<Record<string, string>>(
+                    (obj, item) => {
+                        obj[localisedName(item)] = item.name
+                        return obj
+                    },
+                    { None: 'none' }
+                )
+        )
     }
 
     const oilOutpostFolder = gui.addFolder('Oil Outpost Generator Settings')

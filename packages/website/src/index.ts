@@ -23,20 +23,39 @@ import EDITOR, {
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
+import { storedJson } from './storage'
 
 document.addEventListener('contextmenu', e => e.preventDefault())
+
+/**
+ * An element this page's own index.html declares, by id.
+ *
+ * `getElementById` answers `HTMLElement | null` because in general an id may
+ * not be there. Every id read here is written statically in index.html and
+ * shipped with it, so absence means the markup and this file have drifted -
+ * which is worth a sentence naming the id rather than a null that reaches
+ * `.classList` a line later. Same shape as the editor's `PositionGrid.entityAt`
+ * and `EntityContainer.containerOf`.
+ */
+function element<T extends HTMLElement = HTMLElement>(id: string): T {
+    const el = document.getElementById(id)
+    if (el === null) throw new Error(`index.html has no element with id "${id}"`)
+    return el as T
+}
 
 const editor = new Editor()
 
 let t0 = performance.now()
 
-const CANVAS = document.getElementById('editor') as HTMLCanvasElement
+const CANVAS = element<HTMLCanvasElement>('editor')
 
 let bp: Blueprint
-let book: Book
+// undefined whenever a bare blueprint is loaded rather than a book, which is
+// what loadBp's else branch assigns and what getBook/encodeLoaded read.
+let book: Book | undefined
 
 const loadingScreen = {
-    el: document.getElementById('loadingScreen'),
+    el: element('loadingScreen'),
     show() {
         this.el.classList.add('active')
         t0 = performance.now()
@@ -102,14 +121,18 @@ let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 editor
     .init(CANVAS, createToast)
     .then(() => {
-        if (localStorage.getItem('quickbarItemNames')) {
-            const quickbarItems = JSON.parse(localStorage.getItem('quickbarItemNames'))
+        const quickbarItems = storedJson<string[]>('quickbarItemNames')
+        if (quickbarItems) {
             editor.quickbarItems = quickbarItems
         }
 
         registerActions()
 
         const changeBookIndex = async (index: number): Promise<void> => {
+            // The settings pane only shows a book index selector while a book is
+            // loaded, so this cannot fire without one - same check, and the same
+            // reason for it, as the selectBookIndex test hook below.
+            if (!book) throw new Error('No book loaded')
             bp = book.selectBlueprint(index)
             await editor.loadBlueprint(bp)
         }
@@ -500,7 +523,9 @@ function registerActions(): void {
         modifiers: { control: true },
         callbacks: {
             onPress: () => {
-                if (bp.isEmpty()) return
+                // false, not a bare return: onPress answers whether the action was
+                // handled, and an empty blueprint takes no picture.
+                if (bp.isEmpty()) return false
 
                 editor
                     .getPicture()
@@ -520,7 +545,7 @@ function registerActions(): void {
     window.addEventListener('keydown', e => {
         if (e.target instanceof HTMLInputElement) return
         if (e.target instanceof HTMLTextAreaElement) return
-        const infoPanel = document.getElementById('info-panel')
+        const infoPanel = element('info-panel')
         if (e.key === 'i') {
             if (infoPanel.classList.contains('active')) {
                 infoPanel.classList.remove('active')
@@ -532,7 +557,7 @@ function registerActions(): void {
         }
     })
 
-    EDITOR.importKeybinds(JSON.parse(localStorage.getItem('keybinds2')))
+    EDITOR.importKeybinds(storedJson<Record<string, string>>('keybinds2'))
 
     window.addEventListener('visibilitychange', () => {
         const keybinds = EDITOR.exportKeybinds()
