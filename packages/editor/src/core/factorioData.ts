@@ -873,6 +873,70 @@ export interface FactorioData {
 */
 const FD = {} as FactorioData
 
+/**
+ * Every property `loadData` fills in, as a record rather than a list so the type
+ * constrains it in both directions: `Record<keyof FactorioData, true>` rejects a
+ * name that is not a property *and* requires every property to appear. A list
+ * `satisfies readonly (keyof FactorioData)[]` would only do the first, leaving a
+ * property added to the interface silently unguarded - which is the failure this
+ * guard exists to stop, one field further along.
+ */
+const FD_KEYS: Record<keyof FactorioData, true> = {
+    items: true,
+    fluids: true,
+    signals: true,
+    recipes: true,
+    entities: true,
+    tiles: true,
+    inventoryLayout: true,
+    utilitySprites: true,
+    utilityConstants: true,
+    guiStyle: true,
+    defines: true,
+    getModulesFor: true,
+}
+
+/*
+    Until `loadData` runs, reading any of them says so.
+
+    An empty `FD` is silent by default and surfaces a long way from its cause: the
+    reported shape was `Cannot read properties of undefined (reading
+    'requester-chest')` thrown inside an AJV custom keyword, in a spec that had
+    nothing to do with the change being made, which reads exactly like a
+    regression (issue #109). Nothing in that message names `FD`, `loadData`, or
+    the fact that data.json never arrived.
+
+    Costs nothing once loaded, and costs `loadData` nothing to adopt: the setter
+    replaces the accessor with an ordinary data property on the first write, so
+    `loadData` assigns exactly as it always did and every read after startup is a
+    plain property rather than a getter or a proxy trap.
+
+    Note this guards the *shape*, not the timing of any one caller - there is no
+    legitimate read of `FD` before `Editor.init()` has resolved, and measured,
+    nothing in the editor reads one at module-init time.
+*/
+for (const key of Object.keys(FD_KEYS) as (keyof FactorioData)[]) {
+    Object.defineProperty(FD, key, {
+        configurable: true,
+        enumerable: false,
+        get(): never {
+            throw new Error(
+                `FD.${key} was read before data.json was loaded. ` +
+                    'Editor.init() fetches it and calls loadData(); nothing may read FD ' +
+                    'until that has resolved. See issue #109.'
+            )
+        },
+        set(value: unknown): void {
+            Object.defineProperty(FD, key, {
+                value,
+                writable: true,
+                enumerable: true,
+                configurable: true,
+            })
+        },
+    })
+}
+
 export function loadData(str: string): void {
     const data = JSON.parse(str)
     console.log(data)
