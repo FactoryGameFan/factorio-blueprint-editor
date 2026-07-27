@@ -1,5 +1,5 @@
 import { CircuitConnectorDefinition } from 'factorio:prototype'
-import { IconData } from 'factorio:prototype'
+import { IconData, LocalisedString } from 'factorio:prototype'
 import {
     RecipePrototype,
     IngredientPrototype,
@@ -129,6 +129,29 @@ export function recipeIngredients(recipe: RecipePrototype): readonly IngredientP
 /** @see recipeIngredients - same three shapes. */
 export function recipeResults(recipe: RecipePrototype): readonly ProductPrototype[] {
     return Array.isArray(recipe.results) ? recipe.results : []
+}
+
+/**
+ * A prototype's display name, as a string that can go straight into a `Text`.
+ *
+ * typed-factorio types `localised_name` as `LocalisedString`, which is the
+ * nested form Factorio resolves at runtime - `['item-name.iron-plate']`, or a
+ * number, or an array of those. The exporter resolves it before writing
+ * data.json, so all 1352 in the current output are plain strings, and the field
+ * is also optional on most prototypes while every one of them has it.
+ *
+ * Neither of those is worth trusting silently: a `LocalisedString` assigned to a
+ * pixi `Text` is a type error, and the two sites that read it around a template
+ * literal would have quietly rendered `[object Object]` instead. So the array
+ * form is joined rather than dropped - a name that ever does arrive nested shows
+ * up on screen looking wrong, which is findable, rather than not showing at all.
+ */
+export function localisedName(proto: { localised_name?: LocalisedString }): string {
+    const name = proto.localised_name
+    if (name === undefined) return ''
+    if (Array.isArray(name))
+        return name.map(part => localisedName({ localised_name: part })).join(' ')
+    return String(name)
 }
 
 export function recipeSupportsModule(recipe: string, module: ModulePrototype): boolean {

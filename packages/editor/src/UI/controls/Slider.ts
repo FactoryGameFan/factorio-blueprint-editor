@@ -169,9 +169,11 @@ export class Slider extends Container {
     private readonly onButtonDragStart = (event: FederatedPointerEvent): void => {
         if (!this.m_Dragging) {
             this.m_Dragging = true
+            // `this`, not m_SliderButton.parent: the constructor addChild's the
+            // button to this Slider and nothing reparents it, so they are the
+            // same container - and this one cannot be null.
             this.m_Dragpoint =
-                this.m_SliderButton.parent.worldTransform.applyInverse(event.global).x -
-                this.m_SliderButton.x
+                this.worldTransform.applyInverse(event.global).x - this.m_SliderButton.x
             this.m_SliderButton.getChildAt<ContainerChild>(1).visible = true
         }
     }
@@ -179,7 +181,7 @@ export class Slider extends Container {
     /** Drag move event callback  */
     private readonly onButtonDragMove = (event: FederatedPointerEvent): void => {
         if (this.m_Dragging) {
-            const position = this.m_SliderButton.parent.worldTransform.applyInverse(event.global)
+            const position = this.worldTransform.applyInverse(event.global)
 
             let x = position.x - this.m_Dragpoint
             if (x > 0 && x < Slider.SLIDER_WIDTH) {
