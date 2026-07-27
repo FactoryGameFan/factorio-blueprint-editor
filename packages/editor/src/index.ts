@@ -9,7 +9,7 @@ import {
     exportKeybinds,
 } from './actions'
 import { Editor } from './Editor'
-import FD from './core/factorioData'
+import FD, { localisedName } from './core/factorioData'
 import { OverlayContainer } from './containers/OverlayContainer'
 import { EntityContainer } from './containers/EntityContainer'
 import { EntitySprite } from './containers/EntitySprite'
@@ -31,6 +31,10 @@ export {
     Blueprint,
     GridPattern,
     FD,
+    // For settingsPane.ts, which built its module dropdown keys with
+    // `localised_name as string` - the same cast this reader replaced in the
+    // editor, and the same silent "[object Object]" if a name is ever nested.
+    localisedName,
     OverlayContainer,
     EntityContainer,
     EntitySprite,

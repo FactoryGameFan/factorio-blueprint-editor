@@ -16,6 +16,9 @@
         // codebase is cleaned. `strictNullChecks` is on and its baseline in
         // scripts/type-check-baseline.json has reached 0.
         //
+        // Every package type-checks at 0 under these flags - editor, website and
+        // worker - and `vp check` enforces that in CI via lint.options.typeCheck.
+        //
         // What is left before `strict: true` can replace this block is
         // `strictPropertyInitialization`, which this comment used to put at
         // ~1 error. Measured after strictNullChecks hit 0, it is 24 - a batch of

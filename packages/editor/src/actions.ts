@@ -531,7 +531,12 @@ function resetKeybinds(): void {
     })
 }
 
-function importKeybinds(keybinds: Record<string, string>): void {
+/**
+ * Apply persisted keybinds. Takes `undefined` because that is what a first
+ * visit reads out of localStorage, and the body has always handled it - the
+ * parameter type was the only thing saying otherwise.
+ */
+function importKeybinds(keybinds: Record<string, string> | undefined): void {
     if (!keybinds) return
 
     for (const [name, kc] of Object.entries(keybinds)) {

@@ -37,18 +37,25 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
-      - name: Format check (oxfmt)
+      # Format + lint + type check, every package. This replaces the separate
+      # oxfmt and oxlint steps: `lint.options.typeCheck` is now true in
+      # vite.config.ts, which it could not be while packages/website carried 15
+      # unchecked type errors (issue #78).
+      - name: Check (oxfmt + oxlint + tsc)
         if: ${{ !cancelled() }}
-        run: vp fmt . --check
-
-      - name: Lint (oxlint)
-        if: ${{ !cancelled() }}
-        run: vp lint .
+        run: vp check .
 
       - name: Tests (vitest - units + gate)
         if: ${{ !cancelled() }}
         run: vp test
 
+      # Kept alongside `vp check` rather than folded into it. The two answer
+      # different questions: vp check asks "does this type-check under the flags
+      # that are on", the gate asks "has the count gone above the committed
+      # baseline". The baseline is 0 today, so this is currently redundant - it
+      # earns its place at the next flag flip, where the count starts non-zero
+      # and ratchets down (issue #77). Note that migration cannot use the
+      # ratchet while typeCheck is on, since vp check tolerates nothing.
       - name: Type-check gate
         if: ${{ !cancelled() }}
         run: npm run type-check:gate

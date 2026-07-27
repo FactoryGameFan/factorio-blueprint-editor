@@ -90,7 +90,7 @@ test('every entity type produces sprites', async ({ page }) => {
         const bp = await api.getBlueprintOrBookFromSource(bpStr)
         await api.loadBp(bp)
         // distinct names that survived parsing and actually got rendered
-        return [...new Set([...bp.entities.values()].map((e: any) => e.name))].length
+        return new Set([...bp.entities.values()].map((e: any) => e.name)).size
     }, source)
 
     // give async sprite work a chance to log

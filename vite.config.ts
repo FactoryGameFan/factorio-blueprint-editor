@@ -161,7 +161,7 @@ export default defineConfig({
         ],
         options: {
             typeAware: true,
-            typeCheck: false,
+            typeCheck: true,
         },
         jsPlugins: [
             {
