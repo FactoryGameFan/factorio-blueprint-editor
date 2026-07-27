@@ -37,12 +37,15 @@ async function load(page: import('@playwright/test').Page, source: string): Prom
         await api.loadBp(bp)
         const entities = [...bp.entities.values()]
         return {
-            entities: entities.map((e: any) => e.name).sort(),
+            entities: entities.map((e: any): string => e.name).sort(),
             recipes: entities
-                .map((e: any) => e.recipe)
-                .filter(Boolean)
+                .map((e: any): string | undefined => e.recipe)
+                // A predicate rather than `Boolean`: the latter narrows nothing, so
+                // the result stays (string | undefined)[] and sort() has no
+                // string-array exemption to claim.
+                .filter((r): r is string => Boolean(r))
                 .sort(),
-            tiles: [...new Set([...bp.tiles.values()].map((t: any) => t.name))].sort(),
+            tiles: [...new Set([...bp.tiles.values()].map((t: any): string => t.name))].sort(),
         }
     }, source)
 }
