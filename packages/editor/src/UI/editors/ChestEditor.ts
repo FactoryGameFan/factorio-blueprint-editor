@@ -6,17 +6,29 @@ import { TextInput } from '../controls/TextInput'
 import { Checkbox } from '../controls/Checkbox'
 import { Editor } from './Editor'
 import G from '../../common/globals'
+import FD from '../../core/factorioData'
 
-/** Assembly Machines Editor */
+/** Logistic Chest Editor */
 export class ChestEditor extends Editor {
     // buffer_chest
-    // >> 12 Slots / Counts
+    // >> Counts
 
     // requester_chest
-    // >> 12 Slots / Counts / Request from Buffer
+    // >> Counts / Request from Buffer
 
     // storage_chest
     // >> 1 Slot / No Count
+
+    /*
+        Slot counts are no longer written here. Pre-2.0 the two requesting chests
+        had a fixed twelve request slots; 2.0 keeps requests in sections with no
+        per-entity cap, so `Entity.filterSlots` decides how many to draw and this
+        lays out however many that is (issue #93).
+    */
+
+    /** Where `Editor.addFilters` puts the grid, and the pitch `Filters` lays it out on. */
+    private static readonly FILTERS_X = 208
+    private static readonly SLOT_PITCH = 38
 
     /** Field to determine whether amount shall be shown or not */
     private readonly m_Amount: boolean
@@ -25,13 +37,23 @@ export class ChestEditor extends Editor {
     private m_Filter: number
 
     public constructor(entity: Entity) {
-        const rows = Math.ceil(entity.filterSlots / 6)
+        /*
+            The grid is as wide as the game draws logistic slots, or narrower if
+            there are not that many slots to draw - which is what keeps the
+            storage chest, with its single slot, at the same 446 as every other
+            editor rather than opening a near-empty 600px dialog.
+        */
+        const columns = Math.min(
+            FD.utilityConstants.logistic_slots_per_row,
+            Math.max(1, entity.filterSlots)
+        )
+        const rows = Math.ceil(entity.filterSlots / columns)
         const filterAreaHeight = rows * 38 + Math.min(0, rows - 1) * 2
         const requesterCheckboxHeight = entity.name === 'requester-chest' ? 23 + 6 : 0
         const countAreaHeight = entity.name === 'storage-chest' ? 0 : 23 + 6
 
         super(
-            446,
+            Math.max(446, ChestEditor.FILTERS_X + columns * ChestEditor.SLOT_PITCH + 12),
             Math.max(171, 45 + filterAreaHeight + requesterCheckboxHeight + countAreaHeight + 12),
             entity
         )
@@ -43,7 +65,7 @@ export class ChestEditor extends Editor {
 
         // Add Filters
         this.addLabel(140, 56, `Filter${this.m_Entity.filterSlots === 1 ? '' : 's'}:`)
-        const filters = this.addFilters(208, yOffset, this.m_Amount)
+        const filters = this.addFilters(ChestEditor.FILTERS_X, yOffset, this.m_Amount, columns)
         yOffset += filterAreaHeight
 
         /** Remaining controls are not needed if amount shall not be shown */

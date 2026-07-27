@@ -20,6 +20,13 @@ import { encodeBlueprint as encode, packVersion as version } from './helpers/enc
     reaches the entity. What the setter does with the value once it arrives is
     `tests/chest-filters.spec.ts`, which does not go through any UI.
 
+    The last group is the filter grid's size and shape (issue #93), which nothing
+    else can see: `Entity.filterSlots` is a plain number, so a spec that read it
+    would agree with itself no matter what the dialog actually drew. Every test
+    there works by clicking a screen position that only exists under the intended
+    layout, so a grid that is narrower or shorter than it should be fails by
+    clicking nothing at all.
+
     Locating controls: the dialog is drawn with pixi, so there is no selector
     for a filter slot. `topDialogBounds` gives where the dialog sits and the
     constants below mirror `ChestEditor`/`Filters` - if that layout moves, these
@@ -31,12 +38,26 @@ import { encodeBlueprint as encode, packVersion as version } from './helpers/enc
 
 type Page = import('@playwright/test').Page
 
-/* ChestEditor puts its Filters component here, and Filters lays its slots out
-   on a 38px pitch, six to a row, each slot 36px square. */
+/*
+    ChestEditor puts its Filters component here, and Filters lays its slots out
+    on a 38px pitch, each slot 36px square.
+
+    FILTER_COLUMNS is the game's own `logistic_slots_per_row`, which ChestEditor
+    passes to Filters - six is only the default that the inserter dialog still
+    takes. FILTER_ROWS is the floor `Entity.filterSlots` answers for a chest that
+    declares no capacity, so an empty requester or buffer chest has exactly
+    FILTER_COLUMNS * FILTER_ROWS slots.
+*/
 const FILTERS_X = 208
 const FILTERS_Y = 45
 const SLOT_PITCH = 38
 const SLOT_CENTRE = 18
+const FILTER_COLUMNS = 10
+const FILTER_ROWS = 3
+
+/** What ChestEditor widens to so a ten-wide grid fits, and its width otherwise. */
+const WIDE_DIALOG = FILTERS_X + FILTER_COLUMNS * SLOT_PITCH + 12
+const BASE_DIALOG = 446
 
 const CHESTS = encode({
     item: 'blueprint',
@@ -70,7 +91,43 @@ const CHESTS = encode({
     ],
 })
 
-async function loadChests(page: Page): Promise<string[]> {
+/*
+    A buffer chest whose one request sits well past the grid's floor of 30, which
+    is what `filterSlots` raises the floor for. 45 is arbitrary except in being
+    over 30 and under the per-section cap of 1000; it lands in the fifth row.
+*/
+const FAR_FILTER_INDEX = 45
+
+const FAR_FILTER = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    icons: [{ index: 1, signal: { type: 'item', name: 'buffer-chest' } }],
+    entities: [
+        {
+            entity_number: 1,
+            name: 'buffer-chest',
+            position: { x: 0.5, y: 0.5 },
+            request_filters: {
+                sections: [
+                    {
+                        index: 1,
+                        filters: [
+                            {
+                                index: FAR_FILTER_INDEX,
+                                name: 'iron-plate',
+                                quality: 'normal',
+                                comparator: '=',
+                                count: 10,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    ],
+})
+
+async function load(page: Page, source: string): Promise<string[]> {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))
 
@@ -79,9 +136,11 @@ async function loadChests(page: Page): Promise<string[]> {
     await page.evaluate(async (src: string) => {
         const t = window.__fbe_test
         await t.loadBp(await t.getBlueprintOrBookFromSource(src))
-    }, CHESTS)
+    }, source)
     return errors
 }
+
+const loadChests = (page: Page): Promise<string[]> => load(page, CHESTS)
 
 /*
     Hovers the entity and left clicks, which is the `openEntityGUI` action.
@@ -113,8 +172,8 @@ const dialogCount = (page: Page): Promise<number> =>
 async function filterSlotAt(page: Page, index: number): Promise<{ x: number; y: number }> {
     const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
     return {
-        x: dialog.x + FILTERS_X + (index % 6) * SLOT_PITCH + SLOT_CENTRE,
-        y: dialog.y + FILTERS_Y + Math.floor(index / 6) * SLOT_PITCH + SLOT_CENTRE,
+        x: dialog.x + FILTERS_X + (index % FILTER_COLUMNS) * SLOT_PITCH + SLOT_CENTRE,
+        y: dialog.y + FILTERS_Y + Math.floor(index / FILTER_COLUMNS) * SLOT_PITCH + SLOT_CENTRE,
     }
 }
 
@@ -275,5 +334,124 @@ test('right clicking a filled slot clears the filter', async ({ page }) => {
     await page.mouse.up({ button: 'right' })
 
     expect(await filtersOf(page, 1)).toEqual([])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+/*
+    The filter grid's size and shape - issue #93.
+
+    `Entity.filterSlots` used to answer a bare 30 under a "find a way to fix this
+    properly" TODO, drawn six to a row like every other filter dialog. There is no
+    number to find: a 2.0 logistic section holds as many filters as it likes and
+    no prototype states a row count for the game's own section GUI. What is read
+    from the data now is the *width* - `logistic_slots_per_row`, which is 10 - and
+    the three rows are a chosen default that happens to land on the same 30.
+
+    Each test below clicks a screen position that exists only under the intended
+    layout. That is the point of driving them through the pointer: reading
+    `filterSlots` would agree with itself whatever the dialog drew, and a grid
+    laid out six to a row puts every one of these positions over empty canvas.
+*/
+
+/** Picks the inventory's first item, with the inventory already open. */
+async function pickFirstItem(page: Page): Promise<void> {
+    const item = await firstInventoryItem(page)
+    await page.mouse.move(item.x, item.y)
+    await page.mouse.down()
+    await page.mouse.up()
+}
+
+/** Clicks a filter slot, which opens the item picker when the slot is empty. */
+async function clickSlot(page: Page, index: number, button?: 'right'): Promise<void> {
+    const slot = await filterSlotAt(page, index)
+    await page.mouse.move(slot.x, slot.y)
+    await page.mouse.down(button === undefined ? {} : { button })
+    await page.mouse.up(button === undefined ? {} : { button })
+}
+
+const dialogWidth = async (page: Page): Promise<number> =>
+    (await page.evaluate(() => window.__fbe_test.topDialogBounds())).width
+
+test('the logistic filter grid is ten wide, the width the game draws logistic slots at', async ({
+    page,
+}) => {
+    /*
+        Slot 10 is the last of the first row at ten wide. At six it is the fourth
+        slot of the second row, and the position asserted here - one row up and
+        past x=436 - falls outside a dialog that would still be 446 wide.
+    */
+    const errors = await load(page, CHESTS)
+    await openEditorOn(page, 2)
+    expect(await dialogWidth(page)).toBe(WIDE_DIALOG)
+
+    await clickSlot(page, FILTER_COLUMNS - 1)
+    expect(await dialogCount(page)).toBe(2)
+    await pickFirstItem(page)
+
+    const filters = (await filtersOf(page, 2)) as { index: number }[]
+    expect(filters).toHaveLength(1)
+    expect(filters[0].index).toBe(FILTER_COLUMNS)
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+test('an empty logistic chest gets three rows of them', async ({ page }) => {
+    /*
+        The floor, from the far corner: the last slot of the third row is the
+        highest index the grid offers with nothing in the chest. Two rows, or a
+        floor left at some smaller number, leaves this position over the count
+        controls or off the dialog entirely.
+    */
+    const errors = await load(page, CHESTS)
+    await openEditorOn(page, 3)
+
+    const last = FILTER_COLUMNS * FILTER_ROWS - 1
+    await clickSlot(page, last)
+    expect(await dialogCount(page)).toBe(2)
+    await pickFirstItem(page)
+
+    const filters = (await filtersOf(page, 3)) as { index: number }[]
+    expect(filters).toHaveLength(1)
+    expect(filters[0].index).toBe(last + 1)
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+test('a chest holding a filter past the floor draws enough slots to reach it', async ({ page }) => {
+    /*
+        The `Math.max` half of `filterSlots`, and the reason the floor is a floor
+        rather than a size. A blueprint is free to arrive with a request at any
+        index - nothing in 2.0 caps a section below 1000 - and a fixed grid would
+        hide it, leaving a filter that serializes back out but cannot be seen or
+        cleared.
+
+        Clearing it is what is asserted, rather than the slot merely drawing: a
+        slot that rendered the icon without being wired to that filter would look
+        right and change nothing.
+    */
+    const errors = await load(page, FAR_FILTER)
+    await openEditorOn(page, 1)
+
+    expect((await filtersOf(page, 1)) as { index: number }[]).toMatchObject([
+        { index: FAR_FILTER_INDEX, name: 'iron-plate' },
+    ])
+
+    await clickSlot(page, FAR_FILTER_INDEX - 1, 'right')
+
+    expect(await filtersOf(page, 1)).toEqual([])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+test('a storage chest, whose single slot needs no room, keeps the standard dialog width', async ({
+    page,
+}) => {
+    /*
+        The control for the widening. `ChestEditor` sizes itself from the columns
+        it actually draws, so widening is something the grid causes rather than
+        something applied to every chest - a storage chest declares
+        `max_logistic_slots: 1` and stays where it was.
+    */
+    const errors = await load(page, CHESTS)
+    await openEditorOn(page, 1)
+
+    expect(await dialogWidth(page)).toBe(BASE_DIALOG)
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })

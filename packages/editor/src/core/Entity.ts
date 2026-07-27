@@ -539,21 +539,34 @@ export class Entity extends EventEmitter<EntityEvents> {
         return 0
     }
 
+    /** Rows of filter slots drawn for a chest whose capacity the data does not state. */
+    private static readonly LOGISTIC_FILTER_ROWS = 3
+
     /**
      * Count of filter slots to draw.
      *
      * The same as `maxFilters` for everything except the two chests that have no
-     * declared limit, where drawing the real one would mean a grid of 1000. Those
-     * get a fixed 30, raised to fit whatever the blueprint arrived holding - a
-     * guess, and the subject of issue #93, which is a question about what the UI
-     * should offer rather than about what the entity can hold. Nothing that
-     * decides what gets *written* should read this; read `maxFilters` instead.
+     * declared limit, where drawing the real one would mean a grid of 1000.
+     *
+     * Those get `LOGISTIC_FILTER_ROWS` rows of `logistic_slots_per_row`, which is
+     * the width the game itself lays logistic slots out at. Only the width is
+     * read from the data: no prototype states a row count for the game's own
+     * section GUI, and a 2.0 section holds as many filters as it likes, so there
+     * is no number to find - three rows is a deliberate UI choice (issue #93),
+     * landing on the same 30 the earlier guess happened to pick.
+     *
+     * The `reduce` raises that floor to fit whatever the blueprint arrived
+     * holding, so a chest carrying a filter at index 40 draws 40 slots rather
+     * than silently hiding one.
+     *
+     * Nothing that decides what gets *written* should read this; read
+     * `maxFilters` instead.
      */
     public get filterSlots(): number {
         if (this.name === 'buffer-chest' || this.name === 'requester-chest') {
             return this.logisticChestFilters.reduce(
                 (max, filter) => Math.max(max, filter.index),
-                30 // TODO: find a way to fix this properly (issue #93)
+                Entity.LOGISTIC_FILTER_ROWS * FD.utilityConstants.logistic_slots_per_row
             )
         }
         return this.maxFilters
