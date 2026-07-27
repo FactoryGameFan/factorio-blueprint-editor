@@ -28,14 +28,26 @@ npx serve packages/exporter/data/output -l 8081 --cors
 # Build
 cd packages/website && vp build
 
-# Type check (strictNullChecks is on and still being worked down - see issue #22)
+# Type check. strictNullChecks is on and this is clean - see issue #22, closed.
 npx tsc --noEmit -p packages/editor/tsconfig.json
 
 # CI type-check gate: fails only if the error count exceeds the committed
-# baseline in scripts/type-check-baseline.json. As errors are fixed, lower
-# maxErrors to lock the gain. Runs in CI via .github/workflows/ci.yml
-# (oxfmt + oxlint + vitest gate + tsc gate) on PRs/pushes to wormeyman-space-age-support.
+# baseline in scripts/type-check-baseline.json, now 0. Raise maxErrors when
+# turning on a new strict flag, then ratchet it back down. Runs in CI via
+# .github/workflows/ci.yml (oxfmt + oxlint + vitest gate + tsc gate) on
+# PRs/pushes to wormeyman-space-age-support.
+#
+# IMPORTANT: the gate covers packages/editor ONLY. packages/website has 15
+# type errors that nothing checks (packages/worker has 0) - see issue #78.
 npm run type-check:gate
+
+# Format + lint in one command. NOT a type check: `lint.options.typeCheck` is
+# false in vite.config.ts, and turning it true fails on exactly those 15
+# website errors, which is why it is off. Prefer this over running `vp fmt
+# --check` and `vp lint` separately - it prints an error/warning count on its
+# last line, so a tailed log still shows a failure. Tailing `vp lint` and
+# missing its one error line is a mistake that has reached CI.
+vp check
 
 # Unit tests (editor + gate) - gate tests now run under vp test
 vp test
@@ -231,6 +243,6 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 - Complex visualizations (crane arms, plasma effects, thruster flames) show only static base sprites
 - Blueprint book icons using planet names show no icon
 - Some entity types may have missing or incorrectly mapped textures
-- `strictNullChecks` is on and clean - the gate baseline is 0. What is left before `strict: true` is `strictPropertyInitialization`, 24 errors, almost all TS2564 in `UI/controls/` and the paint containers; the tsconfig comment used to guess ~1, which was wrong. Use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly - see issue #22
+- `strictNullChecks` is on and `packages/editor` is clean - the gate baseline is 0. Two things that scope is not: `packages/website` has 15 errors nothing checks, which are also what keeps `vp check` from type-checking (issue #78); and `strict: true` still needs `strictPropertyInitialization`, 24 errors, almost all TS2564 in `UI/controls/` and the paint containers (issue #77 - the tsconfig comment used to guess ~1, which was wrong). Use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly - see issue #22, closed
 - `util.getDirName` throws for non-cardinal directions, so any `draw_*` that calls it fails for an entity placed diagonally and renders a placeholder box. `railgun-turret` hits this: the test corpus places it at directions 2 and 14. Pinned as current behaviour in `tests/__fixtures__/sprite-data.json`
 - Mobile is view-only - no editing, inventory, or keyboard shortcuts
