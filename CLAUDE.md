@@ -57,13 +57,21 @@ vp check
 vp check --fix
 
 # CI type-check gate: fails only if the error count exceeds the committed
-# baseline in scripts/type-check-baseline.json, now 0. Kept alongside `vp check`
-# because the two answer different questions - vp check asks whether the code
-# type-checks under the flags that are on, the gate asks whether the count has
-# risen above a committed baseline. Redundant while the baseline is 0; it earns
-# its place at the next flag flip (issue #77), where the count starts non-zero.
-# Note that migration cannot use the ratchet while typeCheck is on, since
-# vp check tolerates nothing. Covers packages/editor only.
+# baseline in scripts/type-check-baseline.json. Kept alongside `vp check` because
+# the two answer different questions - vp check asks whether the code type-checks
+# under the flags that are on, the gate asks whether the count has risen above a
+# committed baseline. It was redundant while the baseline was 0; issue #77 is the
+# flip that makes it pay, and the baseline is 24 and counting down.
+#
+# The two coexist only because they read *different projects*. The gate reads
+# packages/editor/tsconfig.strict.json, which turns on the one flag being
+# migrated to (`strictPropertyInitialization`) and which nothing compiles with;
+# `vp check` reads packages/editor/tsconfig.json and stays at 0. This is the
+# correction to what this note used to say - that a migration "cannot use the
+# ratchet while typeCheck is on". It cannot use the ratchet against the *same*
+# project vp check reads, because vp check tolerates nothing and exits non-zero
+# before the gate runs. Against a second project it can, and that is the shape
+# any future flag flip should copy. Covers packages/editor only.
 npm run type-check:gate
 
 # Unit tests (editor + gate) - gate tests now run under vp test

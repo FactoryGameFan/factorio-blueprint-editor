@@ -26,7 +26,15 @@
         // definitely assigned", concentrated in UI/controls (TextInput 5,
         // Checkbox 3, Slider 2, Button, Slot) and the paint containers; the
         // exception is Filters.m_Filters, which is also read before assignment.
-        // See issue #22.
+        // See issues #22 and #77.
+        //
+        // That flag is being migrated now, and deliberately not from here. It is
+        // on in packages/editor/tsconfig.strict.json, which nothing compiles with
+        // and which only scripts/type-check-gate.mjs reads, so the ratchet can
+        // start at 24 and count down while this block keeps every package at 0.
+        // Turning it on here instead would fail `vp check` in CI from the first
+        // commit of the migration to the last. When the baseline reaches 0, this
+        // whole block becomes `"strict": true` and that file is deleted.
         "strict": false,
         "noImplicitThis": true,
         "alwaysStrict": true,
