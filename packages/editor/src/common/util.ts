@@ -19,7 +19,10 @@ const Point = (p: IPoint | readonly [number, number]): IPoint => {
 /** Computes a weighted sum of vectors. Weights are preceding their corresponding vector, and equal to 1 if not specified */
 const sumprod = (...args: (number | (number[] | IPoint))[]): IPoint => {
     const ans: IPoint = { x: 0, y: 0 }
-    let coef: number = undefined
+    // undefined is a value here, not a missing one: it means "no weight is
+    // pending", which is why every read is `coef ?? 1` and why consuming a
+    // vector resets it. The trailing-weight check below is the same state read.
+    let coef: number | undefined = undefined
     for (let arg of args) {
         if (typeof arg === 'number') {
             coef = (coef ?? 1) * arg
@@ -132,8 +135,16 @@ const nearestPowerOf2 = (n: number): number => Math.pow(2, Math.ceil(Math.log2(n
 
 const uniqueInArray = <T>(array: T[]): T[] => [...new Set(array)]
 
-const areObjectsEquivalent = <T extends Record<string, any>>(a: T, b: T): boolean => {
-    const aProps = Object.getOwnPropertyNames(a)
+/**
+ * Shallow own-property equality. The constraint is `object` rather than
+ * `Record<string, any>` because the callers pass interfaces (`IPoint`,
+ * `IFilter`), and an interface has no implicit index signature to satisfy a
+ * `Record` constraint with. `keyof T` on the property names is what that buys
+ * back: the own property names of a `T` are its keys, and any extra one present
+ * only at runtime is caught by the length check before it is read.
+ */
+const areObjectsEquivalent = <T extends object>(a: T, b: T): boolean => {
+    const aProps = Object.getOwnPropertyNames(a) as (keyof T)[]
     const bProps = Object.getOwnPropertyNames(b)
 
     if (aProps.length !== bProps.length) return false
@@ -145,7 +156,9 @@ const areObjectsEquivalent = <T extends Record<string, any>>(a: T, b: T): boolea
     return true
 }
 
-const areArraysEquivalent = <T>(a: T[] | undefined, b: T[] | undefined): boolean =>
+/** Element-wise {@link areObjectsEquivalent}. Note two undefined arrays are not
+ * equivalent - the callers guard that case before reaching here. */
+const areArraysEquivalent = <T extends object>(a: T[] | undefined, b: T[] | undefined): boolean =>
     a !== undefined &&
     b !== undefined &&
     a.length === b.length &&
