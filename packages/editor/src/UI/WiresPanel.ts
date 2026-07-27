@@ -53,8 +53,8 @@ export class WiresPanel extends Panel {
             slot.on('pointerdown', e => {
                 if (e.button === 0) {
                     if (G.BPC.mode === EditorMode.PAINT) {
-                        if (slot.wireName === G.BPC.paintContainer.getItemName()) {
-                            G.BPC.paintContainer.destroy()
+                        if (slot.wireName === G.BPC.painting.getItemName()) {
+                            G.BPC.painting.destroy()
                         } else {
                             G.BPC.spawnPaintContainer(slot.wireName)
                         }

@@ -104,16 +104,16 @@ export class QuickbarPanel extends Panel {
                     if (e.button === 0) {
                         if (G.BPC.mode === EditorMode.PAINT) {
                             if (quickbarSlot.itemName) {
-                                if (quickbarSlot.itemName === G.BPC.paintContainer.getItemName()) {
+                                if (quickbarSlot.itemName === G.BPC.painting.getItemName()) {
                                     // UC2.5
-                                    G.BPC.paintContainer.destroy()
+                                    G.BPC.painting.destroy()
                                 } else {
                                     // UC2
                                     G.BPC.spawnPaintContainer(quickbarSlot.itemName)
                                 }
                             } else {
                                 // UC1
-                                quickbarSlot.assignItem(G.BPC.paintContainer.getItemName())
+                                quickbarSlot.assignItem(G.BPC.painting.getItemName())
                             }
                         } else if (quickbarSlot.itemName) {
                             // UC4
@@ -140,8 +140,8 @@ export class QuickbarPanel extends Panel {
         const itemName = this.slots[slot].itemName
         if (!itemName) return
 
-        if (G.BPC.mode === EditorMode.PAINT && G.BPC.paintContainer.getItemName() === itemName) {
-            G.BPC.paintContainer.destroy()
+        if (G.BPC.mode === EditorMode.PAINT && G.BPC.painting.getItemName() === itemName) {
+            G.BPC.painting.destroy()
             return
         }
 
