@@ -4,7 +4,7 @@ import {
     decodeBlueprintString as decode,
     packVersion as version,
 } from './helpers/encode-blueprint'
-import { suppressToasts } from './helpers/toasts'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     The cross-type half of #94: pasting settings between entities of different
@@ -112,7 +112,7 @@ const LOCOMOTIVE_TO_STOP = pairOf(
 )
 
 async function openEditor(page: Page, source: string): Promise<void> {
-    await suppressToasts(page)
+    await suppressOverlays(page)
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
     await page.locator(CANVAS).waitFor()

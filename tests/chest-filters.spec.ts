@@ -5,7 +5,7 @@ import {
     packVersion as version,
 } from './helpers/encode-blueprint'
 import type { TestFilterSlot } from './helpers/fbe-test-api'
-import { suppressToasts } from './helpers/toasts'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     Writing a logistic chest's filters (issue #64).
@@ -160,7 +160,7 @@ interface Filter {
 }
 
 async function openEditorWithChests(page: Page): Promise<void> {
-    await suppressToasts(page)
+    await suppressOverlays(page)
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
     await page.locator(CANVAS).waitFor()
