@@ -154,6 +154,19 @@ export class Editor {
     }
 
     /**
+     * Where the entity sits in the **model**, in tiles.
+     *
+     * Not the same coordinates the blueprint was written with: loading
+     * re-centres, so an entity encoded at (1, 1) is somewhere else by the time
+     * it is in `G.bp`. A spec that needs to compute a position relative to a
+     * loaded entity - rail signal snapping offsets, say - has to ask rather than
+     * assume, and finding that out from a failing assertion costs a run.
+     */
+    public entityPosition(entityNumber: number): IPoint | undefined {
+        return G.bp?.entities.get(entityNumber)?.position
+    }
+
+    /**
      * Which entity the canvas currently considers hovered, or undefined when
      * none is - which is every mode but EDIT.
      *
@@ -179,6 +192,31 @@ export class Editor {
 
     public get paintContainerVisible(): boolean | undefined {
         return G.BPC.paintContainer?.visible
+    }
+
+    /**
+     * Where the paint container sits, in tiles, and which way it faces.
+     *
+     * The only way a spec can see rail signal snapping (issue #133 item 2).
+     * Nothing else exposes it: `paintContainerVisible` says the container is
+     * drawn and `editorMode` says PAINT, but the whole of snapping is *which*
+     * position and direction it settled on, and both are otherwise invisible
+     * until the entity is placed - by which time a wrong snap and a missed
+     * click look identical.
+     *
+     * Direction is undefined for a paint container that has none, which is
+     * every blueprint paste.
+     */
+    public get paintContainerState():
+        | { x: number; y: number; direction: number | undefined }
+        | undefined {
+        const pc = G.BPC.paintContainer
+        if (pc === undefined) return undefined
+        return {
+            x: pc.x / 32,
+            y: pc.y / 32,
+            direction: (pc as unknown as { direction?: number }).direction,
+        }
     }
 
     /**

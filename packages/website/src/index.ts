@@ -285,6 +285,8 @@ const testApi = {
         difference is the whole of issue #53.
     */
     paintContainerVisible: () => editor.paintContainerVisible,
+    paintContainerState: () => editor.paintContainerState,
+    entityPosition: (entityNumber: number) => editor.entityPosition(entityNumber),
     /*
         How many tile sprites are drawn. Nothing else asserts that tiles render
         at all - the round-trip spec only checksums their positions in the model.

@@ -46,6 +46,19 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-rail-occupancy.mjs`           | Which tiles a rail really blocks, and whether one answer serves (#133)        |
 | `probe-rail-signal-spots.mjs`        | Every legal signal position, and whether the #95 window clipped them (#133)   |
 
+One script here is not a probe and asks the game nothing:
+
+| Script                           | What it does                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------ |
+| `generate-rail-signal-spots.mjs` | Turns `fixtures/rail-signal-spots.json` into `packages/editor/src/core/railSignalSpots.ts` |
+
+It exists because the editor cannot read a fixture at runtime - nothing under
+`src/` or `tests/` may depend on `tools/oracle`, since CI stays offline - so the
+152 measured numbers have to be copied into the bundle. Generating the copy is
+what keeps it re-derivable rather than a transcription nobody dares touch. Re-run
+it after any recapture of that fixture; the output is committed, and if a fresh
+run disagrees with the committed file, the fixture moved and the table did not.
+
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
 node tools/oracle/probe-editor-output.mjs /tmp/some-blueprint.txt
