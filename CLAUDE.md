@@ -167,6 +167,7 @@ Common patterns for `draw_*` functions:
 - **`EnergySource` is a discriminated union on `type`, but `getEnergySource` can also answer `undefined`,** and `undefined` has no `type` for the check to narrow through. `if (es.type === 'heat')` therefore narrows nothing and `.connections` / `.pipe_covers` stay unreadable - the guard has to be `if (es && es.type === 'heat')`.
 - **The same layer key is not uniformly present across a family of entities.** Ground rails carry all five picture layers for every non-empty direction; elevated rails have no `ties`, `rail-ramp` has no `backplates` or `metals`, and `heating-tower` is a reactor with no `lower_layer_picture`. So `draw_rail` can use `need()` and `draw_elevated_rail` has to filter - probe `data.json` per entity rather than per type.
 - **Rail placement rules do not group the way the prototype names do.** The same warning one level up: `isAreaAvailable` sorts rails into straight, half-diagonal and curved, and for the question "may a signal sit on this rail's own tiles" that grouping is **wrong in both directions**. Measured across every orientation of every type (`tools/oracle/fixtures/rail-placement.json`): `straight-rail`, `half-diagonal-rail` and `legacy-curved-rail` have no legal signal position overlapping their tiles, while `curved-rail-a` has one per orientation, `curved-rail-b` two or three, and `legacy-straight-rail` one at each of its four **diagonal** orientations and none at its cardinals. So a legacy straight rail behaves like a curved one here and a legacy curved rail like a straight one. Gates split by orientation rather than by prototype: a `straight-rail` takes one only at directions 0 and 4, a `legacy-straight-rail` at all six of its orientations, a `half-diagonal-rail` at none. Ask the oracle per prototype and per direction; do not generalise from one of either.
+- **"Which tiles does this entity occupy" is not a property of the entity.** Collision is continuous and tiles are not, so the answer depends on the size of the box being asked about - measured, a `small-electric-pole` fits on cells a `wooden-chest` is refused on and a `transport-belt` is refused on cells the chest is not, over 28 and 24 of 38 rail orientations. That is why `PositionGrid`'s rectangle cannot simply be replaced by a per-rail cell set, and it generalises past rails: any future "occupancy shape" work has to name the reference size it is calibrated for. See `tools/oracle/fixtures/rail-occupancy.json`
 - **Rail direction normalisation is per prototype, and the modulus is load-bearing in both directions.** How many orientations the game keeps is not uniform: `straight-rail` and `half-diagonal-rail` fold mod 8 down to four, the three curved types keep all eight, and `legacy-straight-rail` keeps **six** - it folds 8 to 0 and 12 to 4 while leaving 10 and 14 distinct from 2 and 6. The four elevated types fold exactly as their ground namesakes do. So a blanket `direction % 8` conflates two legacy orientations the game separates, and dropping it entirely conflates nothing but stops catching a straight rail rotated to direction 8 over one at 0 - which is reachable, since `getPossibleRotations` gives every rail `[0,2,4,6,8,10,12,14]` while the game stores only four of them. Measured over all sixteen directions of all ten prototypes in `tools/oracle/fixtures/rail-on-rail.json`. And the discriminator for whether two rails may share tiles is **not** the prototype name: two _cardinal_ 2x2 rails fill their shared tiles completely whichever prototypes they are, so `legacy-straight-rail` at 0 may not go on `straight-rail` at 0, while the same pair at a _diagonal_ orientation is accepted
 - **The elevated rails are a collision layer, not a geometry, and the list of what they collide with is short and specific.** All four carry `collision_mask = {layers={elevated_rail=true}}` and nothing else, so they pass over every ordinary ground entity - which is why a placement rule keyed on tiles alone refused the one thing an elevated rail is for. What they _do_ collide with is everything else carrying that layer: `rail-ramp`, and about a dozen tall buildings. That list is keyed by **name and not by type** - `oil-refinery` carries it and no other assembling machine does, `big-electric-pole` does and no other pole does - so a type key refuses far more than the game. `rail-support` deliberately does **not** carry it, since a support holds a rail up and must overlap one. Measured in `tools/oracle/fixtures/elevated-rail-collision.json`, and note `data.json` does **not** export `collision_mask`, so the editor's copy of this list is hardcoded in `PositionGrid.ts` and has to be re-derived from the fixture rather than read at runtime.
 
@@ -233,6 +234,28 @@ not just the answer**.
   all sixteen turned it into 8 against 0.
 - Entities **snap**, so a requested position is not a measured one: 16 raw
   acceptances around a straight rail are 4 real signal positions.
+
+And what a rail actually occupies (issue #133 item 1,
+`tools/oracle/fixtures/rail-occupancy.json`), which **inverts that item's
+premise and is the reason not to start writing it**. Occupancy was measured
+operationally - a cell is blocked if the game refuses a 1x1 centred on it while
+the rail stands - against four different 1x1 references, and they do not agree:
+a `small-electric-pole` (0.3x0.3 box) fits on cells a `wooden-chest` (0.7x0.7)
+is refused on, a `transport-belt` (0.8x0.8) is refused on cells the chest is
+not, and a `gate` - **smaller** than the chest - is legal on all four cells of a
+cardinal straight rail, which no size argument explains and which is the
+rail-gate rule. So "which tiles does this rail occupy" has no single answer, and
+one occupancy shape per rail cannot be correct however carefully it is chosen.
+`rail-signal` cannot be measured this way at all and is excluded by its own
+control, being refused on empty ground everywhere. Two further findings: the
+editor's rectangle is wrong in **both** directions and **under**-reporting
+dominates - 34 of 38 orientations block a cell it does not key against 28 that
+key an empty one, a diagonal `straight-rail` really blocking 8 cells where it
+keys 4 and a `half-diagonal-rail` 12 where it keys 4 - and the game publishes
+`tile_width`/`tile_height` that the exporter emits for only 3 of 155 entities,
+which disagree with the computed rectangle for every curved type
+(`curved-rail-a` 2x4 against 2x6, `curved-rail-b` 2x2 against 2x5,
+`legacy-curved-rail` 4x8 against 4x4).
 
 And which rail may be laid across which (issue #133 item 5,
 `tools/oracle/fixtures/rail-on-rail.json`), the first measurement those nine
