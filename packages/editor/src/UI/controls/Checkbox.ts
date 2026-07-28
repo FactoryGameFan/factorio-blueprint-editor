@@ -26,7 +26,21 @@ export class Checkbox extends Container {
         super()
 
         this.eventMode = 'static'
-        this.checked = checked
+
+        /*
+            Drawn here rather than by assigning `this.checked`, which is what this
+            used to do. That setter is guarded by `if (this.m_Checked !== checked)`
+            and only ran at all because `m_Checked` started undefined, so
+            `undefined !== false` was true. Initialising the field without also
+            moving the drawing out would have made `new Checkbox(false)` - the
+            default, and what every caller uses - take the early return and never
+            build either graphic, leaving `m_Hover.visible` in the pointerover
+            handler below to throw on undefined.
+        */
+        this.m_Checked = checked
+        this.m_Checkbox = Checkbox.drawGraphic(checked, false, true)
+        this.m_Hover = Checkbox.drawGraphic(checked, true, false)
+        this.addChild(this.m_Checkbox, this.m_Hover)
 
         // Draw text
         if (text !== undefined) {
@@ -104,15 +118,15 @@ export class Checkbox extends Container {
         if (this.m_Checked !== checked) {
             this.m_Checked = checked
 
-            if (this.m_Checkbox !== undefined) {
-                this.removeChild(this.m_Checkbox)
-            }
+            // Both guards this replaces (`if (this.m_Checkbox !== undefined)`)
+            // covered exactly one case: the first call, made by the constructor
+            // before either graphic existed. The constructor draws them itself
+            // now, so there is no longer a call that finds them absent.
+            this.removeChild(this.m_Checkbox)
             this.m_Checkbox = Checkbox.drawGraphic(this.m_Checked, false, true)
             this.addChild(this.m_Checkbox)
 
-            if (this.m_Hover !== undefined) {
-                this.removeChild(this.m_Hover)
-            }
+            this.removeChild(this.m_Hover)
             this.m_Hover = Checkbox.drawGraphic(this.m_Checked, true, false)
             this.addChild(this.m_Hover)
         }

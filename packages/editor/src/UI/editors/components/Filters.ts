@@ -211,7 +211,11 @@ export class Filters extends Container<Slot<number>> {
                     slot.content = undefined
                 }
             } else {
-                if (slot.content === undefined || slot.name !== slotFilter.name || this.m_Amount) {
+                if (
+                    slot.content === undefined ||
+                    slot.iconName !== slotFilter.name ||
+                    this.m_Amount
+                ) {
                     if (this.m_Amount) {
                         if (slot.content !== undefined) {
                             const text = slot.children[1] as Text
@@ -239,7 +243,7 @@ export class Filters extends Container<Slot<number>> {
                     } else {
                         slot.content = F.CreateIcon(slotFilter.name)
                     }
-                    slot.name = slotFilter.name
+                    slot.iconName = slotFilter.name
                 }
             }
         }
