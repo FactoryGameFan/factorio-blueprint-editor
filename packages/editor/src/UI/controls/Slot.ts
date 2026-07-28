@@ -33,7 +33,7 @@ export class Slot<Data, Content extends Container = Container> extends Button<Da
         return true
     }
 
-    public constructor(width = 36, height = 36, border = 1) {
-        super(width, height, border)
+    public constructor(data: Data, width = 36, height = 36, border = 1) {
+        super(data, width, height, border)
     }
 }

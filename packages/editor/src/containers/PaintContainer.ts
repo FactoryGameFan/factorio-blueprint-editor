@@ -29,7 +29,16 @@ export abstract class PaintContainer extends Container<EntitySprite> {
     protected constructor(bpc: BlueprintContainer, name: string) {
         super()
         this.bpc = bpc
-        this.name = name
+
+        /*
+            The two writes the `name` setter makes, done here instead. The setter
+            destroys the previous icon before drawing the next, and its
+            `this.icon?.destroy()` was optional only to survive this first call,
+            when there was no previous icon. Same calls in the same order.
+        */
+        this._name = name
+        this.icon = F.CreateIcon(this.getItemName())
+        G.UI.addPaintIcon(this.icon)
 
         this._children_tint = F.rgbToColorSource(0.4, 1, 0.4)
 
@@ -67,7 +76,9 @@ export abstract class PaintContainer extends Container<EntitySprite> {
 
     protected set name(name: string) {
         this._name = name
-        this.icon?.destroy()
+        // Not `?.` any more: the constructor draws the first icon, so every call
+        // that reaches here has one to replace.
+        this.icon.destroy()
         this.icon = F.CreateIcon(this.getItemName())
         G.UI.addPaintIcon(this.icon)
     }

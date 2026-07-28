@@ -14,13 +14,13 @@ import { colors } from './style'
     panel exists. Nothing ever clears one.
 */
 class WireSlot extends Slot<string> {
-    public get wireName(): string {
-        return this.data
+    public constructor(wireName: string) {
+        super(wireName)
+        this.content = F.CreateIcon(wireName)
     }
 
-    public setWireName(wireName: string): void {
-        this.data = wireName
-        this.content = F.CreateIcon(wireName)
+    public get wireName(): string {
+        return this.data
     }
 }
 
@@ -46,8 +46,7 @@ export class WiresPanel extends Panel {
 
     public generateSlots(): void {
         for (const [i, wire] of WiresPanel.Wires.entries()) {
-            const slot = new WireSlot()
-            slot.setWireName(wire)
+            const slot = new WireSlot(wire)
             slot.position.set((36 + 2) * i, 0)
 
             slot.on('pointerdown', e => {

@@ -31,7 +31,14 @@ import { colors, styles } from './style'
     Height : 10 + 16 + 10 + 36 + 8 = 78
 */
 
-type InventoryItems = Container<Button<Container>>
+/*
+    The item buttons carry no data - only `content`, the icon. This used to say
+    `Button<Container>`, which puts the type argument in Button's *Data* slot
+    rather than its Content one, so it claimed every item button held a
+    Container that nothing ever assigned. Data defaults to undefined, which is
+    what these actually have.
+*/
+type InventoryItems = Container<Button<undefined>>
 
 /** Inventory Dialog - Displayed to the user if there is a need to select an item */
 export class InventoryDialog extends Dialog {
@@ -119,7 +126,7 @@ export class InventoryDialog extends Dialog {
                 continue
             }
 
-            const inventoryGroupItems = new Container<Button<Container>>()
+            const inventoryGroupItems: InventoryItems = new Container()
             let itemColIndex = 0
             let itemRowIndex = 0
 
@@ -142,7 +149,7 @@ export class InventoryDialog extends Dialog {
                         itemRowIndex += 1
                     }
 
-                    const button = new Button<Container>(36, 36)
+                    const button = new Button<undefined>(undefined, 36, 36)
                     button.position.set(itemColIndex * 38, itemRowIndex * 38)
                     button.content = F.CreateIcon(item.name)
                     button.on('pointerdown', e => {
@@ -188,11 +195,12 @@ export class InventoryDialog extends Dialog {
                 }
                 this.m_ContentHeights.set(inventoryGroupItems, contentH)
 
-                const button = new Button<Container<Button<Container>>>(68, 68, 3)
+                // The group buttons do hold data - which items to reveal - and
+                // `m_InventoryGroups` has always been declared as holding these.
+                const button = new Button<InventoryItems>(inventoryGroupItems, 68, 68, 3)
                 button.active = groupIndex === 0
                 button.position.set(groupIndex * 70, 0)
                 button.content = F.CreateIcon(group.name, group.name === 'creative' ? 32 : 64)
-                button.data = inventoryGroupItems
                 button.on('pointerdown', e => {
                     e.stopPropagation()
                     if (e.button === 0) {

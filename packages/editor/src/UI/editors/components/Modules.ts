@@ -29,9 +29,8 @@ export class Modules extends Container<Slot<number>> {
 
         // Create slots for entity
         for (let slotIndex = 0; slotIndex < this.m_Modules.length; slotIndex++) {
-            const slot = new Slot<number>()
+            const slot = new Slot<number>(slotIndex)
             slot.position.set(slotIndex * 38, 0)
-            slot.data = slotIndex
             slot.on('pointerdown', this.onSlotPointerDown)
             // Read into a local first: `slotIndex` is a loop `let`, so
             // TypeScript will not carry a narrowing of `m_Modules[slotIndex]`

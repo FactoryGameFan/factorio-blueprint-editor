@@ -63,8 +63,22 @@ export class EntitySprite extends Sprite {
     private static nextID = 0
 
     private id: number
-    private __zIndex: number
-    private zOrder: number
+    /*
+        The render layer, defaulted rather than left unset. `getParts` assigns
+        this per sprite, but its splitter/underground-belt/loader arm only does
+        so for the one sprite that is the main belt:
+
+            if (!foundMainBelt && data.filename.includes('transport-belt')) {
+
+        Every other sprite of those three types fell out with no value at all,
+        and `compareFn` then computed `undefined - undefined`, which is NaN -
+        an incoherent comparator, so their order was whatever the sort happened
+        to do. ENTITY_BASE is what the chain's own `else` gives everything not
+        otherwise special, so it is the value they were meant to have.
+    */
+    private __zIndex: number = LAYER.ENTITY_BASE
+    /** Overwritten by getParts for every sprite it builds; 0 is its first index. */
+    private zOrder = 0
     private readonly entityPos: IPoint
 
     public constructor(

@@ -39,7 +39,8 @@ export class OverlayContainer extends Container {
     private readonly undergroundLines = new Container()
     private readonly selectionArea = new Graphics()
     private copyCursorBox: Container | undefined
-    private selectionAreaUpdateFn: (endX: number, endY: number) => void
+    // Absent outside a selection drag, same as `copyCursorBox` above.
+    private selectionAreaUpdateFn: ((endX: number, endY: number) => void) | undefined
 
     public constructor(bpc: BlueprintContainer) {
         super()
@@ -602,6 +603,9 @@ export class OverlayContainer extends Container {
 
     public hideSelectionArea(): void {
         this.selectionArea.clear()
-        this.bpc.gridData.off('update', this.selectionAreaUpdateFn, this)
+        if (this.selectionAreaUpdateFn !== undefined) {
+            this.bpc.gridData.off('update', this.selectionAreaUpdateFn, this)
+            this.selectionAreaUpdateFn = undefined
+        }
     }
 }

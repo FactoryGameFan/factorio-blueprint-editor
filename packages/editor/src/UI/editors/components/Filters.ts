@@ -121,12 +121,11 @@ export class Filters extends Container<Slot<number>> {
 
         // Create slots for entity
         for (let slotIndex = 0; slotIndex < this.m_Filters.length; slotIndex++) {
-            const slot = new Slot<number>()
+            const slot = new Slot<number>(slotIndex)
             slot.position.set(
                 Math.floor((slotIndex % this.m_Columns) * 38),
                 Math.floor(slotIndex / this.m_Columns) * 38
             )
-            slot.data = slotIndex
             slot.on('pointerdown', this.onSlotPointerDown, this)
             this.addChild(slot)
         }

@@ -12,8 +12,8 @@ export class PaintWireContainer extends PaintContainer {
     private color: WireColor
     /** The anchored end of the wire being dragged; the other end follows the cursor. */
     private cp?: IEntityConnectionPoint = undefined
-    /** This is only a reference */
-    private cursorBox: Container
+    /** This is only a reference, and there is none until redraw draws one. */
+    private cursorBox: Container | undefined
 
     public constructor(bpc: BlueprintContainer, name: string) {
         super(bpc, name)

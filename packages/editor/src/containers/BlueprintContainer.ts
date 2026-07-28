@@ -143,11 +143,24 @@ export class BlueprintContainer extends Container {
         return this.paintContainer
     }
 
-    private _entityForCopyData: Entity
+    /*
+        The entity a settings copy was taken from, absent until one is taken.
+        `pasteEntitySettings` below already tests it for truthiness and
+        OverlayContainer already tests it for `!== undefined`, so every reader
+        was written for the undefined the declaration denied.
+    */
+    private _entityForCopyData: Entity | undefined
     private copyModeEntities: Entity[] = []
     private deleteModeEntities: Entity[] = []
-    private copyModeUpdateFn: (endX: number, endY: number) => void
-    private deleteModeUpdateFn: (endX: number, endY: number) => void
+    /*
+        Registered on gridData while COPY/DELETE mode is held and removed on the
+        way out, so they exist only for that span. Cleared on exit as well as
+        removed, which the listener alone did not do - each closure captures the
+        drag's start position and its entity list, and held one of each alive
+        until the next drag replaced it.
+    */
+    private copyModeUpdateFn: ((endX: number, endY: number) => void) | undefined
+    private deleteModeUpdateFn: ((endX: number, endY: number) => void) | undefined
     private copySettingsActive = false
 
     // PIXI properties
@@ -525,7 +538,7 @@ export class BlueprintContainer extends Container {
         })
     }
 
-    public get entityForCopyData(): Entity {
+    public get entityForCopyData(): Entity | undefined {
         return this._entityForCopyData
     }
 
@@ -680,7 +693,10 @@ export class BlueprintContainer extends Container {
         if (this.mode !== EditorMode.COPY) return
 
         this.overlayContainer.hideSelectionArea()
-        this.gridData.off('update32', this.copyModeUpdateFn, this)
+        if (this.copyModeUpdateFn !== undefined) {
+            this.gridData.off('update32', this.copyModeUpdateFn, this)
+            this.copyModeUpdateFn = undefined
+        }
 
         this.setMode(EditorMode.NONE)
         this.updateHoverContainer()
@@ -735,7 +751,10 @@ export class BlueprintContainer extends Container {
         if (this.mode !== EditorMode.DELETE) return
 
         this.overlayContainer.hideSelectionArea()
-        this.gridData.off('update32', this.deleteModeUpdateFn, this)
+        if (this.deleteModeUpdateFn !== undefined) {
+            this.gridData.off('update32', this.deleteModeUpdateFn, this)
+            this.deleteModeUpdateFn = undefined
+        }
 
         this.setMode(EditorMode.NONE)
         this.updateHoverContainer()
