@@ -76,6 +76,21 @@ const canHoldASignalOnItsTiles = (rail: Entity): boolean => {
  *
  * half-diagonal-rail takes a gate at none of its four orientations, which is
  * why the gate rules say nothing about it - see isAreaAvailable.
+ *
+ * With this in place, the gate rules agree with the game **exactly** on every
+ * direction the editor can produce - checked against the fixture for all ten
+ * straight and half-diagonal orientations, with `getPossibleRotations` giving a
+ * gate [0, 4, 8, 12] and every rail [0, 2, 4, 6, 8, 10, 12, 14]. The only
+ * remaining disagreement on a reachable direction is the gate-on-a-curved-rail
+ * refusal, which is #133.
+ *
+ * They disagree on *un*reachable ones, and it is worth knowing why rather than
+ * discovering it later: the caller compares `direction % 8`, where a gate has
+ * only four orientations and the game normalises to the quadrant first. So at a
+ * gate direction of 1, 2 or 3 the two answers part company in both directions.
+ * Nothing produces those - the editor rotates a gate through quadrants and
+ * Factorio never writes anything else - so this is a latent property of the
+ * modulus rather than a live gap, and is not worth a fix on its own.
  */
 const railTakesGates = (name: string, direction: number): boolean =>
     name === 'straight-rail' ? direction % 4 === 0 : true
