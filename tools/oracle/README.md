@@ -45,11 +45,25 @@ This is the part that saves time, and it is not "open a disassembler":
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
 node tools/oracle/probe-editor-output.mjs /tmp/some-blueprint.txt
+
+# probes that own a fixture recapture it behind a flag, never on every run -
+# a probe that rewrote its own fixture would turn "the game changed" into
+# "the fixture changed". vp's formatter collapses short arrays and
+# JSON.stringify does not, so the --fix is part of the step, not optional.
+node tools/oracle/probe-rail-placement.mjs --write-fixture && vp check --fix
 ```
 
 Needs a local Factorio. Found via `FACTORIO_BIN`, else the macOS Steam default.
 Nothing in `tests/` depends on these - the committed fixtures do the asserting,
 so CI stays offline.
+
+`probe-rail-placement.mjs` needs one more thing: `packages/exporter/data/output/data.json`,
+which it reads to work out tile footprints the way the editor does. That is a
+deliberate choice rather than reading a bounding box back out of the game - the
+question it asks is what `PositionGrid`'s integer tile grid sees, not what
+collides in Factorio, so the footprint has to come from the same data
+`getEntitySize` reads. Any probe comparing the game against the editor's own
+model wants the same treatment.
 
 ## Gotchas, each of which cost a run
 
