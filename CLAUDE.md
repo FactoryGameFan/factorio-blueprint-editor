@@ -60,18 +60,21 @@ vp check --fix
 # baseline in scripts/type-check-baseline.json. Kept alongside `vp check` because
 # the two answer different questions - vp check asks whether the code type-checks
 # under the flags that are on, the gate asks whether the count has risen above a
-# committed baseline. It was redundant while the baseline was 0; issue #77 is the
-# flip that makes it pay, and the baseline is 24 and counting down.
+# committed baseline. Redundant again now that `strict: true` has landed and the
+# baseline is back to 0 against packages/editor/tsconfig.json - it earns its keep
+# at the next flag flip, and #77 is the worked example of how to run one.
 #
-# The two coexist only because they read *different projects*. The gate reads
-# packages/editor/tsconfig.strict.json, which turns on the one flag being
-# migrated to (`strictPropertyInitialization`) and which nothing compiles with;
-# `vp check` reads packages/editor/tsconfig.json and stays at 0. This is the
-# correction to what this note used to say - that a migration "cannot use the
-# ratchet while typeCheck is on". It cannot use the ratchet against the *same*
-# project vp check reads, because vp check tolerates nothing and exits non-zero
-# before the gate runs. Against a second project it can, and that is the shape
-# any future flag flip should copy. Covers packages/editor only.
+# The shape to copy: turn the new flag on in a *second* project that nothing
+# compiles with and only scripts/type-check-gate.mjs reads, point the baseline at
+# that, and ratchet it down. #77 used packages/editor/tsconfig.strict.json, now
+# deleted, to go 24 -> 0 across four PRs with CI green throughout.
+#
+# What does not work, which this note used to assert flatly: turning the flag on
+# in the root tsconfig and raising the baseline. `vp check` runs before the gate
+# and tolerates nothing, so it exits non-zero on the first commit and the gate
+# never runs - the baseline is irrelevant. The ratchet cannot be used against the
+# *same* project vp check reads. Against a second one it can.
+# Covers packages/editor only.
 npm run type-check:gate
 
 # Unit tests (editor + gate) - gate tests now run under vp test
@@ -322,7 +325,7 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 - Complex visualizations (crane arms, plasma effects, thruster flames) show only static base sprites
 - Blueprint book icons using planet names show no icon
 - Some entity types may have missing or incorrectly mapped textures
-- `strictNullChecks` is on and **every package is clean** - editor, website and worker all type-check at 0, and `vp check` enforces it in CI. What is left before `strict: true` is `strictPropertyInitialization`, 24 errors, almost all TS2564 in `UI/controls/` and the paint containers (issue #77 - the tsconfig comment used to guess ~1, which was wrong). Use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly - see issue #22, closed
+- **`strict: true` is on and every package is clean** - editor, website and worker all type-check at 0, and `vp check` enforces it in CI (issues #22 and #77, both closed). The last flag was `strictPropertyInitialization` at 24 errors across 13 files; two of them were live bugs rather than annotations, and are worth knowing about because the same shape recurs. `Checkbox` and `Slider` had guarded setters their constructors called (`if (this.m_Checked !== checked)`) that ran **only** because the field started undefined, so simply adding an initialiser stopped `new Checkbox(false)` drawing anything at all; and `EntitySprite.__zIndex` was left unset for every splitter, underground-belt and loader sprite that was not the main belt, so `compareFn` computed `undefined - undefined` and sorted them on NaN. Use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly
 - `util.getDirName` throws for non-cardinal directions, so any `draw_*` that calls it fails for an entity placed diagonally and renders a placeholder box. `railgun-turret` hits this: the test corpus places it at directions 2 and 14. Pinned as current behaviour in `tests/__fixtures__/sprite-data.json`
 - Mobile is view-only - no editing, inventory, or keyboard shortcuts
 - Buffer and requester chests show **30** filter slots, three rows of the game's own `logistic_slots_per_row`. Neither declares `max_logistic_slots` and a 2.0 logistic section has no fixed count, so there is no number to read: only the _width_ comes from the data, and the three rows are a chosen default (issue #93, closed). `filterSlots` is a **floor**, raised by `Math.max` to whatever the blueprint arrived holding, so it is not constant for a given entity - anything caching it must clamp, which is what `Filters.m_SlotCount` is for. What an entity can actually hold is `maxFilters`, and that is what every writer reads

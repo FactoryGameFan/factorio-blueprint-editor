@@ -11,38 +11,25 @@
         "moduleDetection": "force",
         "noEmit": true,
 
-        // Incrementally migrating to full `strict` (TS7 defaults it true). The
-        // umbrella stays off; sub-flags are enabled one batch at a time as the
-        // codebase is cleaned. `strictNullChecks` is on and its baseline in
-        // scripts/type-check-baseline.json has reached 0.
+        // The migration to full `strict` is finished (issues #22 and #77). This
+        // replaces the sub-flag block that stood here while it ran - every flag
+        // listed there is one `strict` turns on, and the last one to be cleared
+        // was `strictPropertyInitialization`, at 24 errors across 13 files.
         //
-        // Every package type-checks at 0 under these flags - editor, website and
-        // worker - and `vp check` enforces that in CI via lint.options.typeCheck.
+        // Every package type-checks at 0 under it - editor, website and worker -
+        // and `vp check` enforces that in CI via lint.options.typeCheck. The
+        // worker was already `strict: true` in its own tsconfig, which does not
+        // extend this one.
         //
-        // What is left before `strict: true` can replace this block is
-        // `strictPropertyInitialization`, which this comment used to put at
-        // ~1 error. Measured after strictNullChecks hit 0, it is 24 - a batch of
-        // its own, not a rider. All but one are TS2564 "no initializer and not
-        // definitely assigned", concentrated in UI/controls (TextInput 5,
-        // Checkbox 3, Slider 2, Button, Slot) and the paint containers; the
-        // exception is Filters.m_Filters, which is also read before assignment.
-        // See issues #22 and #77.
-        //
-        // That flag is being migrated now, and deliberately not from here. It is
-        // on in packages/editor/tsconfig.strict.json, which nothing compiles with
-        // and which only scripts/type-check-gate.mjs reads, so the ratchet can
-        // start at 24 and count down while this block keeps every package at 0.
-        // Turning it on here instead would fail `vp check` in CI from the first
-        // commit of the migration to the last. When the baseline reaches 0, this
-        // whole block becomes `"strict": true` and that file is deleted.
-        "strict": false,
-        "noImplicitThis": true,
-        "alwaysStrict": true,
-        "useUnknownInCatchVariables": true,
-        "strictBindCallApply": true,
-        "strictFunctionTypes": true,
-        "strictNullChecks": true,
-        "noImplicitAny": true,
+        // How the last flag was landed, since the next one will want it: it was
+        // turned on in a second project, packages/editor/tsconfig.strict.json,
+        // that nothing compiled with and only scripts/type-check-gate.mjs read.
+        // That let the gate's baseline start at 24 and ratchet down while this
+        // file kept every package at 0. Turning it on here first would have
+        // failed `vp check` in CI on the first commit of the migration and every
+        // one after, whatever the baseline said, because `vp check` runs before
+        // the gate and tolerates nothing. That project is deleted now.
+        "strict": true,
 
         "paths": {
             "@fbe/*": ["./packages/*/src/index.ts"]

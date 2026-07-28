@@ -52,16 +52,15 @@ jobs:
       # Kept alongside `vp check` rather than folded into it. The two answer
       # different questions: vp check asks "does this type-check under the flags
       # that are on", the gate asks "has the count gone above the committed
-      # baseline". This is the flag flip that finally makes the difference pay -
-      # the baseline is 24 and ratcheting down (issue #77).
+      # baseline". With `strict: true` landed (issue #77) the baseline is 0
+      # again, so this is redundant until the next flag flip.
       #
-      # The two can only both be true at once because they read *different
-      # projects*. The gate reads packages/editor/tsconfig.strict.json, which
-      # turns on the flag being migrated to; vp check reads the ordinary
-      # tsconfig.json and stays at 0 throughout. Turning the flag on in the root
-      # config instead would fail this job's `vp check` step above on the first
-      # commit and keep failing until the last, whatever the baseline said,
-      # since vp check exits non-zero before the gate ever runs.
+      # How #77 was run, since the next one will want it: the flag was turned on
+      # in a second project that nothing compiled with and only the gate read,
+      # so the baseline could start at 24 and ratchet to 0 with this job green
+      # throughout. Turning it on in the root config instead fails the `vp check`
+      # step above on the first commit and every one after, whatever the baseline
+      # says, because vp check exits non-zero before the gate ever runs.
       - name: Type-check gate
         if: ${{ !cancelled() }}
         run: npm run type-check:gate
