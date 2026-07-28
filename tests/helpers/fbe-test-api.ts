@@ -81,10 +81,23 @@ export interface FbeTestApi {
      * entity. Hovering one is the only way into EDIT.
      */
     entityScreenPosition: (entityNumber: number) => { x: number; y: number } | undefined
+    /**
+     * Where the entity sits in the model, in tiles. Loading re-centres a
+     * blueprint, so this is not the coordinate it was encoded with - a spec
+     * computing positions relative to a loaded entity has to ask.
+     */
+    entityPosition: (entityNumber: number) => { x: number; y: number } | undefined
     /** The hovered entity's number, or undefined in any mode but EDIT. */
     hoveredEntityNumber: () => number | undefined
     /** Whether the paint container is drawn; undefined when there is none. */
     paintContainerVisible: () => boolean | undefined
+    /**
+     * Where the paint container sits in tiles and which way it faces, or
+     * undefined when there is none. The only way to see rail signal snapping -
+     * which position and direction it settled on is otherwise invisible until
+     * the entity is placed. See tests/rail-signal-snapping.spec.ts.
+     */
+    paintContainerState: () => { x: number; y: number; direction: number | undefined } | undefined
     /**
      * Action name -> key combo, for the actions not on their default combo.
      * Empty when every action is default. See tests/keybinds.spec.ts.
