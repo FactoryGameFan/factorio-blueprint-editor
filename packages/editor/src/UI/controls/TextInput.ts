@@ -76,19 +76,23 @@ class OriginalTextInput extends Container {
     private _previous: Partial<PreviousData>
     private _dom_added: boolean
     private _dom_visible: boolean
-    private _dom_input: HTMLInputElement | HTMLTextAreaElement
+    private readonly _dom_input: HTMLInputElement | HTMLTextAreaElement
     private _selection: number[]
     private _restrict_value: string
-    private _restrict_regex: RegExp
+    // Absent until a caller sets `restrict`; the read in _onInputInput is already
+    // written as a truthiness guard, which is what said so before the type did.
+    private _restrict_regex: RegExp | undefined
     private _disabled: boolean
-    private _max_length: number
+    // Absent until a caller sets `maxLength`. There is no honest default: 0 would
+    // mean "no characters allowed" rather than "no limit".
+    private _max_length: number | undefined
     private _multiline: boolean
     private _renderer: Renderer
     // Both are unset until the first render, and both are read through an
     // `if (!...)` guard that predates this - see _renderInternal.
     private _canvas_bounds: IRect | undefined
     private _box: Container | undefined
-    public state: State
+    public state: State = 'DEFAULT'
 
     public constructor(options: Options) {
         super()
@@ -116,7 +120,8 @@ class OriginalTextInput extends Container {
         this._placeholder = ''
         this._selection = [0, 0]
         this._restrict_value = ''
-        this._createDOMInput()
+        this._disabled = false
+        this._dom_input = this._createDOMInput()
         this._setState('DEFAULT')
         this._addListeners()
 
@@ -147,7 +152,7 @@ class OriginalTextInput extends Container {
         this._setState(disabled ? 'DISABLED' : 'DEFAULT')
     }
 
-    public get maxLength(): number {
+    public get maxLength(): number | undefined {
         return this._max_length
     }
 
@@ -156,7 +161,7 @@ class OriginalTextInput extends Container {
         this._dom_input.setAttribute('maxlength', `${length}`)
     }
 
-    public get restrict(): RegExp {
+    public get restrict(): RegExp | undefined {
         return this._restrict_regex
     }
 
@@ -217,18 +222,29 @@ class OriginalTextInput extends Container {
 
     // SETUP
 
-    private _createDOMInput(): void {
+    /*
+        Returns the element rather than assigning `this._dom_input` itself, which
+        is what it used to do. TypeScript's definite-assignment analysis reads the
+        constructor body only and does not follow calls out of it, so a field
+        assigned in here reads as never assigned at all.
+    */
+    private _createDOMInput(): HTMLInputElement | HTMLTextAreaElement {
+        let input: HTMLInputElement | HTMLTextAreaElement
         if (this._multiline) {
-            this._dom_input = document.createElement('textarea')
-            this._dom_input.style.resize = 'none'
+            const textarea = document.createElement('textarea')
+            textarea.style.resize = 'none'
+            input = textarea
         } else {
-            this._dom_input = document.createElement('input')
-            this._dom_input.type = 'text'
+            const text = document.createElement('input')
+            text.type = 'text'
+            input = text
         }
 
         for (const [key, value] of Object.entries(this._input_style)) {
-            this._dom_input.style[key as keyof InputStyles] = value ?? ''
+            input.style[key as keyof InputStyles] = value ?? ''
         }
+
+        return input
     }
 
     private _addListeners(): void {
@@ -255,7 +271,7 @@ class OriginalTextInput extends Container {
     }
 
     private _onInputInput(): void {
-        if (this._restrict_regex) this._applyRestriction()
+        if (this._restrict_regex !== undefined) this._applyRestriction(this._restrict_regex)
 
         this.emit('changed')
     }
@@ -343,8 +359,8 @@ class OriginalTextInput extends Container {
         // this._previous.world_visible = this.worldVisible
     }
 
-    private _applyRestriction(): void {
-        if (this._restrict_regex.test(this.text)) {
+    private _applyRestriction(regex: RegExp): void {
+        if (regex.test(this.text)) {
             this._restrict_value = this.text
         } else {
             this.text = this._restrict_value

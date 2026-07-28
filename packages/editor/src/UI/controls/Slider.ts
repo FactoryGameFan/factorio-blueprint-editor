@@ -15,11 +15,16 @@ export class Slider extends Container {
     /** Container to hold slider value graphic */
     private readonly m_SliderValue: Container
 
-    /** Is the button being dragged */
-    private m_Dragging: boolean
-
-    /** Field to hold reference drag point */
-    private m_Dragpoint: number
+    /**
+     * Where in the button the drag was grabbed, and whether a drag is happening
+     * at all - undefined means no drag in progress.
+     *
+     * These were two fields, `m_Dragging: boolean` alongside `m_Dragpoint:
+     * number`, always written together and only ever meaningful together. The
+     * boolean recorded nothing except that the number had been set, so the two
+     * could disagree in principle and the number had no honest initial value.
+     */
+    private m_Dragpoint: number | undefined
 
     /** Value of Slider */
     private p_Value: number
@@ -33,7 +38,6 @@ export class Slider extends Container {
         super()
 
         this.eventMode = 'static'
-        this.m_Dragging = false
         const factor = 2
 
         // Draw slide bar
@@ -93,7 +97,7 @@ export class Slider extends Container {
             buttonHover.visible = true
         })
         this.m_SliderButton.on('pointerout', () => {
-            if (!this.m_Dragging) {
+            if (this.m_Dragpoint === undefined) {
                 buttonHover.visible = false
             }
         })
@@ -102,7 +106,19 @@ export class Slider extends Container {
         this.m_SliderButton.on('pointerup', this.onButtonDragEnd, this)
         this.m_SliderButton.on('pointerupoutside', this.onButtonDragEnd, this)
         this.addChild(this.m_SliderButton)
-        this.value = value
+
+        /*
+            Assigned directly rather than through `this.value = value`, which is
+            what this used to do. That setter is guarded by
+            `if (this.p_Value !== value)` and only did anything here because
+            `p_Value` started undefined; initialising the field without also
+            moving this out would make `new Slider(1)` - the default - skip
+            updateButtonPosition() and leave the button drawn at the far left
+            whatever its value. The `emit('changed')` the setter also does is
+            not reproduced, since nothing can be listening mid-constructor.
+        */
+        this.p_Value = value
+        this.updateButtonPosition()
     }
 
     /** Slider value */
@@ -113,7 +129,7 @@ export class Slider extends Container {
         if (this.p_Value !== value) {
             this.p_Value = value
             this.emit('changed')
-            if (!this.m_Dragging) {
+            if (this.m_Dragpoint === undefined) {
                 this.updateButtonPosition()
             }
         }
@@ -167,8 +183,7 @@ export class Slider extends Container {
 
     /** Drag start event responder */
     private readonly onButtonDragStart = (event: FederatedPointerEvent): void => {
-        if (!this.m_Dragging) {
-            this.m_Dragging = true
+        if (this.m_Dragpoint === undefined) {
             // `this`, not m_SliderButton.parent: the constructor addChild's the
             // button to this Slider and nothing reparents it, so they are the
             // same container - and this one cannot be null.
@@ -180,7 +195,7 @@ export class Slider extends Container {
 
     /** Drag move event callback  */
     private readonly onButtonDragMove = (event: FederatedPointerEvent): void => {
-        if (this.m_Dragging) {
+        if (this.m_Dragpoint !== undefined) {
             const position = this.worldTransform.applyInverse(event.global)
 
             let x = position.x - this.m_Dragpoint
@@ -213,8 +228,8 @@ export class Slider extends Container {
 
     /** Drag end event callback */
     private readonly onButtonDragEnd = (): void => {
-        if (this.m_Dragging) {
-            this.m_Dragging = false
+        if (this.m_Dragpoint !== undefined) {
+            this.m_Dragpoint = undefined
             this.m_SliderButton.getChildAt<ContainerChild>(1).visible = false
         }
     }
