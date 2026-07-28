@@ -42,6 +42,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-copy-settings-schedule.mjs`   | Whether a settings copy carries a locomotive's schedule (#115)                |
 | `probe-rail-placement.mjs`           | Where a signal and a gate may sit relative to every rail orientation (#95)    |
 | `probe-elevated-rail-collision.mjs`  | What an elevated rail collides with, and what may sit under one (#133)        |
+| `probe-rail-on-rail.mjs`             | Which rail may be laid across which, over 1444 ordered pairs (#133)           |
 
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
@@ -87,6 +88,22 @@ model wants the same treatment.
   `doc-html/runtime-api.json`, which is the whole runtime API as data and is a
   better source than either `help()` or `strings` on the binary - it is what
   `probe-schedule-api.mjs` should have started with.
+- **A control has to be able to fail while the hypothesis holds.** The rail-on-rail
+  probe's second control was "a rail on an identical rail overlaps nowhere",
+  which **failed** on every curved orientation - 4 overlapping spots per
+  curved-rail-a orientation, 8 per legacy-curved-rail. Nothing was wrong: a
+  curved rail's tile rectangle is mostly empty, so a second identical curved
+  rail sits legally beside it with the rectangles overlapping and the curves
+  not. That control was a restatement of the hypothesis, so it could only ever
+  agree or announce the finding, never invalidate the apparatus. It was replaced
+  with "the anchor's own position is never accepted", which is about the rig.
+- **Check a proposed rule against the rows before writing any code.** The same
+  probe carries two transcriptions of the editor's arms, before and after, and
+  reports what each would get wrong across every measured row. The first draft
+  of the fix - "allow whenever the prototypes differ" - produced four
+  corruption-class rows, which the re-run caught in eight seconds and no test
+  would have suggested. Transcribe the rule into the probe, not only into the
+  source.
 - **Include a control that can invalidate the probe itself.** Not a control for
   the behaviour, one for the measurement. `probe-copy-settings-schedule.mjs` runs
   a case where `copy_settings` is never called, because `create_blueprint` groups

@@ -158,6 +158,78 @@ const COLLIDES_WITH_ELEVATED_RAILS = new Set([
 ])
 
 /**
+ * The orientation the game folds a rail's direction down to.
+ *
+ * Not uniform across the family, which is why the old blanket `% 8` could not
+ * simply be dropped and could not be kept either. Measured over all sixteen
+ * directions of all ten rail prototypes, in
+ * tools/oracle/fixtures/rail-on-rail.json: straight-rail and half-diagonal-rail
+ * fold to four orientations, the three curved types keep all eight, and
+ * legacy-straight-rail keeps **six** - it folds 8 to 0 and 12 to 4 while
+ * leaving 10 and 14 distinct from 2 and 6. The four elevated types fold exactly
+ * as their ground namesakes do.
+ *
+ * Only the even directions are handled, which are the only ones reachable -
+ * `getPossibleRotations` gives every rail [0,2,4,6,8,10,12,14] and the game
+ * stores nothing else. The game also folds odd directions onto their even
+ * neighbours and this does not; nothing produces one.
+ */
+const normaliseRailDirection = (name: string, direction: number): number => {
+    switch (name) {
+        case 'straight-rail':
+        case 'elevated-straight-rail':
+        case 'half-diagonal-rail':
+        case 'elevated-half-diagonal-rail':
+            return direction % 8
+        case 'legacy-straight-rail':
+            return direction % 4 === 0 ? direction % 8 : direction
+        default:
+            return direction
+    }
+}
+
+const STRAIGHT_RAIL_NAMES = new Set([
+    'straight-rail',
+    'elevated-straight-rail',
+    'legacy-straight-rail',
+])
+
+/**
+ * Whether a rail already here occupies the cells a new one wants, which is the
+ * only thing that should stop one rail being laid across another.
+ *
+ * The nine rail-versus-rail arms below used to answer this by family and
+ * direction - same family, `direction % 8` equal - and never looked at the
+ * prototype. Measured against the game over 1444 ordered pairs of
+ * (type, orientation), that refused 84 placements it accepts, all of them at
+ * directions the editor can produce, and it refused nothing it should have
+ * allowed the other way: **not one** pair where the old arms said yes and the
+ * game accepts no overlapping placement at all. So this is a fix in the
+ * permissive direction only.
+ *
+ * The prototype name is not the discriminator on its own, which is the part
+ * worth knowing before simplifying this. Two *cardinal* 2x2 rails fill their
+ * shared tiles completely whichever prototypes they are, so a
+ * legacy-straight-rail at direction 0 may not go on a straight-rail at
+ * direction 0 - the game accepts nowhere. The same pair at a *diagonal*
+ * orientation leaves the 2x2 mostly empty and the game accepts four overlapping
+ * placements. A first draft keyed on the name alone and produced exactly those
+ * four corruption-class rows, caught by re-running the measurement rather than
+ * by a test.
+ *
+ * What stays refused and should not: an identical curved rail at an identical
+ * direction, 24 rows of it, because a curved rail's rectangle holds a curve and
+ * nothing on this grid can say which cells the curve uses. That is issue #133
+ * item 1 and needs occupancy shapes, not another comparison here.
+ */
+const railOccupiesTheSameCells = (rail: Entity, name: string, direction: number): boolean => {
+    const nd = normaliseRailDirection(name, direction)
+    if (normaliseRailDirection(rail.name, rail.direction) !== nd) return false
+    if (rail.name === name) return true
+    return STRAIGHT_RAIL_NAMES.has(rail.name) && STRAIGHT_RAIL_NAMES.has(name) && nd % 4 === 0
+}
+
+/**
  * Whether two entities are on layers that can collide at all.
  *
  * False for exactly one pair: an elevated rail against something on the ground
@@ -483,9 +555,11 @@ export class PositionGrid {
             }
         }
 
-        const sameDirStrRails = straightRails.some(rail => rail.direction % 8 === direction % 8)
-        const sameDirHalfDiagRails = halfDiagonalRails.some(
-            rail => rail.direction % 8 === direction % 8
+        const aStraightRailIsInTheWay = straightRails.some(rail =>
+            railOccupiesTheSameCells(rail, name, direction)
+        )
+        const aHalfDiagonalRailIsInTheWay = halfDiagonalRails.some(rail =>
+            railOccupiesTheSameCells(rail, name, direction)
         )
 
         const aRailCanHoldASignal =
@@ -532,9 +606,11 @@ export class PositionGrid {
         )
             return true
 
-        if (isStraightRail && straightRails.length > 0 && !sameDirStrRails && !gate) return true
+        if (isStraightRail && straightRails.length > 0 && !aStraightRailIsInTheWay && !gate)
+            return true
 
-        if (isHalfDiagonalRail && halfDiagonalRails.length > 0 && !sameDirHalfDiagRails) return true
+        if (isHalfDiagonalRail && halfDiagonalRails.length > 0 && !aHalfDiagonalRailIsInTheWay)
+            return true
 
         if (isCurvedRail && straightRails.length > 0 && !gate) return true
 
@@ -548,7 +624,8 @@ export class PositionGrid {
 
         if (isHalfDiagonalRail && curvedRail) return true
 
-        if (isCurvedRail && curvedRail && curvedRail.direction !== direction) return true
+        if (isCurvedRail && curvedRail && !railOccupiesTheSameCells(curvedRail, name, direction))
+            return true
 
         /*
             A signal only gets this far when its tile overlaps something, since
