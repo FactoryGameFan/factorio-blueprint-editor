@@ -228,6 +228,119 @@ test('a straight rail laid over a gate follows the same cardinal rule', async ({
     ).toBe(false)
 })
 
+test('one rail across another is refused only where the rail there fills the cells', async ({
+    page,
+}) => {
+    await waitForEditor(page)
+
+    /*
+        Issue #133 item 5, and the first measurement the nine rail-versus-rail
+        arms have ever had - #95 measured the signal and gate arms and left
+        these alone. 1444 ordered pairs of (type, orientation) in
+        tools/oracle/fixtures/rail-on-rail.json.
+
+        What it found, in the direction that matters most: **nothing** to
+        tighten. Not one pair where the editor allowed and the game accepts no
+        overlapping placement, so none of these arms was writing a blueprint
+        that will not build back. Every disagreement was the other way - 84
+        refusals of placements the game accepts, and on paste that is not an
+        annoyance, since PaintBlueprintEntityContainer only creates the entity
+        when this answers true and silently drops it otherwise.
+
+        The old rule compared family and `direction % 8` and never looked at the
+        prototype. These four are what that cost.
+    */
+    expect(
+        await isAreaAvailable(page, [rail('curved-rail-a', 0)], rail('curved-rail-b', 0)),
+        'a curved-rail-b across a curved-rail-a at the same direction'
+    ).toBe(true)
+
+    expect(
+        await isAreaAvailable(page, [rail('curved-rail-a', 0)], rail('legacy-curved-rail', 0)),
+        'a legacy curved rail across a curved-rail-a at the same direction'
+    ).toBe(true)
+
+    // Diagonal, where two 2x2 rectangles overlap and the two diagonals do not.
+    expect(
+        await isAreaAvailable(page, [rail('straight-rail', 2)], rail('legacy-straight-rail', 2)),
+        'a legacy straight rail across a diagonal straight rail'
+    ).toBe(true)
+
+    /*
+        And the modulus. A legacy-straight-rail keeps six orientations where a
+        straight-rail keeps four, so `% 8` folded its direction 10 onto its
+        direction 2 and refused a placement the game accepts.
+    */
+    expect(
+        await isAreaAvailable(
+            page,
+            [rail('legacy-straight-rail', 2)],
+            rail('legacy-straight-rail', 10)
+        ),
+        'a legacy straight rail at 10 across one at 2'
+    ).toBe(true)
+})
+
+test('a rail is still refused where the game accepts nothing overlapping', async ({ page }) => {
+    await waitForEditor(page)
+
+    /*
+        The over-correction guard, and it is not symmetric with the test above -
+        the obvious fix, "allow whenever the prototypes differ", produces
+        exactly the first two of these and the game accepts neither.
+
+        Two *cardinal* 2x2 rails fill their shared tiles completely whichever
+        prototypes they are, so the prototype name cannot be the discriminator
+        on its own. The same pair at a diagonal orientation is the third
+        expectation of the test above, and is accepted. This pair of tests is
+        the whole of the measured rule.
+    */
+    expect(
+        await isAreaAvailable(page, [rail('straight-rail', 0)], rail('legacy-straight-rail', 0)),
+        'a legacy straight rail across a cardinal straight rail'
+    ).toBe(false)
+
+    expect(
+        await isAreaAvailable(page, [rail('legacy-straight-rail', 4)], rail('straight-rail', 4)),
+        'a straight rail across a cardinal legacy straight rail'
+    ).toBe(false)
+
+    // The identical-rail case every arm has always refused, kept because the
+    // measurement agrees with it: the game accepts nothing overlapping either.
+    expect(
+        await isAreaAvailable(page, [rail('straight-rail', 2)], rail('straight-rail', 2)),
+        'a straight rail on an identical straight rail'
+    ).toBe(false)
+
+    expect(
+        await isAreaAvailable(page, [rail('half-diagonal-rail', 2)], rail('half-diagonal-rail', 2)),
+        'a half-diagonal rail on an identical one'
+    ).toBe(false)
+
+    /*
+        Direction 8 normalises to 0 for a straight rail, so this is the same
+        rail asked for twice and stays refused. It is why the modulus could not
+        simply be dropped - `getPossibleRotations` gives a rail
+        [0,2,4,6,8,10,12,14] while the game stores only four of those.
+    */
+    expect(
+        await isAreaAvailable(page, [rail('straight-rail', 0)], rail('straight-rail', 8)),
+        'a straight rail at 8 on one at 0'
+    ).toBe(false)
+
+    /*
+        And the 24 rows left as refusals the game would allow: an identical
+        curved rail at an identical direction. The game accepts four overlapping
+        placements and this grid cannot say which cell holds the curve, so it
+        stays refused until #133 item 1 gives curved rails real occupancy
+        shapes. Pinned so that closing it is a decision.
+    */
+    expect(
+        await isAreaAvailable(page, [rail('curved-rail-a', 0)], rail('curved-rail-a', 0)),
+        'a curved rail on an identical curved rail'
+    ).toBe(false)
+})
+
 test('the arms that stay permissive are untouched', async ({ page }) => {
     await waitForEditor(page)
 
