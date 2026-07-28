@@ -167,6 +167,19 @@ export class Editor {
     }
 
     /**
+     * Whether the blueprint is drawn where the viewport says it is.
+     *
+     * See `BlueprintContainer.viewportRenderedInSync` - it is false only between
+     * a viewport change and the next frame, and a mistake in
+     * `Viewport.getTransform` can make it false permanently while every
+     * coordinate the editor reports stays perfectly self-consistent (issue
+     * #144).
+     */
+    public get viewportRenderedInSync(): boolean {
+        return G.BPC.viewportRenderedInSync
+    }
+
+    /**
      * Which entity the canvas currently considers hovered, or undefined when
      * none is - which is every mode but EDIT.
      *

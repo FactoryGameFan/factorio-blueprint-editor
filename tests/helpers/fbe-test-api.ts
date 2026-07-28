@@ -89,6 +89,12 @@ export interface FbeTestApi {
     entityPosition: (entityNumber: number) => { x: number; y: number } | undefined
     /** The hovered entity's number, or undefined in any mode but EDIT. */
     hoveredEntityNumber: () => number | undefined
+    /**
+     * Whether the blueprint is drawn where the viewport says it is. False only
+     * between a viewport change and the next frame - see
+     * tests/viewport-transform-freshness.spec.ts.
+     */
+    viewportRenderedInSync: () => boolean
     /** Whether the paint container is drawn; undefined when there is none. */
     paintContainerVisible: () => boolean | undefined
     /**
