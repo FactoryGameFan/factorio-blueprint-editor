@@ -16,19 +16,19 @@
         "test:unit:watch": "vp test"
     },
     "dependencies": {
-        "ajv": "^8.18.0",
-        "buffer": "6.0.3",
-        "delaunator": "5.1.0",
+        "ajv": "^8.20.0",
+        "buffer": "^6.0.3",
+        "delaunator": "^5.1.0",
         "eventemitter3": "^5.0.4",
-        "pako": "3.0.0",
-        "pathfinding": "0.4.18",
-        "pixi.js": "^8.17.1",
-        "utility-types": "3.11.0"
+        "pako": "^3.0.1",
+        "pathfinding": "^0.4.18",
+        "pixi.js": "^8.19.0",
+        "utility-types": "^3.11.0"
     },
     "devDependencies": {
         "@types/delaunator": "5.0.3",
         "@types/pathfinding": "0.1.0",
-        "typed-factorio": "^3.35.0",
+        "typed-factorio": "^3.36.0",
         "vite-plus": "0.2.6"
     }
 }
