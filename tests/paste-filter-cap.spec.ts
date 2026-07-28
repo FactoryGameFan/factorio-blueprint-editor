@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
-import { suppressToasts } from './helpers/toasts'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     How many filters a paste-settings carries onto a logistic chest (issue #93).
@@ -123,7 +123,7 @@ const twoChests = (count: number): string =>
     })
 
 async function openEditorWith(page: Page, source: string): Promise<void> {
-    await suppressToasts(page)
+    await suppressOverlays(page)
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
     await page.locator(CANVAS).waitFor()

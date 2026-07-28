@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
-import { suppressToasts } from './helpers/toasts'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     Toasts swallowing clicks meant for the canvas - issue #119.
@@ -96,7 +96,7 @@ const toastCount = (page: Page): Promise<number> => page.locator('.toasts-toast'
 
 test('a toast takes a click that was meant for the canvas', async ({ page }) => {
     /*
-        The control, deliberately WITHOUT `suppressToasts`: it asserts the problem
+        The control, deliberately WITHOUT `suppressOverlays`: it asserts the problem
         is real. Without this, the test below would pass just as happily if toasts
         had stopped being raised, or stopped covering anything, and the suppression
         it checks would be guarding nothing.
@@ -114,7 +114,7 @@ test('a toast takes a click that was meant for the canvas', async ({ page }) => 
 })
 
 test('with toasts suppressed the same click reaches the canvas instead', async ({ page }) => {
-    await suppressToasts(page)
+    await suppressOverlays(page)
     await load(page)
     const at = await settledToastCentre(page)
 

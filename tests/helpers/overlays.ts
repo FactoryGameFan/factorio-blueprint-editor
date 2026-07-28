@@ -1,13 +1,23 @@
 type Page = import('@playwright/test').Page
 
 /**
- * The style that stops toasts intercepting pointer input, and nothing else -
- * they still render, so a trace or a screenshot shows what the editor said.
+ * The styles that stop the editor's DOM overlays intercepting pointer input, and
+ * nothing else - both still render, so a trace or a screenshot shows what the
+ * editor was displaying.
  */
-const CSS = '.toasts-container { pointer-events: none !important; }'
+const CSS = `
+    .toasts-container { pointer-events: none !important; }
+    .dg.main { pointer-events: none !important; }
+`
 
 /**
- * Stops the toast overlay swallowing clicks meant for the canvas (issue #119).
+ * Stops the editor's DOM overlays swallowing clicks meant for the canvas -
+ * issues #119 and #130.
+ *
+ * There are two, in opposite corners, and they are the same bug twice. This was
+ * `suppressOverlays` and covered only the first; the second then kept
+ * `paste-cross-type-settings.spec.ts` intermittent through the #77 batches,
+ * presenting as a hover that timed out.
  *
  * `.toasts-container` is `position: fixed; bottom: 0; right: 0; width: 320px;
  * z-index: 20`, so every toast sits **on top of the editor**, and loading a
@@ -29,12 +39,22 @@ const CSS = '.toasts-container { pointer-events: none !important; }'
  * that navigation and every later one, which `addStyleTag` would not - a spec
  * that reloads would lose the suppression and start flaking again.
  *
- * `tests/toast-click-interception.spec.ts` pins both halves: that a toast really
- * does cover the click point, and that this stops it mattering.
+ * The second is the dat.gui settings pane, `.dg.main`, which
+ * `packages/website/src/index.css` pins at `position: fixed; bottom: 0; left: 0`
+ * with `z-index: 5`. It is open by default, since `closed` reads a
+ * `localStorage` key a fresh profile does not have. Measured at the 1280x720 the
+ * config runs: 320x236 at (0, 484) over a full-viewport canvas, with
+ * `elementFromPoint` at its centre answering `DIV.c` rather than `CANVAS#editor`
+ * - a dead rectangle over about 8% of the canvas, and unlike a toast it never
+ * goes away on its own.
+ *
+ * `tests/toast-click-interception.spec.ts` and
+ * `tests/settings-pane-click-interception.spec.ts` pin both halves of each: that
+ * the overlay really does cover the point, and that this stops it mattering.
  */
-export async function suppressToasts(page: Page): Promise<void> {
+export async function suppressOverlays(page: Page): Promise<void> {
     await page.addInitScript(css => {
-        const ID = 'fbe-test-toast-suppression'
+        const ID = 'fbe-test-overlay-suppression'
 
         /*
             The DOMContentLoaded pass is the one that does the work, and the first
