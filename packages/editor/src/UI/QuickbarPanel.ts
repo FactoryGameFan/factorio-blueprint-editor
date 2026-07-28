@@ -90,7 +90,7 @@ export class QuickbarPanel extends Panel {
     public generateSlots(itemNames?: (string | undefined)[]): void {
         for (let r = 0; r < this.rows; r++) {
             for (let i = 0; i < 10; i++) {
-                const quickbarSlot = new QuickbarSlot()
+                const quickbarSlot = new QuickbarSlot(undefined)
                 quickbarSlot.position.set((36 + 2) * i + (i > 4 ? 38 : 0), 38 * r)
 
                 // Read into a local: the index is a loop `let`, so TypeScript

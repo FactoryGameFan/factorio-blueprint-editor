@@ -11,7 +11,7 @@ export class Recipe extends Slot<undefined> {
     private readonly m_Entity: Entity
 
     public constructor(entity: Entity) {
-        super()
+        super(undefined)
 
         this.m_Entity = entity
         this.updateContent(this.m_Entity.recipe)

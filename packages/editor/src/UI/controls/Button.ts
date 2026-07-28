@@ -18,11 +18,25 @@ export class Button<Data = undefined, Content extends Container = Container> ext
     /** Content of Control, absent when the control is showing nothing */
     private m_Content: Content | undefined
 
-    /** Data of Control */
+    /**
+     * Data of Control.
+     *
+     * Taken as a constructor argument rather than assigned afterwards. Every
+     * caller already knew the value one line later - `slot.data = slotIndex`
+     * directly after `new Slot<number>()` - so the window in which this was
+     * undefined existed only because the constructor did not ask for it.
+     */
     private m_Data: Data
 
-    public constructor(width = 36, height = 36, border = colors.controls.button.border) {
+    public constructor(
+        data: Data,
+        width = 36,
+        height = 36,
+        border = colors.controls.button.border
+    ) {
         super()
+
+        this.m_Data = data
 
         this.eventMode = 'static'
         this.cursor = 'pointer'
