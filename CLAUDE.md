@@ -88,7 +88,7 @@ vp run test:e2e -- --list
 
 # Bundle size analysis (from packages/website/) - opens treemap in browser
 # Note: bare `npm`/`npx` must resolve to vp's managed npm (~/.vite-plus/bin on
-# PATH); the root devEngines pins npm `^11`, which system npm may not satisfy.
+# PATH); the root devEngines pins npm `^12`, which system npm may not satisfy.
 cd packages/website && npm run build:analyze
 ```
 
