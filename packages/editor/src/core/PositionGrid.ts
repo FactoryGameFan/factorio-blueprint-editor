@@ -95,6 +95,87 @@ const canHoldASignalOnItsTiles = (rail: Entity): boolean => {
 const railTakesGates = (name: string, direction: number): boolean =>
     name === 'straight-rail' ? direction % 4 === 0 : true
 
+/**
+ * The four rail types that live on Factorio's elevated_rail collision layer.
+ *
+ * Keyed by entity **type**, which is what the classification below reads. The
+ * `dummy-elevated-*` prototypes share these types and are ignored here for the
+ * same reason nothing else looks at them - they cannot appear in a blueprint.
+ */
+const ELEVATED_RAIL_TYPES = new Set([
+    'elevated-straight-rail',
+    'elevated-half-diagonal-rail',
+    'elevated-curved-rail-a',
+    'elevated-curved-rail-b',
+])
+
+/**
+ * Everything else that carries the elevated_rail layer, and so is the entire
+ * set of things an elevated rail collides with (issue #133, item 4).
+ *
+ * Measured rather than reasoned about, because the Lua scatters this across a
+ * `building_tall` helper, one per-type table entry and three individual
+ * prototypes - see tools/oracle/fixtures/elevated-rail-collision.json, which
+ * took it from the whole prototype table of the running binary instead. The
+ * fixture's behaviour section then confirms the masks translate into placement:
+ * a chest, a belt, a ground rail and a rail support are all placeable **under**
+ * a standing elevated rail, and a rail ramp and a roboport are not, each
+ * against an empty-ground control that came back true.
+ *
+ * Keyed by **name**, not by type. Only some members of a type carry the layer -
+ * `oil-refinery` does and no other assembling machine does, `big-electric-pole`
+ * does and no other electric pole does - so a type key would refuse far more
+ * than the game.
+ *
+ * Two consequences of that keying, both deliberate. A name absent here is taken
+ * not to collide, so a future prototype defaults to the permissive answer this
+ * file's policy asks for rather than inheriting a restriction from a
+ * measurement that never covered it. And `rail-support` is absent on purpose:
+ * it holds an elevated rail up and therefore has to overlap one, which is a
+ * control the probe asserts rather than an omission.
+ *
+ * `cargo-bay` is the one entry that is **not** in the 2.1.12 capture. It was
+ * `building_tall()` at the 2.0.73 tag, which this editor targets, and is plain
+ * `building()` at 2.1.12 - so it collides on the targeted version and not on
+ * the measured one. Listed, because the cost of the two mistakes is not
+ * symmetric: refusing a cargo bay under an elevated rail is an annoyance on
+ * 2.1, where accepting one loses the entity at build time on 2.0.
+ */
+const COLLIDES_WITH_ELEVATED_RAILS = new Set([
+    'agricultural-tower',
+    'big-electric-pole',
+    'cargo-bay',
+    'cargo-landing-pad',
+    'cargo-pod-container',
+    'fulgoran-ruin-attractor',
+    'lightning-collector',
+    'lightning-rod',
+    'oil-refinery',
+    'rail-ramp',
+    'roboport',
+    'rocket-silo',
+    'space-platform-hub',
+])
+
+/**
+ * Whether two entities are on layers that can collide at all.
+ *
+ * False for exactly one pair: an elevated rail against something on the ground
+ * that does not carry the elevated_rail layer. Everything else answers true, so
+ * this widens what the grid accepts and never narrows it - the measured rules
+ * below see the same entities they always did.
+ */
+const canCollide = (
+    a: { name: string; type: string },
+    b: { name: string; type: string }
+): boolean => {
+    const aIsElevated = ELEVATED_RAIL_TYPES.has(a.type)
+    const bIsElevated = ELEVATED_RAIL_TYPES.has(b.type)
+    if (aIsElevated === bIsElevated) return true
+    const ground = aIsElevated ? b : a
+    return COLLIDES_WITH_ELEVATED_RAILS.has(ground.name)
+}
+
 export class PositionGrid {
     private bp: Blueprint
     private grid: Map<string, number | number[]> = new Map()
@@ -281,12 +362,16 @@ export class PositionGrid {
      *
      * **The rail rules are permissive on purpose, and the exceptions are
      * measured** (issue #95). This grid keys integer tiles and Factorio does
-     * not: a curved-rail-a is a 2x6 rectangle here holding a curve, a
+     * not: a curved-rail-a is a 2x6 rectangle here holding a curve and a
      * half-diagonal-rail a 2x2 square against a collision box spanning roughly
-     * 1.5x4.5, and the four elevated-* rail types are not classified at all -
-     * they fall to `otherEntities` and read as ordinary obstructions. Modelling
-     * the real rules means per-rail collision shapes rather than rectangles,
-     * which is its own piece of work - issue #133.
+     * 1.5x4.5. Modelling the real rules means per-rail collision shapes rather
+     * than rectangles, which is its own piece of work - issue #133.
+     *
+     * The four elevated-* rail types are on their own collision layer rather
+     * than their own geometry, so they are handled here (also #133): everything
+     * in the area that cannot collide with what is being placed is filtered out
+     * before the rules below run, which is what lets a ground entity sit under
+     * an elevated rail and an elevated rail cross over one. See canCollide.
      *
      * So the policy is: accept more than the game does rather than model
      * geometry this structure cannot hold, **except** where a permissive answer
@@ -300,8 +385,16 @@ export class PositionGrid {
      * Known refusals the game would allow, left alone as annoyances rather than
      * corruptions and tracked in #133: a half-diagonal or curved rail laid over
      * a gate, and a gate on a curved rail.
+     *
+     * One acceptance the layer filter cannot judge, and which stays permissive:
+     * a rail signal on an elevated rail is the same **prototype** as one on the
+     * ground - the game swaps its collision mask at runtime through the
+     * `rail-signal/elevated` variant, and only Entity.railLayer knows which a
+     * given signal is. This function is handed a name, so every signal is read
+     * as a ground one and an elevated rail never blocks it.
      */
     public isAreaAvailable(name: string, pos: IPoint, direction = 0): boolean {
+        const placed = { name, type: FD.entities[name].type }
         const size = getEntitySize(FD.entities[name], direction)
 
         const straightRails: Entity[] = []
@@ -334,7 +427,29 @@ export class PositionGrid {
             refusals rather than corruptions, and fixing them needs the rail
             geometry this grid cannot hold - see the note on the function.
         */
-        for (const entity of this.getEntitiesInArea(area)) {
+        /*
+            Anything that cannot collide with what is being placed is dropped
+            here rather than being reasoned about below, which is the whole of
+            the elevated rail fix: a ground entity under an elevated rail, and
+            an elevated rail over a ground entity, both leave nothing behind and
+            fall through to the empty-area answer. The filter only ever removes,
+            so every rule after it sees what it always saw.
+
+            An elevated rail that does survive - because a rail ramp or one of
+            the tall buildings is being placed, or because the placed entity is
+            itself an elevated rail - is classified into the same bucket as its
+            ground namesake, so the measured rail-versus-rail rules apply within
+            the elevated family exactly as they do on the ground. A bucket can
+            only ever hold both layers at once when the placed entity carries
+            the elevated layer *and* is not a rail, and no rail rule below fires
+            for such a name.
+        */
+        const entitiesInArea = this.getEntitiesInArea(area).filter(entity =>
+            canCollide(placed, entity)
+        )
+        if (entitiesInArea.length === 0) return true
+
+        for (const entity of entitiesInArea) {
             switch (entity.type) {
                 case 'gate':
                     gate = entity
@@ -342,15 +457,19 @@ export class PositionGrid {
                 case 'legacy-curved-rail':
                 case 'curved-rail-a':
                 case 'curved-rail-b':
+                case 'elevated-curved-rail-a':
+                case 'elevated-curved-rail-b':
                     curvedRail = entity
                     break
                 case 'legacy-straight-rail':
                 case 'straight-rail':
+                case 'elevated-straight-rail':
                     if (!straightRails.includes(entity)) {
                         straightRails.push(entity)
                     }
                     break
                 case 'half-diagonal-rail':
+                case 'elevated-half-diagonal-rail':
                     if (!halfDiagonalRails.includes(entity)) {
                         halfDiagonalRails.push(entity)
                     }
@@ -374,12 +493,25 @@ export class PositionGrid {
             straightRails.some(canHoldASignalOnItsTiles) ||
             halfDiagonalRails.some(canHoldASignalOnItsTiles)
 
+        /*
+            The elevated names join their ground namesakes for the same reason
+            the buckets above do. They are only ever weighed against rails of
+            their own layer, since the filter has already separated the two.
+        */
         const isGate = name === 'gate'
         const isSignal = name === 'rail-signal' || name === 'rail-chain-signal'
-        const isStraightRail = name === 'legacy-straight-rail' || name === 'straight-rail'
-        const isHalfDiagonalRail = name === 'half-diagonal-rail'
+        const isStraightRail =
+            name === 'legacy-straight-rail' ||
+            name === 'straight-rail' ||
+            name === 'elevated-straight-rail'
+        const isHalfDiagonalRail =
+            name === 'half-diagonal-rail' || name === 'elevated-half-diagonal-rail'
         const isCurvedRail =
-            name === 'legacy-curved-rail' || name === 'curved-rail-a' || name === 'curved-rail-b'
+            name === 'legacy-curved-rail' ||
+            name === 'curved-rail-a' ||
+            name === 'curved-rail-b' ||
+            name === 'elevated-curved-rail-a' ||
+            name === 'elevated-curved-rail-b'
 
         if (
             isGate &&

@@ -1,0 +1,388 @@
+{
+    "question": "What does an elevated rail collide with, and does the game let ground entities sit under one?",
+    "issue": 133,
+    "probe": "tools/oracle/probe-elevated-rail-collision.mjs",
+    "binary": "Version: 2.1.12 (build 87038, mac-arm64, steam)",
+    "versionCaveat": "Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range. Cross-checked against the Lua at the 2.0.73 tag of github.com/wube/factorio-data - core/lualib/collision-mask-defaults.lua gives the elevated rail types collision_mask = {layers={elevated_rail=true}} there too, so the masks below are not a 2.1-only shape.",
+    "versionDifferences": [
+        "cargo-bay changed between the two. core/lualib/collision-mask-defaults.lua has [\"cargo-bay\"] = building_tall() at the 2.0.73 tag, which carries elevated_rail, and [\"cargo-bay\"] = building() at 2.1.12, which does not - so a cargo bay collides with an elevated rail on the version this editor targets and not on the version measured here. It is therefore absent from the colliders list below while being a collider at 2.0.73. Every other entry agrees across both. Checked by reading the definition site in each, not inferred from the dump."
+    ],
+    "measurementCaveats": [
+        "A collision mask is a claim about collision, not about placement. The behaviour section builds an elevated rail and asks can_place_entity, and each answer is paired with the same question on empty ground - an elevated rail with no support under it is unplaceable everywhere, which would otherwise read as \"the game refuses it over a chest\".",
+        "colliders is every entity prototype whose own mask carries elevated_rail, taken from the whole prototype table rather than from a list written in advance. The Lua scatters this across a building_tall helper, one per-type table entry and three individual prototypes, which is the shape of list a grep gets subtly wrong.",
+        "The editor cannot place an elevated rail from the inventory at all - no item has one as its place_result, and the rail planner gives straight-rail. isAreaAvailable still sees them, through PaintBlueprintEntityContainer when a copied selection carrying elevated rails is pasted, and as an obstruction when anything is hand-placed under one."
+    ],
+    "controls": [
+        {
+            "control": "elevated-straight-rail carries elevated_rail and nothing else",
+            "holds": true,
+            "got": "elevated_rail"
+        },
+        {
+            "control": "straight-rail does not carry elevated_rail",
+            "holds": true,
+            "got": "floor, is_lower_object, item, object, rail, water_tile"
+        },
+        {
+            "control": "rail-support does not carry elevated_rail (it must overlap one)",
+            "holds": true,
+            "got": "is_lower_object, is_object, object, rail, rail_support"
+        },
+        {
+            "control": "rail-ramp does carry elevated_rail",
+            "holds": true,
+            "got": "elevated_rail, is_lower_object, is_object, object, rail, rail_support"
+        }
+    ],
+    "masks": {
+        "straight-rail": {
+            "type": "straight-rail",
+            "layers": ["floor", "is_lower_object", "item", "object", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "curved-rail-a": {
+            "type": "curved-rail-a",
+            "layers": ["floor", "is_lower_object", "item", "object", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "curved-rail-b": {
+            "type": "curved-rail-b",
+            "layers": ["floor", "is_lower_object", "item", "object", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "half-diagonal-rail": {
+            "type": "half-diagonal-rail",
+            "layers": ["floor", "is_lower_object", "item", "object", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "legacy-straight-rail": {
+            "type": "legacy-straight-rail",
+            "layers": ["floor", "is_lower_object", "item", "object", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "legacy-curved-rail": {
+            "type": "legacy-curved-rail",
+            "layers": ["floor", "is_lower_object", "item", "object", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "elevated-straight-rail": {
+            "type": "elevated-straight-rail",
+            "layers": ["elevated_rail"],
+            "not_colliding_with_itself": false
+        },
+        "elevated-curved-rail-a": {
+            "type": "elevated-curved-rail-a",
+            "layers": ["elevated_rail"],
+            "not_colliding_with_itself": false
+        },
+        "elevated-curved-rail-b": {
+            "type": "elevated-curved-rail-b",
+            "layers": ["elevated_rail"],
+            "not_colliding_with_itself": false
+        },
+        "elevated-half-diagonal-rail": {
+            "type": "elevated-half-diagonal-rail",
+            "layers": ["elevated_rail"],
+            "not_colliding_with_itself": false
+        },
+        "rail-support": {
+            "type": "rail-support",
+            "layers": ["is_lower_object", "is_object", "object", "rail", "rail_support"],
+            "not_colliding_with_itself": false
+        },
+        "rail-ramp": {
+            "type": "rail-ramp",
+            "layers": [
+                "elevated_rail",
+                "is_lower_object",
+                "is_object",
+                "object",
+                "rail",
+                "rail_support"
+            ],
+            "not_colliding_with_itself": false
+        },
+        "rail-signal": {
+            "type": "rail-signal",
+            "layers": ["floor", "is_lower_object", "item", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "rail-chain-signal": {
+            "type": "rail-chain-signal",
+            "layers": ["floor", "is_lower_object", "item", "rail", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "gate": {
+            "type": "gate",
+            "layers": [
+                "is_lower_object",
+                "is_object",
+                "item",
+                "meltable",
+                "object",
+                "player",
+                "train",
+                "water_tile"
+            ],
+            "not_colliding_with_itself": false
+        },
+        "wooden-chest": {
+            "type": "container",
+            "layers": ["is_lower_object", "is_object", "item", "object", "player", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "transport-belt": {
+            "type": "transport-belt",
+            "layers": ["floor", "meltable", "object", "transport_belt", "water_tile"],
+            "not_colliding_with_itself": false
+        },
+        "roboport": {
+            "type": "roboport",
+            "layers": [
+                "elevated_rail",
+                "is_lower_object",
+                "is_object",
+                "item",
+                "meltable",
+                "object",
+                "player",
+                "water_tile"
+            ],
+            "not_colliding_with_itself": false
+        },
+        "rocket-silo": {
+            "type": "rocket-silo",
+            "layers": [
+                "elevated_rail",
+                "is_lower_object",
+                "is_object",
+                "item",
+                "meltable",
+                "object",
+                "player",
+                "water_tile"
+            ],
+            "not_colliding_with_itself": false
+        },
+        "cargo-bay": {
+            "type": "cargo-bay",
+            "layers": [
+                "is_lower_object",
+                "is_object",
+                "item",
+                "meltable",
+                "object",
+                "player",
+                "water_tile"
+            ],
+            "not_colliding_with_itself": false
+        },
+        "big-electric-pole": {
+            "type": "electric-pole",
+            "layers": [
+                "elevated_rail",
+                "is_lower_object",
+                "is_object",
+                "item",
+                "object",
+                "player",
+                "water_tile"
+            ],
+            "not_colliding_with_itself": false
+        },
+        "oil-refinery": {
+            "type": "assembling-machine",
+            "layers": [
+                "elevated_rail",
+                "is_lower_object",
+                "is_object",
+                "item",
+                "meltable",
+                "object",
+                "player",
+                "water_tile"
+            ],
+            "not_colliding_with_itself": false
+        }
+    },
+    "colliders": [
+        {
+            "name": "agricultural-tower",
+            "type": "agricultural-tower"
+        },
+        {
+            "name": "big-electric-pole",
+            "type": "electric-pole"
+        },
+        {
+            "name": "cargo-landing-pad",
+            "type": "cargo-landing-pad"
+        },
+        {
+            "name": "cargo-pod-container",
+            "type": "temporary-container"
+        },
+        {
+            "name": "dummy-elevated-curved-rail-a",
+            "type": "elevated-curved-rail-a"
+        },
+        {
+            "name": "dummy-elevated-curved-rail-b",
+            "type": "elevated-curved-rail-b"
+        },
+        {
+            "name": "dummy-elevated-half-diagonal-rail",
+            "type": "elevated-half-diagonal-rail"
+        },
+        {
+            "name": "dummy-elevated-straight-rail",
+            "type": "elevated-straight-rail"
+        },
+        {
+            "name": "dummy-rail-ramp",
+            "type": "rail-ramp"
+        },
+        {
+            "name": "elevated-curved-rail-a",
+            "type": "elevated-curved-rail-a"
+        },
+        {
+            "name": "elevated-curved-rail-b",
+            "type": "elevated-curved-rail-b"
+        },
+        {
+            "name": "elevated-half-diagonal-rail",
+            "type": "elevated-half-diagonal-rail"
+        },
+        {
+            "name": "elevated-straight-rail",
+            "type": "elevated-straight-rail"
+        },
+        {
+            "name": "fulgoran-ruin-attractor",
+            "type": "lightning-attractor"
+        },
+        {
+            "name": "lightning-collector",
+            "type": "lightning-attractor"
+        },
+        {
+            "name": "lightning-rod",
+            "type": "lightning-attractor"
+        },
+        {
+            "name": "oil-refinery",
+            "type": "assembling-machine"
+        },
+        {
+            "name": "rail-ramp",
+            "type": "rail-ramp"
+        },
+        {
+            "name": "roboport",
+            "type": "roboport"
+        },
+        {
+            "name": "rocket-silo",
+            "type": "rocket-silo"
+        },
+        {
+            "name": "space-platform-hub",
+            "type": "space-platform-hub"
+        }
+    ],
+    "behaviour": {
+        "bare_elevated_created": true,
+        "bare_elevated_position": {
+            "x": 1,
+            "y": 1
+        },
+        "support_created": true,
+        "support_position": {
+            "x": 20,
+            "y": 0
+        },
+        "elevated_found": true,
+        "elevated_at": {
+            "x": 1,
+            "y": 1
+        },
+        "elevated_direction": 4,
+        "under": [
+            {
+                "name": "wooden-chest",
+                "under_elevated": true,
+                "on_empty_ground": true
+            },
+            {
+                "name": "transport-belt",
+                "under_elevated": true,
+                "on_empty_ground": true
+            },
+            {
+                "name": "straight-rail",
+                "under_elevated": true,
+                "on_empty_ground": true
+            },
+            {
+                "name": "rail-support",
+                "under_elevated": true,
+                "on_empty_ground": true
+            },
+            {
+                "name": "rail-ramp",
+                "under_elevated": false,
+                "on_empty_ground": true
+            },
+            {
+                "name": "roboport",
+                "under_elevated": false,
+                "on_empty_ground": true
+            }
+        ],
+        "ground_chest_created": true,
+        "over": [
+            {
+                "direction": 0,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 2,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 4,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 6,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 8,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 10,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 12,
+                "over_chest": false,
+                "on_empty_ground": false
+            },
+            {
+                "direction": 14,
+                "over_chest": false,
+                "on_empty_ground": false
+            }
+        ]
+    },
+    "errors": []
+}

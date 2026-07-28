@@ -41,6 +41,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-schedule-api.mjs`             | Which schedule API 2.x actually has - written to stop guessing at it (#115)   |
 | `probe-copy-settings-schedule.mjs`   | Whether a settings copy carries a locomotive's schedule (#115)                |
 | `probe-rail-placement.mjs`           | Where a signal and a gate may sit relative to every rail orientation (#95)    |
+| `probe-elevated-rail-collision.mjs`  | What an elevated rail collides with, and what may sit under one (#133)        |
 
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
@@ -109,6 +110,21 @@ model wants the same treatment.
   control had picked while standing in open ground - and got a false negative,
   because that direction was parallel to the rail. Sweeping all sixteen turned
   8-versus-0 into the finding. If a control fails, suspect the question first.
+- **Ask the cheapest question that settles the thing.** `probe-rail-placement.mjs`
+  skipped the elevated rails because placing one needs rail supports and it was
+  asking a placement question. The question underneath was **collision**, and
+  `LuaEntityPrototype.collision_mask` needs nothing placed at all - it is a read
+  off the prototype table, and sweeping the whole table gives the complete set of
+  things a layer collides with rather than a list written in advance. Before
+  building a placement rig, check whether a prototype field answers it.
+- **`create_entity` and `can_place_entity` disagree, and the gap is
+  buildability, not collision.** `create_entity` will build an elevated rail on
+  bare ground with no support beneath it; `can_place_entity` refuses one
+  everywhere for exactly that reason. So the over-a-chest sweep came back 0
+  accepted against a **0 of 8 empty-ground control** and voided its own section,
+  while the entity `create_entity` had made was still standing and let the
+  opposite direction be measured. Report a section its control voids as
+  unmeasured; the zeros are not a finding.
 - **Entities snap, so a requested position is not a measured one.** A rail asked
   for at (-4,-4) lands at (-3,-3) on the 2-tile rail grid, and several accepted
   (position, direction) triples collapse to one real placement. Read offsets off
@@ -122,6 +138,16 @@ the sibling repo, and the reasons are theirs:
 
 - **Never hand-edit a fixture to make a test pass.** A mismatch is a finding.
 - **Version-stamp every capture.** Steam updates the binary without asking.
+
+The version stamp stopped being theoretical with `elevated-rail-collision.json`.
+Cross-checking the 2.1.12 dump against the Lua at the **2.0.73 tag** - the
+version this editor targets - turned up one real difference in twenty-one
+entries: `core/lualib/collision-mask-defaults.lua` has `["cargo-bay"] =
+building_tall()` at 2.0.73, which carries the elevated rail layer, and
+`building()` at 2.1.12, which does not. A fixture that only said "2.1.12" would
+have been correct and still have produced the wrong rule for the targeted
+version, so record the cross-check itself in a `versionDifferences` field rather
+than only the binary it came from.
 
 `fixtures/section-index.json` records what was asked, what came back, the exact
 binary it came from, and - importantly - that the only Factorio on this machine
