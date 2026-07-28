@@ -26,6 +26,60 @@ const processArea = (area: IArea): IArea => ({
     y: Math.round(area.y - area.h / 2),
 })
 
+/*
+    The rail rules below are permissive by policy and measured where they are
+    not - see the note on isAreaAvailable. Both helpers read from
+    tools/oracle/fixtures/rail-placement.json, which swept can_place_entity over
+    position x direction around every orientation of every rail type against
+    Factorio 2.1.12.
+
+    Both answer true for a name they do not recognise. That is deliberate twice
+    over: an unmeasured rail should keep the permissive behaviour rather than
+    inherit a restriction from a measurement that never covered it, and Space
+    Age has form for adding members to an existing entity type, so a switch that
+    defaults to "forbid" would start silently refusing new prototypes.
+*/
+
+/**
+ * Whether a rail already in the area can hold a signal on its own tiles.
+ *
+ * Measured over every orientation: straight-rail (4), half-diagonal-rail (4)
+ * and legacy-curved-rail (8) have **no** legal signal position that overlaps
+ * their tiles - all 16, 16 and 20 legal spots sit outside - so a signal the
+ * editor's grid sees on top of one is a placement the game refuses outright.
+ * curved-rail-a has one per orientation and curved-rail-b two or three, and
+ * nothing on an integer tile grid can say which, so those stay permissive.
+ *
+ * The split does not follow the straight/curved grouping the rest of this
+ * function uses. legacy-straight-rail has one on each of its four **diagonal**
+ * orientations and none on its cardinals, and legacy-curved-rail has none at
+ * all - the opposite of its 2.0 namesakes.
+ */
+const canHoldASignalOnItsTiles = (rail: Entity): boolean => {
+    if (rail.name === 'legacy-straight-rail') return rail.direction % 4 !== 0
+    return !(
+        rail.name === 'straight-rail' ||
+        rail.name === 'half-diagonal-rail' ||
+        rail.name === 'legacy-curved-rail'
+    )
+}
+
+/**
+ * Whether a rail and a gate may share tiles, asked of either one.
+ *
+ * Measured: a 2.0 straight-rail takes a gate only on its **cardinal**
+ * orientations - at directions 2 and 6 the game accepts a gate at none of the
+ * 2704 swept placements, where at 0 and 4 it accepts 128. The same holds for a
+ * rail laid over an existing gate, where only rail directions normalising to 0
+ * and 4 are accepted. legacy-straight-rail carries no such restriction and
+ * takes gates at all six of its orientations.
+ *
+ * half-diagonal-rail takes a gate at none of its four orientations, which is
+ * why the gate rules say nothing about it - see isAreaAvailable.
+ */
+const railTakesGates = (name: string, direction: number): boolean =>
+    name === 'straight-rail' ? direction % 4 === 0 : true
+
 export class PositionGrid {
     private bp: Blueprint
     private grid: Map<string, number | number[]> = new Map()
@@ -207,6 +261,31 @@ export class PositionGrid {
         return spaceAvalible
     }
 
+    /**
+     * Whether an entity may be placed here - true means placeable.
+     *
+     * **The rail rules are permissive on purpose, and the exceptions are
+     * measured** (issue #95). This grid keys integer tiles and Factorio does
+     * not: a curved-rail-a is a 2x6 rectangle here holding a curve, a
+     * half-diagonal-rail a 2x2 square against a collision box spanning roughly
+     * 1.5x4.5, and the four elevated-* rail types are not classified at all -
+     * they fall to `otherEntities` and read as ordinary obstructions. Modelling
+     * the real rules means per-rail collision shapes rather than rectangles,
+     * which is its own piece of work - issue #133.
+     *
+     * So the policy is: accept more than the game does rather than model
+     * geometry this structure cannot hold, **except** where a permissive answer
+     * writes a blueprint the game will not build back. Those cases are refused,
+     * and each one is measured against the real binary in
+     * tools/oracle/fixtures/rail-placement.json rather than reasoned about,
+     * because reasoning got the grouping wrong twice - legacy-straight-rail
+     * behaves like a curved rail here and legacy-curved-rail like a straight
+     * one.
+     *
+     * Known refusals the game would allow, left alone as annoyances rather than
+     * corruptions and tracked in #133: a half-diagonal or curved rail laid over
+     * a gate, and a gate on a curved rail.
+     */
     public isAreaAvailable(name: string, pos: IPoint, direction = 0): boolean {
         const size = getEntitySize(FD.entities[name], direction)
 
@@ -226,8 +305,20 @@ export class PositionGrid {
 
         if (this.isAreaEmpty(area)) return true
 
-        // TODO: see how half-diagonal-rail fits into the picture here:
+        /*
+            half-diagonal-rail is classified but the gate rules below say nothing
+            about it, and that is now the measured answer rather than an
+            omission: the game accepts a gate on a half-diagonal rail's tiles at
+            none of its four orientations, 0 of 2704 swept placements each. The
+            rules were written for the pre-2.0 straight/curved pair and happen to
+            be right here by saying nothing.
 
+            The reverse is not right, and is left alone on purpose: the game does
+            accept a half-diagonal rail laid over a gate, and so do curved rails
+            and legacy-curved-rail, all of which this function refuses. Those are
+            refusals rather than corruptions, and fixing them needs the rail
+            geometry this grid cannot hold - see the note on the function.
+        */
         for (const entity of this.getEntitiesInArea(area)) {
             switch (entity.type) {
                 case 'gate':
@@ -263,6 +354,11 @@ export class PositionGrid {
             rail => rail.direction % 8 === direction % 8
         )
 
+        const aRailCanHoldASignal =
+            (curvedRail !== undefined && canHoldASignalOnItsTiles(curvedRail)) ||
+            straightRails.some(canHoldASignalOnItsTiles) ||
+            halfDiagonalRails.some(canHoldASignalOnItsTiles)
+
         const isGate = name === 'gate'
         const isSignal = name === 'rail-signal' || name === 'rail-chain-signal'
         const isStraightRail = name === 'legacy-straight-rail' || name === 'straight-rail'
@@ -273,6 +369,7 @@ export class PositionGrid {
         if (
             isGate &&
             straightRails.length === 1 &&
+            railTakesGates(straightRails[0].name, straightRails[0].direction) &&
             straightRails[0].direction % 8 !== direction % 8 &&
             !gate
         )
@@ -281,6 +378,7 @@ export class PositionGrid {
         if (
             isStraightRail &&
             gate &&
+            railTakesGates(name, direction) &&
             gate.direction % 8 !== direction % 8 &&
             straightRails.length === 0 &&
             !otherEntities
@@ -305,11 +403,32 @@ export class PositionGrid {
 
         if (isCurvedRail && curvedRail && curvedRail.direction !== direction) return true
 
-        // TODO: remove this when we add better rail support
-        if (isSignal && (straightRails.length > 0 || halfDiagonalRails.length > 0 || curvedRail))
-            return true
+        /*
+            A signal only gets this far when its tile overlaps something, since
+            the isAreaEmpty check above already passed everything else. So this
+            decides exactly one question: may a signal sit on a rail's own tiles.
+            Measured per prototype rather than assumed - see
+            canHoldASignalOnItsTiles.
 
-        // TODO: remove this when we add better rail support
+            Answering false where the game does is what stops the editor writing
+            a blueprint it cannot build. Measured end to end: a signal moved onto
+            a straight-rail imports at code 0 and survives get_blueprint_entities,
+            so nothing rejects the string - but with the rail on the ground the
+            game accepts the signal at that position in none of its 16
+            directions, where the unmutated control accepts it. The entity is
+            lost at build time, silently, which is the one failure mode a
+            permissive editor cannot argue its way out of.
+        */
+        if (isSignal) return aRailCanHoldASignal
+
+        /*
+            The converse stays permissive, deliberately. A signal beside a rail
+            blocks 88 of the 768 neighbouring rail placements the game otherwise
+            accepts, and an integer tile grid cannot tell which 88 - the signal
+            occupies one tile and the answer depends on where along the rail it
+            sits. Refusing all 768 to catch 88 would cost far more than it saves,
+            so the editor accepts more than the game does here and says so.
+        */
         if ((isStraightRail || isHalfDiagonalRail || isCurvedRail) && signal) return true
 
         return false

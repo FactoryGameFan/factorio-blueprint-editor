@@ -40,6 +40,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-filter-count-cap.mjs`         | How many filters a logistic section takes before an import fails (#93)        |
 | `probe-schedule-api.mjs`             | Which schedule API 2.x actually has - written to stop guessing at it (#115)   |
 | `probe-copy-settings-schedule.mjs`   | Whether a settings copy carries a locomotive's schedule (#115)                |
+| `probe-rail-placement.mjs`           | Where a signal and a gate may sit relative to every rail orientation (#95)    |
 
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
@@ -78,6 +79,27 @@ so CI stays offline.
   a merged entry would have looked like a successful copy. The filter-count probe
   learned the same lesson the expensive way, reading 50 as a cap when it was the
   game deduplicating 50 cycled item names.
+- **`can_place_entity` answers a different question per `build_check_type`.**
+  `blueprint_ghost` skips rail adjacency entirely - a rail signal ghost is legal
+  on bare grass hundreds of tiles from any rail, 2704 of 2704 in the #95 probe's
+  empty-ground control, against 0 for `manual`. Use `manual` for "may this be
+  built here"; a probe that accepts either will read as "anything goes anywhere".
+- **Ghosts are not a placement test.** Stamping a blueprint and reviving what it
+  leaves looks like the most faithful way to ask whether the game accepts a
+  layout. It is not: reviving one of two overlapping ghosts destroys the other
+  whether or not the layout is legal, so a legal arrangement loses an entity
+  exactly like an illegal one. #95 built and discarded that whole measurement.
+  Lay the rest of the blueprint for real, then ask `can_place_entity`.
+- **Ask for the whole answer, not the one value you happened to bring.** The same
+  probe then asked whether a gate was placeable at one direction - the one its
+  control had picked while standing in open ground - and got a false negative,
+  because that direction was parallel to the rail. Sweeping all sixteen turned
+  8-versus-0 into the finding. If a control fails, suspect the question first.
+- **Entities snap, so a requested position is not a measured one.** A rail asked
+  for at (-4,-4) lands at (-3,-3) on the 2-tile rail grid, and several accepted
+  (position, direction) triples collapse to one real placement. Read offsets off
+  the created entity, and build each accepted triple to count distinct spots -
+  16 raw acceptances around a straight rail are 4 actual signal positions.
 
 ## Fixture policy
 
