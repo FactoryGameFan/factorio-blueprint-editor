@@ -322,6 +322,33 @@ And what an elevated rail collides with (issue #133 item 4,
   and plain `building()` at 2.1.12, which does not. Every other entry agreed. The
   editor targets 2.0.x, so the code lists it and says why.
 
+And what holds an elevated rail up (issue #141,
+`tools/oracle/fixtures/elevated-rail-support.json`), measured and then **not**
+implemented. The rule is a **load path, not a distance**: a rail is buildable iff
+it rests on a `rail-support` or `rail-ramp` or connects through elevated rails
+_that already exist_ back to one, within `support_range` - 11 on a support, 9 on
+a ramp, and identical at the 2.0.73 and 2.1.12 tags, so it transfers. One spot
+five tiles out, inside range throughout, answered refused/accepted/refused/accepted
+as the rails between it and the support were built, removed and replaced; distance
+cannot explain four answers to one spot. Three reasons it stays unimplemented, and
+the second is the transferable one: the exact rule needs a rail connectivity graph
+(harder than the occupancy work #138 abandoned); the cheap permissive
+approximation **cannot be implemented where the check lives**, because paste
+iterates entities in the source blueprint's order and real exports interleave
+supports after the rails they hold - radius 11 refuses 1005 of 5922 corpus rails,
+and radius _1000_ still refuses 38, so no radius fixes an order dependency (#150);
+and the reachable failure is nearly empty, 0 of 5922 corpus rails lacking a
+support. Two more method notes, both in the probe README. **A probe entity's own
+lattice is part of the question** - a support placed at the rail's own coordinates
+produced profiles byte-identical to no support at all across 16 orientations and
+16 distances, a clean and confident and wrong finding, caught not by more probing
+but by decoding a real export and seeing that a support sits _between_ rails, only
+16 of 64 parity/orientation combinations being functional. And **"how far apart"
+has two answers when the thing is built incrementally**: a hand walk breaks at 14
+tiles, a finished line is legal to 20, and a blueprint is the second - the corpus
+spaces supports at exactly 20, so measuring only the walk would have produced a
+rule refusing every real elevated bridge.
+
 ## Cloudflare Deployment
 
 The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom
