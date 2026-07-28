@@ -44,6 +44,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-elevated-rail-collision.mjs`  | What an elevated rail collides with, and what may sit under one (#133)        |
 | `probe-rail-on-rail.mjs`             | Which rail may be laid across which, over 1444 ordered pairs (#133)           |
 | `probe-rail-occupancy.mjs`           | Which tiles a rail really blocks, and whether one answer serves (#133)        |
+| `probe-rail-signal-spots.mjs`        | Every legal signal position, and whether the #95 window clipped them (#133)   |
 
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
@@ -98,6 +99,16 @@ model wants the same treatment.
   not. That control was a restatement of the hypothesis, so it could only ever
   agree or announce the finding, never invalidate the apparatus. It was replaced
   with "the anchor's own position is never accepted", which is about the rig.
+- **A sweep window is part of the answer too.** `probe-rail-placement.mjs` swept
+  +/-3 tiles, which is ample for a 2x2 rail and not for a 4x8 one:
+  `legacy-curved-rail`'s legal signal positions reach an offset of 3.5, so that
+  fixture lost one or two of the four at every orientation and recorded 2 or 3.
+  Nothing in the output looked wrong - the spots it did find were real. Sweep at
+  **two** window sizes and make "the wider one finds nothing new" an explicit
+  control, which is what `probe-rail-signal-spots.mjs` does; it caught 16 clipped
+  sweeps of 76. Note the rule that had been built on the clipped number survived
+  re-checking, so the cost here was a wrong count rather than wrong behaviour -
+  but that is luck, and it is only knowable by re-measuring.
 - **A probe entity is part of the question, not a neutral instrument.** "Which
   tiles does this rail occupy" sounds like a property of the rail. It is not:
   collision is continuous, so the answer depends on how big the box being asked

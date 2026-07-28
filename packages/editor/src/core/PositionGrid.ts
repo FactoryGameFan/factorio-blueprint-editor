@@ -45,8 +45,17 @@ const processArea = (area: IArea): IArea => ({
  *
  * Measured over every orientation: straight-rail (4), half-diagonal-rail (4)
  * and legacy-curved-rail (8) have **no** legal signal position that overlaps
- * their tiles - all 16, 16 and 20 legal spots sit outside - so a signal the
+ * their tiles - all 16, 16 and 32 legal spots sit outside - so a signal the
  * editor's grid sees on top of one is a placement the game refuses outright.
+ *
+ * That legacy-curved-rail count was **20** when this rule was written, and the
+ * difference is a measurement artefact rather than a change: rail-placement.json
+ * swept a +/-3 tile window and that rail's legal spots reach 3.5, so it lost
+ * between one and two of the four at every orientation. Re-measured at +/-7 in
+ * tools/oracle/fixtures/rail-signal-spots.json, which also re-checks this
+ * function against the complete table - it agrees on all 38 orientations,
+ * because the spots the narrow window missed sit outside the rail's rectangle
+ * too. The conclusion was right; the number it was drawn from was not.
  * curved-rail-a has one per orientation and curved-rail-b two or three, and
  * nothing on an integer tile grid can say which, so those stay permissive.
  *
