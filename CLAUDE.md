@@ -209,14 +209,29 @@ read as a successful copy.
 
 And the rail placement rules behind `isAreaAvailable` (issue #95), which is the
 case where reasoning would have produced the wrong answer twice. A signal has
-exactly **4 legal positions per rail** (5 on `curved-rail-b`), each at one fixed
-direction, and whether any of them lands on the rail's own tiles splits **per
+**4 legal positions per rail**, 5 on `curved-rail-b` and only 2 on a
+`legacy-straight-rail` at a diagonal, each at one fixed direction - 152 across
+the 38 rail orientations, complete table in
+`tools/oracle/fixtures/rail-signal-spots.json`. Whether any of them lands on the rail's own tiles splits **per
 prototype and not by the straight/curved grouping the editor uses**:
 `straight-rail`, `half-diagonal-rail` and `legacy-curved-rail` have none, while
 `curved-rail-a`, `curved-rail-b` and `legacy-straight-rail`-at-a-diagonal do.
 Gates go on a straight rail only at its **cardinal** orientations - 128 accepted
 placements each at directions 0 and 4, zero at 2 and 6 - and on a half-diagonal
 rail at none of its four. See `tools/oracle/fixtures/rail-placement.json`.
+
+**One number in that fixture is incomplete, and the way it was found is the
+lesson.** It swept a **+/-3 tile window**, and `legacy-curved-rail`'s legal
+signal spots reach 3.5, so it lost one or two of the four at every orientation
+and reported 2 or 3. Re-measured at +/-7 (`rail-signal-spots.json`, issue #133
+item 2), which sweeps every orientation at **both** window sizes so that the
+control is "does a wider window find anything the narrower one missed" - it does,
+16 sweeps of 76, all of them `legacy-curved-rail`. The rule built on the clipped
+number, `canHoldASignalOnItsTiles`, was re-checked against the complete table and
+**agrees on all 38 orientations**, because the missing spots sit outside the
+rail's rectangle too. The conclusion was right and the number under it was not,
+which is only knowable by re-measuring. A sweep window is part of the answer,
+the same way a probe entity is.
 
 Four more additions to the method from that probe, all in its README, and the
 last three are the same lesson: **the control tells you the question is wrong,

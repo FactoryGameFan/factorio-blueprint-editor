@@ -1,0 +1,4150 @@
+{
+    "question": "What is the complete set of legal rail signal positions around every rail orientation, and was the +/-3 window in rail-placement.json wide enough to have found all of them?",
+    "issue": 133,
+    "probe": "tools/oracle/probe-rail-signal-spots.mjs",
+    "binary": "Version: 2.1.12 (build 87038, mac-arm64, steam)",
+    "versionCaveat": "Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range.",
+    "measurementCaveats": [
+        "Every orientation is swept twice, at +/-3 and +/-7, and the control is that the wider window finds nothing the narrower one missed. Without it a table built from this would silently be a subset of the legal positions - which is the specific risk that prompted the run, since rail-placement.json reports spots at offsets of 3.5 against a +/-3 window.",
+        "Each acceptance is built and read back, because the signal grid collapses several requested positions onto one real placement. The counts are of distinct placements after that.",
+        "build_check_type is manual throughout. blueprint_ghost skips rail adjacency and answers yes on bare grass."
+    ],
+    "controls": [
+        {
+            "control": "rail-signal has no legal position on empty ground",
+            "holds": true,
+            "got": "0 spots"
+        },
+        {
+            "control": "rail-chain-signal has no legal position on empty ground",
+            "holds": true,
+            "got": "0 spots"
+        },
+        {
+            "control": "a +/-7 window finds nothing a +/-3 window missed",
+            "holds": false,
+            "got": "16 sweeps grew"
+        },
+        {
+            "control": "canHoldASignalOnItsTiles agrees with the complete spot table",
+            "holds": true,
+            "got": "0 disagreements of 38"
+        }
+    ],
+    "clippedByNarrowWindow": [
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 0,
+            "signal": "rail-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["-0.5,-3.5,6"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 0,
+            "signal": "rail-chain-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["-0.5,-3.5,6"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 2,
+            "signal": "rail-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["0.5,-3.5,2"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 2,
+            "signal": "rail-chain-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["0.5,-3.5,2"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 4,
+            "signal": "rail-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,-0.5,4", "-3.5,2.5,12"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 4,
+            "signal": "rail-chain-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,-0.5,4", "-3.5,2.5,12"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 6,
+            "signal": "rail-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,-2.5,4", "-3.5,0.5,12"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 6,
+            "signal": "rail-chain-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,-2.5,4", "-3.5,0.5,12"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 8,
+            "signal": "rail-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-2.5,-3.5,0", "0.5,-3.5,8"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 8,
+            "signal": "rail-chain-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-2.5,-3.5,0", "0.5,-3.5,8"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 10,
+            "signal": "rail-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-0.5,-3.5,0", "2.5,-3.5,8"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 10,
+            "signal": "rail-chain-signal",
+            "narrow": 2,
+            "wide": 4,
+            "missedByNarrowWindow": ["-0.5,-3.5,0", "2.5,-3.5,8"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 12,
+            "signal": "rail-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,0.5,2"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 12,
+            "signal": "rail-chain-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,0.5,2"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 14,
+            "signal": "rail-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,-0.5,14"]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 14,
+            "signal": "rail-chain-signal",
+            "narrow": 3,
+            "wide": 4,
+            "missedByNarrowWindow": ["-3.5,-0.5,14"]
+        }
+    ],
+    "rows": [
+        {
+            "rail": "straight-rail",
+            "direction": 0,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "straight-rail",
+            "direction": 2,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "straight-rail",
+            "direction": 4,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "straight-rail",
+            "direction": 6,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "half-diagonal-rail",
+            "direction": 0,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "half-diagonal-rail",
+            "direction": 2,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "half-diagonal-rail",
+            "direction": 4,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "half-diagonal-rail",
+            "direction": 6,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 0,
+            "position": {
+                "x": -3,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 15
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 15
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 2,
+            "position": {
+                "x": -3,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 9
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 9
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 9
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 9
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 4,
+            "position": {
+                "x": -4,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 6,
+            "position": {
+                "x": -4,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 8,
+            "position": {
+                "x": -3,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 15
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 15
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 10,
+            "position": {
+                "x": -3,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 9
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 9
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 9
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 9
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 12,
+            "position": {
+                "x": -4,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-a",
+            "direction": 14,
+            "position": {
+                "x": -4,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 0,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 15
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 2,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 4,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 11
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 6,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 8,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 15
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 15
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 2.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 7
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 15
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 15
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 10,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 1
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 9
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 12,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 3
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 11
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "curved-rail-b",
+            "direction": 14,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 5,
+                    "wide_count": 5,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 5
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 13
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-straight-rail",
+            "direction": 0,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 0.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": -0.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 0.5,
+                            "dir": 8
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-straight-rail",
+            "direction": 2,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 0.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-straight-rail",
+            "direction": 4,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 4,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -1.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 1.5,
+                            "dir": 12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-straight-rail",
+            "direction": 6,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 1.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-straight-rail",
+            "direction": 10,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 0.5,
+                            "dy": -0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 1.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-straight-rail",
+            "direction": 14,
+            "position": {
+                "x": -3,
+                "y": -3
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 2,
+                    "narrow": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -1.5,
+                            "dy": -1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 0.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 0,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -1.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -3.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -1.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -1.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": -3.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": -1.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 2,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -1.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -3.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -1.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -1.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": 3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -3.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -1.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 4,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": -0.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": 2.5,
+                            "dir": 12
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 1.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 1.5,
+                            "dy": -2.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": -0.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": 2.5,
+                            "dir": 12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 6,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -3.5,
+                            "dy": -2.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": 0.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -3.5,
+                            "dy": -2.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": 0.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": 1.5,
+                            "dy": 2.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 8,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 2.5,
+                            "dy": 1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": -3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 2.5,
+                            "dy": 1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 14
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -2.5,
+                            "dy": -3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": 1.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": -3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": 0.5,
+                            "dy": 3.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 10,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": 1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 10
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 2,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": -2.5,
+                            "dy": 1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 10
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -0.5,
+                            "dy": -3.5,
+                            "dir": 0
+                        },
+                        {
+                            "dx": -2.5,
+                            "dy": 1.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 2.5,
+                            "dy": -3.5,
+                            "dir": 8
+                        },
+                        {
+                            "dx": -0.5,
+                            "dy": 3.5,
+                            "dir": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 12,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 3.5,
+                            "dy": -2.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -3.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": -2.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 12
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 3.5,
+                            "dy": -2.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": -3.5,
+                            "dy": 0.5,
+                            "dir": 2
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": -2.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": 2.5,
+                            "dir": 10
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 0.5,
+                            "dir": 12
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "rail": "legacy-curved-rail",
+            "direction": 14,
+            "position": {
+                "x": -4,
+                "y": -4
+            },
+            "signals": [
+                {
+                    "signal": "rail-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 2.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 2.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        }
+                    ]
+                },
+                {
+                    "signal": "rail-chain-signal",
+                    "narrow_count": 3,
+                    "wide_count": 4,
+                    "narrow": [
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 2.5,
+                            "dir": 12
+                        }
+                    ],
+                    "wide": [
+                        {
+                            "dx": 3.5,
+                            "dy": -0.5,
+                            "dir": 4
+                        },
+                        {
+                            "dx": -1.5,
+                            "dy": -2.5,
+                            "dir": 6
+                        },
+                        {
+                            "dx": 3.5,
+                            "dy": 2.5,
+                            "dir": 12
+                        },
+                        {
+                            "dx": -3.5,
+                            "dy": -0.5,
+                            "dir": 14
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
