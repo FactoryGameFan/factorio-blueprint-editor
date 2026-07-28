@@ -43,6 +43,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-rail-placement.mjs`           | Where a signal and a gate may sit relative to every rail orientation (#95)    |
 | `probe-elevated-rail-collision.mjs`  | What an elevated rail collides with, and what may sit under one (#133)        |
 | `probe-rail-on-rail.mjs`             | Which rail may be laid across which, over 1444 ordered pairs (#133)           |
+| `probe-rail-occupancy.mjs`           | Which tiles a rail really blocks, and whether one answer serves (#133)        |
 
 ```sh
 node tools/oracle/probe-section-index-cases.mjs
@@ -97,6 +98,15 @@ model wants the same treatment.
   not. That control was a restatement of the hypothesis, so it could only ever
   agree or announce the finding, never invalidate the apparatus. It was replaced
   with "the anchor's own position is never accepted", which is about the rig.
+- **A probe entity is part of the question, not a neutral instrument.** "Which
+  tiles does this rail occupy" sounds like a property of the rail. It is not:
+  collision is continuous, so the answer depends on how big the box being asked
+  about is. Measured with four 1x1 references, a `small-electric-pole` (0.3 x
+  0.3) fits on cells a `wooden-chest` (0.7 x 0.7) is refused on, and a
+  `transport-belt` (0.8 x 0.8) is refused on cells the chest is not - 28 and 24
+  of 38 rail orientations respectively. Sweep more than one reference before
+  concluding anything of the form "X occupies Y", and if they disagree, that is
+  the finding.
 - **Check a proposed rule against the rows before writing any code.** The same
   probe carries two transcriptions of the editor's arms, before and after, and
   reports what each would get wrong across every measured row. The first draft
