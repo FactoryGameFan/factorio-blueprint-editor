@@ -285,6 +285,7 @@ const testApi = {
         difference is the whole of issue #53.
     */
     paintContainerVisible: () => editor.paintContainerVisible,
+    viewportRenderedInSync: () => editor.viewportRenderedInSync,
     paintContainerState: () => editor.paintContainerState,
     entityPosition: (entityNumber: number) => editor.entityPosition(entityNumber),
     /*

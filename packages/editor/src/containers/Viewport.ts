@@ -116,7 +116,27 @@ export class Viewport {
         return false
     }
 
+    /**
+     * The current transform, rebuilt first if a change is still pending.
+     *
+     * Every mutator here sets `dirty` and leaves the matrix alone, so between a
+     * `centerViewPort`/`zoomBy`/`setPosition` and the next render frame this
+     * used to answer the matrix from *before* that change (issue #144).
+     * Rendering never noticed, because the only place the container's own
+     * position and scale are written is inside `update()`'s branch - but
+     * `BlueprintContainer.toScreen` reads this, and that is how every spec finds
+     * an entity to point at. Measured, an entity of a just-loaded blueprint
+     * reported (-80, -16), off the canvas, until a frame ran.
+     *
+     * Deliberately does **not** clear `dirty`. `update()`'s return value gates
+     * `gridData.recalculate()` and the container's position/scale write, so
+     * clearing it here would skip that work and turn a stale read into a stale
+     * *render*. `_updateMatrix` resets `scaleX`/`scaleY` to 1 as it goes, which
+     * makes a second call append an identity and land on the same matrix, so the
+     * ticker recomputing it is free rather than wrong.
+     */
     public getTransform(): Matrix {
+        if (this.dirty) this._updateMatrix()
         return this.transform
     }
 

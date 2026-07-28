@@ -569,6 +569,28 @@ export class BlueprintContainer extends Container {
         return this.viewport.getCurrentScale()
     }
 
+    /**
+     * Whether what is drawn matches the viewport that decides where things are.
+     *
+     * These two can only ever disagree for the moment between a viewport change
+     * and the next render frame, because `update()` writes this container's
+     * position and scale and does so **only when it was dirty**. That gate is
+     * the reason `Viewport.getTransform` rebuilds the matrix without clearing
+     * the flag (issue #144): clearing it there answers a fresh transform to the
+     * caller and then skips this write, so the model is centred and the pixels
+     * are not.
+     *
+     * Exists because nothing else can see that. `toScreen` and `toWorld` both
+     * read the transform, so they would agree with each other and with every
+     * hover while the blueprint was drawn somewhere else entirely - only a
+     * screenshot would show it. Used by
+     * `tests/viewport-transform-freshness.spec.ts`.
+     */
+    public get viewportRenderedInSync(): boolean {
+        const t = this.viewport.getTransform()
+        return this.x === t.tx && this.y === t.ty && this.scale.x === t.a && this.scale.y === t.d
+    }
+
     /** screen to world */
     public toWorld(x: number, y: number): [number, number] {
         const t = this.viewport.getTransform()
