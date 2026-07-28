@@ -58,11 +58,22 @@ const distanceSquared = (ax: number, ay: number, bx: number, by: number): number
 
 /**
  * How far from the cursor a legal placement may be and still be snapped to, in
- * tiles. A feel decision rather than a measured one - far enough to catch the
- * rail being aimed at, near enough that a signal placed in open ground is not
- * yanked across the screen.
+ * tiles.
+ *
+ * This number **is** the worst-case distance between the pointer and the signal,
+ * since it is measured cursor-to-spot - a snap radius and a yank radius are the
+ * same quantity seen from either end. It was 4, which measured in a browser as
+ * the signal sitting up to 3.8 tiles from the pointer on a straight rail and 4.0
+ * on a curve, roughly 390px at the editor's 96px-per-tile: far enough that it
+ * reads as the signal being stuck rather than as help.
+ *
+ * 2.5 is bounded below by measurement rather than chosen freely. To snap while
+ * the pointer is over a rail's own centre it has to exceed that rail's nearest
+ * spot: 1.58 tiles for a `straight-rail`, 2.12 for a `curved-rail-a`. Below 2.12
+ * a curve stops responding until the pointer is out near its legal spots, which
+ * is the opposite of the problem being fixed.
  */
-export const SNAP_MAX_DISTANCE = 4
+export const SNAP_MAX_DISTANCE = 2.5
 
 /** The furthest a spot sits from its rail's position on either axis */
 const maxAxisReach = (): number => {

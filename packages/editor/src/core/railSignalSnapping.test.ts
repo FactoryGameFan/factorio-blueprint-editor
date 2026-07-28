@@ -50,6 +50,36 @@ describe('the generated table', () => {
         expect({ spots, orientations }).toEqual({ spots: 152, orientations: 38 })
     })
 
+    it("orders every rail's spots around a ring, which is what R steps through", () => {
+        /*
+            The generator sorts by angle around the rail's position so a press of
+            R moves to a spatially adjacent spot. It used to sort by dir then dx
+            then dy, which grouped the two left-hand spots of a straight rail
+            together and made a step from (1.5, 0.5) land on the *diagonal*
+            opposite - measured in a browser, where it reads as teleporting.
+
+            Asserted as the invariant rather than as a pinned list, since a
+            recapture can legitimately add spots. Angles must not decrease.
+        */
+        for (const [rail, byDirection] of Object.entries(RAIL_SIGNAL_SPOTS)) {
+            for (const [dir, spots] of Object.entries(byDirection)) {
+                const angles = spots.map(s => Math.atan2(s.dy, s.dx))
+                const sorted = [...angles].sort((a, b) => a - b)
+                expect(angles, `${rail} at ${dir} is not in ring order`).toEqual(sorted)
+            }
+        }
+    })
+
+    it("walks a straight rail's rectangle rather than crossing it diagonally", () => {
+        // The concrete case the ring order exists for
+        expect(RAIL_SIGNAL_SPOTS['straight-rail'][0]).toEqual([
+            { dx: -1.5, dy: -0.5, dir: 0 },
+            { dx: 1.5, dy: -0.5, dir: 8 },
+            { dx: 1.5, dy: 0.5, dir: 8 },
+            { dx: -1.5, dy: 0.5, dir: 0 },
+        ])
+    })
+
     it('gives every spot exactly one direction, and no elevated rail any', () => {
         for (const [rail, byDirection] of Object.entries(RAIL_SIGNAL_SPOTS)) {
             expect(rail.startsWith('elevated-')).toBe(false)
@@ -122,6 +152,18 @@ describe('snapRailSignal', () => {
         const far = { x: 3.4, y: 0.5 }
         expect(snapRailSignal(far, [rail], 0, 4)).toBeDefined()
         expect(snapRailSignal(far, [rail], 0, 1)).toBeUndefined()
+    })
+
+    it('still snaps while the pointer is over a rail, which bounds the default below', () => {
+        /*
+            SNAP_MAX_DISTANCE is the worst-case gap between pointer and signal,
+            so it wants to be small - but not so small that pointing at a rail
+            stops snapping. These are the two measured floors it has to clear.
+            A curve is the binding one at 2.12 tiles.
+        */
+        expect(snapRailSignal({ x: 0, y: 0 }, [railAt('straight-rail', 0, 0, 0)])).toBeDefined()
+        expect(snapRailSignal({ x: 0, y: 0 }, [railAt('curved-rail-a', 0, 0, 0)])).toBeDefined()
+        expect(SNAP_MAX_DISTANCE).toBeLessThan(4) // the value that measured as a yank
     })
 
     it('ignores rails it has no table for, rather than guessing', () => {

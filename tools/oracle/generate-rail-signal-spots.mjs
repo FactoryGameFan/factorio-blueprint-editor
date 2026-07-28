@@ -60,9 +60,31 @@ for (const row of rows) {
     const sig = vals(row.signals).find(s => s.signal === 'rail-signal')
     const spots = vals(sig.wide)
         .map(s => ({ dx: s.dx, dy: s.dy, dir: s.dir }))
-        // Stable order so a regeneration produces no spurious diff, and so the
-        // rotation cycle below is deterministic rather than dump-order.
-        .sort((p, q) => p.dir - q.dir || p.dx - q.dx || p.dy - q.dy)
+        /*
+            Ordered by angle around the rail's own position, which is what the
+            R key steps through - so a press moves to a spatially adjacent spot
+            rather than across the track.
+
+            It used to sort by dir, then dx, then dy, which is stable but not
+            spatial: on a straight rail that groups the two left-hand spots
+            together and then the two right-hand ones, so stepping from
+            (1.5, 0.5) landed on (-1.5, -0.5) - the *diagonal* opposite, the one
+            corner a user pointing at a rail is least likely to have meant.
+            Measured in a browser rather than reasoned about; it reads as the
+            signal teleporting.
+
+            Ring order makes each step a neighbour: along the track, then across
+            it, then back. Ties broken on radius and then the raw fields so a
+            regeneration still produces no spurious diff.
+        */
+        .sort(
+            (p, q) =>
+                Math.atan2(p.dy, p.dx) - Math.atan2(q.dy, q.dx) ||
+                Math.hypot(p.dx, p.dy) - Math.hypot(q.dx, q.dy) ||
+                p.dx - q.dx ||
+                p.dy - q.dy ||
+                p.dir - q.dir
+        )
     if (!byRail.has(row.rail)) byRail.set(row.rail, new Map())
     byRail.get(row.rail).set(row.direction, spots)
     total += spots.length
