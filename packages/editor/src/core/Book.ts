@@ -2,7 +2,13 @@ import { IBlueprint, IBlueprintBook, IBlueprintBookEntry, IIcon } from '../types
 import { Blueprint, getFactorioVersion } from './Blueprint'
 
 class Book {
-    private _active: Blueprint
+    /*
+        The blueprint currently open, absent until selectBlueprint has opened one.
+        A freshly constructed Book has none, which is why saveActiveBlueprint
+        below is written as `if (this._active)` and answers 0 without it - the
+        guard predates the type saying so.
+    */
+    private _active: Blueprint | undefined
     private _activeIndex: number
     private readonly blueprints: IBlueprintBookEntry[]
 

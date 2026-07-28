@@ -84,7 +84,7 @@ export class Filters extends Container<Slot<number>> {
         what makes this IFilterSlot[] rather than IFilter[]. Entity's setter is
         built for exactly this and strips the nameless entries on the way in.
     */
-    private m_Filters: IFilterSlot[]
+    private m_Filters: IFilterSlot[] = []
 
     /**
      * Slots to a row. Six is what every filter dialog used to draw, and is still
@@ -177,25 +177,33 @@ export class Filters extends Container<Slot<number>> {
             past the grid, and an entry with nowhere to draw is better than one
             the array does not have at all.
         */
+        /*
+            The `if (slots > 0)` this replaces left m_Filters unassigned entirely
+            for an entity with no filter slots, and the constructor reads
+            `this.m_Filters.length` on the next line - so that case threw on
+            undefined rather than drawing an empty grid. Building the array
+            unconditionally answers it: `Array.from({ length: 0 })` is `[]`, both
+            loops below then do nothing, and the constructor's own loop does not
+            run either. Identical for every slots > 0, which is every entity that
+            reaches this dialog today.
+        */
         const slots = Math.max(this.m_SlotCount, this.m_Entity.filterSlots)
-        if (slots > 0) {
-            this.m_Filters = Array.from<IFilterSlot>({ length: slots })
-            const filters = this.m_Entity.filters
-            if (filters !== undefined) {
-                for (const item of filters) {
-                    this.m_Filters[item.index - 1] = {
-                        index: item.index,
-                        name: item.name,
-                        count: item.count,
-                    }
+        this.m_Filters = Array.from<IFilterSlot>({ length: slots })
+        const filters = this.m_Entity.filters
+        if (filters !== undefined) {
+            for (const item of filters) {
+                this.m_Filters[item.index - 1] = {
+                    index: item.index,
+                    name: item.name,
+                    count: item.count,
                 }
             }
-            for (let slotIndex = 0; slotIndex < slots; slotIndex++) {
-                this.m_Filters[slotIndex] =
-                    this.m_Filters[slotIndex] === undefined
-                        ? { index: slotIndex + 1, name: undefined }
-                        : this.m_Filters[slotIndex]
-            }
+        }
+        for (let slotIndex = 0; slotIndex < slots; slotIndex++) {
+            this.m_Filters[slotIndex] =
+                this.m_Filters[slotIndex] === undefined
+                    ? { index: slotIndex + 1, name: undefined }
+                    : this.m_Filters[slotIndex]
         }
     }
 
