@@ -45,6 +45,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-rail-on-rail.mjs`             | Which rail may be laid across which, over 1444 ordered pairs (#133)           |
 | `probe-rail-occupancy.mjs`           | Which tiles a rail really blocks, and whether one answer serves (#133)        |
 | `probe-rail-signal-spots.mjs`        | Every legal signal position, and whether the #95 window clipped them (#133)   |
+| `probe-elevated-rail-support.mjs`    | What holds an elevated rail up, and whether a tile grid can express it (#141) |
 
 One script here is not a probe and asks the game nothing:
 
@@ -176,11 +177,49 @@ model wants the same treatment.
   while the entity `create_entity` had made was still standing and let the
   opposite direction be measured. Report a section its control voids as
   unmeasured; the zeros are not a finding.
+- **A probe entity's own lattice is part of the question.** The #141 probe put a
+  `rail-support` at the coordinates of the rail it was meant to hold, because
+  both are `build_grid_size = 2` and it looked like one lattice. It is not: a
+  north-south line of `elevated-straight-rail` sits on odd y and its supports on
+  **even** y, between two rails, and which parity is legal depends on the
+  support's orientation. A support on the wrong parity is created happily by
+  `create_entity`, stands there, and holds nothing - so every profile came back
+  byte-identical to having no support at all, across all 16 orientations and 16
+  distances. That reads as "supports do not participate in buildability", which
+  is a clean, confident, wrong finding. Sweeping both parities of both axes cost
+  four lines. What caught it was not the probe: it was decoding a real export
+  from the corpus and looking at where the game had actually put the supports.
+  **When a probe says an entity does nothing, check a real example of it doing
+  something before believing the probe.**
+- **"How far apart" has two answers when the thing is built incrementally.** The
+  same probe measured the maximum spacing between two rail supports twice. A
+  hand walk outward from one support stops at **12** tiles, because each rail
+  has to be legal at the moment it is placed and the walk only ever approaches
+  from one side. A **finished** line - build it all, then knock out one rail and
+  ask whether it may be rebuilt - is legal to **20**, because the far half of
+  the span is reachable from the other support. A blueprint is a finished
+  configuration, so 20 is the number that describes real exports, and the corpus
+  confirms it: every export spaces its supports exactly 20 apart. Measuring only
+  the walk would have produced a rule that refuses every real elevated bridge.
 - **Entities snap, so a requested position is not a measured one.** A rail asked
   for at (-4,-4) lands at (-3,-3) on the 2-tile rail grid, and several accepted
   (position, direction) triples collapse to one real placement. Read offsets off
   the created entity, and build each accepted triple to count distinct spots -
   16 raw acceptances around a straight rail are 4 actual signal positions.
+
+And what holds an elevated rail up (issue #141,
+`fixtures/elevated-rail-support.json`), where the prototype answered half the
+question for free and the measured half turned out not to be a geometry at all.
+`RailSupportPrototype::support_range` is **11** and `RailRampPrototype::support_range`
+is **9**, unchanged between the 2.0.73 and 2.1.12 tags - but the docs give no
+units and no shape, and the rule that consumes the number is a **load path**
+rather than a radius. One spot five tiles from one support, asked four times
+with only the rails between them changing, answers refused / accepted / refused
+/ accepted. A lone support permits exactly the rails resting on it - two
+`elevated-straight-rail` at +/-1 tile and four `elevated-curved-rail-a` at +/-2 -
+and everything beyond that has to be reached through rails that already exist.
+So the editor's question, "may this rail go here", cannot be answered from the
+tiles under it or from any neighbourhood of them.
 
 ## Fixture policy
 
