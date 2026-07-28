@@ -6,11 +6,16 @@ import { suppressOverlays } from './helpers/overlays'
     Toasts swallowing clicks meant for the canvas - issue #119.
 
     `.toasts-container` is `position: fixed; bottom: 0; right: 0; width: 320px;
-    z-index: 20`, so a toast sits on top of the editor, and loading a blueprint
-    raises one that lives five seconds. A click in that column goes to the toast
-    `div`, pixi never sees a `pointerdown`, and the action behind it never runs.
-    Measured, the lost click's target was `DIV#toast-3.toasts-toast` rather than
-    `CANVAS#editor`.
+    z-index: 20`, so a toast sits on top of the editor. A click in that column
+    goes to the toast `div`, pixi never sees a `pointerdown`, and the action
+    behind it never runs. Measured, the lost click's target was
+    `DIV#toast-3.toasts-toast` rather than `CANVAS#editor`.
+
+    Loading raises **three** toasts, not one, and they expire at different times:
+    a `success` on 5s, an `info` on 10s, and - a second later, prepended above
+    both - the welcome toast on 30s. That detail is not trivia; assuming a single
+    five-second toast is what made these two tests race a timer, see
+    `settledTopToast` and the note in the second test.
 
     That is what made nine pointer-driven specs intermittent, at roughly one full
     suite run in three. It presents as a paste that wrote nothing - the value is
@@ -53,33 +58,53 @@ async function load(page: Page): Promise<void> {
 }
 
 /**
- * The centre of the topmost toast, once it has stopped moving.
+ * The topmost toast: its id, and its centre, once the stack has stopped moving.
  *
- * The wait is not optional. A toast animates in - the same toast was measured at
- * x=1280, then 960, then 986 on the way - and that animation is the coin flip the
- * whole issue turned on. A test that read its box mid-slide would be measuring
- * the flake rather than the fix.
+ * Two separate races here, both measured, and the **id** is what makes the tests
+ * that use it deterministic.
+ *
+ * A toast animates in - the same toast was measured at x=1280, then 960, then
+ * 986 on the way - and that animation is the coin flip the whole issue turned
+ * on. A test that read its box mid-slide would be measuring the flake rather
+ * than the fix.
+ *
+ * And the stack itself changes. Loading raises three toasts: a `success` and an
+ * `info` on 5s and 10s, then the **welcome** toast a further second later, on a
+ * 30s timeout, prepended so that it becomes the new topmost. So `.first()` is
+ * not one element - a Playwright locator re-resolves on every call, and a poll
+ * built on it can compare the box of one toast against the box of another and
+ * settle on a centre that belongs to neither. Hence settling on identity **and**
+ * geometry together, and returning the id so the caller can hold on to the
+ * element it actually measured.
  */
-async function settledToastCentre(page: Page): Promise<{ x: number; y: number }> {
-    const toast = page.locator('.toasts-toast').first()
-    await toast.waitFor({ state: 'attached', timeout: 15_000 })
+async function settledTopToast(page: Page): Promise<{ id: string; x: number; y: number }> {
+    await page.locator('.toasts-toast').first().waitFor({ state: 'attached', timeout: 15_000 })
 
     let previous = ''
+    let id = ''
     await expect
         .poll(
             async () => {
-                const now = JSON.stringify(await toast.boundingBox())
-                const settled = now !== 'null' && now === previous
+                const top = await page.evaluate(() => {
+                    const el = document.querySelector('.toasts-toast')
+                    if (!el) return null
+                    const r = el.getBoundingClientRect()
+                    return { id: el.id, box: `${r.x},${r.y},${r.width},${r.height}` }
+                })
+                if (top === null) return false
+                const now = `${top.id}@${top.box}`
+                const settled = now === previous
                 previous = now
+                id = top.id
                 return settled
             },
-            { timeout: 15_000, intervals: [150] }
+            { timeout: 20_000, intervals: [150] }
         )
         .toBe(true)
 
-    const box = await toast.boundingBox()
+    const box = await page.locator(`#${id}`).boundingBox()
     if (!box) throw new Error('the toast vanished between settling and measuring')
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    return { id, x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
 /** What the browser says is on top at a point - the toast, or the canvas. */
@@ -92,7 +117,9 @@ const elementAt = (page: Page, at: { x: number; y: number }): Promise<string> =>
         [at.x, at.y] as [number, number]
     )
 
-const toastCount = (page: Page): Promise<number> => page.locator('.toasts-toast').count()
+/** Whether that one toast is still in the document. */
+const stillThere = (page: Page, id: string): Promise<boolean> =>
+    page.evaluate((k: string) => document.getElementById(k) !== null, id)
 
 test('a toast takes a click that was meant for the canvas', async ({ page }) => {
     /*
@@ -102,35 +129,56 @@ test('a toast takes a click that was meant for the canvas', async ({ page }) => 
         it checks would be guarding nothing.
     */
     await load(page)
-    const at = await settledToastCentre(page)
+    const at = await settledTopToast(page)
 
     expect(await elementAt(page, at)).toContain('toasts-toast')
 
-    // And it is not merely on top - it consumes the click. A toast that receives
-    // one dismisses itself, so the count dropping is proof it was delivered there.
-    const before = await toastCount(page)
+    /*
+        And it is not merely on top - it consumes the click. A toast that
+        receives one dismisses itself, so **that** toast going away is proof the
+        click was delivered there.
+
+        Keyed to its id rather than to the number of toasts on screen. Counting
+        made this control able to pass without the click doing anything: three
+        toasts are raised and the `success` one expires on its own five seconds
+        in, so "the count went down" was satisfied by a timer. The one measured
+        here is the welcome toast, which lives thirty seconds, so it cannot
+        disappear inside this window for any reason but the click.
+    */
     await page.mouse.click(at.x, at.y)
-    await expect.poll(() => toastCount(page), { timeout: 5000 }).toBeLessThan(before)
+    await expect.poll(() => stillThere(page, at.id), { timeout: 5000 }).toBe(false)
 })
 
 test('with toasts suppressed the same click reaches the canvas instead', async ({ page }) => {
     await suppressOverlays(page)
     await load(page)
-    const at = await settledToastCentre(page)
+    const at = await settledTopToast(page)
 
     // Still drawn - the suppression takes the pointer away, not the notification.
-    expect(await toastCount(page), 'the toast should still be rendered').toBeGreaterThan(0)
+    expect(await stillThere(page, at.id), 'the toast should still be rendered').toBe(true)
     expect(await elementAt(page, at)).toContain('CANVAS')
 
     /*
-        And the click goes past it. The toast surviving is the observable half:
-        under the control above the very same click dismissed one.
+        And the click goes past it. That toast surviving is the observable half:
+        under the control above the very same click dismissed it.
 
-        Checked over a window shorter than the five-second auto-dismiss, so a
-        toast that goes away here went away because it was clicked.
+        Keyed to the id, and this is the half that was **intermittently failing**
+        - roughly one full suite run in six. It used to compare the total number
+        of toasts before and after, over a window it described as "shorter than
+        the five-second auto-dismiss". Two things wrong with that. The window is
+        not anchored at the load: everything the settle poll spends comes out of
+        the same budget, and under a long suite run it can spend seconds. And the
+        count includes toasts this test never touches - the `success` one expires
+        five seconds in and takes the count down with it, which fails the
+        assertion for a reason that has nothing to do with the click. Measured on
+        the timeline: three toasts up at +1.3s, down to two at +6.0s, untouched.
+
+        Asking about the one toast that was clicked removes both problems - it
+        lives thirty seconds, and no other toast's timer can speak for it.
     */
-    const before = await toastCount(page)
     await page.mouse.click(at.x, at.y)
     await page.waitForTimeout(1500)
-    expect(await toastCount(page), 'the toast received a click it should not have').toBe(before)
+    expect(await stillThere(page, at.id), 'the toast received a click it should not have').toBe(
+        true
+    )
 })
