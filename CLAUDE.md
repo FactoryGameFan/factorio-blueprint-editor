@@ -426,8 +426,91 @@ cd packages/worker && npx wrangler login
 
 ## Version Constraints
 
-- **basisu v1.16.4** encoder/transcoder must match - bundled transcoder at `packages/editor/src/basis/transcoder.1.16.4.js`
-- **Current basisu binary** is macOS ARM64 (`packages/exporter/basisu`) - needs cross-platform support (see TODO in exporter)
+The four things a dependency audit needs before it can say anything useful, and
+the reason a bare `npm outdated` here is misleading. Everything below was
+measured on 2026-07-29; re-derive rather than trust, since the circumstance that
+justifies a hold expires without anyone editing this file.
+
+### Held on purpose
+
+- **`typed-factorio` stays on 3.x.** Not neglect - upstream publishes a
+  **dedicated `factorio-2.0` dist-tag** pointing at exactly the version this
+  project runs: `npm view typed-factorio dist-tags` gives
+  `{latest: 4.2.0, factorio-2.0: 3.36.0}`. The mapping is in package metadata
+  (`npm view typed-factorio@<v> factorioVersion`): **3.36.0 describes Factorio
+  2.0.75, 4.2.0 describes 2.1.9**. The 3.x line is also the more recently
+  published of the two. Issue #155 targets 2.0.77, which keeps this on the 3.x
+  side - if it lands, look for a 3.37.x tracking 2.0.77, **not** v4. Note it is
+  consumed as ambient types via the tsconfig `types` array, with zero `import`
+  sites, so a major would change global types everywhere at once with nothing to
+  stage the migration through.
+- **basisu v1.16.4** encoder/transcoder must match - bundled transcoder at
+  `packages/editor/src/basis/transcoder.1.16.4.js`. Newer basisu (v2.10 exists)
+  brings HDR and ASTC codecs this project has no use for, and a bump re-encodes
+  all 8776 tracked `.basis` files. Blocked behind #155's unanswered question of
+  whether basisu encoding is deterministic - that decides whether the diff is
+  reviewable at all.
+- **Current basisu binary** is macOS ARM64 (`packages/exporter/basisu`);
+  `setup.rs:501` hardcodes `"./basisu"` with no `cfg(target_os)` switch, and
+  there is **no Linux binary at all** since `354ad057`, so the exporter cannot
+  encode sprites on `ubuntu-latest`.
+- **`.npmrc` sets `legacy-peer-deps=true`** and it is load-bearing, not laziness:
+  `typed-factorio` declares non-optional peers on `lua-types` and
+  `typescript-to-lua`, and `typescript-to-lua` pins `typescript: "6.0.2"`
+  **exactly** against this project's 7.0.2. v4 declares the same peers, so
+  upgrading would not fix it. It silences every peer conflict in the tree,
+  including future real ones - re-test at each `typed-factorio` bump.
+
+### Coupled - these move together or not at all
+
+- **`vite-plus` 0.2.6 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
+  and Vitest are **not independently upgradable** - there is no `vite` package in
+  the tree at all, the root `overrides` aliases it
+  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"`). So "bump vitest" has no
+  answer except "bump vite-plus". **0.2.6 is `latest`, not a lagging pin.**
+- The pin appears in **five** places that must move as one: root, editor and
+  website `package.json`; the root `overrides`; and
+  `.github/actions/setup-vp/action.yml`, which carries both `VP_VERSION`, a cache
+  key, **and a sha256 of the installer script** - the part people forget.
+- **`@playwright/test`** needs `npx playwright install` in the same commit as any
+  bump, or every spec fails on a missing `chrome-headless-shell` and reads as a
+  suite-wide regression.
+
+### How updates actually get applied
+
+npm workspaces. `npm update --save` for the routine pass (`d0971109`), carets
+preferred over exact pins (`a5a20c04`). Anything proposed has to be expressible
+that way. **The gate is `vp check` + `vp test` + `npx playwright test`**, and the
+Playwright half needs both dev servers up via `npm run localpreview`.
+
+Dependabot is configured for **npm and github-actions only**
+(`.github/dependabot.yml`) - there is **no `cargo` entry**, so the Rust exporter
+gets security alerts but no version updates, and it has drifted accordingly.
+
+### Settled - do not re-raise without new information
+
+- **`pathfinding` (last published 2016) stays.** Its output is pinned by
+  `generators.test.ts` against a committed fixture, so swapping it is a "did the
+  oil outpost generator change?" question rather than a dependency change. No
+  CVE, no network or parsing surface - the risk is bus-factor. If it ever moves,
+  vendor the BFS and prove it against the existing fixture.
+- **`npm audit` is 0.** Measured, not assumed.
+
+### Known and unfixed
+
+- `packages/worker/wrangler.jsonc` `compatibility_date` is **2026-03-01**, five
+  months stale. Every flag that has defaulted on since is inert for a worker that
+  only does a 301 and a CORS proxy, so this is hygiene rather than risk.
+- Three declared-but-unused dependencies: `@types/delaunator` (delaunator ships
+  its own `index.d.ts`, and the bundled types are _more_ precise under `strict`),
+  and in Rust, `http` and `tokio-stream`.
+- **The Rust exporter is never compiled in CI** - `.github/workflows/ci.yml` has
+  no `cargo` step, so Rust breakage is invisible until someone builds locally on
+  macOS.
+- `ajv` is ~100 kB minified and **nothing branches on its result** - the load
+  proceeds identically either way, and `ModdedBlueprintError` /
+  `TrainBlueprintError` are declared, exported, handled, and never thrown. Decide
+  what blueprint validation is _for_ before optimising it.
 
 ## Playwright Blueprint Diagnostics
 
