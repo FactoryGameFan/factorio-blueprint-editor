@@ -46,6 +46,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-rail-occupancy.mjs`           | Which tiles a rail really blocks, and whether one answer serves (#133)        |
 | `probe-rail-signal-spots.mjs`        | Every legal signal position, and whether the #95 window clipped them (#133)   |
 | `probe-elevated-rail-support.mjs`    | What holds an elevated rail up, and whether a tile grid can express it (#141) |
+| `probe-entity-tile-size.mjs`         | What `tile_width`/`tile_height` the game publishes for every entity (#142)    |
 
 One script here is not a probe and asks the game nothing:
 
@@ -87,8 +88,25 @@ model wants the same treatment.
 
 - **`helpers.write_file` / `helpers.table_to_json`**, not `game.*`. They moved in
   2.1 and the old names are gone.
-- **`factorio_version` must be `"2.1"`** in the mod's `info.json` for a 2.1.x
-  game, or the mod is silently skipped and no dump appears.
+- **`factorio_version` in the mod's `info.json` must match the binary's
+  major.minor**, or the mod is silently skipped and no dump appears - the run
+  ends on "No dump" and nothing in Factorio's output names the cause. Every
+  probe up to #141 hardcodes `"2.1"`, which is correct only because the only
+  Factorio on this machine was the 2.1.12 Steam install. `probe-entity-tile-size.mjs`
+  **derives** it from `factorio --version` instead, which is what makes running
+  against a 2.0.x binary - the range this editor actually targets - a matter of
+  setting `FACTORIO_BIN` and nothing else. Copy that, not the hardcoded string.
+- **`tile_width`/`tile_height` are a centring parity, not a footprint.** The
+  runtime docs say so in as many words: "is used to decide, if the center should
+  be in the center of the tile (odd tile size dimension) or on the tile border
+  (even tile size dimension)". For 146 of the 155 entities this editor knows
+  that coincides with the enclosing rectangle, which is exactly why reading it
+  as a footprint looks right. For the other 9 - every curved rail and
+  `rail-ramp` - the published rectangle does **not contain the entity's own
+  collision box**: `curved-rail-b` is 2x2 against a box 4.88 tiles tall, and
+  `rail-ramp` is 2x16 against a box 3.6 tiles wide. Measured in
+  `fixtures/entity-tile-size.json`. A field whose name reads like a size is not
+  therefore a size; check what the docs say it decides.
 - **Embed the blueprint string in a Lua long bracket** (`[==[ ... ]==]`) so its
   base64 survives verbatim.
 - **`error("DUMPED-OK")` makes Factorio exit non-zero.** That is success. Key off
@@ -220,6 +238,30 @@ with only the rails between them changing, answers refused / accepted / refused
 and everything beyond that has to be reached through rails that already exist.
 So the editor's question, "may this rail go here", cannot be answered from the
 tiles under it or from any neighbourhood of them.
+
+And what footprint the game publishes for every entity (issue #142,
+`fixtures/entity-tile-size.json`), which **refutes the change it was capturing
+evidence for** and is the second measurement here to end in "do not implement".
+The issue was "make the editor's footprints agree with the game's own
+`tile_width`/`tile_height`". They already agree for 146 of 155 entities. The 9
+that differ are the six curved rail types, their two `dummy-` variants and
+`rail-ramp` - and for 8 of those 9 the game's rectangle does not contain the
+entity's collision box, because `tile_width` is a centring parity rather than a
+size (see the gotcha above). Transcribing the proposed rule and checking it
+against `fixtures/rail-occupancy.json` before writing any code - the #133 item 5
+lesson - says adopting the numbers makes agreement with measured occupancy worse
+in **both** directions across the 38 measured orientations: occupied-but-not-keyed
+180 -> 188, keyed-but-empty 96 -> 152. `curved-rail-a` improves by 2 cells of 11;
+`curved-rail-b` drops from 10 keyed cells to 4 against 14 really blocked, and
+`legacy-curved-rail` doubles to 32 keyed against 18. Since the footprint is also
+what `getEntityAtPosition` reads, that is half of `rail-ramp` becoming
+unclickable in exchange for agreeing with a number that does not mean what the
+issue assumed.
+
+This is also the first capture here taken on a **2.0.x** binary rather than on
+2.1.12, and the cross-check paid for itself again: four entities move footprint
+between 2.0.77 and 2.1.12 (`tree-plant` and the three demolisher corpses), none
+of them among the 155 the editor knows.
 
 ## Fixture policy
 

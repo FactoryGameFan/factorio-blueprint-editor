@@ -1,0 +1,1253 @@
+{
+    "question": "What tile_width/tile_height does the game publish for every entity, and where does that disagree with the rectangle getEntitySize computes from the collision box?",
+    "issue": 142,
+    "probe": "tools/oracle/probe-entity-tile-size.mjs",
+    "binary": "Version: 2.0.77 (build 84539, mac-arm64, full)",
+    "mods": {
+        "base": "2.0.77",
+        "elevated-rails": "2.0.77",
+        "quality": "2.0.77",
+        "space-age": "2.0.77",
+        "bp_entity_tile_size": "0.0.1"
+    },
+    "versionNote": "Captured on a binary in the 2.0.x range this editor targets (2.0.45 to 2.0.73), unlike every earlier fixture here, which came from 2.1.12. The mod declares factorio_version derived from the binary; hardcoding 2.1 makes a 2.0.x run produce no dump and no message saying why.",
+    "measurementCaveats": [
+        "tile_width/tile_height are runtime properties of LuaEntityPrototype, derived by the engine from the collision box. They are not available at the data stage, which is why data.json carries them for only 3 of 155 entities - those three declare them - and why the exporter is not dropping anything.",
+        "editorTiles is computed on this side from packages/exporter/data/output/data.json, mirroring getEntitySize at direction 0, because the question is what the editor computes rather than what the game collides with. The width/height swap getEntitySize applies at directions 4 and 12 is orthogonal and is not captured here.",
+        "This is the published footprint, not occupancy. #133 item 1 measured that a rail blocks cells no rectangle of any size describes, and that the answer depends on the size of the box asking. A correct rectangle is still a rectangle.",
+        "The fixture lists only the 155 entities data.json knows. The game table is larger; the full sweep is summarised in counts and kept in the raw dump."
+    ],
+    "controls": {
+        "note": "Each of these can fail while the hypothesis holds.",
+        "entitiesSwept": 1016,
+        "withAFootprint": 1016,
+        "withoutOne": 0,
+        "distinctFootprints": 40,
+        "declaredAtTheDataStageAgreesWithRuntime": [
+            {
+                "name": "asteroid-collector",
+                "dataStage": "3x3",
+                "runtime": "3x3",
+                "agrees": true
+            },
+            {
+                "name": "offshore-pump",
+                "dataStage": "1x1",
+                "runtime": "1x1",
+                "agrees": true
+            },
+            {
+                "name": "train-stop",
+                "dataStage": "2x2",
+                "runtime": "2x2",
+                "agrees": true
+            }
+        ],
+        "dataJsonEntitiesMissingFromTheGameTable": []
+    },
+    "summary": {
+        "compared": 155,
+        "agree": 146,
+        "disagree": 9,
+        "disagreeing": [
+            {
+                "name": "legacy-curved-rail",
+                "type": "legacy-curved-rail",
+                "gameTiles": [4, 8],
+                "editorTiles": [4, 4],
+                "cellDelta": 16
+            },
+            {
+                "name": "curved-rail-a",
+                "type": "curved-rail-a",
+                "gameTiles": [2, 4],
+                "editorTiles": [2, 6],
+                "cellDelta": -4
+            },
+            {
+                "name": "dummy-elevated-curved-rail-a",
+                "type": "elevated-curved-rail-a",
+                "gameTiles": [2, 4],
+                "editorTiles": [2, 6],
+                "cellDelta": -4
+            },
+            {
+                "name": "elevated-curved-rail-a",
+                "type": "elevated-curved-rail-a",
+                "gameTiles": [2, 4],
+                "editorTiles": [2, 6],
+                "cellDelta": -4
+            },
+            {
+                "name": "curved-rail-b",
+                "type": "curved-rail-b",
+                "gameTiles": [2, 2],
+                "editorTiles": [2, 5],
+                "cellDelta": -6
+            },
+            {
+                "name": "dummy-elevated-curved-rail-b",
+                "type": "elevated-curved-rail-b",
+                "gameTiles": [2, 2],
+                "editorTiles": [2, 5],
+                "cellDelta": -6
+            },
+            {
+                "name": "elevated-curved-rail-b",
+                "type": "elevated-curved-rail-b",
+                "gameTiles": [2, 2],
+                "editorTiles": [2, 5],
+                "cellDelta": -6
+            },
+            {
+                "name": "dummy-rail-ramp",
+                "type": "rail-ramp",
+                "gameTiles": [2, 16],
+                "editorTiles": [4, 16],
+                "cellDelta": -32
+            },
+            {
+                "name": "rail-ramp",
+                "type": "rail-ramp",
+                "gameTiles": [2, 16],
+                "editorTiles": [4, 16],
+                "cellDelta": -32
+            }
+        ]
+    },
+    "versionDifferences": {
+        "against": "Version: 2.1.12 (build 87038, mac-arm64, steam)",
+        "entitiesCompared": 1016,
+        "footprintsThatMoved": [
+            {
+                "name": "tree-plant",
+                "type": "plant",
+                "Version: 2.0.77 (build 84539, mac-arm64, full)": [1, 1],
+                "Version: 2.1.12 (build 87038, mac-arm64, steam)": [2, 2]
+            },
+            {
+                "name": "small-demolisher-corpse",
+                "type": "simple-entity",
+                "Version: 2.0.77 (build 84539, mac-arm64, full)": [3, 3],
+                "Version: 2.1.12 (build 87038, mac-arm64, steam)": [4, 4]
+            },
+            {
+                "name": "medium-demolisher-corpse",
+                "type": "simple-entity",
+                "Version: 2.0.77 (build 84539, mac-arm64, full)": [5, 5],
+                "Version: 2.1.12 (build 87038, mac-arm64, steam)": [6, 6]
+            },
+            {
+                "name": "big-demolisher-corpse",
+                "type": "simple-entity",
+                "Version: 2.0.77 (build 84539, mac-arm64, full)": [6, 6],
+                "Version: 2.1.12 (build 87038, mac-arm64, steam)": [7, 7]
+            }
+        ],
+        "onlyIn": {
+            "Version: 2.0.77 (build 84539, mac-arm64, full)": [],
+            "Version: 2.1.12 (build 87038, mac-arm64, steam)": [
+                "acid-cloud",
+                "acid-cloud-visual-dummy",
+                "big-volcanic-rock-hot",
+                "fulgora-sunk-ruin-big",
+                "fulgora-sunk-ruin-medium-tall",
+                "huge-volcanic-rock-hot",
+                "landing-pad-unloading-bay",
+                "railgun-turret-explosion",
+                "rocket-turret-explosion",
+                "shotgun-impact-sticker",
+                "small-explosion-hit",
+                "tesla-turret-explosion"
+            ]
+        }
+    },
+    "entities": {
+        "accumulator": {
+            "type": "accumulator",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.8984375, -0.8984375, 0.8984375, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "active-provider-chest": {
+            "type": "logistic-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "agricultural-tower": {
+            "type": "agricultural-tower",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "arithmetic-combinator": {
+            "type": "arithmetic-combinator",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.34765625, -0.6484375, 0.34765625, 0.6484375],
+            "declaredInDataJson": false
+        },
+        "artillery-turret": {
+            "type": "artillery-turret",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "artillery-wagon": {
+            "type": "artillery-wagon",
+            "gameTiles": [2, 5],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.59765625, -2.3984375, 0.59765625, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "assembling-machine-1": {
+            "type": "assembling-machine",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "assembling-machine-2": {
+            "type": "assembling-machine",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "assembling-machine-3": {
+            "type": "assembling-machine",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "asteroid-collector": {
+            "type": "asteroid-collector",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": true
+        },
+        "beacon": {
+            "type": "beacon",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "big-electric-pole": {
+            "type": "electric-pole",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.6484375, -0.6484375, 0.6484375, 0.6484375],
+            "declaredInDataJson": false
+        },
+        "big-mining-drill": {
+            "type": "mining-drill",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.34765625, -2.34765625, 2.34765625, 2.34765625],
+            "declaredInDataJson": false
+        },
+        "biochamber": {
+            "type": "assembling-machine",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "biolab": {
+            "type": "lab",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.19921875, -2.19921875, 2.19921875, 2.19921875],
+            "declaredInDataJson": false
+        },
+        "blue-chest": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "boiler": {
+            "type": "boiler",
+            "gameTiles": [3, 2],
+            "editorTiles": [3, 2],
+            "collisionBox": [-1.2890625, -0.7890625, 1.2890625, 0.7890625],
+            "declaredInDataJson": false
+        },
+        "bottomless-chest": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "buffer-chest": {
+            "type": "logistic-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "bulk-inserter": {
+            "type": "inserter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "burner-generator": {
+            "type": "burner-generator",
+            "gameTiles": [3, 5],
+            "editorTiles": [3, 5],
+            "collisionBox": [-1.34765625, -2.34765625, 1.34765625, 2.34765625],
+            "declaredInDataJson": false
+        },
+        "burner-inserter": {
+            "type": "inserter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "burner-mining-drill": {
+            "type": "mining-drill",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "captive-biter-spawner": {
+            "type": "assembling-machine",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.19921875, -2.19921875, 2.19921875, 2.19921875],
+            "declaredInDataJson": false
+        },
+        "cargo-bay": {
+            "type": "cargo-bay",
+            "gameTiles": [4, 4],
+            "editorTiles": [4, 4],
+            "collisionBox": [-1.8984375, -1.8984375, 1.8984375, 1.8984375],
+            "declaredInDataJson": false
+        },
+        "cargo-landing-pad": {
+            "type": "cargo-landing-pad",
+            "gameTiles": [8, 8],
+            "editorTiles": [8, 8],
+            "collisionBox": [-3.8984375, -3.8984375, 3.8984375, 3.8984375],
+            "declaredInDataJson": false
+        },
+        "cargo-pod-container": {
+            "type": "temporary-container",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.5, 0, 0.5, 1.296875],
+            "declaredInDataJson": false
+        },
+        "cargo-wagon": {
+            "type": "cargo-wagon",
+            "gameTiles": [2, 5],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.59765625, -2.3984375, 0.59765625, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "centrifuge": {
+            "type": "assembling-machine",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "chemical-plant": {
+            "type": "assembling-machine",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "constant-combinator": {
+            "type": "constant-combinator",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "crash-site-chest-1": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "crash-site-chest-2": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "crusher": {
+            "type": "assembling-machine",
+            "gameTiles": [2, 3],
+            "editorTiles": [2, 3],
+            "collisionBox": [-0.69921875, -1.19921875, 0.69921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "cryogenic-plant": {
+            "type": "assembling-machine",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.3984375, -2.3984375, 2.3984375, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "curved-rail-a": {
+            "type": "curved-rail-a",
+            "gameTiles": [2, 4],
+            "editorTiles": [2, 6],
+            "collisionBox": [-0.69921875, -2.515625, 0.69921875, 2.515625],
+            "declaredInDataJson": false
+        },
+        "curved-rail-b": {
+            "type": "curved-rail-b",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.69921875, -2.4375, 0.69921875, 2.4375],
+            "declaredInDataJson": false
+        },
+        "decider-combinator": {
+            "type": "decider-combinator",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.34765625, -0.6484375, 0.34765625, 0.6484375],
+            "declaredInDataJson": false
+        },
+        "display-panel": {
+            "type": "display-panel",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.2890625, -0.2890625, 0.2890625, 0.2890625],
+            "declaredInDataJson": false
+        },
+        "dummy-elevated-curved-rail-a": {
+            "type": "elevated-curved-rail-a",
+            "gameTiles": [2, 4],
+            "editorTiles": [2, 6],
+            "collisionBox": [-0.69921875, -2.515625, 0.69921875, 2.515625],
+            "declaredInDataJson": false
+        },
+        "dummy-elevated-curved-rail-b": {
+            "type": "elevated-curved-rail-b",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.69921875, -2.4375, 0.69921875, 2.4375],
+            "declaredInDataJson": false
+        },
+        "dummy-elevated-half-diagonal-rail": {
+            "type": "elevated-half-diagonal-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.75, -1.8984375, 0.75, 1.8984375],
+            "declaredInDataJson": false
+        },
+        "dummy-elevated-straight-rail": {
+            "type": "elevated-straight-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.98828125, 0.69921875, 0.98828125],
+            "declaredInDataJson": false
+        },
+        "dummy-rail-ramp": {
+            "type": "rail-ramp",
+            "gameTiles": [2, 16],
+            "editorTiles": [4, 16],
+            "collisionBox": [-1.59765625, -7.59765625, 1.59765625, 7.59765625],
+            "declaredInDataJson": false
+        },
+        "dummy-rail-support": {
+            "type": "rail-support",
+            "gameTiles": [4, 2],
+            "editorTiles": [4, 2],
+            "collisionBox": [-1.796875, -0.796875, 1.796875, 0.796875],
+            "declaredInDataJson": false
+        },
+        "electric-energy-interface": {
+            "type": "electric-energy-interface",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.8984375, -0.8984375, 0.8984375, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "electric-furnace": {
+            "type": "furnace",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "electric-mining-drill": {
+            "type": "mining-drill",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.34765625, -1.34765625, 1.34765625, 1.34765625],
+            "declaredInDataJson": false
+        },
+        "electromagnetic-plant": {
+            "type": "assembling-machine",
+            "gameTiles": [4, 4],
+            "editorTiles": [4, 4],
+            "collisionBox": [-1.69921875, -1.69921875, 1.69921875, 1.69921875],
+            "declaredInDataJson": false
+        },
+        "elevated-curved-rail-a": {
+            "type": "elevated-curved-rail-a",
+            "gameTiles": [2, 4],
+            "editorTiles": [2, 6],
+            "collisionBox": [-0.69921875, -2.515625, 0.69921875, 2.515625],
+            "declaredInDataJson": false
+        },
+        "elevated-curved-rail-b": {
+            "type": "elevated-curved-rail-b",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.69921875, -2.4375, 0.69921875, 2.4375],
+            "declaredInDataJson": false
+        },
+        "elevated-half-diagonal-rail": {
+            "type": "elevated-half-diagonal-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.75, -1.8984375, 0.75, 1.8984375],
+            "declaredInDataJson": false
+        },
+        "elevated-straight-rail": {
+            "type": "elevated-straight-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.98828125, 0.69921875, 0.98828125],
+            "declaredInDataJson": false
+        },
+        "express-loader": {
+            "type": "loader",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.3984375, -0.8984375, 0.3984375, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "express-splitter": {
+            "type": "splitter",
+            "gameTiles": [2, 1],
+            "editorTiles": [2, 1],
+            "collisionBox": [-0.8984375, -0.3984375, 0.8984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "express-transport-belt": {
+            "type": "transport-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "express-underground-belt": {
+            "type": "underground-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "factorio-logo-11tiles": {
+            "type": "container",
+            "gameTiles": [11, 2],
+            "editorTiles": [11, 2],
+            "collisionBox": [-5.34765625, -0.84765625, 5.34765625, 0.84765625],
+            "declaredInDataJson": false
+        },
+        "factorio-logo-16tiles": {
+            "type": "container",
+            "gameTiles": [16, 2],
+            "editorTiles": [16, 2],
+            "collisionBox": [-7.84765625, -0.84765625, 7.84765625, 0.84765625],
+            "declaredInDataJson": false
+        },
+        "factorio-logo-22tiles": {
+            "type": "container",
+            "gameTiles": [22, 3],
+            "editorTiles": [22, 3],
+            "collisionBox": [-10.84765625, -1.34765625, 10.84765625, 1.34765625],
+            "declaredInDataJson": false
+        },
+        "fast-inserter": {
+            "type": "inserter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "fast-loader": {
+            "type": "loader",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.3984375, -0.8984375, 0.3984375, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "fast-splitter": {
+            "type": "splitter",
+            "gameTiles": [2, 1],
+            "editorTiles": [2, 1],
+            "collisionBox": [-0.8984375, -0.3984375, 0.8984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "fast-transport-belt": {
+            "type": "transport-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "fast-underground-belt": {
+            "type": "underground-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "flamethrower-turret": {
+            "type": "fluid-turret",
+            "gameTiles": [2, 3],
+            "editorTiles": [2, 3],
+            "collisionBox": [-0.69921875, -1.19921875, 0.69921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "fluid-wagon": {
+            "type": "fluid-wagon",
+            "gameTiles": [2, 5],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.59765625, -2.3984375, 0.59765625, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "foundry": {
+            "type": "assembling-machine",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.19921875, -2.19921875, 2.19921875, 2.19921875],
+            "declaredInDataJson": false
+        },
+        "fulgoran-ruin-attractor": {
+            "type": "lightning-attractor",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.20703125, -1.20703125, 1.20703125, 1.20703125],
+            "declaredInDataJson": false
+        },
+        "fusion-generator": {
+            "type": "fusion-generator",
+            "gameTiles": [3, 5],
+            "editorTiles": [3, 5],
+            "collisionBox": [-1.3984375, -2.3984375, 1.3984375, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "fusion-reactor": {
+            "type": "fusion-reactor",
+            "gameTiles": [6, 6],
+            "editorTiles": [6, 6],
+            "collisionBox": [-2.8984375, -2.8984375, 2.8984375, 2.8984375],
+            "declaredInDataJson": false
+        },
+        "gate": {
+            "type": "gate",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.2890625, -0.2890625, 0.2890625, 0.2890625],
+            "declaredInDataJson": false
+        },
+        "gun-turret": {
+            "type": "ammo-turret",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "half-diagonal-rail": {
+            "type": "half-diagonal-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.75, -1.8984375, 0.75, 1.8984375],
+            "declaredInDataJson": false
+        },
+        "heat-exchanger": {
+            "type": "boiler",
+            "gameTiles": [3, 2],
+            "editorTiles": [3, 2],
+            "collisionBox": [-1.2890625, -0.7890625, 1.2890625, 0.7890625],
+            "declaredInDataJson": false
+        },
+        "heat-interface": {
+            "type": "heat-interface",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "heat-pipe": {
+            "type": "heat-pipe",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.296875, -0.296875, 0.296875, 0.296875],
+            "declaredInDataJson": false
+        },
+        "heating-tower": {
+            "type": "reactor",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.25, -1.25, 1.25, 1.25],
+            "declaredInDataJson": false
+        },
+        "hidden-electric-energy-interface": {
+            "type": "electric-energy-interface",
+            "gameTiles": [0, 0],
+            "editorTiles": [0, 0],
+            "collisionBox": [0, 0, 0, 0],
+            "declaredInDataJson": false
+        },
+        "infinity-cargo-wagon": {
+            "type": "infinity-cargo-wagon",
+            "gameTiles": [2, 5],
+            "editorTiles": [2, 5],
+            "collisionBox": [-0.59765625, -2.3984375, 0.59765625, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "infinity-chest": {
+            "type": "infinity-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "infinity-pipe": {
+            "type": "infinity-pipe",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.2890625, -0.2890625, 0.2890625, 0.2890625],
+            "declaredInDataJson": false
+        },
+        "inserter": {
+            "type": "inserter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "iron-chest": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "lab": {
+            "type": "lab",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "land-mine": {
+            "type": "land-mine",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "lane-splitter": {
+            "type": "lane-splitter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "laser-turret": {
+            "type": "electric-turret",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "legacy-curved-rail": {
+            "type": "legacy-curved-rail",
+            "gameTiles": [4, 8],
+            "editorTiles": [4, 4],
+            "collisionBox": [-0.75, -0.546875, 0.75, 1.59765625],
+            "declaredInDataJson": false
+        },
+        "legacy-straight-rail": {
+            "type": "legacy-straight-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.98828125, 0.69921875, 0.98828125],
+            "declaredInDataJson": false
+        },
+        "lightning-collector": {
+            "type": "lightning-attractor",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "lightning-rod": {
+            "type": "lightning-attractor",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "linked-belt": {
+            "type": "linked-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "linked-chest": {
+            "type": "linked-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "loader": {
+            "type": "loader",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.3984375, -0.8984375, 0.3984375, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "loader-1x1": {
+            "type": "loader-1x1",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "locomotive": {
+            "type": "locomotive",
+            "gameTiles": [2, 6],
+            "editorTiles": [2, 6],
+            "collisionBox": [-0.59765625, -2.59765625, 0.59765625, 2.59765625],
+            "declaredInDataJson": false
+        },
+        "long-handed-inserter": {
+            "type": "inserter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "market": {
+            "type": "market",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.3984375, -1.3984375, 1.3984375, 1.3984375],
+            "declaredInDataJson": false
+        },
+        "medium-electric-pole": {
+            "type": "electric-pole",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "nuclear-reactor": {
+            "type": "reactor",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.19921875, -2.19921875, 2.19921875, 2.19921875],
+            "declaredInDataJson": false
+        },
+        "offshore-pump": {
+            "type": "offshore-pump",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.59765625, -1.046875, 0.59765625, 0.296875],
+            "declaredInDataJson": true
+        },
+        "oil-refinery": {
+            "type": "assembling-machine",
+            "gameTiles": [5, 5],
+            "editorTiles": [5, 5],
+            "collisionBox": [-2.3984375, -2.3984375, 2.3984375, 2.3984375],
+            "declaredInDataJson": false
+        },
+        "one-way-valve": {
+            "type": "valve",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "overflow-valve": {
+            "type": "valve",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "passive-provider-chest": {
+            "type": "logistic-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "pipe": {
+            "type": "pipe",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.2890625, -0.2890625, 0.2890625, 0.2890625],
+            "declaredInDataJson": false
+        },
+        "pipe-to-ground": {
+            "type": "pipe-to-ground",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.2890625, -0.2890625, 0.2890625, 0.19921875],
+            "declaredInDataJson": false
+        },
+        "power-switch": {
+            "type": "power-switch",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "programmable-speaker": {
+            "type": "programmable-speaker",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.296875, -0.296875, 0.296875, 0.296875],
+            "declaredInDataJson": false
+        },
+        "proxy-container": {
+            "type": "proxy-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "pump": {
+            "type": "pump",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.2890625, -0.8984375, 0.2890625, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "pumpjack": {
+            "type": "mining-drill",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "radar": {
+            "type": "radar",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "rail-chain-signal": {
+            "type": "rail-chain-signal",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.19921875, -0.19921875, 0.19921875, 0.19921875],
+            "declaredInDataJson": false
+        },
+        "rail-ramp": {
+            "type": "rail-ramp",
+            "gameTiles": [2, 16],
+            "editorTiles": [4, 16],
+            "collisionBox": [-1.59765625, -7.59765625, 1.59765625, 7.59765625],
+            "declaredInDataJson": false
+        },
+        "rail-signal": {
+            "type": "rail-signal",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.19921875, -0.19921875, 0.19921875, 0.19921875],
+            "declaredInDataJson": false
+        },
+        "rail-support": {
+            "type": "rail-support",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.38671875, -1.38671875, 1.38671875, 1.38671875],
+            "declaredInDataJson": false
+        },
+        "railgun-turret": {
+            "type": "ammo-turret",
+            "gameTiles": [3, 5],
+            "editorTiles": [3, 5],
+            "collisionBox": [-1.40625, -1.8984375, 1.40625, 2.09765625],
+            "declaredInDataJson": false
+        },
+        "recycler": {
+            "type": "furnace",
+            "gameTiles": [2, 4],
+            "editorTiles": [2, 4],
+            "collisionBox": [-0.69921875, -1.69921875, 0.69921875, 1.69921875],
+            "declaredInDataJson": false
+        },
+        "red-chest": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "requester-chest": {
+            "type": "logistic-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "roboport": {
+            "type": "roboport",
+            "gameTiles": [4, 4],
+            "editorTiles": [4, 4],
+            "collisionBox": [-1.69921875, -1.69921875, 1.69921875, 1.69921875],
+            "declaredInDataJson": false
+        },
+        "rocket-silo": {
+            "type": "rocket-silo",
+            "gameTiles": [9, 9],
+            "editorTiles": [9, 9],
+            "collisionBox": [-4.19921875, -4.19921875, 4.19921875, 4.19921875],
+            "declaredInDataJson": false
+        },
+        "rocket-turret": {
+            "type": "ammo-turret",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.19921875, -1.19921875, 1.19921875, 1.19921875],
+            "declaredInDataJson": false
+        },
+        "selector-combinator": {
+            "type": "selector-combinator",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.34765625, -0.6484375, 0.34765625, 0.6484375],
+            "declaredInDataJson": false
+        },
+        "simple-entity-with-force": {
+            "type": "simple-entity-with-force",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "simple-entity-with-owner": {
+            "type": "simple-entity-with-owner",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "small-electric-pole": {
+            "type": "electric-pole",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "small-lamp": {
+            "type": "lamp",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "solar-panel": {
+            "type": "solar-panel",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.3984375, -1.3984375, 1.3984375, 1.3984375],
+            "declaredInDataJson": false
+        },
+        "space-platform-hub": {
+            "type": "space-platform-hub",
+            "gameTiles": [8, 8],
+            "editorTiles": [8, 8],
+            "collisionBox": [-3.8984375, -3.8984375, 3.8984375, 3.8984375],
+            "declaredInDataJson": false
+        },
+        "splitter": {
+            "type": "splitter",
+            "gameTiles": [2, 1],
+            "editorTiles": [2, 1],
+            "collisionBox": [-0.8984375, -0.3984375, 0.8984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "stack-inserter": {
+            "type": "inserter",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.1484375, -0.1484375, 0.1484375, 0.1484375],
+            "declaredInDataJson": false
+        },
+        "steam-engine": {
+            "type": "generator",
+            "gameTiles": [3, 5],
+            "editorTiles": [3, 5],
+            "collisionBox": [-1.25, -2.34765625, 1.25, 2.34765625],
+            "declaredInDataJson": false
+        },
+        "steam-turbine": {
+            "type": "generator",
+            "gameTiles": [3, 5],
+            "editorTiles": [3, 5],
+            "collisionBox": [-1.25, -2.34765625, 1.25, 2.34765625],
+            "declaredInDataJson": false
+        },
+        "steel-chest": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "steel-furnace": {
+            "type": "furnace",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "stone-furnace": {
+            "type": "furnace",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "stone-wall": {
+            "type": "wall",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.2890625, -0.2890625, 0.2890625, 0.2890625],
+            "declaredInDataJson": false
+        },
+        "storage-chest": {
+            "type": "logistic-container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        },
+        "storage-tank": {
+            "type": "storage-tank",
+            "gameTiles": [3, 3],
+            "editorTiles": [3, 3],
+            "collisionBox": [-1.296875, -1.296875, 1.296875, 1.296875],
+            "declaredInDataJson": false
+        },
+        "straight-rail": {
+            "type": "straight-rail",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.98828125, 0.69921875, 0.98828125],
+            "declaredInDataJson": false
+        },
+        "substation": {
+            "type": "electric-pole",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.69921875, -0.69921875, 0.69921875, 0.69921875],
+            "declaredInDataJson": false
+        },
+        "tesla-turret": {
+            "type": "electric-turret",
+            "gameTiles": [4, 4],
+            "editorTiles": [4, 4],
+            "collisionBox": [-1.69921875, -1.69921875, 1.69921875, 1.69921875],
+            "declaredInDataJson": false
+        },
+        "thruster": {
+            "type": "thruster",
+            "gameTiles": [4, 5],
+            "editorTiles": [4, 5],
+            "collisionBox": [-1.69921875, -2.19921875, 1.69921875, 2.19921875],
+            "declaredInDataJson": false
+        },
+        "top-up-valve": {
+            "type": "valve",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "train-stop": {
+            "type": "train-stop",
+            "gameTiles": [2, 2],
+            "editorTiles": [2, 2],
+            "collisionBox": [-0.5, -0.5, 0.5, 0.5],
+            "declaredInDataJson": true
+        },
+        "transport-belt": {
+            "type": "transport-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "turbo-loader": {
+            "type": "loader",
+            "gameTiles": [1, 2],
+            "editorTiles": [1, 2],
+            "collisionBox": [-0.3984375, -0.8984375, 0.3984375, 0.8984375],
+            "declaredInDataJson": false
+        },
+        "turbo-splitter": {
+            "type": "splitter",
+            "gameTiles": [2, 1],
+            "editorTiles": [2, 1],
+            "collisionBox": [-0.8984375, -0.3984375, 0.8984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "turbo-transport-belt": {
+            "type": "transport-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "turbo-underground-belt": {
+            "type": "underground-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "underground-belt": {
+            "type": "underground-belt",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.3984375, -0.3984375, 0.3984375, 0.3984375],
+            "declaredInDataJson": false
+        },
+        "wooden-chest": {
+            "type": "container",
+            "gameTiles": [1, 1],
+            "editorTiles": [1, 1],
+            "collisionBox": [-0.34765625, -0.34765625, 0.34765625, 0.34765625],
+            "declaredInDataJson": false
+        }
+    },
+    "errors": []
+}
