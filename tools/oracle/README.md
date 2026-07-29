@@ -157,6 +157,15 @@ model wants the same treatment.
   corruption-class rows, which the re-run caught in eight seconds and no test
   would have suggested. Transcribe the rule into the probe, not only into the
   source.
+- **A transcribed rule needs a coordinate control, not only a logic one.**
+  `probe-entity-tile-size.mjs` compares two candidate footprints against
+  `fixtures/rail-occupancy.json`, whose blocked cells are stored **relative to
+  `floor(position)`** rather than in world coordinates. The first transcription
+  keyed its rectangles absolutely, and both arms inflated together - 440/356
+  against 435/399 - which preserved the verdict and looked entirely plausible.
+  Nothing about the shape of the output said it was wrong. What says so is a row
+  where the answer is known independently: a cardinal `straight-rail` is exact
+  on both arms, so it must come back all zeros, and it is asserted.
 - **Include a control that can invalidate the probe itself.** Not a control for
   the behaviour, one for the measurement. `probe-copy-settings-schedule.mjs` runs
   a case where `copy_settings` is never called, because `create_blueprint` groups
