@@ -317,6 +317,141 @@ if (disagreements.length) {
 }
 
 /* ------------------------------------------------------------------ *
+ * The proposed rule, checked against every measured row before any    *
+ * code is written. This is the #133 item 5 lesson and it is why this  *
+ * probe ends in "do not implement": adopting the game's numbers is a  *
+ * change to what PositionGrid keys, and fixtures/rail-occupancy.json  *
+ * already holds what the game really blocks around all 38 measured    *
+ * rail orientations. Transcribing the rule here rather than into      *
+ * prose is what keeps the decisive number re-derivable.               *
+ * ------------------------------------------------------------------ */
+const OCCUPANCY = join(HERE, 'fixtures', 'rail-occupancy.json')
+
+/** getEntitySize's width/height swap, which applies to whichever pair of numbers it is given. */
+const swapForDirection = (type, dir, w, h) => {
+    if (w === h) return { x: w, y: h }
+    const dd =
+        type === 'curved-rail-a' || type === 'curved-rail-b'
+            ? Math.floor((dir % 8) / 4) * 4
+            : (Math.round(dir / 4) * 4) % 16
+    return dd === 4 || dd === 12 ? { x: h, y: w } : { x: w, y: h }
+}
+
+/*
+    PositionGrid.processArea, expressed the way rail-occupancy.json expresses a
+    blocked cell: **relative to floor(position)**, not in world coordinates. Get
+    that wrong and both arms inflate together, which looks like a plausible
+    answer rather than like a bug - it read 440/356 against 435/399 on the first
+    run here. The `straight-rail@0` control below is what tells them apart.
+*/
+const keyedCells = (size, px, py) => {
+    const x0 = Math.round(px - size.x / 2)
+    const y0 = Math.round(py - size.y / 2)
+    const out = new Set()
+    for (let x = x0; x < x0 + size.x; x++)
+        for (let y = y0; y < y0 + size.y; y++)
+            out.add(`${x - Math.floor(px)},${y - Math.floor(py)}`)
+    return out
+}
+
+let occupancy
+if (existsSync(OCCUPANCY)) {
+    const occ = JSON.parse(readFileSync(OCCUPANCY, 'utf8'))
+    const arms = { today: { missed: 0, empty: 0 }, gameTiles: { missed: 0, empty: 0 } }
+    const perRail = {}
+
+    for (const r of Object.values(occ.rails)) {
+        /*
+            The wooden-chest reference, which is the one rail-occupancy.json's
+            own summary uses. The four references disagree with each other by
+            design - see the probe-entity note in the README - so a single arm
+            has to name which one it is comparing against.
+        */
+        const chest = Object.values(r.references).find(x => x.reference === 'wooden-chest')
+        if (chest === undefined) continue
+        const blocked = new Set(Object.values(chest.blocked ?? {}).map(c => `${c.x},${c.y}`))
+
+        const e = editorSize(r.name)
+        const g = game[r.name]
+        const sides = {
+            today: swapForDirection(g.type, r.direction, e.w, e.h),
+            gameTiles: swapForDirection(g.type, r.direction, g.tile_width, g.tile_height),
+        }
+
+        const row = { rail: r.name, direction: r.direction, blocked: blocked.size }
+        for (const [arm, size] of Object.entries(sides)) {
+            const cells = keyedCells(size, r.position.x, r.position.y)
+            const missed = [...blocked].filter(c => !cells.has(c)).length
+            const empty = [...cells].filter(c => !blocked.has(c)).length
+            arms[arm].missed += missed
+            arms[arm].empty += empty
+            row[arm] = { tiles: [size.x, size.y], keyed: cells.size, missed, empty }
+        }
+        perRail[`${r.name}@${r.direction}`] = row
+    }
+
+    /*
+        Alignment control. A cardinal `straight-rail` is the one case where the
+        editor's rectangle, the game's published numbers and the measured
+        blocked cells all coincide exactly, so it must come back 0 missed and 0
+        empty on both arms. If it does not, the two coordinate systems are not
+        lined up and every total above is arithmetic on unrelated cells - which
+        is not a wrong answer so much as an answer to no question.
+    */
+    const aligned = ['straight-rail@0', 'straight-rail@4'].every(k => {
+        const row = perRail[k]
+        return (
+            row !== undefined &&
+            row.today.missed === 0 &&
+            row.today.empty === 0 &&
+            row.gameTiles.missed === 0 &&
+            row.gameTiles.empty === 0
+        )
+    })
+
+    occupancy = {
+        note: 'Computed here from fixtures/rail-occupancy.json against the wooden-chest reference, not from this run of the game. It is what decides whether adopting the published numbers is an improvement, and the answer is that it is not.',
+        orientations: Object.keys(perRail).length,
+        reference: 'wooden-chest',
+        cellsAreRelativeToFloorOfPosition: true,
+        alignmentControl: {
+            note: 'A cardinal straight-rail is the one case where both arms and the measurement coincide exactly. Anything but zeros means the coordinate systems are not lined up and the totals are meaningless.',
+            passes: aligned,
+        },
+        arms,
+        perRail,
+    }
+
+    console.log(
+        `\n=== the proposed change, against ${occupancy.orientations} measured orientations (wooden-chest reference) ===`
+    )
+    console.log(
+        `  alignment control (a cardinal straight-rail is exact on both arms): ${aligned ? 'passes' : 'FAILS - the totals below are arithmetic on unrelated cells'}`
+    )
+    console.log(
+        `  today:             ${arms.today.missed} occupied-but-not-keyed, ${arms.today.empty} keyed-but-empty`
+    )
+    console.log(
+        `  game's tile_width: ${arms.gameTiles.missed} occupied-but-not-keyed, ${arms.gameTiles.empty} keyed-but-empty`
+    )
+    const better =
+        arms.gameTiles.missed <= arms.today.missed && arms.gameTiles.empty <= arms.today.empty
+    console.log(
+        `  verdict: adopting the published numbers is ${better ? 'an improvement' : 'WORSE, and on both axes - do not implement'}`
+    )
+    for (const row of Object.values(perRail)) {
+        if (row.today.keyed === row.gameTiles.keyed) continue
+        console.log(
+            `    ${`${row.rail}@${row.direction}`.padEnd(26)} ${String(row.blocked).padStart(2)} blocked   ` +
+                `today ${row.today.tiles.join('x').padEnd(4)} keys ${String(row.today.keyed).padStart(2)} (${row.today.missed} missed, ${row.today.empty} empty)   ` +
+                `game ${row.gameTiles.tiles.join('x').padEnd(4)} keys ${String(row.gameTiles.keyed).padStart(2)} (${row.gameTiles.missed} missed, ${row.gameTiles.empty} empty)`
+        )
+    }
+} else {
+    console.log(`\n=== proposed-change check SKIPPED: no ${OCCUPANCY}`)
+}
+
+/* ------------------------------------------------------------------ *
  * Cross-version                                                       *
  * ------------------------------------------------------------------ */
 let versionDifferences
@@ -424,6 +559,7 @@ if (WRITE_FIXTURE) {
                 cellDelta: r.cellDelta,
             })),
         },
+        proposedChangeAgainstMeasuredOccupancy: occupancy,
         versionDifferences,
         entities,
         errors: list(d.errors),

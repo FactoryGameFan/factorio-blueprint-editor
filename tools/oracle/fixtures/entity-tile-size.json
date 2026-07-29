@@ -115,6 +115,674 @@
             }
         ]
     },
+    "proposedChangeAgainstMeasuredOccupancy": {
+        "note": "Computed here from fixtures/rail-occupancy.json against the wooden-chest reference, not from this run of the game. It is what decides whether adopting the published numbers is an improvement, and the answer is that it is not.",
+        "orientations": 38,
+        "reference": "wooden-chest",
+        "cellsAreRelativeToFloorOfPosition": true,
+        "alignmentControl": {
+            "note": "A cardinal straight-rail is the one case where both arms and the measurement coincide exactly. Anything but zeros means the coordinate systems are not lined up and the totals are meaningless.",
+            "passes": true
+        },
+        "arms": {
+            "today": {
+                "missed": 180,
+                "empty": 96
+            },
+            "gameTiles": {
+                "missed": 188,
+                "empty": 152
+            }
+        },
+        "perRail": {
+            "straight-rail@0": {
+                "rail": "straight-rail",
+                "direction": 0,
+                "blocked": 4,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                }
+            },
+            "straight-rail@2": {
+                "rail": "straight-rail",
+                "direction": 2,
+                "blocked": 8,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 4,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 4,
+                    "empty": 0
+                }
+            },
+            "straight-rail@4": {
+                "rail": "straight-rail",
+                "direction": 4,
+                "blocked": 4,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                }
+            },
+            "straight-rail@6": {
+                "rail": "straight-rail",
+                "direction": 6,
+                "blocked": 8,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 4,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 4,
+                    "empty": 0
+                }
+            },
+            "half-diagonal-rail@0": {
+                "rail": "half-diagonal-rail",
+                "direction": 0,
+                "blocked": 12,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                }
+            },
+            "half-diagonal-rail@2": {
+                "rail": "half-diagonal-rail",
+                "direction": 2,
+                "blocked": 12,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                }
+            },
+            "half-diagonal-rail@4": {
+                "rail": "half-diagonal-rail",
+                "direction": 4,
+                "blocked": 12,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                }
+            },
+            "half-diagonal-rail@6": {
+                "rail": "half-diagonal-rail",
+                "direction": 6,
+                "blocked": 12,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 8,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@0": {
+                "rail": "curved-rail-a",
+                "direction": 0,
+                "blocked": 11,
+                "today": {
+                    "tiles": [2, 6],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 4],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@2": {
+                "rail": "curved-rail-a",
+                "direction": 2,
+                "blocked": 11,
+                "today": {
+                    "tiles": [2, 6],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 4],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@4": {
+                "rail": "curved-rail-a",
+                "direction": 4,
+                "blocked": 11,
+                "today": {
+                    "tiles": [6, 2],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [4, 2],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@6": {
+                "rail": "curved-rail-a",
+                "direction": 6,
+                "blocked": 11,
+                "today": {
+                    "tiles": [6, 2],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [4, 2],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@8": {
+                "rail": "curved-rail-a",
+                "direction": 8,
+                "blocked": 11,
+                "today": {
+                    "tiles": [2, 6],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 4],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@10": {
+                "rail": "curved-rail-a",
+                "direction": 10,
+                "blocked": 11,
+                "today": {
+                    "tiles": [2, 6],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 4],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@12": {
+                "rail": "curved-rail-a",
+                "direction": 12,
+                "blocked": 11,
+                "today": {
+                    "tiles": [6, 2],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [4, 2],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-a@14": {
+                "rail": "curved-rail-a",
+                "direction": 14,
+                "blocked": 11,
+                "today": {
+                    "tiles": [6, 2],
+                    "keyed": 12,
+                    "missed": 2,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [4, 2],
+                    "keyed": 8,
+                    "missed": 3,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@0": {
+                "rail": "curved-rail-b",
+                "direction": 0,
+                "blocked": 14,
+                "today": {
+                    "tiles": [2, 5],
+                    "keyed": 10,
+                    "missed": 6,
+                    "empty": 2
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@2": {
+                "rail": "curved-rail-b",
+                "direction": 2,
+                "blocked": 14,
+                "today": {
+                    "tiles": [2, 5],
+                    "keyed": 10,
+                    "missed": 6,
+                    "empty": 2
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@4": {
+                "rail": "curved-rail-b",
+                "direction": 4,
+                "blocked": 14,
+                "today": {
+                    "tiles": [5, 2],
+                    "keyed": 10,
+                    "missed": 7,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@6": {
+                "rail": "curved-rail-b",
+                "direction": 6,
+                "blocked": 14,
+                "today": {
+                    "tiles": [5, 2],
+                    "keyed": 10,
+                    "missed": 7,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@8": {
+                "rail": "curved-rail-b",
+                "direction": 8,
+                "blocked": 14,
+                "today": {
+                    "tiles": [2, 5],
+                    "keyed": 10,
+                    "missed": 7,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@10": {
+                "rail": "curved-rail-b",
+                "direction": 10,
+                "blocked": 14,
+                "today": {
+                    "tiles": [2, 5],
+                    "keyed": 10,
+                    "missed": 7,
+                    "empty": 3
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@12": {
+                "rail": "curved-rail-b",
+                "direction": 12,
+                "blocked": 14,
+                "today": {
+                    "tiles": [5, 2],
+                    "keyed": 10,
+                    "missed": 6,
+                    "empty": 2
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "curved-rail-b@14": {
+                "rail": "curved-rail-b",
+                "direction": 14,
+                "blocked": 14,
+                "today": {
+                    "tiles": [5, 2],
+                    "keyed": 10,
+                    "missed": 6,
+                    "empty": 2
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 10,
+                    "empty": 0
+                }
+            },
+            "legacy-straight-rail@0": {
+                "rail": "legacy-straight-rail",
+                "direction": 0,
+                "blocked": 4,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                }
+            },
+            "legacy-straight-rail@2": {
+                "rail": "legacy-straight-rail",
+                "direction": 2,
+                "blocked": 5,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                }
+            },
+            "legacy-straight-rail@4": {
+                "rail": "legacy-straight-rail",
+                "direction": 4,
+                "blocked": 4,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 0,
+                    "empty": 0
+                }
+            },
+            "legacy-straight-rail@6": {
+                "rail": "legacy-straight-rail",
+                "direction": 6,
+                "blocked": 5,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                }
+            },
+            "legacy-straight-rail@10": {
+                "rail": "legacy-straight-rail",
+                "direction": 10,
+                "blocked": 5,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                }
+            },
+            "legacy-straight-rail@14": {
+                "rail": "legacy-straight-rail",
+                "direction": 14,
+                "blocked": 5,
+                "today": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                },
+                "gameTiles": {
+                    "tiles": [2, 2],
+                    "keyed": 4,
+                    "missed": 2,
+                    "empty": 1
+                }
+            },
+            "legacy-curved-rail@0": {
+                "rail": "legacy-curved-rail",
+                "direction": 0,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [4, 8],
+                    "keyed": 32,
+                    "missed": 1,
+                    "empty": 15
+                }
+            },
+            "legacy-curved-rail@2": {
+                "rail": "legacy-curved-rail",
+                "direction": 2,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [8, 4],
+                    "keyed": 32,
+                    "missed": 8,
+                    "empty": 22
+                }
+            },
+            "legacy-curved-rail@4": {
+                "rail": "legacy-curved-rail",
+                "direction": 4,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [8, 4],
+                    "keyed": 32,
+                    "missed": 1,
+                    "empty": 15
+                }
+            },
+            "legacy-curved-rail@6": {
+                "rail": "legacy-curved-rail",
+                "direction": 6,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [4, 8],
+                    "keyed": 32,
+                    "missed": 8,
+                    "empty": 22
+                }
+            },
+            "legacy-curved-rail@8": {
+                "rail": "legacy-curved-rail",
+                "direction": 8,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [4, 8],
+                    "keyed": 32,
+                    "missed": 1,
+                    "empty": 15
+                }
+            },
+            "legacy-curved-rail@10": {
+                "rail": "legacy-curved-rail",
+                "direction": 10,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [8, 4],
+                    "keyed": 32,
+                    "missed": 8,
+                    "empty": 22
+                }
+            },
+            "legacy-curved-rail@12": {
+                "rail": "legacy-curved-rail",
+                "direction": 12,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [8, 4],
+                    "keyed": 32,
+                    "missed": 1,
+                    "empty": 15
+                }
+            },
+            "legacy-curved-rail@14": {
+                "rail": "legacy-curved-rail",
+                "direction": 14,
+                "blocked": 18,
+                "today": {
+                    "tiles": [4, 4],
+                    "keyed": 16,
+                    "missed": 8,
+                    "empty": 6
+                },
+                "gameTiles": {
+                    "tiles": [4, 8],
+                    "keyed": 32,
+                    "missed": 8,
+                    "empty": 22
+                }
+            }
+        }
+    },
     "versionDifferences": {
         "against": "Version: 2.1.12 (build 87038, mac-arm64, steam)",
         "entitiesCompared": 1016,
