@@ -1,4 +1,3 @@
-import { Buffer } from 'buffer'
 import Ajv, { ErrorObject, KeywordDefinition } from 'ajv'
 import * as pako from 'pako'
 import { IBlueprint, IBlueprintBook, IBlueprintBookEntry } from '../types'
@@ -8,6 +7,49 @@ import blueprintSchema from './blueprintSchema.json'
 import { Blueprint } from './Blueprint'
 import { Book } from './Book'
 import { migrateNames } from './nameMigrations'
+
+/*
+    Base64 without the `buffer` polyfill, which was pulled into the bundle for
+    these two calls and nothing else - 26 kB of a 799 kB entry chunk, measured.
+
+    The leniency is reproduced rather than dropped, because these two are the
+    only way a blueprint string enters or leaves the editor and this change is
+    meant to be invisible. `Buffer.from(s, 'base64')` ignores every character
+    outside the alphabet and accepts the URL-safe one.
+
+    `atob` covers **less** of that than it looks, and the split was measured
+    rather than assumed - a first draft of this comment had it wrong. `atob`
+    implements the WHATWG forgiving-base64 algorithm, so it strips ASCII
+    whitespace and tolerates missing padding **on its own**: a wrapped string
+    needs nothing from us. What it does throw on is the URL-safe alphabet
+    (`a-b_` is a DOMException) and any single stray character, which is what a
+    quote mark or an ellipsis picked up from a chat client or a PDF looks like.
+    Those two are what the normalisation below is for, and mutation-checking
+    says so - removing it fails exactly the URL-safe and stray-character tests
+    in tests/blueprint-string-tolerance.spec.ts and leaves the whitespace ones
+    passing.
+*/
+const base64ToBytes = (s: string): Uint8Array => {
+    const normalised = s
+        .replace(/-/g, '+')
+        .replace(/_/g, '/')
+        .replace(/[^A-Za-z0-9+/]/g, '')
+    const binary = atob(normalised)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    return bytes
+}
+
+const bytesToBase64 = (bytes: Uint8Array): string => {
+    /* Chunked because String.fromCharCode takes its input as arguments, and a
+       blueprint of any size overflows the argument limit in one call. */
+    const CHUNK = 0x8000
+    let binary = ''
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+    }
+    return btoa(binary)
+}
 
 class CorruptedBlueprintStringError {
     public error: unknown
@@ -151,7 +193,7 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
 function decode(str: string): Promise<Blueprint | Book> {
     return new Promise((resolve, reject) => {
         try {
-            const decodedStr = Buffer.from(str.slice(1), 'base64')
+            const decodedStr = base64ToBytes(str.slice(1))
             const parsedData = JSON.parse(pako.inflate(decodedStr, { toText: true }))
             // Before validation, since the schema checks names against FD.
             migrateNames(parsedData)
@@ -210,7 +252,7 @@ function encode(bpOrBook: Blueprint | Book): Promise<string> {
             const keyName = bpOrBook instanceof Blueprint ? 'blueprint' : 'blueprint_book'
             const data = { [keyName]: bpOrBook.serialize() }
             const string = JSON.stringify(data)
-            resolve(`0${Buffer.from(pako.deflate(string)).toString('base64')}`)
+            resolve(`0${bytesToBase64(pako.deflate(string))}`)
         } catch (e) {
             reject(e)
         }
