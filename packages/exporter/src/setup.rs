@@ -282,9 +282,8 @@ pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), 
         .map(|s| {
             // Replace __modname__/ prefix with the mod's directory under factorio_data.
             // e.g. __space-age__/graphics/foo.png -> {factorio_data}/space-age/graphics/foo.png
-            let resolved = MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| {
-                format!("{}/", &caps[1])
-            });
+            let resolved =
+                MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| format!("{}/", &caps[1]));
             let in_path = factorio_data.join(resolved.as_ref());
             let out_path = output_dir.join(s.replace(".png", ".basis").as_str());
             (in_path, out_path)
@@ -331,10 +330,7 @@ pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), 
     Ok(())
 }
 
-pub async fn extract_local(
-    output_dir: &Path,
-    factorio_dir: &Path,
-) -> Result<(), Box<dyn Error>> {
+pub async fn extract_local(output_dir: &Path, factorio_dir: &Path) -> Result<(), Box<dyn Error>> {
     let factorio_executable = local_executable_path(factorio_dir);
     let factorio_data = local_game_data_path(factorio_dir);
     let user_data = user_data_dir()?;
@@ -401,9 +397,8 @@ pub async fn extract_local(
     let file_paths = file_paths
         .into_iter()
         .map(|s| {
-            let resolved = MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| {
-                format!("{}/", &caps[1])
-            });
+            let resolved =
+                MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| format!("{}/", &caps[1]));
             let in_path = factorio_data.join(resolved.as_ref());
             let out_path = output_dir.join(s.replace(".png", ".basis").as_str());
             (in_path, out_path)
