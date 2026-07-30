@@ -1,0 +1,274 @@
+// Dependency automation for this repo. Renovate, not Dependabot: this project's
+// dependency decisions are deliberate HOLDS whose reasoning lives in CLAUDE.md's
+// "Version Constraints" section, and Dependabot's `ignore` entries cannot express
+// most of it - only *that* something is held, never *why* or *when to revisit*.
+// Everything below exists to stop a bot re-proposing, every week, the exact bump
+// this project has already decided against, and to make the reason travel with
+// the proposal when there is one.
+//
+// This file REPLACES .github/dependabot.yml, deleted in the same commit. That
+// file's two ignores (typed-factorio majors, vite-plus) are packageRules below.
+// Its header recorded the failure that motivated version updates in the first
+// place, and it is worth keeping: `npm install` keeps a locked version as long as
+// it still satisfies the manifest range, so a lockfile can drift behind the range
+// silently and indefinitely. That is how wrangler sat at 4.104.0 under `^4.75.0`
+// and transitively pinned a vulnerable sharp, and how typed-factorio sat at
+// 3.35.0 under `^3.35.0`. In-range drift is the thing this bot is here to catch.
+//
+// THIS REPO IS npm, NOT pnpm - and that matters, because the sibling config at
+// FactorioMapWebUI/.github/renovate.json5 is shaped around a pnpm hazard that
+// does not exist here. pnpm 11 has a built-in release-age cooldown and writes a
+// `minimumReleaseAgeExclude:` bypass rather than failing; that is why the sibling
+// pins `minimumReleaseAge` as a hard floor and uses "25 hours" for security PRs.
+// This repo has npm workspaces and a root package-lock.json, so there is no
+// bypass to provoke. The age values here are judgement calls on their own merits.
+// Do not import the pnpm reasoning when editing this file.
+//
+// ENABLING THE APP (browser only - the CLI cannot do it): install the Renovate
+// GitHub App on this repo with "Automated PRs", "Require config file" and
+// "Create onboarding PRs". Two consequences. "Require config file" means Renovate
+// does NOTHING AT ALL, SILENTLY, if this file is absent or unparseable ON THE
+// DEFAULT BRANCH - which is indistinguishable from "no updates available", so a
+// config that fails to parse is not a noisy error, it is a bot that appears to be
+// working and is not. Validate every edit:
+//
+//     npx --yes --package renovate -- renovate-config-validator
+//
+// Run that from OUTSIDE the project root: package.json's `devEngines` pins npm
+// `^12`, so a bare `npx` inside the repo fails with EBADDEVENGINES.
+// And onboarding PRs are moot while this file exists - onboarding only fires when
+// there is no config.
+//
+// `dependencyDashboardApproval` is deliberately NOT set. It would require ticking
+// a box per update before any PR appeared, which re-imposes scan-only behaviour at
+// the config layer and quietly defeats the app's "Automated PRs" setting. PRs are
+// wanted; what is not wanted is anything MERGING unread - see `automerge`.
+//
+// The default branch here is `wormeyman-space-age-support`, not `main`, and
+// .github/workflows/ci.yml lists exactly that branch under `on.pull_request`. So
+// Renovate PRs do get a CI run. If the default branch is ever renamed, that
+// workflow trigger has to move with it or every bot PR arrives with no checks.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    // Pin every GitHub Action to a commit SHA rather than a moving tag, and keep
+    // the trailing `# vX.Y.Z` comment beside it updated. This repo currently uses
+    // moving tags in four places (actions/checkout@v7, actions/cache@v6 twice in
+    // .github/actions/setup-vp, cloudflare/wrangler-action@v4), so the first run
+    // after enabling opens one PR that re-pins all of them - expected, not a bug.
+    // It matches the posture already in setup-vp/action.yml, which pins the vp
+    // installer script by sha256 by hand for exactly this reason: a mutable
+    // reference can be re-pointed at new code with nothing in the repo changing.
+    "helpers:pinGitHubActionDigests",
+  ],
+
+  // A judgement call, not a constraint inherited from the package manager (see
+  // the npm-not-pnpm note above). Three days is enough for a compromised or
+  // broken publish to be yanked before it is ever proposed here, and short enough
+  // that the weekly batch is not usually waiting on it.
+  minimumReleaseAge: "3 days",
+
+  // NOTHING MERGES UNREAD. No exceptions, including GitHub Action digest re-pins.
+  //
+  // The local reason is specific and stronger than the usual one: CI here runs
+  // `vp check` (oxfmt + oxlint + tsc), `vp test` (vitest units + the type-check
+  // gate) and nothing else. It does NOT run Playwright - and tests/ is where
+  // essentially all of this project's behavioural coverage lives, 25-odd specs
+  // covering placement, paste, sprites and the blueprint round trip. It also
+  // never compiles packages/exporter. So a green check here proves the repo is
+  // CONSISTENT under lint and types; it says nothing about whether a bump is
+  // CORRECT.
+  //
+  // The sibling repo has the counterexample on record: pako 3.0.0 flipped a hash
+  // default that passes a green suite while silently breaking a byte-exactness
+  // invariant, and the resulting wrong belief survived about a year.
+  //
+  // IF THIS IS EVER REVISITED, automerge has two prerequisites that are easy to
+  // miss, and as measured on 2026-07-30 this repo meets NEITHER:
+  //
+  //   1. Branch protection with the `checks` job REQUIRED, `bypass_actors` empty
+  //      and `strict_required_status_checks_policy: true` - otherwise a PR can
+  //      merge red, or merge having been tested against a different base than the
+  //      one it lands on. Today the only ruleset on this repo is "No ForcePush",
+  //      and its enforcement is `disabled`. There is no required check at all.
+  //   2. Repo-level "Allow auto-merge" (`allow_auto_merge` in the repo settings
+  //      API) must be ON. Today it is `false`. Renovate's `platformAutomerge`
+  //      cannot do anything without it, and with it off Renovate falls back to
+  //      polling and merging the PR itself - the weaker path, because GitHub is
+  //      no longer the thing gating the merge. This was found by watching a real
+  //      Renovate PR sit unmerged with "Automerge: Enabled" in its body.
+  automerge: false,
+
+  dependencyDashboard: true,
+
+  // Without this the schedule below is UTC, so "before 6am on monday" fires
+  // around midnight Sunday local and reads as a bot running at random times.
+  timezone: "America/Los_Angeles",
+
+  // One weekly batch instead of a trickle. To pull a run forward without editing
+  // this file, tick the "Check this box to trigger a request for Renovate to run
+  // again" checkbox on the dependency dashboard issue.
+  schedule: ["before 6am on monday"],
+
+  // The first run after enabling the app sees every pending update at once;
+  // without caps that is a dozen PRs in one morning, each triggering a CI run
+  // (measured at ~31s, so the cost is queue noise and review attention rather
+  // than minutes).
+  prConcurrentLimit: 3,
+  prHourlyLimit: 2,
+
+  // `lockFileMaintenance` is an automated whole-lockfile re-resolve - effectively
+  // `npm update` across every transitive package at once, with no manifest change
+  // to read in the diff. Off by default; pinned off explicitly and with a reason
+  // so it cannot get switched on later as tidying. The sibling repo measured this
+  // one as actively harmful: re-resolving ~22 transitive packages broke a build
+  // that installing the same target versions directly did not.
+  lockFileMaintenance: { enabled: false },
+
+  // Security fixes must not wait for the weekly window. Without this block a CVE
+  // fix could sit ~10 days: up to 3 for the age floor, then up to 7 for Monday.
+  //
+  // 25 hours rather than zero. Not zero because a malicious publish dressed as a
+  // security fix wants a chance to be yanked before a bot proposes it; the wait
+  // still drops from three days to about one.
+  //
+  // The exact 25 is deliberately the same number the sibling config uses, so the
+  // two files read alike when both are being edited - but the REASON does not
+  // transfer, and that is worth being explicit about. There, 25 clears pnpm 11's
+  // 24-hour cooldown by an hour, and anything lower would make pnpm write a
+  // `minimumReleaseAgeExclude:` bypass. This repo is npm (see the header), so
+  // nothing enforces a floor underneath this value. Here it is a choice, not a
+  // constraint - which means it can be lowered on its merits if a CVE ever makes
+  // the extra hour matter.
+  vulnerabilityAlerts: {
+    schedule: [],
+    minimumReleaseAge: "25 hours",
+  },
+
+  // GitHub's own advisories miss ecosystem-only reports; OSV catches more. This
+  // matters more than usual for the Rust side, which has no CI at all - see the
+  // cargo rule below.
+  osvVulnerabilityAlerts: true,
+
+  packageRules: [
+    {
+      // THE ONE THAT MATTERS MOST, and the reason a bare `npm outdated` here is
+      // misleading. typed-factorio versions track FACTORIO game versions, and
+      // upstream publishes a dedicated `factorio-2.0` dist-tag pointing at
+      // exactly the line this project needs:
+      //
+      //     npm view typed-factorio dist-tags
+      //       -> { latest: 4.2.0, factorio-2.0: 3.36.0 }
+      //     npm view typed-factorio@3.36.0 factorioVersion  -> 2.0.75
+      //     npm view typed-factorio@4.2.0  factorioVersion  -> 2.1.9
+      //
+      // packages/exporter extracted data.json from 2.0.x, so 4.x describes a game
+      // this repo does not run. The 3.x line is also the more recently PUBLISHED
+      // of the two, so "3.36.0 is old" is wrong twice over.
+      //
+      // Issue #155 targets 2.0.77, which keeps this on the 3.x side: if it lands,
+      // look for a 3.37.x tracking 2.0.77, NOT v4. Only take the major once the
+      // exporter has actually been re-run against 2.1.
+      //
+      // Narrowed by update type on purpose, and this is a safe narrowing rather
+      // than the guessy kind: `matchUpdateTypes` is a fixed enum, unlike a
+      // `matchDepTypes` string that could silently match nothing. Minor and patch
+      // inside 3.x are wanted - in-range drift is exactly what let this sit at
+      // 3.35.0 under `^3.35.0`.
+      matchPackageNames: ["typed-factorio"],
+      matchUpdateTypes: ["major"],
+      enabled: false,
+    },
+    {
+      // Applies to the minor/patch bumps the rule above leaves enabled.
+      matchPackageNames: ["typed-factorio"],
+      prBodyNotes: [
+        "**Re-test `.npmrc` after merging.** `legacy-peer-deps=true` is load-bearing rather than lazy: `typed-factorio` declares non-optional peers on `lua-types` and `typescript-to-lua`, and `typescript-to-lua` pins `typescript: \"6.0.2\"` **exactly** against this project's `^7.0.2`. That single setting silences every peer conflict in the tree, including future real ones, so each typed-factorio bump is the moment to check whether it is still only masking the known pair.",
+        "It is consumed as **ambient types** via the tsconfig `types` array with zero `import` sites, so a version change alters global types everywhere at once and `vp check` is the only thing that will tell you.",
+      ],
+    },
+    {
+      // vite-plus is the ENTIRE toolchain - there is no `vite` package in this
+      // tree at all, the root `overrides` aliases it to
+      // `npm:@voidzero-dev/vite-plus-core@0.2.6`. So Vite, Rolldown, oxlint,
+      // oxfmt and Vitest are not independently upgradable, and "bump vitest" has
+      // no answer except "bump vite-plus".
+      //
+      // Disabled rather than merely noted, because a Renovate PR here would be
+      // WRONG BY CONSTRUCTION rather than merely risky. The pin appears in five
+      // places that must move as one: root, editor and website package.json; the
+      // root `overrides` alias; and .github/actions/setup-vp/action.yml, which
+      // carries VP_VERSION, a cache key, AND A SHA256 OF THE INSTALLER SCRIPT.
+      // Renovate cannot compute that checksum, so a PR touching only the
+      // manifests would leave CI installing a different toolchain version than
+      // the lockfile pins - green, and wrong.
+      //
+      // Note 0.2.6 is `latest`, not a lagging pin, so there is nothing to propose
+      // today anyway. Revisit by hand, changing all five places in one commit.
+      // The `@voidzero-dev/vite-plus-core` name is here because that is what
+      // Renovate sees behind the `overrides` alias, not a second dependency.
+      matchPackageNames: ["vite-plus", "@voidzero-dev/vite-plus-core"],
+      enabled: false,
+    },
+    {
+      // Enabled - this one is a "needs care", not a refusal. The bundled browser
+      // revision moves with the package, so without the install step every spec
+      // fails on a missing `chrome-headless-shell` executable, which reads like a
+      // suite-wide regression rather than a missing download.
+      matchPackageNames: ["@playwright/test"],
+      prBodyNotes: [
+        "**Run `npx playwright install` in this same PR before merging**, or every spec fails on a missing `chrome-headless-shell` and reads as a suite-wide regression rather than a missing download.",
+        "CI does not run Playwright, so this bump gets **no** automated verification. Bring both dev servers up with `npm run localpreview` and run `npx playwright test` locally.",
+      ],
+    },
+    {
+      // Last published in 2016, so realistically nothing will ever be proposed
+      // here - but if something is, it must not be read as routine. This is a
+      // settled KEEP rather than a hold: no CVE, no network or parsing surface,
+      // and the risk is bus-factor. What makes a bump non-routine is that its
+      // output is pinned: generators.test.ts asserts the oil outpost generator's
+      // layouts against a committed fixture, so a version change is a "did the
+      // generated layout move?" question rather than a dependency change.
+      matchPackageNames: ["pathfinding", "@types/pathfinding"],
+      prBodyNotes: [
+        "`packages/editor/src/core/generators/` output is pinned by `generators.test.ts` against a committed fixture. A diff there means this bump changed generated layouts - do not refresh the fixture to make it pass. If this ever needs to move, vendor the BFS and prove it against the existing fixture instead.",
+      ],
+    },
+    {
+      // packages/exporter is a Rust crate with a committed Cargo.lock, and until
+      // now it had NO version automation at all - .github/dependabot.yml had no
+      // cargo entry, so the exporter got security alerts and nothing else, and it
+      // has drifted accordingly. Renovate's cargo manager is on by default under
+      // config:recommended, so this rule does not enable it; it attaches the
+      // warning the bumps need.
+      //
+      // The warning is the whole point: .github/workflows/ci.yml has no cargo
+      // step, so a green check on one of these PRs means the TypeScript side
+      // still passes and nothing more. Nothing compiles the Rust. Note also that
+      // with the default `rangeStrategy: auto` most crate bumps land as
+      // Cargo.lock-only diffs with no Cargo.toml change to read.
+      //
+      // Revisit condition: if a `cargo build` step is ever added to ci.yml, drop
+      // this note - it will have stopped being true.
+      matchManagers: ["cargo"],
+      prBodyNotes: [
+        "**CI does not compile the Rust exporter.** `.github/workflows/ci.yml` has no cargo step, so a green check on this PR says nothing about it. Build locally before merging: `cd packages/exporter && cargo build --release`.",
+        "macOS only, in practice: `setup.rs:501` hardcodes `\"./basisu\"` with no `cfg(target_os)` switch and there is no Linux basisu binary in the tree, so the exporter cannot run on `ubuntu-latest` regardless.",
+      ],
+    },
+    {
+      // Deliberately NOT the alarming note the sibling repo attaches to its own
+      // .node-version. There, verify.yml feeds the file to setup-node and a bump
+      // changes what CI runs on. Here nothing reads it: no workflow, no script
+      // references it, and CI installs Node through vp itself
+      // (VP_NODE_MANAGER=yes in .github/actions/setup-vp). It is a local hint.
+      // Recorded so nobody copies the sibling's warning across and gives this
+      // more weight than it has.
+      matchFileNames: [".node-version"],
+      prBodyNotes: [
+        "Nothing reads this file - no workflow or script references it, and CI installs Node through `vp` (`VP_NODE_MANAGER=yes` in `.github/actions/setup-vp`). This is a local development hint, so the bump changes nothing about CI.",
+      ],
+    },
+  ],
+}
