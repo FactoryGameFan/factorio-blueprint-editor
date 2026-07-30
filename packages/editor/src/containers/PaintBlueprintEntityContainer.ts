@@ -58,22 +58,25 @@ export class PaintBlueprintEntityContainer {
         this.destroyUndergroundLine()
     }
 
+    /**
+     * The green/red tint on the preview. It asks planPlacement rather than
+     * repeating its three grid questions, because the preview agreeing with the
+     * result is the whole point of the planning split (issue #163): before it,
+     * the tint was computed against the unmutated grid while placement ran
+     * sequentially against a grid the previous entity had already changed, so a
+     * second overlapping rail rendered green and was then silently dropped.
+     *
+     * Writing the expression out a second time here restores that hazard in a
+     * quieter form - add an arm to planPlacement and not to the copy and the
+     * preview lies about what a click will do. Nothing can catch it: no test in
+     * the suite reads a sprite tint, so the agreement has to be structural.
+     *
+     * This costs nothing over the inline form. moveAtCursor calls it on every
+     * pointer move, and planPlacement makes the same three grid calls in the
+     * same order and short-circuits the same way.
+     */
     private checkBuildable(): void {
-        const position = this.entityPosition
-        const direction = this.entity.direction
-
-        const allow =
-            this.bpc.bp.entityPositionGrid.checkFastReplaceableGroup(
-                this.entity.name,
-                direction,
-                position
-            ) ||
-            this.bpc.bp.entityPositionGrid.checkSameEntityAndDifferentDirection(
-                this.entity.name,
-                direction,
-                position
-            ) ||
-            this.bpc.bp.entityPositionGrid.isAreaAvailable(this.entity.name, position, direction)
+        const allow = this.planPlacement().type !== 'blocked'
 
         for (const s of this.entitySprites) {
             F.applyTint(s, {

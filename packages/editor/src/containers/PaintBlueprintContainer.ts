@@ -171,6 +171,24 @@ export class PaintBlueprintContainer extends PaintContainer {
     public override placeEntityContainer(): void {
         if (!this.visible) return
 
+        /*
+            Two loops, and they must stay two (issue #163). Every entity is
+            decided against the destination grid as it stands *now*, before the
+            first placement mutates it, so the entities inside one paste cannot
+            block one another - which is what makes the paste order-independent
+            and what makes it agree with the green preview the user just saw.
+
+            Collapsing this to `container.placeEntityContainer(container.planPlacement())`
+            inside the loop below type-checks and reads as a pure simplification.
+            It is the bug: from the second entity on, the plan is made against a
+            grid the previous placement has already changed, and an overlapping
+            pair the editor's rectangles disagree about - two curved rails the
+            game accepts two tiles apart - loses its second entity silently.
+
+            Making `placement` a required parameter stops a caller *forgetting*
+            to plan. It cannot stop a caller planning in the wrong place, which
+            is the regression, so the reason lives here.
+        */
         const placements = [...this.entities].map(
             ([entity, container]) => [entity, container, container.planPlacement()] as const
         )
