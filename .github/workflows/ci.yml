@@ -65,6 +65,54 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run type-check:gate
 
+  # packages/exporter is Rust, and until now nothing compiled it - so a broken
+  # crate bump or a breaking API change in a dependency was invisible until
+  # somebody built it by hand on macOS. That was the reason .github/renovate.json5
+  # had to attach a "CI does not verify this" warning to every cargo PR.
+  #
+  # This COMPILES the exporter; it cannot RUN it, and the difference is worth
+  # knowing before anyone extends this job. Running it needs a Factorio install to
+  # extract from, and sprite encoding shells out to `./basisu` (src/setup.rs:501,
+  # hardcoded with no cfg(target_os) switch) for which only a macOS ARM64 binary is
+  # tracked. Compiling needs neither: `basisu` is invoked through Command::new at
+  # runtime, there is no build.rs, and no dependency is platform-gated.
+  #
+  # `--locked` is the load-bearing flag. It fails if Cargo.lock disagrees with
+  # Cargo.toml, which is exactly the mistake a dependency PR can make - Renovate
+  # updates the lockfile itself, and this is what checks that it did.
+  #
+  # Deliberately a separate job rather than a step in `checks`: it runs in parallel
+  # instead of adding to that job's wall clock, and `deploy` below stays gated on
+  # `checks` alone, since the deployed artifact is the website and contains nothing
+  # from the exporter.
+  rust:
+    name: Rust exporter
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # No toolchain action: ubuntu-latest ships a current stable Rust, and this
+      # crate pins nothing (no rust-toolchain.toml, edition 2021). Printed so the
+      # log records which version a given run actually used.
+      - name: Record toolchain
+        run: cargo --version && rustc --version
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/exporter/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('packages/exporter/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Build
+        run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
+
   deploy:
     name: Deploy to Cloudflare
     needs: checks
