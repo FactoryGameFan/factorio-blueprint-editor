@@ -113,21 +113,27 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
-      # Both NON-BLOCKING, and both measured before being added rather than
-      # switched on hopefully: as of this commit `cargo fmt --check` reports a
-      # diff in src/main.rs and `cargo clippy` 11 warnings. Neither can gate
-      # today without a cleanup of code this PR is not otherwise touching, so
-      # they run to make the numbers visible and ratchetable instead.
+      # Both NON-BLOCKING, and both measured on this runner rather than switched
+      # on hopefully. As of this commit: `cargo fmt --check` reports 4 diff sites
+      # (src/main.rs once, src/setup.rs three times) and `cargo clippy` 10. Those
+      # are the numbers to ratchet down; neither can gate today without a cleanup
+      # of code this branch is not otherwise touching.
       #
       # Note `-D warnings` on the clippy step, which is not decoration. Plain
       # `cargo clippy` exits 0 with warnings - measured - so without it the step
       # would be green forever and report nothing, which is worse than absent
-      # because it looks like coverage. With it the step goes red and
-      # continue-on-error keeps that off the job's conclusion.
+      # because it looks like coverage.
       #
-      # When either reaches zero, DELETE ITS continue-on-error rather than
-      # leaving it - a check nobody has to fix is a check nobody reads, which is
-      # the failure mode these two are one step away from.
+      # KNOW HOW TO READ THESE, because continue-on-error hides them in two of the
+      # three places you would look. The job conclusion stays `success`, and
+      # `gh run view --json jobs` reports each STEP's conclusion as `success` too -
+      # the real result is in the step's `outcome`, which that view does not carry.
+      # What does surface is the `##[error] Process completed with exit code 1`
+      # annotation on the run page, and the findings in the step log.
+      #
+      # When either reaches zero, DELETE ITS continue-on-error rather than leaving
+      # it - a check nobody has to fix is a check nobody reads, which is the
+      # failure mode these two are one step away from.
       - name: Format (non-blocking)
         if: ${{ !cancelled() }}
         continue-on-error: true
