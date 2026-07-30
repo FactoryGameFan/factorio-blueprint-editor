@@ -506,9 +506,15 @@ gets security alerts but no version updates, and it has drifted accordingly.
 - `packages/worker/wrangler.jsonc` `compatibility_date` is **2026-03-01**, five
   months stale. Every flag that has defaulted on since is inert for a worker that
   only does a 301 and a CORS proxy, so this is hygiene rather than risk.
-- Three declared-but-unused dependencies: `@types/delaunator` (delaunator ships
-  its own `index.d.ts`, and the bundled types are _more_ precise under `strict`),
-  and in Rust, `http` and `tokio-stream`.
+- ~~Three declared-but-unused dependencies~~ - **removed**, and the way they were
+  found is the reusable part: Renovate proposed an update for each, which is what
+  surfaced that nothing imported them. A dependency bot is a census as much as an
+  upgrade tool. `@types/delaunator` went because delaunator ships its own
+  `index.d.ts` and the bundled types are _more_ precise under `strict` - `vp check`
+  staying at 0 after the removal is the proof, not an assumption. `http` and
+  `tokio-stream` had **0** occurrences of `http::` and `tokio_stream` in
+  `packages/exporter/src/`; both remain in `Cargo.lock` as transitives of reqwest
+  and hyper, so only the two direct-dependency lines went.
 - **The Rust exporter is compiled in CI but never run**, and the gap between those
   two is the thing to know. The `Rust exporter` job in `.github/workflows/ci.yml`
   runs `cargo build --locked` on `ubuntu-latest`; `--locked` is the load-bearing
