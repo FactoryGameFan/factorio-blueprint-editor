@@ -10,8 +10,8 @@ import { BlueprintContainer } from './BlueprintContainer'
 import { PaintBlueprintContainer } from './PaintBlueprintContainer'
 
 export type BlueprintEntityPlacement =
-    | { type: 'replace'; entity: Entity }
-    | { type: 'rotate'; entity: Entity }
+    | { type: 'replace' }
+    | { type: 'rotate' }
     | { type: 'create' }
     | { type: 'blocked' }
 
@@ -125,37 +125,54 @@ export class PaintBlueprintEntityContainer {
         this.checkBuildable()
     }
 
+    /** Planned against the destination grid before any entity in this paste is placed. */
     public planPlacement(): BlueprintEntityPlacement {
         const position = this.entityPosition
         const direction = this.entity.direction
         const grid = this.bpc.bp.entityPositionGrid
 
         const replacement = grid.checkFastReplaceableGroup(this.entity.name, direction, position)
-        if (replacement) return { type: 'replace', entity: replacement }
+        if (replacement) return { type: 'replace' }
 
         const rotated = grid.checkSameEntityAndDifferentDirection(
             this.entity.name,
             direction,
             position
         )
-        if (rotated) return { type: 'rotate', entity: rotated }
+        if (rotated) return { type: 'rotate' }
 
         return grid.isAreaAvailable(this.entity.name, position, direction)
             ? { type: 'create' }
             : { type: 'blocked' }
     }
 
-    public placeEntityContainer(placement = this.planPlacement()): Entity | undefined {
+    /**
+     * The entity this placed, or undefined where it placed none - which is the
+     * normal outcome of three of the four paths below, not a failure. A fast
+     * replace and a rotate-in-place both reuse an entity that already exists,
+     * and an unavailable area places nothing at all.
+     *
+     * The one caller, PaintBlueprintContainer.placeEntityContainer, is building
+     * an old-entity-number -> new-entity-number map to copy wires through, and
+     * already skips the undefined: only a genuinely new entity has a new number
+     * to map to.
+     */
+    public placeEntityContainer(placement: BlueprintEntityPlacement): Entity | undefined {
         const position = this.entityPosition
         const direction = this.entity.direction
 
         if (placement.type === 'replace') {
-            this.bpc.bp.fastReplaceEntity(this.entity.name, direction, position, placement.entity)
+            this.bpc.bp.fastReplaceEntity(this.entity.name, direction, position)
             return undefined
         }
 
         if (placement.type === 'rotate') {
-            placement.entity.direction = direction
+            const entity = this.bpc.bp.entityPositionGrid.checkSameEntityAndDifferentDirection(
+                this.entity.name,
+                direction,
+                position
+            )
+            if (entity) entity.direction = direction
             return undefined
         }
 
