@@ -382,7 +382,6 @@ dependencies = [
  "dotenvy",
  "futures",
  "globset",
- "http",
  "hyper",
  "hyper-staticfile",
  "hyper-util",
@@ -394,7 +393,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tokio-stream",
  "tokio-util",
  "zip",
 ]
