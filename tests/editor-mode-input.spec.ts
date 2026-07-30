@@ -77,6 +77,15 @@ const THREE_CHESTS = encode({
     ],
 })
 
+const TWO_OVERLAPPING_CURVED_RAILS = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [
+        { entity_number: 1, name: 'curved-rail-a', position: { x: 0, y: 0 }, direction: 0 },
+        { entity_number: 2, name: 'curved-rail-a', position: { x: 0, y: 2 }, direction: 0 },
+    ],
+})
+
 async function openEditorWithEntities(page: Page): Promise<void> {
     await openEditor(page)
     await page.evaluate(async (src: string) => {
@@ -350,6 +359,31 @@ test('a paste rotated while hidden is still placeable when the pointer returns',
     await page.mouse.up()
 
     expect(await entityCount(page)).toBe(6)
+})
+
+test('a paste checks every entity before any of them change the destination grid', async ({
+    page,
+}) => {
+    await openEditor(page)
+    await page.evaluate(async (src: string) => {
+        const t = (window as any).__fbe_test
+        await t.loadBp(await t.getBlueprintOrBookFromSource(src))
+    }, TWO_OVERLAPPING_CURVED_RAILS)
+
+    const first = await screenOf(page, 1)
+    const second = await screenOf(page, 2)
+    await page.mouse.move(first.x, first.y)
+    await page.keyboard.down('Control')
+    await page.mouse.down()
+    await page.mouse.move(second.x, second.y)
+    await page.mouse.up()
+    await page.keyboard.up('Control')
+
+    const pixelsPerTile = Math.abs(second.y - first.y) / 2
+    await page.mouse.move(second.x + pixelsPerTile * 4, second.y)
+    await page.mouse.click(second.x + pixelsPerTile * 4, second.y)
+
+    expect(await entityCount(page)).toBe(4)
 })
 
 test('the modes do not leak into one another', async ({ page }) => {

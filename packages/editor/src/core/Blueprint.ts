@@ -434,9 +434,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.commitTransaction()
     }
 
-    public fastReplaceEntity(name: string, direction: number, position: IPoint): boolean {
-        const entity = this.entityPositionGrid.checkFastReplaceableGroup(name, direction, position)
-
+    public fastReplaceEntity(
+        name: string,
+        direction: number,
+        position: IPoint,
+        entity = this.entityPositionGrid.checkFastReplaceableGroup(name, direction, position)
+    ): boolean {
         if (!entity) return false
 
         this.history.startTransaction('Fast replace entity')

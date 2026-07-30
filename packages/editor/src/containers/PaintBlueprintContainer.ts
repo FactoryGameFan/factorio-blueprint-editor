@@ -171,11 +171,15 @@ export class PaintBlueprintContainer extends PaintContainer {
     public override placeEntityContainer(): void {
         if (!this.visible) return
 
+        const placements = [...this.entities].map(
+            ([entity, container]) => [entity, container, container.planPlacement()] as const
+        )
+
         this.bpc.bp.history.startTransaction('Create Entities')
 
         const oldEntIDToNewEntID = new Map<number, number>()
-        for (const [entity, c] of this.entities) {
-            const e = c.placeEntityContainer()
+        for (const [entity, container, placement] of placements) {
+            const e = container.placeEntityContainer(placement)
             if (e) {
                 oldEntIDToNewEntID.set(entity.entityNumber, e.entityNumber)
             }
