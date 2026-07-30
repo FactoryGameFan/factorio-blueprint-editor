@@ -139,6 +139,26 @@ jobs:
         if: ${{ !cancelled() }}
         run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
 
+      # The Build step above compiles the LINUX cfg block and skips the Windows
+      # one, so a chunk of src/setup.rs is never type-checked by anything. That is
+      # not theoretical: `zip` has exactly one call site in the whole crate,
+      # setup.rs:623, inside `#[cfg(target_os = "windows")]` - so the zip v2 -> v8
+      # PR passed this job green with its only consumer uncompiled. Six majors, and
+      # the check covered none of it.
+      #
+      # `check`, not `build`: type-checking the cfg block is the entire point and
+      # needs no MSVC linker, so this costs a rustup target and seconds rather than
+      # a cross-compilation toolchain. It would also have caught the clippy autofix
+      # that renamed `out_dir`/`stream` - that broke Windows as well as Linux.
+      #
+      # macOS is deliberately not covered: `download()` panics on the
+      # unsupported-OS arm, so there is no macOS cfg block to check.
+      - name: Check the Windows-gated code
+        if: ${{ !cancelled() }}
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo check --locked --target x86_64-pc-windows-msvc --manifest-path packages/exporter/Cargo.toml
+
   deploy:
     name: Deploy to Cloudflare
     needs: checks
