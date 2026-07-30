@@ -139,6 +139,51 @@ jobs:
         if: ${{ !cancelled() }}
         run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
 
+  # The Linux job above compiles the linux cfg block of src/setup.rs and SKIPS the
+  # Windows one, so a chunk of that file was never checked by anything. Not
+  # theoretical: `zip` has exactly one call site in the whole crate, setup.rs:623,
+  # inside `#[cfg(target_os = "windows")]` - so the zip v2 -> v8 PR passed the
+  # Linux job green with its only consumer uncompiled. Six majors, covered by
+  # nothing. This job is what makes that PR meaningful.
+  #
+  # WHY A WINDOWS RUNNER RATHER THAN A CROSS-CHECK, which is what this was first
+  # written as and is the obvious cheap answer: `cargo check --target
+  # x86_64-pc-windows-msvc` on ubuntu FAILS, because `check` still runs build
+  # scripts, and `zstd-sys` (pulled in by zip) builds C and refuses the GNU
+  # compiler for an msvc target. Measured, not predicted - the cross-check was
+  # committed, and CI rejected it. Any `-sys` crate reintroduces this, so the
+  # native runner is the durable answer rather than chasing a mingw toolchain.
+  #
+  # macOS is deliberately not covered: `download()` panics on the unsupported-OS
+  # arm, so there is no macOS cfg block to check.
+  #
+  # Free on this repo - GitHub-hosted minutes are unmetered for public repos, so
+  # the 2x Windows billing multiplier costs nothing here.
+  rust-windows:
+    name: Rust exporter (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Record toolchain
+        run: cargo --version && rustc --version
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/exporter/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('packages/exporter/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Build
+        run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
+
   deploy:
     name: Deploy to Cloudflare
     needs: checks
