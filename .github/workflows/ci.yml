@@ -113,35 +113,30 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
-      # Both NON-BLOCKING, and both measured on this runner rather than switched
-      # on hopefully. As of this commit: `cargo fmt --check` reports 4 diff sites
-      # (src/main.rs once, src/setup.rs three times) and `cargo clippy` 10. Those
-      # are the numbers to ratchet down; neither can gate today without a cleanup
-      # of code this branch is not otherwise touching.
+      # BLOCKING, both at zero on this runner. They arrived non-blocking with 4
+      # fmt sites and 10 clippy findings, and the `continue-on-error` came off in
+      # the same PR that cleared them - deliberately, because a check nobody has
+      # to fix is a check nobody reads.
       #
       # Note `-D warnings` on the clippy step, which is not decoration. Plain
-      # `cargo clippy` exits 0 with warnings - measured - so without it the step
+      # `cargo clippy` exits 0 with warnings - measured - so without it this step
       # would be green forever and report nothing, which is worse than absent
       # because it looks like coverage.
       #
-      # KNOW HOW TO READ THESE, because continue-on-error hides them in two of the
-      # three places you would look. The job conclusion stays `success`, and
-      # `gh run view --json jobs` reports each STEP's conclusion as `success` too -
-      # the real result is in the step's `outcome`, which that view does not carry.
-      # What does surface is the `##[error] Process completed with exit code 1`
-      # annotation on the run page, and the findings in the step log.
-      #
-      # When either reaches zero, DELETE ITS continue-on-error rather than leaving
-      # it - a check nobody has to fix is a check nobody reads, which is the
-      # failure mode these two are one step away from.
-      - name: Format (non-blocking)
+      # THESE GATE ON LINUX, AND THAT IS LOAD-BEARING RATHER THAN INCIDENTAL.
+      # `download()` in src/setup.rs uses `out_dir` and `stream` only inside
+      # `#[cfg(target_os = "windows")]` and `#[cfg(target_os = "linux")]` blocks, so
+      # on a macOS host both read as unused and clippy proposes renaming them to
+      # `_out_dir`/`_stream`. That autofix compiles on macOS and BREAKS this job,
+      # where the cfg blocks reference the original names. So: clippy is clean here
+      # and reports 2 warnings on a developer's Mac, and the Mac is the one that is
+      # wrong. Do not silence them locally.
+      - name: Format
         if: ${{ !cancelled() }}
-        continue-on-error: true
         run: cargo fmt --check --manifest-path packages/exporter/Cargo.toml
 
-      - name: Clippy (non-blocking)
+      - name: Clippy
         if: ${{ !cancelled() }}
-        continue-on-error: true
         run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
 
   deploy:
