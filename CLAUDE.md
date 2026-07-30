@@ -101,6 +101,12 @@ cd packages/website && npm run build:analyze
 
 `vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.6 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
 
+## Git and PR Conventions
+
+Work goes on a branch and lands through a PR against `wormeyman-space-age-support`, which is this repo's default branch - not `main`, and not `teoxoy` upstream. Every PR is **squash**-merged, though merge commits and rebase are both enabled too.
+
+**Do not put an issue number in the commit subject.** Put `Closes #N` in the body. GitHub appends the PR number to the subject when it squashes, so a subject that already carries the issue number lands as `<subject> (#181) (#184)` - which is what `dd4efab3` looks like, the one commit in the last twenty that deviates. The other nineteen are `<subject> (#PR)`, and the closing reference is not lost by keeping it in the body: that is what GitHub reads to close the issue, and it renders on both the commit and the PR.
+
 ## Dev Server Setup
 
 Vite dev server runs on port 8080. In dev mode, `/data` is proxied to `http://127.0.0.1:8081` (the static file server serving sprite data). In production builds, `vite-plugin-static-copy` copies sprite data into the build output. Vite 8's dev server requires `optimizeDeps.include` for pixi.js subpath imports (e.g. `pixi.js/app`) - these are configured in `vite.config.js`.
