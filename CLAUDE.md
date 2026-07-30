@@ -56,6 +56,11 @@ cd packages/website && vp build
 vp check
 vp check --fix
 
+# The flag must come BEFORE any path. `vp check --fix .` works; `vp check . --fix`
+# fails with `no such flag: --fix, did you mean --init?`, which points nowhere near
+# the real cause and reads as a broken toolchain rather than a wrong argument
+# order. Reachable, because CI itself passes a path (`vp check .`).
+
 # CI type-check gate: fails only if the error count exceeds the committed
 # baseline in scripts/type-check-baseline.json. Kept alongside `vp check` because
 # the two answer different questions - vp check asks whether the code type-checks

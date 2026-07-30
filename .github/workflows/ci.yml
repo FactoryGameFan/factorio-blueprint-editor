@@ -113,6 +113,31 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
+      # Both NON-BLOCKING, and both measured before being added rather than
+      # switched on hopefully: as of this commit `cargo fmt --check` reports a
+      # diff in src/main.rs and `cargo clippy` 11 warnings. Neither can gate
+      # today without a cleanup of code this PR is not otherwise touching, so
+      # they run to make the numbers visible and ratchetable instead.
+      #
+      # Note `-D warnings` on the clippy step, which is not decoration. Plain
+      # `cargo clippy` exits 0 with warnings - measured - so without it the step
+      # would be green forever and report nothing, which is worse than absent
+      # because it looks like coverage. With it the step goes red and
+      # continue-on-error keeps that off the job's conclusion.
+      #
+      # When either reaches zero, DELETE ITS continue-on-error rather than
+      # leaving it - a check nobody has to fix is a check nobody reads, which is
+      # the failure mode these two are one step away from.
+      - name: Format (non-blocking)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: cargo fmt --check --manifest-path packages/exporter/Cargo.toml
+
+      - name: Clippy (non-blocking)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
+
   deploy:
     name: Deploy to Cloudflare
     needs: checks
