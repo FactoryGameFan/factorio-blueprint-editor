@@ -9,6 +9,12 @@ import { VisualizationArea } from './VisualizationArea'
 import { BlueprintContainer } from './BlueprintContainer'
 import { PaintBlueprintContainer } from './PaintBlueprintContainer'
 
+export type BlueprintEntityPlacement =
+    | { type: 'replace' }
+    | { type: 'rotate' }
+    | { type: 'create' }
+    | { type: 'blocked' }
+
 export class PaintBlueprintEntityContainer {
     private readonly pbpc: PaintBlueprintContainer
     private readonly bpc: BlueprintContainer
@@ -119,6 +125,27 @@ export class PaintBlueprintEntityContainer {
         this.checkBuildable()
     }
 
+    /** Planned against the destination grid before any entity in this paste is placed. */
+    public planPlacement(): BlueprintEntityPlacement {
+        const position = this.entityPosition
+        const direction = this.entity.direction
+        const grid = this.bpc.bp.entityPositionGrid
+
+        const replacement = grid.checkFastReplaceableGroup(this.entity.name, direction, position)
+        if (replacement) return { type: 'replace' }
+
+        const rotated = grid.checkSameEntityAndDifferentDirection(
+            this.entity.name,
+            direction,
+            position
+        )
+        if (rotated) return { type: 'rotate' }
+
+        return grid.isAreaAvailable(this.entity.name, position, direction)
+            ? { type: 'create' }
+            : { type: 'blocked' }
+    }
+
     /**
      * The entity this placed, or undefined where it placed none - which is the
      * normal outcome of three of the four paths below, not a failure. A fast
@@ -130,24 +157,27 @@ export class PaintBlueprintEntityContainer {
      * already skips the undefined: only a genuinely new entity has a new number
      * to map to.
      */
-    public placeEntityContainer(): Entity | undefined {
+    public placeEntityContainer(placement: BlueprintEntityPlacement): Entity | undefined {
         const position = this.entityPosition
         const direction = this.entity.direction
 
-        if (this.bpc.bp.fastReplaceEntity(this.entity.name, direction, position)) return undefined
+        if (placement.type === 'replace') {
+            this.bpc.bp.fastReplaceEntity(this.entity.name, direction, position)
+            return undefined
+        }
 
-        const snEnt = this.bpc.bp.entityPositionGrid.checkSameEntityAndDifferentDirection(
-            this.entity.name,
-            direction,
-            position
-        )
-        if (snEnt) {
-            snEnt.direction = direction
+        if (placement.type === 'rotate') {
+            const entity = this.bpc.bp.entityPositionGrid.checkSameEntityAndDifferentDirection(
+                this.entity.name,
+                direction,
+                position
+            )
+            if (entity) entity.direction = direction
             return undefined
         }
 
         let ent: Entity | undefined
-        if (this.bpc.bp.entityPositionGrid.isAreaAvailable(this.entity.name, position, direction)) {
+        if (placement.type === 'create') {
             ent = this.bpc.bp.createEntity({
                 ...this.entity.serialize(),
                 entity_number: undefined,
