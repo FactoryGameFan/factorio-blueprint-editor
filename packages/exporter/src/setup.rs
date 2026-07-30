@@ -214,13 +214,13 @@ async fn glob(
     Ok(paths)
 }
 
-async fn generate_locale(factorio_data: &PathBuf) -> Result<String, Box<dyn Error>> {
+async fn generate_locale(factorio_data: &Path) -> Result<String, Box<dyn Error>> {
     let matcher = GlobBuilder::new("**/*/locale/en/*.cfg")
         .literal_separator(true)
         .build()?
         .compile_matcher();
     let paths = glob(factorio_data, &matcher).await?;
-    let content = futures::future::try_join_all(paths.iter().map(|path| content_to_lines(&path)))
+    let content = futures::future::try_join_all(paths.iter().map(|path| content_to_lines(path)))
         .await?
         .concat();
     Ok(format!("return {{{}}}", content))
@@ -247,7 +247,7 @@ pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), 
     println!("Generating defines.lua");
 
     Command::new(factorio_executable)
-        .args(&["--start-server-load-scenario", "export-data/export-data"])
+        .args(["--start-server-load-scenario", "export-data/export-data"])
         .stdout(std::process::Stdio::null())
         .spawn()?
         .wait()
@@ -363,7 +363,7 @@ pub async fn extract_local(output_dir: &Path, factorio_dir: &Path) -> Result<(),
     println!("Running Factorio to generate data...");
 
     Command::new(&factorio_executable)
-        .args(&["--start-server-load-scenario", "export-data/export-data"])
+        .args(["--start-server-load-scenario", "export-data/export-data"])
         .stdout(std::process::Stdio::null())
         .spawn()?
         .wait()
@@ -496,11 +496,11 @@ async fn compress_next_img(
             let basisu_executable = "./basisu";
             let status = Command::new(basisu_executable)
                 // .args(&["-comp_level", "2"])
-                .args(&["-no_multithreading"])
+                .args(["-no_multithreading"])
                 // .args(&["-ktx2"])
-                .args(&["-mipmap"])
-                .args(&["-file", path.to_str().ok_or("PathBuf to &str failed")?])
-                .args(&[
+                .args(["-mipmap"])
+                .args(["-file", path.to_str().ok_or("PathBuf to &str failed")?])
+                .args([
                     "-output_file",
                     out_path.to_str().ok_or("PathBuf to &str failed")?,
                 ])
@@ -594,10 +594,17 @@ async fn download(
     }
 
     use futures::stream::TryStreamExt;
-    let stream = res
-        .bytes_stream()
-        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
+    let stream = res.bytes_stream().map_err(futures::io::Error::other);
 
+    /*
+        `stream` and `out_dir` are consumed only inside the cfg blocks below, so
+        on macOS - where neither is active, and where this function panics on the
+        unsupported-OS arm above anyway - both read as unused. That is a
+        false positive of the host, not a finding: `cargo clippy --fix` renamed
+        each to a leading-underscore form to silence it, which compiles on macOS
+        and BREAKS the Linux and Windows builds, where the cfg blocks reference
+        the original names. Caught by the ubuntu CI job. Do not "fix" them again.
+    */
     let stream = stream.inspect_ok(|chunk| {
         pb.inc(chunk.len() as u64);
     });
