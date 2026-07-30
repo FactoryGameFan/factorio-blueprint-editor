@@ -240,21 +240,23 @@
             // now it had NO version automation at all - .github/dependabot.yml had no
             // cargo entry, so the exporter got security alerts and nothing else, and it
             // has drifted accordingly. Renovate's cargo manager is on by default under
-            // config:recommended, so this rule does not enable it; it attaches the
-            // warning the bumps need.
+            // config:recommended, so this rule does not enable it; it attaches the one
+            // caveat these bumps still carry.
             //
-            // The warning is the whole point: .github/workflows/ci.yml has no cargo
-            // step, so a green check on one of these PRs means the TypeScript side
-            // still passes and nothing more. Nothing compiles the Rust. Note also that
-            // with the default `rangeStrategy: auto` most crate bumps land as
-            // Cargo.lock-only diffs with no Cargo.toml change to read.
+            // The `Rust exporter` job in ci.yml compiles this crate as of the same PR
+            // that added this file, so a cargo bump IS gated now - the earlier draft of
+            // this rule said the opposite and was made obsolete deliberately. What the
+            // job proves is bounded, though, and the boundary is the note below: it
+            // COMPILES the exporter and cannot RUN it, since running needs a Factorio
+            // install to extract from and shells out to a macOS-only `./basisu`. A
+            // crate that changes runtime behaviour without breaking the build passes.
             //
-            // Revisit condition: if a `cargo build` step is ever added to ci.yml, drop
-            // this note - it will have stopped being true.
+            // Note also that with the default `rangeStrategy: auto` most crate bumps
+            // land as Cargo.lock-only diffs, with no Cargo.toml change to read - the
+            // job's `--locked` is what checks the lockfile Renovate wrote is coherent.
             matchManagers: ['cargo'],
             prBodyNotes: [
-                '**CI does not compile the Rust exporter.** `.github/workflows/ci.yml` has no cargo step, so a green check on this PR says nothing about it. Build locally before merging: `cd packages/exporter && cargo build --release`.',
-                'macOS only, in practice: `setup.rs:501` hardcodes `"./basisu"` with no `cfg(target_os)` switch and there is no Linux basisu binary in the tree, so the exporter cannot run on `ubuntu-latest` regardless.',
+                'CI compiles this crate (the `Rust exporter` job) but **cannot run it** - the exporter needs a Factorio install to extract from, and sprite encoding shells out to `./basisu`, for which only a macOS ARM64 binary is tracked. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching image, zip, tar or compression handling, run the exporter locally on macOS before merging.',
             ],
         },
         {
