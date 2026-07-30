@@ -56,6 +56,11 @@ cd packages/website && vp build
 vp check
 vp check --fix
 
+# The flag must come BEFORE any path. `vp check --fix .` works; `vp check . --fix`
+# fails with `no such flag: --fix, did you mean --init?`, which points nowhere near
+# the real cause and reads as a broken toolchain rather than a wrong argument
+# order. Reachable, because CI itself passes a path (`vp check .`).
+
 # CI type-check gate: fails only if the error count exceeds the committed
 # baseline in scripts/type-check-baseline.json. Kept alongside `vp check` because
 # the two answer different questions - vp check asks whether the code type-checks
@@ -504,9 +509,16 @@ gets security alerts but no version updates, and it has drifted accordingly.
 - Three declared-but-unused dependencies: `@types/delaunator` (delaunator ships
   its own `index.d.ts`, and the bundled types are _more_ precise under `strict`),
   and in Rust, `http` and `tokio-stream`.
-- **The Rust exporter is never compiled in CI** - `.github/workflows/ci.yml` has
-  no `cargo` step, so Rust breakage is invisible until someone builds locally on
-  macOS.
+- **The Rust exporter is compiled in CI but never run**, and the gap between those
+  two is the thing to know. The `Rust exporter` job in `.github/workflows/ci.yml`
+  runs `cargo build --locked` on `ubuntu-latest`; `--locked` is the load-bearing
+  flag, since it fails when `Cargo.lock` disagrees with `Cargo.toml`, which is
+  exactly what a dependency PR can get wrong. Compiling needs neither Factorio nor
+  basisu - `./basisu` is a runtime `Command::new` at `src/setup.rs:501`, there is
+  no `build.rs`, and no dependency is platform-gated. **Running** it needs both, and
+  the tracked basisu binary is macOS ARM64 only, so a crate that changes runtime
+  behaviour without breaking the build passes green. Anything touching image, zip,
+  tar or compression handling still wants a local run on macOS.
 - `ajv` is ~100 kB minified and **nothing branches on its result** - the load
   proceeds identically either way, and `ModdedBlueprintError` /
   `TrainBlueprintError` are declared, exported, handled, and never thrown. Decide
