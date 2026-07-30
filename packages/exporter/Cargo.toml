@@ -21,5 +21,5 @@ tokio-util = { version = "0.7.13", features = ["io"] }
 hyper-staticfile = "0.10.1"
 hyper = { version = "1.5.1", features = ["http1", "server"] }
 hyper-util = { version = "0.1.10", features = ["tokio"] }
-zip = "2.2.1"
+zip = "8.0.0"
 dotenvy = "0.15.7"
