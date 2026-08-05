@@ -13,8 +13,9 @@ import { encodeBlueprint as encode, packVersion as version } from './helpers/enc
     migrated at all. That is what made issue #40 invisible for so long - the
     renames were running on every blueprint in the corpus of the day, and the two
     whose source names are live prototypes again quietly rewrote thousands of
-    stack inserters (9,479 measured over that corpus; the current one holds
-    2,790).
+    stack inserters - recorded then as 9535; that corpus was gitignored and has
+    since been replaced, so the figure cannot be re-measured. The current corpus
+    holds 2,790.
 
     Runs against the dev server like the rest of tests/ - see CLAUDE.md for the
     two servers that have to be up.

@@ -165,12 +165,14 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
  * at the top of this file before changing any of it.
  *
  * `serializedHash` moved once since, from -488612622, when the legacy name
- * migrations became version-aware (issue #40). Measured against the corpus of
- * the day - 10 discovered files, all declaring 2.0.45 to 2.0.73, as entirely
- * post-2.0 as today's 12 declaring 2.0.32 to 2.1.12 - nothing in it should have
- * been migrated at all, and 9,479 stack inserters across 7 of those 10 files
- * were being rewritten to bulk-inserter on load and re-encoded that way. Only
- * this hash moved: both position checksums and every count held, which is the
+ * migrations became version-aware (issue #40). The corpus was entirely
+ * post-2.0 then, exactly as it is now, so nothing in it should have been
+ * migrated at all - the bug was migrations still running on those blueprints,
+ * quietly rewriting stack inserters to bulk-inserter on load and re-encoding
+ * them that way. Recorded then as 9535 stack inserters across 7 of the 11
+ * files; that corpus was gitignored and has since been replaced, so the
+ * figure cannot be re-measured and is not asserted as fact here. Only this
+ * hash moved: both position checksums and every count held, which is the
  * signature of names changing under identical geometry.
  */
 const EXPECTED = {
