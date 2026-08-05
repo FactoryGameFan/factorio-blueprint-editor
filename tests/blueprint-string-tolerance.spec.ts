@@ -9,7 +9,7 @@ import { encodeBlueprint as encode, packVersion as version } from './helpers/enc
     `Buffer.from(str, 'base64')`, which ignores every character outside the
     alphabet and accepts the URL-safe one. Nothing in the suite would have
     noticed the difference: every string the corpus and the other specs feed the
-    editor is already clean, so even a bare `atob` passes all 578 of them.
+    editor is already clean, so even a bare `atob` passes all 367 of them.
 
     **The two halves of this file guard different things, and mutation-checking
     is what separated them** - the first draft of this docstring had all four

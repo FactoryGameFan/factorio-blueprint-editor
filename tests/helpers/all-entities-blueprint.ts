@@ -6,7 +6,7 @@ import * as zlib from 'zlib'
     Builds a blueprint string containing one of every entity in data.json, so the
     sprite builder's per-type draw_* functions can all be exercised in one load.
 
-    The curated blueprints in wormeyman-tests/ are real bases and only happen to
+    The curated blueprints in test-blueprints/ are real bases and only happen to
     contain the entity types their authors used; this reaches the rest.
 */
 

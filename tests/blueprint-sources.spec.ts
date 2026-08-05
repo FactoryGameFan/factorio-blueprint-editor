@@ -12,7 +12,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
     green.
 
     The corpus cannot reach any of it by construction rather than by omission.
-    Every file in wormeyman-tests/ is a raw blueprint string starting with `0`,
+    Every file in test-blueprints/ is a raw blueprint string starting with `0`,
     which takes the `DATA[0] === '0'` branch and never builds a URL at all.
 
     Nor can a unit test. The function ends in `decode`, which validates against

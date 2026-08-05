@@ -30,10 +30,10 @@ import { suppressOverlays } from './helpers/overlays'
     where the other has to go through a dialog layout to say anything at all.
 
     The shapes here are the ones the corpus actually holds. Measured over
-    wormeyman-tests/: 4631 entities carry a `request_filters` object, every
-    section is at index 1 (not 0), all 3461 filters carry `quality` and
-    `comparator` as well as index/name/count, 433 objects carry
-    `request_from_buffers` and 54 `trash_not_requested`, and 14 have a second
+    test-blueprints/: 5995 entities carry a `request_filters` object, every
+    section is at index 1, 2 or 3 and none at 0, all 4069 filters carry
+    `quality` and `comparator` as well as index/name/count, 728 objects carry
+    `request_from_buffers` and 36 `trash_not_requested`, and 19 have a second
     section. Those last three are why this spec asserts on preservation rather
     than only on the filters themselves: the setter writes the whole
     `request_filters` object, so anything it does not carry over is destroyed on
@@ -394,7 +394,7 @@ test('undo puts a chest filter back', async ({ page }) => {
 
 test('a slot that did not change keeps the fields the editor does not model', async ({ page }) => {
     /*
-        `IFilter` is index/name/count, but every one of the 3461 filters in the
+        `IFilter` is index/name/count, but every one of the 4069 filters in the
         corpus also carries `quality` and `comparator`, and 90 carry `max_count`.
         The chest editor rewrites the whole list on any slot change, reading it
         back through the getter that drops those - so a setter that built each
@@ -473,7 +473,7 @@ test('pasting carries a filter quality, comparator and max_count across (#88)', 
     page,
 }) => {
     /*
-        Issue #88. Every one of the 3461 filters in the corpus carries `quality`
+        Issue #88. Every one of the 4069 filters in the corpus carries `quality`
         and `comparator`, and 90 carry `max_count`, but `IFilter` was
         index/name/count - so the getter built fresh objects that dropped them
         and a paste silently downgraded a rare-quality request to no quality at

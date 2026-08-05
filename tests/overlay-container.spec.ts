@@ -136,7 +136,7 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
 }
 
 /**
- * The real bases in wormeyman-tests/. This is the half that exercises the
+ * The real bases in test-blueprints/. This is the half that exercises the
  * settings-dependent branches: the crafting machines carry recipes (and so fluid
  * filter icons), the combinators carry signals, and fast-inserter and splitter
  * show both states - [-1, 1] means some are configured and some are not, which

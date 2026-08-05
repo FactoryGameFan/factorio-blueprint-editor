@@ -14,7 +14,7 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     note at the top of spriteShape.ts - but it means a refactor can silently break
     a whole entity type and the editor will still look like it works.
 
-    The curated blueprints in wormeyman-tests/ only contain the entity types their
+    The curated blueprints in test-blueprints/ only contain the entity types their
     authors happened to use, so this builds a synthetic blueprint holding one of
     every entity in data.json, in several directions, and asserts which ones fail.
 

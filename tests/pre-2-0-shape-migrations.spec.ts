@@ -15,9 +15,9 @@ import {
                           (logistic chests)
 
     Neither had any coverage at all before this spec, and the corpus cannot give
-    it any: measured over wormeyman-tests/, no blueprint carries
+    it any: measured over test-blueprints/, no blueprint carries
     `control_behavior.filters` and none carries `request_filters` as an array -
-    every one of them is 2.0.45 or later and already in the new shape. So both
+    every one of them is 2.0.32 or later and already in the new shape. So both
     migrations were dead code as far as the suite was concerned, and could have
     been broken or deleted with everything green.
 
@@ -150,10 +150,12 @@ test('a migrated section is numbered the way Factorio numbers sections', async (
         0 round-trips through the editor perfectly and only shows up in
         Factorio.
 
-        1 is what the corpus says: measured over wormeyman-tests/, all 4645
-        `request_filters` sections are at index 1 or 2, and all 1452
+        1 is what the corpus says: measured over test-blueprints/, all 6017
+        `request_filters` sections are at index 1, 2 or 3, and all 1344
         `control_behavior` sections run 1 through 15, contiguous from 1. Nothing
-        anywhere is at 0.
+        anywhere is at 0. (The 1452 this said before #186 counted
+        wormeyman-tests/a.txt, a top-level file discoverBlueprintFiles never
+        read - it only walks directories.)
 
         Factorio has since been asked directly (#91), and the answer is stronger
         than "1 is tidier": a section at index 0 makes **the whole blueprint

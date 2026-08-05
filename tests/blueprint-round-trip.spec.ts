@@ -37,7 +37,7 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     re-ordering, which is why the checksums are there.
 
     What this does NOT cover, found the same way: every blueprint in
-    wormeyman-tests/ carries a version, so anything keyed on a *missing* version
+    test-blueprints/ carries a version, so anything keyed on a *missing* version
     is inert here. Replacing `data.version < X` with `(data.version ?? 0) < X`
     passes this test untouched while being wrong - it would treat a version-less
     blueprint as pre-2.0 and parse its wires in the old format. Those reads want
@@ -66,7 +66,7 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
 
         /*
             djb2 over the serialized JSON. Only needs to be stable and sensitive,
-            not cryptographic, and it has to run in-page so the full JSON of 578
+            not cryptographic, and it has to run in-page so the full JSON of 367
             blueprints never crosses the CDP bridge.
         */
         const hashInto = (h: number, s: string): number => {

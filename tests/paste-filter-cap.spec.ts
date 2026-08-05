@@ -26,10 +26,12 @@ import { suppressOverlays } from './helpers/overlays'
         chest. That is why the write path still holds a cap at all rather than
         passing everything through.
 
-    The corpus cannot test any of this: measured over wormeyman-tests/, 4639
-    chests carry `request_filters` and the largest section-0 filter list in all
-    578 blueprints is **5**. Nothing there comes within 6x of the old cap, let
-    alone the real one, so both cases here are synthetic.
+    The corpus cannot test any of this: measured over test-blueprints/, 5995
+    entities carry `request_filters` and the largest section-0 filter list in
+    all 367 blueprints is **19**. Still under the old 30-slot cap and 50x under
+    the real 1000, so both cases here are synthetic - but note that number went
+    5 -> 19 when the corpus went public (#186), so it is closer to the old cap
+    than it reads, and a corpus addition could cross it.
 
     Runs against the dev server like the rest of tests/ - see CLAUDE.md.
 */

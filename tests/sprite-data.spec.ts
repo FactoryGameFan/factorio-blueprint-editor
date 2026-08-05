@@ -211,7 +211,7 @@ test('real blueprints generate the sprite data they generated before', async ({ 
 
             for (const str of strings) {
                 /*
-                    Books are most of wormeyman-tests/ and loading one renders
+                    Books are most of test-blueprints/ and loading one renders
                     only its first entry, so walk the entries directly. Each
                     carries its own position grid, populated as its entities were
                     created, which is all the neighbour branches need.

@@ -123,9 +123,10 @@ failing rather than as a port clash.
 
 Two things about the Playwright suite. Run `npx playwright install` after any
 `@playwright/test` bump, or every spec fails on a missing browser executable.
-And several specs load a local blueprint corpus from `wormeyman-tests/`, which
-is gitignored and not distributed - without it those specs fail on an explicit
-"found no blueprints" assertion, which is not something you broke.
+And several specs load the blueprint corpus in `test-blueprints/`, which is
+committed - see its README for where the blueprints come from and what the set
+is chosen for. Those specs assert that they found some, so a missing corpus is a
+real failure rather than an expected local condition.
 
 If you moved Vite off 8080, point the specs at it rather than editing
 `playwright.config.ts`:

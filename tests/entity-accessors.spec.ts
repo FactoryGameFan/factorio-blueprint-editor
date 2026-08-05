@@ -118,7 +118,7 @@ test('Entity accessors report the same shape across every test blueprint', async
 
 /*
     Captured from the accessors as they behaved before the strictNullChecks
-    cleanup, across all 578 blueprints in wormeyman-tests/. Treat as a fixed
+    cleanup, across all 367 blueprints in test-blueprints/. Treat as a fixed
     point: see the note at the top of this file before changing any of it.
 */
 const EXPECTED: {
