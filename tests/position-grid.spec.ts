@@ -19,7 +19,7 @@ const BLUEPRINT = 'EARN/power-blocks-v22-0-8.rev-1'
 
 test('PositionGrid answers queries and stays consistent through a mutation', async ({ page }) => {
     const blueprint = discoverBlueprintFiles().find(f => f.name === BLUEPRINT)
-    if (!blueprint) throw new Error(`test blueprint ${BLUEPRINT} not found in wormeyman-tests/`)
+    if (!blueprint) throw new Error(`test blueprint ${BLUEPRINT} not found in test-blueprints/`)
 
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))

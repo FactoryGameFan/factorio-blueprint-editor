@@ -173,13 +173,13 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
  * changing under identical geometry.
  */
 const EXPECTED = {
-    blueprints: 578,
-    entities: 408290,
-    tiles: 426868,
-    wires: 44790,
-    icons: 1246,
+    blueprints: 367,
+    entities: 347725,
+    tiles: 232815,
+    wires: 48869,
+    icons: 956,
     threw: 0,
-    positionChecksum: -73939794,
-    modelPositionChecksum: -126044361,
-    serializedHash: -883773190,
+    positionChecksum: -44031602,
+    modelPositionChecksum: -63968586,
+    serializedHash: 825830683,
 }

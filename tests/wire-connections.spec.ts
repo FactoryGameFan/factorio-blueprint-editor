@@ -28,7 +28,7 @@ test('wire connections stay consistent with their index and survive a round trip
     page,
 }) => {
     const blueprint = discoverBlueprintFiles().find(f => f.name === BLUEPRINT)
-    if (!blueprint) throw new Error(`test blueprint ${BLUEPRINT} not found in wormeyman-tests/`)
+    if (!blueprint) throw new Error(`test blueprint ${BLUEPRINT} not found in test-blueprints/`)
 
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))

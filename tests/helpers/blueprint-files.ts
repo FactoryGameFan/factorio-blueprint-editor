@@ -10,7 +10,7 @@ export interface BlueprintFile {
     collection: string
 }
 
-const TESTS_DIR = path.resolve(process.cwd(), 'wormeyman-tests')
+const TESTS_DIR = path.resolve(process.cwd(), 'test-blueprints')
 
 export function discoverBlueprintFiles(): BlueprintFile[] {
     const files: BlueprintFile[] = []

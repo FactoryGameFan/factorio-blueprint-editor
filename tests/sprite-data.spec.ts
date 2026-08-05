@@ -236,8 +236,8 @@ test('real blueprints generate the sprite data they generated before', async ({ 
     )
 
     // Same corpus entity-accessors.spec.ts walks - see its EXPECTED.
-    expect(blueprintCount).toBe(578)
-    expect(entitiesSeen).toBeGreaterThan(400_000)
+    expect(blueprintCount).toBe(367)
+    expect(entitiesSeen).toBeGreaterThan(300_000)
     expect(summarise(tally)).toEqual(EXPECTED.real)
     expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
 })

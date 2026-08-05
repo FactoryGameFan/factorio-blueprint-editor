@@ -24,9 +24,14 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     A large and a small blueprint. Both files are books, and loadBp renders only
     a book's first blueprint, so these are the counts of entry 0 - which is why
     the big one is 243 rather than the 1636 issue #42 quotes for the whole book.
+
+    SMALL was AVADII/Alpha Cygni Blueprints 1.3 at 2 entities until the corpus
+    went public (#186) and AVADII left with it. 69 against 243 is the widest
+    ratio the committed corpus offers without also moving BIG; under the #42
+    leak 174 containers would be retained here, which is plenty to see.
 */
 const BIG = 'EARN/quick-start-v22-0-11'
-const SMALL = 'AVADII/Alpha Cygni Blueprints 1.3'
+const SMALL = 'EARN/earn-v22-0-12.rev-2'
 
 interface Loaded {
     entities: number
@@ -37,7 +42,7 @@ test('the container index holds only the loaded blueprint after a swap', async (
     const files = discoverBlueprintFiles()
     const find = (name: string): string => {
         const file = files.find(f => f.name === name)
-        if (!file) throw new Error(`test blueprint ${name} not found in wormeyman-tests/`)
+        if (!file) throw new Error(`test blueprint ${name} not found in test-blueprints/`)
         return readBlueprintString(file.filePath)
     }
 
@@ -70,13 +75,13 @@ test('the container index holds only the loaded blueprint after a swap', async (
     // The corpus fixed points these rest on: if either blueprint changed size the
     // test could pass while measuring nothing.
     expect(big.entities).toBe(243)
-    expect(small.entities).toBe(2)
+    expect(small.entities).toBe(69)
 
     // Loading the first blueprint into an empty editor was never in question.
     expect(big.mappings).toBe(big.entities)
 
     // The leak: this was 243 - every container of the big blueprint retained,
-    // 241 of them belonging to a blueprint no longer on screen.
+    // 174 of them belonging to a blueprint no longer on screen.
     expect(small.mappings).toBe(small.entities)
 
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
