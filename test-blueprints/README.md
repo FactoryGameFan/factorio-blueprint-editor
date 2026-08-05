@@ -74,6 +74,15 @@ Measured against what the corpus held before this directory existed:
 the one grid-reading family the ElderAxe books alone did not carry - four
 `turbo-loader` and no `loader`, `fast-loader` or `express-loader` at all.
 
+The swap was not pure gain. Five entity types left the real halves of the
+suite entirely - `agricultural-tower`, `heat-interface`, `lightning-rod`,
+`offshore-pump`, `thruster` - none of them present anywhere in this directory.
+None has a grid-reading `draw_*` function, so none of the junction coverage
+above depends on them, and all five stay covered by the synthetic, noGrid and
+paintPreview halves (`tests/helpers/all-entities-blueprint.ts`), which place
+every entity in `data.json` whatever the corpus holds. That is what made the
+loss survivable rather than a reason not to.
+
 `nauvis-midgame-science.txt` adds no entity type and no tile type the rest of
 the set does not already carry. It is here for its arrangements - 1,428 pipes,
 173 heat pipes, 3,683 belts, 1,220 undergrounds, 261 splitters, 28 loaders in

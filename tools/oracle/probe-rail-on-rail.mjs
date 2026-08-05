@@ -663,7 +663,7 @@ if (WRITE_FIXTURE) {
         probe: 'tools/oracle/probe-rail-on-rail.mjs',
         binary: binaryLine,
         versionCaveat:
-            'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range. Rail placement rules are assumed stable across it and were NOT measured on a 2.0.x binary.',
+            'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73; the corpus itself ranges wider, 2.0.32 to 2.1.12, with two files declaring 2.1.12 (see tools/oracle/README.md). Rail placement rules are assumed stable across that whole range and were NOT measured on a 2.0.x binary.',
         measurementCaveats: [
             'Tile overlap is computed on this side from packages/exporter/data/output/data.json, mirroring getEntitySize and PositionGrid.processArea, because the question is what the editor integer tile grid sees rather than what collides in Factorio.',
             'create_entity snaps rails to the 2-tile grid, so raw accepted (position, direction) triples over-count. Every spot below was built and read back, and the counts are of distinct placements after that.',

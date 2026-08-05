@@ -20,8 +20,12 @@ This is the part that saves time, and it is not "open a disassembler":
 1. **`factorio-data` first.** Most behaviour is Lua shipped in the clear at
    github.com/wube/factorio-data, one git tag per release. Grep for the
    **definition site** (`name *= *"<thing>"`), not a bare name, which matches
-   every caller. Check out the tag matching what you target - this editor's
-   corpus is 2.0.45 to 2.0.73, not 2.1.
+   every caller. Check out the tag matching what you target - this editor
+   itself targets 2.0.45 to 2.0.73, but the corpus is wider than that: it
+   spans 2.0.32 to 2.1.12, and two of its twelve files (`gleba-base-mall-all`,
+   `vulcanus-starter-mk2`) declare 2.1.12. Grounding a rule against only the
+   2.0.73 tag predates those two files; check whichever tag matches the
+   blueprint the rule actually has to hold for.
 2. **Then the oracle** - this directory. Use it for anything the Lua does not
    answer because it is engine behaviour: import rules, validation, numeric
    primitives.
@@ -295,6 +299,18 @@ binary it came from, and - importantly - that the only Factorio on this machine
 is **2.1.12 while this editor targets 2.0.45 to 2.0.73**. The behaviour is
 assumed stable across that range and was not measured on a 2.0.x binary.
 `factorio.com/download/archive/` has every release if that ever needs settling.
+
+The corpus has since grown past that range - see the note under "Order of
+attack" above, `test-blueprints/` now spans 2.0.32 to 2.1.12. Six committed
+fixtures (`elevated-rail-collision.json`, `copy-settings-schedule.json`,
+`rail-signal-spots.json`, `rail-occupancy.json`, `rail-on-rail.json`,
+`rail-placement.json`) still carry a `versionCaveat` saying the corpus
+"declares nothing outside" 2.0.45 to 2.0.73. That was true when each was
+captured and is not any more - do not hand-edit them to correct it, a
+fixture's `versionCaveat` is provenance for the moment it was captured, not a
+live claim, and a mismatch like this one is itself a finding rather than
+something to fix in place. The probe scripts that generate that caveat have
+been corrected so a future recapture states the wider range correctly.
 
 ## Scope
 

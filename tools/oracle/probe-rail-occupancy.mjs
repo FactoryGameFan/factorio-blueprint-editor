@@ -466,7 +466,7 @@ if (WRITE_FIXTURE) {
                 probe: 'tools/oracle/probe-rail-occupancy.mjs',
                 binary: binaryLine,
                 versionCaveat:
-                    'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range.',
+                    'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73; the corpus itself ranges wider, 2.0.32 to 2.1.12, with two files declaring 2.1.12 (see tools/oracle/README.md).',
                 measurementCaveats: [
                     'Occupancy is operational, not geometric: a cell is blocked if the game refuses a 1x1 entity centred on it while the rail stands, and accepts the same on empty ground. That is the question isAreaAvailable is asked. It is not a claim about how Factorio composes a curve out of collision boxes.',
                     'A cell counts as free if ANY of the sixteen directions is accepted there, since a gate and a signal are directional and legal only at some facings while the grid question is whether the cell can be built on at all.',

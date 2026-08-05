@@ -117,9 +117,19 @@ test('Entity accessors report the same shape across every test blueprint', async
 })
 
 /*
-    Captured from the accessors as they behaved before the strictNullChecks
-    cleanup, across all 367 blueprints in test-blueprints/. Treat as a fixed
-    point: see the note at the top of this file before changing any of it.
+    The original fixed point here was captured from the accessors as they
+    behaved before the strictNullChecks cleanup (issue #22), against the
+    578-blueprint wormeyman-tests/ corpus. That corpus is gone: it was
+    replaced by the 367-blueprint test-blueprints/ (issue #186), which did not
+    exist at cleanup time, so the counts below are not "before cleanup"
+    values - they are a live capture, taken 2026-08-05 by a throwaway recorder
+    run against test-blueprints/ with the accessors as they behave today,
+    after the recorder had first proved it reproduced the old fixture byte for
+    byte against the old corpus. The recorder has since been deleted; git
+    history at 13caa953 is the recipe if the corpus moves again. Treat as a
+    fixed point: see the note at the top of this file before changing any of
+    it - with the recorder gone, a diff here can only be reviewed as a
+    behaviour change, never blindly re-recorded.
 */
 const EXPECTED: {
     entityCount: number

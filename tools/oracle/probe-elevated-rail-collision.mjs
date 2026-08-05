@@ -358,7 +358,7 @@ if (WRITE_FIXTURE) {
         probe: 'tools/oracle/probe-elevated-rail-collision.mjs',
         binary: binaryLine,
         versionCaveat:
-            'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range. Cross-checked against the Lua at the 2.0.73 tag of github.com/wube/factorio-data - core/lualib/collision-mask-defaults.lua gives the elevated rail types collision_mask = {layers={elevated_rail=true}} there too, so the masks below are not a 2.1-only shape.',
+            'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73; the corpus itself ranges wider, 2.0.32 to 2.1.12, with two files declaring 2.1.12 (see tools/oracle/README.md). Cross-checked against the Lua at the 2.0.73 tag of github.com/wube/factorio-data - core/lualib/collision-mask-defaults.lua gives the elevated rail types collision_mask = {layers={elevated_rail=true}} there too, so the masks below are not a 2.1-only shape.',
         versionDifferences: [
             'cargo-bay changed between the two. core/lualib/collision-mask-defaults.lua has ["cargo-bay"] = building_tall() at the 2.0.73 tag, which carries elevated_rail, and ["cargo-bay"] = building() at 2.1.12, which does not - so a cargo bay collides with an elevated rail on the version this editor targets and not on the version measured here. It is therefore absent from the colliders list below while being a collider at 2.0.73. Every other entry agrees across both. Checked by reading the definition site in each, not inferred from the dump.',
         ],
