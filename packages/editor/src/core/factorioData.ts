@@ -61,6 +61,7 @@ import {
     RoboportPrototype,
     SolarPanelPrototype,
     SpacePlatformHubPrototype,
+    SplitterPrototype,
     StorageTankPrototype,
     ThrusterPrototype,
     TrainStopPrototype,
@@ -305,6 +306,16 @@ export function getCircuitConnector(
                 | WallPrototype
             return e_resolved.circuit_connector
         }
+        /*
+            `splitter` is in this arm because a splitter takes circuit wires in
+            2.0 and all four in data.json carry a four-entry circuit_connector
+            indexed exactly the way the rest of this arm is. Leaving it out was
+            not a missing sprite: nothing catches around WiresContainer.add, so
+            a single wired splitter threw "Could not find the wire connection
+            point!" out of initBP and lost the whole blueprint. It is also the
+            only type in data.json carrying a circuit_connector that this
+            function did not name - measured, not assumed.
+        */
         case 'assembling-machine':
         case 'rocket-silo':
         case 'asteroid-collector':
@@ -314,6 +325,7 @@ export function getCircuitConnector(
         case 'mining-drill':
         case 'offshore-pump':
         case 'pump':
+        case 'splitter':
         case 'storage-tank':
         case 'train-stop': {
             const e_resolved = e as
@@ -325,6 +337,7 @@ export function getCircuitConnector(
                 | MiningDrillPrototype
                 | OffshorePumpPrototype
                 | PumpPrototype
+                | SplitterPrototype
                 | StorageTankPrototype
                 | TrainStopPrototype
             return e_resolved.circuit_connector?.[dir / 4]
@@ -494,6 +507,12 @@ function getInnerFluidBoxes(
     }
 }
 
+/*
+    `splitter` is listed here for the same reason it is listed in
+    getCircuitConnector, but the cost of the omission was smaller: a missing
+    distance is 0, and a wire whose reach is 0 is drawn at alpha 0.3 as though it
+    never reached. Wrong, but visible rather than fatal.
+*/
 export function getMaxWireDistance(e: EntityWithOwnerPrototype): number {
     switch (e.type) {
         case 'electric-pole': {
@@ -537,6 +556,7 @@ export function getMaxWireDistance(e: EntityWithOwnerPrototype): number {
         case 'reactor':
         case 'roboport':
         case 'space-platform-hub':
+        case 'splitter':
         case 'storage-tank':
         case 'train-stop':
         case 'transport-belt':
@@ -571,6 +591,7 @@ export function getMaxWireDistance(e: EntityWithOwnerPrototype): number {
                 | ReactorPrototype
                 | RoboportPrototype
                 | SpacePlatformHubPrototype
+                | SplitterPrototype
                 | StorageTankPrototype
                 | TrainStopPrototype
                 | TransportBeltPrototype
