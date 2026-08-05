@@ -498,9 +498,44 @@ preferred over exact pins (`a5a20c04`). Anything proposed has to be expressible
 that way. **The gate is `vp check` + `vp test` + `npx playwright test`**, and the
 Playwright half needs both dev servers up via `npm run localpreview`.
 
-Dependabot is configured for **npm and github-actions only**
-(`.github/dependabot.yml`) - there is **no `cargo` entry**, so the Rust exporter
-gets security alerts but no version updates, and it has drifted accordingly.
+**Renovate, not Dependabot.** `.github/dependabot.yml` was deleted in `bc17279e`
+(#161) and `.github/renovate.json5` replaces it; that file's header carries the
+reasoning for every hold. Measured 2026-08-05, it detects four managers - `cargo`,
+`github-actions`, `nodenv` and `npm` - so the old "no `cargo` entry, the Rust
+exporter drifts" note no longer holds: all 19 crates in
+`packages/exporter/Cargo.toml` are tracked, and #167-#179 opened 13 Rust crate PRs
+on 2026-07-30 of which 12 merged (#172 `tokio-stream` was closed, being one of the
+unused deps dropped below).
+
+**This repo is a fork, and that makes the app's "Repository access" setting decide
+whether Renovate runs at all.** On the Mend-hosted app that setting, not the config
+file, sets `forkProcessing`: "All repositories" forces `disabled` and "Only select
+repositories" gives `enabled`. With `disabled` the repo is skipped during `init`,
+**before any config is read**, so every hold stops applying at once and the only
+trace is the job log at developer.mend.io - the same silent shape as an
+unparseable config, indistinguishable from "no updates available". That is not
+hypothetical: it ran on 2026-07-30 and was skipped on 2026-08-05 with
+`Repository is a fork and not manually configured - skipping`, with nothing in the
+repo or in Renovate having changed. Keep the app on **"Only select repositories"**.
+The documented escape hatch cannot be used from `.github/renovate.json5` - the gate
+reads `renovate.json` at the repo root and no other filename - and a root file
+would _replace_ this config rather than add to it. Full reasoning in the
+renovate.json5 header.
+
+**Renovate and Dependabot alerts do not scan the same thing, so "Dependabot found
+something Renovate did not" is expected rather than a fault.** Dependabot alerts
+scan the resolved **lockfile** - the whole tree. Renovate only proposes updates for
+deps it extracts from a **manifest**: `vulnerabilities.ts` iterates the deps found
+in `packageFiles`, so a package that appears in no `package.json` can never be
+matched to an alert, however loud the alert is. Every transitive-only advisory is
+therefore Dependabot-only here, and that is a direct consequence of
+`lockFileMaintenance: { enabled: false }` (renovate.json5:155) - re-resolving the
+lockfile is the one mechanism Renovate has that would catch transitive drift, and
+it is off on purpose because it once broke a build. The escape hatch, if a specific
+transitive package ever needs to be Renovate-managed, is an `overrides` entry:
+`overrides` is an extracted depType (`extract/common/package-file.ts:57`), which is
+why the `vite` alias already there is visible to it. Do not add them wholesale -
+one per package that has earned it.
 
 ### Settled - do not re-raise without new information
 
@@ -509,13 +544,34 @@ gets security alerts but no version updates, and it has drifted accordingly.
   oil outpost generator change?" question rather than a dependency change. No
   CVE, no network or parsing surface - the risk is bus-factor. If it ever moves,
   vendor the BFS and prove it against the existing fixture.
-- **`npm audit` is 0.** Measured, not assumed.
+- ~~**`npm audit` is 0.**~~ - **no longer true, and it was measured both times.**
+  It was 0 on 2026-07-29; on 2026-08-05 it is **3 (2 moderate, 1 high)**, all of
+  them `undici` - see Known and unfixed. It was 4 until `fast-uri` was taken
+  3.1.4 -> 3.1.5 in that same pass. Re-measure with
+  `npm audit`, and note a bare `npm` inside the repo fails with `EBADDEVENGINES`
+  because `devEngines` pins npm `^12` - put `~/.vite-plus/bin` on PATH first.
 
 ### Known and unfixed
 
 - `packages/worker/wrangler.jsonc` `compatibility_date` is **2026-03-01**, five
   months stale. Every flag that has defaulted on since is inert for a worker that
   only does a 301 and a CORS proxy, so this is hygiene rather than risk.
+- **`undici` 7.28.0 has 5 open advisories and there is no in-range fix - it is
+  blocked upstream, not neglected.** The chain is `wrangler` -> `miniflare` ->
+  `undici`, and both links are **exact pins**: `miniflare` declares
+  `undici: 7.28.0`, `wrangler` declares `miniflare: 4.20260722.1`. So nothing
+  short of forcing it moves, and forcing it runs miniflare against an undici it
+  was never tested with. **Do not reach for `npm audit fix` here** - measured
+  2026-08-05, plain `npm audit fix` does not fix undici at all and instead pulls
+  `miniflare 4.20260722.1 -> 5.20260801.0-alpha`, a major **alpha**, plus 8
+  unrelated bumps; `--force` "fixes" it by _downgrading_ wrangler to 4.35.0. It
+  is **dev-only** - wrangler is deploy tooling and none of it ships to users - so
+  the standing answer is to wait for miniflare to depend on undici >= 7.29.0.
+  Contrast `fast-uri`, fixed in the same pass precisely because `ajv` declares a
+  **range** (`^3.0.1`) rather than a pin: `npm update fast-uri
+--package-lock-only` moved exactly one package. That is the tell for whether a
+  transitive advisory is actionable - read the parent's declared range before
+  anything else.
 - ~~Three declared-but-unused dependencies~~ - **removed**, and the way they were
   found is the reusable part: Renovate proposed an update for each, which is what
   surfaced that nothing imported them. A dependency bot is a census as much as an

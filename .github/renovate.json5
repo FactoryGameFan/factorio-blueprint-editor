@@ -39,6 +39,34 @@
 // And onboarding PRs are moot while this file exists - onboarding only fires when
 // there is no config.
 //
+// A THIRD consequence, and the one that actually bit: THIS REPO IS A FORK, which
+// makes the app's "Repository access" setting load-bearing in a way none of the
+// settings above are. On the Mend-hosted app that setting is what decides
+// `forkProcessing`, and it is not settable from here:
+//
+//     Repository access = All repositories       -> forkProcessing "disabled"
+//     Repository access = Only select repositories -> forkProcessing "enabled"
+//
+// With "disabled", Renovate skips this repository ENTIRELY during `init`, before
+// it reads any config - so every hold below stops applying at once, and the only
+// trace is the job log at developer.mend.io. Same silent shape as an unparseable
+// config: indistinguishable from "no updates available". Measured 2026-08-05 -
+// it ran fine on 07-30, then a scope widened to "All repositories" and the next
+// run logged `Repository is a fork and not manually configured - skipping`.
+// So: keep the app on "Only select repositories".
+//
+// The documented escape hatch, `forkProcessing: 'enabled'` in the repo config,
+// CANNOT be used from this file. `validateIncludeForks` in Renovate's
+// lib/workers/repository/init/apis.ts reads exactly one filename - `renovate.json`
+// at the repo ROOT - and does not search the config-file list. The docs say so
+// outright: "Only the onboardingConfigFileName (which defaults to renovate.json)
+// is supported for forkProcessing." A root `renovate.json5`, or this file, is
+// invisible to that gate. And do not "fix" it with a bare root `renovate.json`:
+// config detection returns the FIRST match of an ordered list where
+// `renovate.json` is index 0 and `.github/renovate.json5` is index 5, so a root
+// file REPLACES this one rather than adding to it. If one is ever needed it has
+// to carry `extends: ['local>wormeyman/factorio-blueprint-editor//.github/renovate.json5']`.
+//
 // `dependencyDashboardApproval` is deliberately NOT set. It would require ticking
 // a box per update before any PR appeared, which re-imposes scan-only behaviour at
 // the config layer and quietly defeats the app's "Automated PRs" setting. PRs are
