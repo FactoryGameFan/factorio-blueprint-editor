@@ -60,12 +60,13 @@ rename is mechanical now while the directory is being rebuilt anyway.
 | `power-blocks-v22-0-8.rev-1.txt` | EARN Power Blocks (v22.0.8) | 2.0.55 | 9 |
 | `quick-start-v22-0-11.txt` | ElderAxe's Quick Start Base (v22.0.11) | 2.0.45 | 25 |
 
-**`test-blueprints/JEPAKAZOL/`** - seven blueprints from factorio.school, one per
+**`test-blueprints/JEPAKAZOL/`** - eight blueprints from factorio.school, one per
 planet plus a space platform, named by target rather than by title:
 
 | File | factorio.school key | Hearts | Size | Version | Blueprints | Entities |
 | --- | --- | --- | --- | --- | --- | --- |
 | `nauvis-starter-bot-rush.txt` | `-OP64HC3ibqmtD4bCM8l` | 71 | 57 KB | 2.0.76 | 1 | 5,960 |
+| `nauvis-midgame-science.txt` | `-Oe7Ua7QavpUFi7znoaM` | 8 | 157 KB | 2.0.72 | 11 | 13,768 |
 | `vulcanus-starter-mk2.txt` | `-On2A94-dyLTSW4Riapk` | 37 | 389 KB | 2.1.12 | 5 | 32,638 |
 | `gleba-base-mall-all.txt` | `-OFa_ZWh1hQypFqucMTy` | 320 | 130 KB | 2.1.12 | 1 | 8,915 |
 | `gleba-mall-5-planets.txt` | `-OYaLsmRoZfPAT5cm7p4` | 107 | 254 KB | 2.0.76 | 1 | 21,974 |
@@ -77,11 +78,20 @@ Retrieved 2026-08-05 via
 `https://facorio-blueprints.firebaseio.com/blueprints/<key>.json`, field
 `blueprintString`.
 
+`nauvis-midgame-science.txt` ("Mid-game Science") is included **by request, and
+measured as type-neutral**: it adds no entity type and no tile type the rest of
+the set does not already carry. What it does add is 11 more blueprints and 13,768
+entities of mid-game Nauvis arrangement - `pipe:1428`, `heat-pipe:173`,
+`belt:3683`, `underground:1220`, `splitter:261`, `loader:28` - which do produce
+distinct junction digests, and it is a **book** of 11, which exercises the
+book-walking path in the specs that iterate every blueprint of every book. Clean
+against `data.json`, no unknown prototypes.
+
 `AVADII/` is deleted from the working tree and never enters history. The stray
 top-level `a.txt` goes with it - it was never discovered anyway, since
 `discoverBlueprintFiles()` only walks directories. The empty `NILAUS/` goes too.
 
-Result: 11 files, 4.50 MB, against today's 10 files and 5.75 MB.
+Result: 12 files, 4.65 MB, against today's 10 files and 5.75 MB.
 
 ### What leaves with AVADII, and why it is survivable
 
@@ -158,7 +168,7 @@ genuinely new digests, so `new ⊆ old` does not hold and would prove nothing.
 - The corpus stays post-2.0 throughout, so `CLAUDE.md`'s standing note that
   version-conditional code needs synthetic blueprints (`tests/helpers/encode-blueprint.ts`)
   is unaffected. The declared range widens from "2.0.45 to 2.0.73" to
-  "2.0.32 to 2.1.12"; all eleven files were checked against `data.json` and carry
+  "2.0.32 to 2.1.12"; all twelve files were checked against `data.json` and carry
   zero unknown prototypes, so the 2.1.12 files load clean.
 
 ## Documentation
