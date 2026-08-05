@@ -446,7 +446,7 @@ if (WRITE_FIXTURE) {
                 probe: 'tools/oracle/probe-rail-signal-spots.mjs',
                 binary: binaryLine,
                 versionCaveat:
-                    'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range.',
+                    'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73; the corpus itself ranges wider, 2.0.32 to 2.1.12, with two files declaring 2.1.12 (see tools/oracle/README.md).',
                 measurementCaveats: [
                     'Every orientation is swept twice, at +/-3 and +/-7, and the control is that the wider window finds nothing the narrower one missed. Without it a table built from this would silently be a subset of the legal positions - which is the specific risk that prompted the run, since rail-placement.json reports spots at offsets of 3.5 against a +/-3 window.',
                     'Each acceptance is built and read back, because the signal grid collapses several requested positions onto one real placement. The counts are of distinct placements after that.',

@@ -56,7 +56,7 @@ export interface IFilter {
         entities sharing this shape do not all have them - a splitter filter is
         a bare name, and the pre-2.0 migration produces index/name/count - but
         for logistic chests they are the norm rather than the exception: every
-        one of the 3461 filters in the corpus carries `quality` and `comparator`
+        one of the 4069 filters in the corpus carries `quality` and `comparator`
         and 90 carry `max_count`.
 
         Absent is not the same as `normal` here. Factorio reads a filter with no

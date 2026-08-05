@@ -346,8 +346,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                                 /*
                                     1, not 0: every section Factorio writes is
                                     numbered from 1 - measured over the corpus,
-                                    all 4645 request_filters sections are at 1
-                                    or 2 and all 1452 control_behavior ones run
+                                    all 6017 request_filters sections are at 1,
+                                    2 or 3 and all 1344 control_behavior ones run
                                     1 to 15. Nothing in this editor could see
                                     the difference, since every reader indexes
                                     the array positionally rather than by the

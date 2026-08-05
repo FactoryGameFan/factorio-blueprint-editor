@@ -111,6 +111,23 @@ export interface FbeTestApi {
     keyCombos: () => Record<string, string>
     /** How many wires the loaded blueprint would serialize. */
     wireCount: () => number
+    /**
+     * What a wire attaches to on this entity: the reach `getMaxWireDistance`
+     * answers, and whether `getWireConnectionPoint` has a red and a green
+     * position for the facing the entity is on.
+     *
+     * Both come from per-type switches in `factorioData.ts` that a new entity
+     * type has to be added to by hand, and neither is otherwise readable. The
+     * connector is at least fatal when it is missing - nothing catches around
+     * `WiresContainer.add` - but the distance is silent: it defaults to 0, which
+     * only draws the wire at alpha 0.3 as though it never reached, and no spec
+     * reads a sprite alpha. See tests/splitter-wires.spec.ts.
+     */
+    entityWireAttachment: (entityNumber: number) => {
+        maxWireDistance: number
+        red: boolean
+        green: boolean
+    }
     /** How many tile sprites the canvas is drawing. See tests/tiles.spec.ts. */
     tileSpriteCount: () => number
     /**

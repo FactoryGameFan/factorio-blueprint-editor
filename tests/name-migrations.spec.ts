@@ -9,10 +9,13 @@ import { encodeBlueprint as encode, packVersion as version } from './helpers/enc
     entity.
 
     It needs synthetic blueprints because it cannot come from the corpus: every
-    file in wormeyman-tests/ declares 2.0.45 or later, so nothing in it should be
+    file in test-blueprints/ declares 2.0.32 or later, so nothing in it should be
     migrated at all. That is what made issue #40 invisible for so long - the
-    renames were running on all 578 of them, and the two whose source names are
-    live prototypes again quietly rewrote 9535 stack inserters.
+    renames were running on every blueprint in the corpus of the day, and the two
+    whose source names are live prototypes again quietly rewrote thousands of
+    stack inserters - recorded then as 9535; that corpus was gitignored and has
+    since been replaced, so the figure cannot be re-measured. The current corpus
+    holds 2,790.
 
     Runs against the dev server like the rest of tests/ - see CLAUDE.md for the
     two servers that have to be up.

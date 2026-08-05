@@ -37,7 +37,7 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     re-ordering, which is why the checksums are there.
 
     What this does NOT cover, found the same way: every blueprint in
-    wormeyman-tests/ carries a version, so anything keyed on a *missing* version
+    test-blueprints/ carries a version, so anything keyed on a *missing* version
     is inert here. Replacing `data.version < X` with `(data.version ?? 0) < X`
     passes this test untouched while being wrong - it would treat a version-less
     blueprint as pre-2.0 and parse its wires in the old format. Those reads want
@@ -66,7 +66,7 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
 
         /*
             djb2 over the serialized JSON. Only needs to be stable and sensitive,
-            not cryptographic, and it has to run in-page so the full JSON of 578
+            not cryptographic, and it has to run in-page so the full JSON of 367
             blueprints never crosses the CDP bridge.
         */
         const hashInto = (h: number, s: string): number => {
@@ -161,25 +161,42 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
 })
 
 /**
- * Captured before the Blueprint/History strictNullChecks cleanup. See the note
- * at the top of this file before changing any of it.
+ * The original fixed point here was captured before the Blueprint/History
+ * strictNullChecks cleanup (issue #22), against the 578-blueprint
+ * wormeyman-tests/ corpus. It is not what is below any more - the corpus was
+ * replaced by the 367-blueprint test-blueprints/ (issue #186), which moves
+ * every count in EXPECTED, not only serializedHash. The values below are a
+ * live capture against test-blueprints/ with today's code, taken 2026-08-05
+ * by the same throwaway recorder before it was deleted. See the note at the
+ * top of this file before changing any of it.
  *
- * `serializedHash` moved once since, from -488612622, when the legacy name
- * migrations became version-aware (issue #40). The corpus declares 2.0.45 to
- * 2.0.73 throughout, so nothing in it should have been migrated at all, and
- * 9535 stack inserters across 7 of the 11 files were being rewritten to
- * bulk-inserter on load and re-encoded that way. Only this hash moved: both
- * position checksums and every count held, which is the signature of names
- * changing under identical geometry.
+ * `serializedHash` has moved twice, not once. First from -488612622 to
+ * -883773190, when the legacy name migrations became version-aware (issue
+ * #40): the corpus was entirely post-2.0 then, exactly as it was before that
+ * fix and exactly as test-blueprints/ is now, so nothing in it should have
+ * been migrated at all - the bug was migrations still running on those
+ * blueprints, quietly rewriting stack inserters to bulk-inserter on load and
+ * re-encoding them that way. Recorded then as 9535 stack inserters across 7
+ * of the 11 files; that corpus was gitignored and has since been replaced, so
+ * the figure cannot be re-measured and is not asserted as fact here. Both
+ * position checksums and every count held across that move, which is the
+ * signature of names changing under identical geometry.
+ *
+ * Then from -883773190 to 825830683 here, when the corpus itself was swapped
+ * for test-blueprints/ (issue #186). That move is not a signature of
+ * anything targeted - blueprints, entities, tiles, wires and icons all moved
+ * with it, because a different set of blueprints is a different set of
+ * blueprints. The hash changing is exactly what serializing different JSON
+ * should do.
  */
 const EXPECTED = {
-    blueprints: 578,
-    entities: 408290,
-    tiles: 426868,
-    wires: 44790,
-    icons: 1246,
+    blueprints: 367,
+    entities: 347725,
+    tiles: 232815,
+    wires: 48869,
+    icons: 956,
     threw: 0,
-    positionChecksum: -73939794,
-    modelPositionChecksum: -126044361,
-    serializedHash: -883773190,
+    positionChecksum: -44031602,
+    modelPositionChecksum: -63968586,
+    serializedHash: 825830683,
 }

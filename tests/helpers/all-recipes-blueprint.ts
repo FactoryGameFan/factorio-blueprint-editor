@@ -6,7 +6,7 @@ import * as zlib from 'zlib'
     Builds a blueprint holding one assembling machine per recipe in data.json, so
     every recipe's ingredient and result lists reach the code that reads them.
 
-    The curated blueprints in wormeyman-tests/ only carry the recipes their authors
+    The curated blueprints in test-blueprints/ only carry the recipes their authors
     used, and the shapes that break these readers are rare ones: the ten
     parameter-N placeholders omit both lists, and recipe-unknown and biter-egg hold
     `{}` rather than `[]`. Walking FD.recipes reaches all of them.

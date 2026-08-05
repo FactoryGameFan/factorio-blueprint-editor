@@ -851,7 +851,7 @@ if (process.argv.includes('--write-fixture')) {
                 probe: 'tools/oracle/probe-rail-placement.mjs',
                 binary: (bin.stdout ?? '').split('\n')[0],
                 versionCaveat:
-                    'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73 and the corpus declares nothing outside that range. Rail placement rules are assumed stable across it and were NOT measured on a 2.0.x binary.',
+                    'Captured on 2.1.12. This editor targets 2.0.45 to 2.0.73; the corpus itself ranges wider, 2.0.32 to 2.1.12, with two files declaring 2.1.12 (see tools/oracle/README.md). Rail placement rules are assumed stable across that whole range and were NOT measured on a 2.0.x binary.',
                 measurementCaveats: [
                     'build_check_type.blueprint_ghost does not check rail adjacency - the empty-ground control returns 0 manual and 2704 ghost. Only the manual counts answer where a signal may go.',
                     'create_entity snaps rails to the 2-tile grid and signals to their own grid, so raw accepted (position, direction) triples over-count. The `spots` field on each sweep is the deduplicated set after snapping and is the number to read.',

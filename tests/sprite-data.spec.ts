@@ -211,7 +211,7 @@ test('real blueprints generate the sprite data they generated before', async ({ 
 
             for (const str of strings) {
                 /*
-                    Books are most of wormeyman-tests/ and loading one renders
+                    Books are most of test-blueprints/ and loading one renders
                     only its first entry, so walk the entries directly. Each
                     carries its own position grid, populated as its entities were
                     created, which is all the neighbour branches need.
@@ -236,8 +236,8 @@ test('real blueprints generate the sprite data they generated before', async ({ 
     )
 
     // Same corpus entity-accessors.spec.ts walks - see its EXPECTED.
-    expect(blueprintCount).toBe(578)
-    expect(entitiesSeen).toBeGreaterThan(400_000)
+    expect(blueprintCount).toBe(367)
+    expect(entitiesSeen).toBeGreaterThan(300_000)
     expect(summarise(tally)).toEqual(EXPECTED.real)
     expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
 })

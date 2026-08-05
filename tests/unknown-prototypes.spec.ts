@@ -12,7 +12,7 @@ import { encodeBlueprint, packVersion } from './helpers/encode-blueprint'
 
     Synthetic blueprints, because the corpus cannot hold this case: an unknown name
     is by definition one that is not in data.json, and every blueprint in
-    wormeyman-tests/ loads clean today.
+    test-blueprints/ loads clean today.
 
     Runs against the dev server like the rest of tests/ - see CLAUDE.md for the
     two servers that have to be up.

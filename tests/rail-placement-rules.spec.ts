@@ -8,7 +8,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
 
     Nothing covered this and the corpus cannot: `isAreaAvailable` is only ever
     called from the paint containers, so every one of these answers is reachable
-    only by hand-placing, and all 578 blueprints in wormeyman-tests/ are real
+    only by hand-placing, and all 367 blueprints in test-blueprints/ are real
     exports that were legal when the game wrote them. `position-grid.spec.ts`
     calls the function twice, for a chest on empty ground and a chest on top of
     another entity, and touches no rail rule at all.

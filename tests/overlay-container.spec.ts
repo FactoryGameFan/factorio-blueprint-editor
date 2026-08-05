@@ -136,7 +136,7 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
 }
 
 /**
- * The real bases in wormeyman-tests/. This is the half that exercises the
+ * The real bases in test-blueprints/. This is the half that exercises the
  * settings-dependent branches: the crafting machines carry recipes (and so fluid
  * filter icons), the combinators carry signals, and fast-inserter and splitter
  * show both states - [-1, 1] means some are configured and some are not, which
@@ -144,13 +144,38 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
  */
 const EXPECTED_REAL: Record<string, number[]> = {
     'arithmetic-combinator': [2],
-    'assembling-machine-2': [1],
-    'chemical-plant': [3],
-    'constant-combinator': [1],
+    'assembling-machine-1': [-1, 1],
+    'assembling-machine-2': [1, 3],
+    'assembling-machine-3': [-1, 1, 2, 3, 4],
+    biochamber: [2, 4],
+    'buffer-chest': [1],
+    'bulk-inserter': [-1, 1],
+    'burner-inserter': [-1, 1],
+    centrifuge: [2],
+    'chemical-plant': [3, 4],
+    'constant-combinator': [-1, 1],
+    'cryogenic-plant': [4],
     'decider-combinator': [2],
+    'electric-furnace': [-1, 1],
+    'electromagnetic-plant': [1, 2, 4],
+    'express-splitter': [-1, 1],
     'fast-inserter': [-1, 1],
-    'oil-refinery': [3],
+    foundry: [2, 4],
+    'fusion-generator': [2],
+    'fusion-reactor': [2],
+    'heat-exchanger': [2],
+    'infinity-chest': [-1, 1],
+    'infinity-pipe': [1],
+    inserter: [-1, 1],
+    'long-handed-inserter': [-1, 1],
+    'oil-refinery': [3, 4],
+    pump: [1],
+    recycler: [-1, 1],
     'requester-chest': [1],
+    'rocket-silo': [1],
     splitter: [-1, 1],
+    'stack-inserter': [-1, 1],
+    'steam-turbine': [2],
     'storage-chest': [1],
+    'turbo-splitter': [-1, 1],
 }

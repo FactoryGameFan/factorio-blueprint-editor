@@ -306,6 +306,23 @@ const testApi = {
         needs the difference.
     */
     wireCount: () => bp.wireConnections.serializeBpWires().length,
+    /*
+        Where a wire attaches to an entity and how far it may run. Both answers
+        come from a per-type switch in factorioData.ts, and neither is visible
+        from outside: the connection point only becomes a wire sprite's origin,
+        and the distance only becomes that sprite's alpha.
+
+        Side 1 is the circuit side for everything that is not a combinator or a
+        power switch, which is what the entities asking this are.
+    */
+    entityWireAttachment: (entityNumber: number) => {
+        const entity = entityOf(entityNumber)
+        return {
+            maxWireDistance: entity.maxWireDistance,
+            red: entity.getWireConnectionPoint('red', 1) !== undefined,
+            green: entity.getWireConnectionPoint('green', 1) !== undefined,
+        }
+    },
     loadingScreen,
     getBook: () => book,
     selectBookIndex: async (index: number) => {

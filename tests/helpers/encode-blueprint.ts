@@ -2,8 +2,8 @@ import { deflateSync, inflateSync } from 'zlib'
 
 /*
     Builds the blueprint strings bpString.decode() reads, for the specs whose case
-    cannot come out of wormeyman-tests/ - anything about a version other than the
-    2.0.45+ the corpus declares, or about a prototype name that is deliberately
+    cannot come out of test-blueprints/ - anything about a version other than the
+    2.0.32+ the corpus declares, or about a prototype name that is deliberately
     not in FD.
 
     The other two synthetic builders (all-entities-blueprint, all-recipes-blueprint)
