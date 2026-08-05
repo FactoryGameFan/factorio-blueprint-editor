@@ -21,6 +21,13 @@ Retrieved from an existing local copy on 2026-08-05, byte-identical to what the
 suite has been running against since March 2026. Each book carries its author
 and a Patreon collection link in its own description field, quoted below.
 
+All four are **publicly available** from those collections. ElderAxe gates new
+releases for a period and then opens them, and these versions have been out long
+enough to be public - which is why they are redistributable here at all. The
+version numbers in the filenames are the ones that were current when this corpus
+was assembled, not necessarily the latest; refreshing them is deliberately left
+as its own change, since it would regenerate every pinned fixture.
+
 | File                                | Book label                                | Author                    | Version | Source                                                          |
 | ----------------------------------- | ----------------------------------------- | ------------------------- | ------- | --------------------------------------------------------------- |
 | `earn-v22-0-12.rev-2.txt`           | EARN - ElderAxe's Rail Network (v22.0.12) | ElderAxe                  | 2.0.55  | <https://www.patreon.com/collection/1415594>                    |
