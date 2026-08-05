@@ -53,7 +53,7 @@ The measuring script reproduced the committed 578 / 408,290 / 426,868 / 4,639 / 
 
 - `tests/pre-2-0-shape-migrations.spec.ts:154` says **1452** `control_behavior` sections. The discovered corpus has 1,295. The missing 157 are all in `wormeyman-tests/a.txt`, the stray top-level file that `discoverBlueprintFiles()` never reads because it only walks directories. That figure was measured over files the suite does not see.
 - `tests/chest-filters.spec.ts:33` says **4631** entities carry a `request_filters` object; the measurement is 4,639, and it is 4,639 in `tests/paste-filter-cap.spec.ts:29` too. The two committed figures already disagree with each other. Neither corresponds to a chest-only count (3,657).
-- `tests/name-migrations.spec.ts:15` says **9535** stack inserters; the measurement is 9,479, and `a.txt` contributes none. Treat as stale prose.
+- `tests/name-migrations.spec.ts:15` says **9535** stack inserters; this plan's measurement of the archived `wormeyman-tests/` corpus gives 9,479, and `a.txt` contributes none of it. The two are not necessarily the same corpus - the EARN books carry revision numbers in their filenames and the gitignored corpus predates git history, so there is no way to tell whether 9535 was wrong when written or the corpus simply moved on since. Neither figure is asserted as fact; both are recorded and the discrepancy is left open, matching how the corrected prose in `tests/name-migrations.spec.ts` and `tests/blueprint-round-trip.spec.ts` now frames it.
 
 **Two gaps in the design spec, both resolved before this plan was written:**
 
