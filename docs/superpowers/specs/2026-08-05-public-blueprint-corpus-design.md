@@ -53,26 +53,26 @@ rename is mechanical now while the directory is being rebuilt anyway.
 
 **`test-blueprints/EARN/`** - the four ElderAxe books already on disk, byte-identical:
 
-| File | Book label | Blueprint version | Entries |
-| --- | --- | --- | --- |
-| `earn-v22-0-12.rev-2.txt` | EARN - ElderAxe's Rail Network (v22.0.12) | 2.0.55 | 14 |
-| `pocket-base-space-age-v22.1.2.txt` | Pocket Base - Space Age Edition (22.1.2) | 2.0.73 | 11 |
-| `power-blocks-v22-0-8.rev-1.txt` | EARN Power Blocks (v22.0.8) | 2.0.55 | 9 |
-| `quick-start-v22-0-11.txt` | ElderAxe's Quick Start Base (v22.0.11) | 2.0.45 | 25 |
+| File                                | Book label                                | Blueprint version | Entries |
+| ----------------------------------- | ----------------------------------------- | ----------------- | ------- |
+| `earn-v22-0-12.rev-2.txt`           | EARN - ElderAxe's Rail Network (v22.0.12) | 2.0.55            | 14      |
+| `pocket-base-space-age-v22.1.2.txt` | Pocket Base - Space Age Edition (22.1.2)  | 2.0.73            | 11      |
+| `power-blocks-v22-0-8.rev-1.txt`    | EARN Power Blocks (v22.0.8)               | 2.0.55            | 9       |
+| `quick-start-v22-0-11.txt`          | ElderAxe's Quick Start Base (v22.0.11)    | 2.0.45            | 25      |
 
 **`test-blueprints/JEPAKAZOL/`** - eight blueprints from factorio.school, one per
 planet plus a space platform, named by target rather than by title:
 
-| File | factorio.school key | Hearts | Size | Version | Blueprints | Entities |
-| --- | --- | --- | --- | --- | --- | --- |
-| `nauvis-starter-bot-rush.txt` | `-OP64HC3ibqmtD4bCM8l` | 71 | 57 KB | 2.0.76 | 1 | 5,960 |
-| `nauvis-midgame-science.txt` | `-Oe7Ua7QavpUFi7znoaM` | 8 | 157 KB | 2.0.72 | 11 | 13,768 |
-| `vulcanus-starter-mk2.txt` | `-On2A94-dyLTSW4Riapk` | 37 | 389 KB | 2.1.12 | 5 | 32,638 |
-| `gleba-base-mall-all.txt` | `-OFa_ZWh1hQypFqucMTy` | 320 | 130 KB | 2.1.12 | 1 | 8,915 |
-| `gleba-mall-5-planets.txt` | `-OYaLsmRoZfPAT5cm7p4` | 107 | 254 KB | 2.0.76 | 1 | 21,974 |
-| `fulgora-mall-4-planets.txt` | `-OX4QBKmwEZ6dIBJY5C5` | 82 | 90 KB | 2.0.77 | 1 | 7,495 |
-| `aquilo-cryogenic-science.txt` | `-OHdIUzkrhCJUlzZRo33` | 9 | 6 KB | 2.0.32 | 1 | 533 |
-| `space-platform-factory.txt` | `-OL_E6IO4gmQUdqFgTjq` | 30 | 52 KB | 2.0.76 | 8 | 4,394 |
+| File                           | factorio.school key    | Hearts | Size   | Version | Blueprints | Entities |
+| ------------------------------ | ---------------------- | ------ | ------ | ------- | ---------- | -------- |
+| `nauvis-starter-bot-rush.txt`  | `-OP64HC3ibqmtD4bCM8l` | 71     | 57 KB  | 2.0.76  | 1          | 5,960    |
+| `nauvis-midgame-science.txt`   | `-Oe7Ua7QavpUFi7znoaM` | 8      | 157 KB | 2.0.72  | 11         | 13,768   |
+| `vulcanus-starter-mk2.txt`     | `-On2A94-dyLTSW4Riapk` | 37     | 389 KB | 2.1.12  | 5          | 32,638   |
+| `gleba-base-mall-all.txt`      | `-OFa_ZWh1hQypFqucMTy` | 320    | 130 KB | 2.1.12  | 1          | 8,915    |
+| `gleba-mall-5-planets.txt`     | `-OYaLsmRoZfPAT5cm7p4` | 107    | 254 KB | 2.0.76  | 1          | 21,974   |
+| `fulgora-mall-4-planets.txt`   | `-OX4QBKmwEZ6dIBJY5C5` | 82     | 90 KB  | 2.0.77  | 1          | 7,495    |
+| `aquilo-cryogenic-science.txt` | `-OHdIUzkrhCJUlzZRo33` | 9      | 6 KB   | 2.0.32  | 1          | 533      |
+| `space-platform-factory.txt`   | `-OL_E6IO4gmQUdqFgTjq` | 30     | 52 KB  | 2.0.76  | 8          | 4,394    |
 
 Retrieved 2026-08-05 via
 `https://facorio-blueprints.firebaseio.com/blueprints/<key>.json`, field
@@ -111,8 +111,13 @@ This costs nothing in junction coverage, which is what #186 is about:
   `variants.material_background` and two falling back to `variants.main`, so
   `tests/tiles.spec.ts` still exercises both.
 
-Against that, the new corpus is *better* where junctions are concerned:
-`wall` 3,989 -> 6,130, `gate` 192 -> 240, `loader` 4 -> 107.
+Against that, the new corpus is _better_ where junctions are concerned:
+`stone-wall` 3,989 -> 6,130, `gate` 192 -> 240, loaders 4 -> 135. The loader
+figure was 107 while this document was being written and is 135 with Mid-game
+Science in the set; it is also the interesting one, being the single
+grid-reading family the EARN books alone did not carry. The old corpus held four
+`turbo-loader` and no `loader`, `fast-loader` or `express-loader` at all, so
+`draw_loader`'s neighbour branches had almost nothing to run against.
 
 Scanning all 79 of Jepakazol's blueprints found no source for `offshore-pump`,
 `thruster` or `heat-interface`, so chasing exact parity would mean sourcing from
@@ -192,7 +197,7 @@ genuinely new digests, so `new ⊆ old` does not hold and would prove nothing.
 
 ## Out of scope
 
-- Moving Playwright into CI. It becomes *possible* once the corpus is committed,
+- Moving Playwright into CI. It becomes _possible_ once the corpus is committed,
   and #186 notes the two are the same problem, but it is a separate change with its
   own cost.
 - Refreshing the EARN books to their latest Patreon versions. Deliberately deferred
