@@ -13,6 +13,24 @@ Every file is a raw Factorio blueprint string, exactly as the game exports it -
 one line, no trailing newline. `tests/helpers/blueprint-files.ts` reads them
 with a `.trim()`.
 
+## Where a new blueprint goes
+
+`test-blueprints/<collection>/<name>.txt`. The collection folder is not optional:
+`discoverBlueprintFiles` walks one level down, so a `.txt` left at the top level
+of this directory is loaded by no spec. It now **throws** naming the file rather
+than skipping it in silence (issue #190), and `vp test` runs that check in CI, so
+a stray file fails a PR instead of waiting to be noticed.
+
+That guard exists because the silence had already cost something. The old corpus
+carried a top-level `wormeyman-tests/a.txt` holding 368 blueprints which no spec
+ever read, but which a hand count of the directory did - and that is where the
+"1452 `control_behavior` sections" in `tests/pre-2-0-shape-migrations.spec.ts`
+came from, against a discovered corpus really holding 1295.
+
+Adding a file also moves the pinned fixtures under `tests/__fixtures__/`, which
+are fixed points rather than snapshots. Expect that to be the larger half of the
+change.
+
 Provenance is recorded the way `tools/oracle/fixtures/` records its own.
 
 ## EARN - ElderAxe

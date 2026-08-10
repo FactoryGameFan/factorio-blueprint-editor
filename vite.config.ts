@@ -222,6 +222,34 @@ export default defineConfig({
                     exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
                 },
             },
+            {
+                /*
+                    The tests under tests/ that need no browser. Two reasons they
+                    are here rather than in a package's own project.
+
+                    Playwright does not run in CI, and `vp test` does, so a check
+                    that lives only in a .spec.ts gates nothing - which is the
+                    whole point of the corpus guard in tests/helpers/
+                    blueprint-files.test.ts (#190). It has to fail a PR, not
+                    somebody's laptop.
+
+                    And the root tsconfig is the only one here that puts `node`
+                    in `types`; packages/editor narrows it back to typed-factorio
+                    so browser code cannot reach node globals. A test that reads
+                    a file off disk therefore has to sit under a directory the
+                    root config owns, whatever package it is testing.
+
+                    Only *.test.ts is collected. The 40 specs next door are
+                    Playwright's and would fail immediately under vitest, having
+                    no browser fixtures; playwright.config.ts pins the mirror
+                    image of this so neither runner collects the other's files.
+                */
+                test: {
+                    name: 'unit',
+                    environment: 'node',
+                    include: ['tests/**/*.test.ts'],
+                },
+            },
         ],
     },
 })

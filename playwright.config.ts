@@ -8,6 +8,16 @@ const baseURL = process.env.FBE_BASE_URL ?? 'http://localhost:8080'
 
 export default defineConfig({
     testDir: './tests',
+    /*
+        Specs only. Playwright's default also collects *.test.ts, and tests/
+        now holds one - blueprint-files.test.ts, a vitest test, because Playwright
+        does not run in CI and the corpus guard in #190 has to (see the `corpus`
+        project in vite.config.ts). Without this it would be collected by both
+        runners and fail under Playwright, which cannot supply `describe`/`it`.
+
+        A no-op for what actually runs: all 40 existing files here are .spec.ts.
+    */
+    testMatch: '**/*.spec.ts',
     timeout: 120_000,
     expect: {
         timeout: 60_000,
