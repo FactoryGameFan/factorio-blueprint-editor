@@ -23,26 +23,54 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     vitest - see CLAUDE.md for the two servers that have to be up.
 */
 
-const TALLIED = [
+/*
+    Eleven accessors whose value set is open, so only the shape of what they
+    answer can be pinned. Measured 2026-08-10 across the corpus: `filters` takes
+    1018 distinct values, `recipe` 264, `combinatorConditions` 228. The three
+    `accepted*` lists have few distinct values but enormous keys - one
+    `acceptedFilters` value serializes to roughly 54,000 characters - and the
+    only compact key for those is a hash, which names nothing when it moves.
+*/
+const TALLIED_SHAPE = [
     'recipe',
-    'directionType',
-    'railLayer',
     'filters',
-    'filterSlots',
-    'splitterInputPriority',
-    'splitterOutputPriority',
-    'filterMode',
     'trainStopColor',
     'station',
     'constantCombinatorFilters',
     'displayPanelIcon',
     'modules',
-    'moduleSlots',
     'combinatorConditions',
-    'inserterStackSize',
     'acceptedRecipes',
     'acceptedModules',
     'acceptedFilters',
+] as const
+
+/*
+    Fourteen accessors whose value set is small and closed, recorded exactly.
+
+    This is issue #189. The four-bucket tally cannot see a value, so 0 and 9 both
+    read as `value` - which is the structural reason #186's splitter bug survived
+    a 578-blueprint corpus. Worse, eight of these are total functions (never
+    undefined, never throwing, never an array), so their old tally was pinned at
+    exactly entityCount and could not move at all.
+
+    Measured maximum is 10 distinct values (`inserterStackSize`); the whole group
+    is 52 fixture entries, replacing the 56 bucket numbers it used to occupy.
+
+    `possibleRotations` is here despite being an array because its keys are short
+    and readable, unlike the `accepted*` lists above. The line between the two
+    lists is "small closed value set", which only measurement establishes - note
+    `recipe` is a scalar and belongs in the other list.
+*/
+const TALLIED_VALUES = [
+    'directionType',
+    'railLayer',
+    'filterSlots',
+    'splitterInputPriority',
+    'splitterOutputPriority',
+    'filterMode',
+    'moduleSlots',
+    'inserterStackSize',
     'possibleRotations',
     'canBeRotated',
     'maxWireDistance',
@@ -52,6 +80,7 @@ const TALLIED = [
 ] as const
 
 type Tally = { value: number; empty: number; nothing: number; threw: number }
+type Histogram = Record<string, number>
 
 test('Entity accessors report the same shape across every test blueprint', async ({ page }) => {
     const files = discoverBlueprintFiles()
@@ -69,12 +98,40 @@ test('Entity accessors report the same shape across every test blueprint', async
     const sources = files.map(f => readBlueprintString(f.filePath))
 
     const tally = await page.evaluate(
-        async ({ strings, accessors }: { strings: string[]; accessors: string[] }) => {
+        async ({
+            strings,
+            shapeKeys,
+            valueKeys,
+        }: {
+            strings: string[]
+            shapeKeys: string[]
+            valueKeys: string[]
+        }) => {
             const api = (window as any).__fbe_test
-            const out: Record<string, Tally> = {}
-            const bump = (key: string, field: keyof Tally): void => {
-                out[key] ??= { value: 0, empty: 0, nothing: 0, threw: 0 }
-                out[key][field] += 1
+            const shape: Record<string, Tally> = {}
+            const values: Record<string, Histogram> = {}
+
+            const bumpShape = (key: string, field: keyof Tally): void => {
+                shape[key] ??= { value: 0, empty: 0, nothing: 0, threw: 0 }
+                shape[key][field] += 1
+            }
+
+            const bumpValue = (key: string, bucket: string): void => {
+                values[key] ??= {}
+                values[key][bucket] = (values[key][bucket] ?? 0) + 1
+            }
+
+            /*
+                One key function for every recorded accessor. `undefined` and
+                `null` are distinct on purpose - inserterStackSize answers null
+                where every other optional answers undefined, and collapsing them
+                would hide a getter changing which one it uses.
+            */
+            const keyOf = (v: unknown): string => {
+                if (v === undefined) return 'undefined'
+                if (v === null) return 'null'
+                if (typeof v === 'object') return JSON.stringify(v)
+                return String(v as string | number | boolean | symbol | bigint)
             }
 
             let entityCount = 0
@@ -90,26 +147,38 @@ test('Entity accessors report the same shape across every test blueprint', async
                     blueprintCount += 1
                     for (const e of bp.entities.values()) {
                         entityCount += 1
-                        for (const key of accessors) {
+
+                        for (const key of shapeKeys) {
                             let v: unknown
                             try {
                                 v = e[key]
                             } catch {
                                 // some accessors throw on pre-2.0 shapes; that is behaviour too
-                                bump(key, 'threw')
+                                bumpShape(key, 'threw')
                                 continue
                             }
-                            if (v === undefined || v === null) bump(key, 'nothing')
-                            else if (Array.isArray(v) && v.length === 0) bump(key, 'empty')
-                            else bump(key, 'value')
+                            if (v === undefined || v === null) bumpShape(key, 'nothing')
+                            else if (Array.isArray(v) && v.length === 0) bumpShape(key, 'empty')
+                            else bumpShape(key, 'value')
+                        }
+
+                        for (const key of valueKeys) {
+                            let v: unknown
+                            try {
+                                v = e[key]
+                            } catch {
+                                bumpValue(key, 'THREW')
+                                continue
+                            }
+                            bumpValue(key, keyOf(v))
                         }
                     }
                 }
             }
 
-            return { entityCount, blueprintCount, accessors: out }
+            return { entityCount, blueprintCount, shape, values }
         },
-        { strings: sources, accessors: [...TALLIED] }
+        { strings: sources, shapeKeys: [...TALLIED_SHAPE], valueKeys: [...TALLIED_VALUES] }
     )
 
     expect(tally).toEqual(EXPECTED)
@@ -134,160 +203,62 @@ test('Entity accessors report the same shape across every test blueprint', async
 const EXPECTED: {
     entityCount: number
     blueprintCount: number
-    accessors: Record<string, Tally>
+    shape: Record<string, Tally>
+    values: Record<string, Histogram>
 } = {
     entityCount: 347725,
     blueprintCount: 367,
-    accessors: {
-        acceptedFilters: {
-            value: 54004,
-            empty: 293721,
-            nothing: 0,
-            threw: 0,
-        },
-        acceptedModules: {
-            value: 18771,
-            empty: 328954,
-            nothing: 0,
-            threw: 0,
-        },
-        acceptedRecipes: {
-            value: 14366,
-            empty: 333359,
-            nothing: 0,
-            threw: 0,
-        },
-        assemblerHasFluidInputs: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
-        canBeRotated: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
-        combinatorConditions: {
-            value: 2656,
-            empty: 0,
-            nothing: 345069,
-            threw: 0,
-        },
-        constantCombinatorFilters: {
-            value: 988,
-            empty: 346737,
-            nothing: 0,
-            threw: 0,
-        },
-        directionType: {
-            value: 28511,
-            empty: 0,
-            nothing: 319214,
-            threw: 0,
-        },
-        displayPanelIcon: {
-            value: 523,
-            empty: 0,
-            nothing: 347202,
-            threw: 0,
-        },
-        filterMode: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
-        filterSlots: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
-        filters: {
-            value: 16605,
-            empty: 4258,
-            nothing: 326862,
-            threw: 0,
-        },
-        generateConnector: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
+    shape: {
+        acceptedFilters: { value: 54004, empty: 293721, nothing: 0, threw: 0 },
+        acceptedModules: { value: 18771, empty: 328954, nothing: 0, threw: 0 },
+        acceptedRecipes: { value: 14366, empty: 333359, nothing: 0, threw: 0 },
+        combinatorConditions: { value: 2656, empty: 0, nothing: 345069, threw: 0 },
+        constantCombinatorFilters: { value: 988, empty: 346737, nothing: 0, threw: 0 },
+        displayPanelIcon: { value: 523, empty: 0, nothing: 347202, threw: 0 },
+        filters: { value: 16605, empty: 4258, nothing: 326862, threw: 0 },
+        modules: { value: 17476, empty: 330249, nothing: 0, threw: 0 },
+        recipe: { value: 9345, empty: 0, nothing: 338380, threw: 0 },
+        station: { value: 195, empty: 0, nothing: 347530, threw: 0 },
+        trainStopColor: { value: 2717, empty: 0, nothing: 345008, threw: 0 },
+    },
+    values: {
+        assemblerHasFluidInputs: { false: 344517, true: 3208 },
+        canBeRotated: { false: 103215, true: 244510 },
+        directionType: { input: 14246, output: 14265, undefined: 319214 },
+        filterMode: { blacklist: 139, whitelist: 347586 },
+        filterSlots: { '0': 293721, '1': 5910, '5': 44861, '30': 3233 },
+        generateConnector: { false: 314925, true: 32800 },
         inserterStackSize: {
-            value: 44726,
-            empty: 0,
-            nothing: 302999,
-            threw: 0,
+            '1': 408,
+            '2': 28,
+            '3': 30441,
+            '4': 8,
+            '5': 1,
+            '7': 444,
+            '8': 113,
+            '10': 4,
+            '12': 13279,
+            null: 302999,
         },
+        mayCraftWithFluid: { false: 342259, true: 5466 },
         maxWireDistance: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
+            '0': 118354,
+            '7.5': 1178,
+            '9': 225198,
+            '10': 8,
+            '18': 1513,
+            '32': 1474,
         },
-        mayCraftWithFluid: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
-        moduleSlots: {
-            value: 347725,
-            empty: 0,
-            nothing: 0,
-            threw: 0,
-        },
-        modules: {
-            value: 17476,
-            empty: 330249,
-            nothing: 0,
-            threw: 0,
-        },
+        moduleSlots: { '0': 330249, '2': 10337, '3': 1718, '4': 5167, '5': 221, '8': 33 },
         possibleRotations: {
-            value: 256846,
-            empty: 90879,
-            nothing: 0,
-            threw: 0,
+            '[]': 90879,
+            '[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]': 4621,
+            '[0,2,4,6,8,10,12,14]': 39730,
+            '[0,4]': 517,
+            '[0,4,8,12]': 211978,
         },
-        railLayer: {
-            value: 749,
-            empty: 0,
-            nothing: 346976,
-            threw: 0,
-        },
-        recipe: {
-            value: 9345,
-            empty: 0,
-            nothing: 338380,
-            threw: 0,
-        },
-        splitterInputPriority: {
-            value: 293,
-            empty: 0,
-            nothing: 347432,
-            threw: 0,
-        },
-        splitterOutputPriority: {
-            value: 1600,
-            empty: 0,
-            nothing: 346125,
-            threw: 0,
-        },
-        station: {
-            value: 195,
-            empty: 0,
-            nothing: 347530,
-            threw: 0,
-        },
-        trainStopColor: {
-            value: 2717,
-            empty: 0,
-            nothing: 345008,
-            threw: 0,
-        },
+        railLayer: { elevated: 749, undefined: 346976 },
+        splitterInputPriority: { left: 164, right: 129, undefined: 347432 },
+        splitterOutputPriority: { left: 726, right: 874, undefined: 346125 },
     },
 }
