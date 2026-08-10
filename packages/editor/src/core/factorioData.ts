@@ -155,6 +155,19 @@ export function localisedName(proto: { localised_name?: LocalisedString }): stri
     return String(name)
 }
 
+/**
+ * Names of everything that can be picked as a signal-like icon: items, fluids,
+ * and virtual signals. Used by `BlueprintIcon`, for one of a blueprint's own
+ * four icon slots - Factorio allows the same range there as for any other
+ * signal picker.
+ */
+export function acceptedSignalIcons(): string[] {
+    const itemNames = FD.inventoryLayout.flatMap(group =>
+        group.subgroups.flatMap(subgroup => subgroup.items.map(item => item.name))
+    )
+    return [...itemNames, ...Object.keys(FD.fluids), ...Object.keys(FD.signals)]
+}
+
 export function recipeSupportsModule(recipe: string, module: ModulePrototype): boolean {
     const r = FD.recipes[recipe]
     if (r.allowed_module_categories && !r.allowed_module_categories.includes(module.category))

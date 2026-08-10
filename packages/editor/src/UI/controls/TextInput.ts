@@ -536,10 +536,17 @@ export class TextInput extends OriginalTextInput {
         width: number,
         text: string,
         maxLength: number,
-        numericOnly = false
+        numericOnly = false,
+        // Backs a <textarea> instead of an <input> - BlueprintInfoEditor's
+        // description field is the first caller to need one, since a
+        // description is the one piece of text in the app that is genuinely
+        // multi-line rather than a single value that happens to be long.
+        multiline = false,
+        height?: number
     ) {
         super({
             renderer,
+            multiline,
             input: {
                 fontFamily: styles.controls.textbox.fontFamily,
                 fontWeight: styles.controls.textbox.fontWeight,
@@ -555,6 +562,7 @@ export class TextInput extends OriginalTextInput {
                 */
                 fontSize: `${styles.controls.textbox.fontSize}px`,
                 width: `${width}px`,
+                ...(height !== undefined ? { height: `${height}px` } : {}),
                 color: `black`,
             },
             box: {

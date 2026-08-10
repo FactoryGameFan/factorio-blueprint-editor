@@ -1,10 +1,13 @@
 import { Container, isMobile } from 'pixi.js'
 import { Entity } from '../core/Entity'
+import type { Blueprint } from '../core/Blueprint'
 import { DebugContainer } from './DebugContainer'
 import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { WiresPanel } from './WiresPanel'
+import { BlueprintInfoButton } from './BlueprintInfoButton'
+import { BlueprintInfoEditor } from './BlueprintInfoEditor'
 import { createEditor } from './editors/factory'
 
 export class UIContainer extends Container {
@@ -14,6 +17,8 @@ export class UIContainer extends Container {
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
+    private blueprintInfoButton: BlueprintInfoButton
+    private blueprintInfoEditor: BlueprintInfoEditor | undefined
 
     public constructor() {
         super()
@@ -24,9 +29,11 @@ export class UIContainer extends Container {
         this.entityInfoPanel = new EntityInfoPanel()
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
+        this.blueprintInfoButton = new BlueprintInfoButton()
 
         this.addChild(
             this.debugContainer,
+            this.blueprintInfoButton,
             this.entityInfoPanel,
             this.dialogsContainer,
             this.paintIconContainer
@@ -91,6 +98,20 @@ export class UIContainer extends Container {
         const inv = new InventoryDialog(title, itemsFilter, selectedCallBack, showRecipePanel)
         this.dialogsContainer.addChild(inv)
         return inv
+    }
+
+    /** Opens BlueprintInfoEditor for `blueprint`, or closes it if already open - the corner button's click handler. */
+    public toggleBlueprintInfoEditor(blueprint: Blueprint): void {
+        if (this.blueprintInfoEditor !== undefined) {
+            this.blueprintInfoEditor.close()
+            return
+        }
+
+        this.blueprintInfoEditor = new BlueprintInfoEditor(blueprint)
+        this.blueprintInfoEditor.once('destroyed', () => {
+            this.blueprintInfoEditor = undefined
+        })
+        this.dialogsContainer.addChild(this.blueprintInfoEditor)
     }
 
     // public changeQuickbarRows(rows: number): void {

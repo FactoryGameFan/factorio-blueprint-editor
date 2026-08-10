@@ -91,11 +91,19 @@ export interface BlueprintEvents {
     'create-entity': [entity: Entity]
     'remove-entity': []
     'create-tile': [tile: Tile]
+    name: []
+    description: []
+    icon: [index: 1 | 2 | 3 | 4]
 }
 
 /** Blueprint base class */
 class Blueprint extends EventEmitter<BlueprintEvents> {
-    public name = 'Blueprint'
+    // Boxed rather than bare fields, same reasoning as scheduleStore below:
+    // `History.updateValue` needs `keyof T` on whatever it is handed, and
+    // `keyof this` never includes a private member, so routing edits through
+    // `this` directly does not type check.
+    private readonly nameStore: { name: string } = { name: 'Blueprint' }
+    private readonly descriptionStore: { description?: string } = {}
     private readonly icons = new Map<1 | 2 | 3 | 4, string>()
     public readonly wireConnections = new WireConnections(this)
     public readonly entityPositionGrid = new PositionGrid(this)
@@ -104,7 +112,6 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     public readonly history = new History()
 
     // unused blueprint properties
-    private readonly description?: string
     /*
         Boxed, unlike its neighbours, because it is the one of them that changes:
         `setSchedule` rewrites it when a locomotive is pasted onto (issue #115),
@@ -390,6 +397,56 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.logging = G.debug
 
         return this
+    }
+
+    public get name(): string {
+        return this.nameStore.name
+    }
+
+    public set name(name: string) {
+        if (this.nameStore.name === name) return
+
+        this.history
+            .updateValue(this.nameStore, 'name', name, 'Change blueprint name')
+            .onDone(() => this.emit('name'))
+            .commit()
+    }
+
+    public get description(): string | undefined {
+        return this.descriptionStore.description
+    }
+
+    public set description(description: string | undefined) {
+        if (this.descriptionStore.description === description) return
+
+        this.history
+            .updateValue(
+                this.descriptionStore,
+                'description',
+                description,
+                'Change blueprint description'
+            )
+            .onDone(() => this.emit('description'))
+            .commit()
+    }
+
+    public getIcon(index: 1 | 2 | 3 | 4): string | undefined {
+        return this.icons.get(index)
+    }
+
+    /**
+     * `generateIcons` only fills the map in when it is empty at `serialize` time,
+     * so clearing every slot by hand (all four `undefined`) is a real choice
+     * rather than a no-op - it puts the blueprint back into "auto" the same way
+     * it started, rather than locking in an all-empty icon set.
+     */
+    public setIcon(index: 1 | 2 | 3 | 4, name: string | undefined): void {
+        if (this.icons.get(index) === name) return
+
+        this.history
+            .updateMap(this.icons, index, name, 'Change blueprint icon')
+            .onDone(() => this.emit('icon', index))
+            .commit()
     }
 
     public createEntity(rawData: IEntityData, connectPowerPole = false): Entity {
