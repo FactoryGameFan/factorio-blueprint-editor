@@ -14,7 +14,7 @@
 
 - **Both dev servers must be running** for every Playwright step: `npm run localpreview` from the repo root (Vite on 8080, sprite data on 8081).
 - **`~/.vite-plus/bin` must be on PATH first.** Bare `npm`/`npx` inside this repo fails with `EBADDEVENGINES` against the `devEngines` npm `^12` pin. Use `export PATH="$HOME/.vite-plus/bin:$PATH"` in any shell that runs `npx playwright` or `vp`.
-- **The fixture is a fixed point, not a snapshot.** The only sanctioned reason to write new numbers into it in this plan is Task 2's fold-back proof passing 14/14. If it does not pass, stop and report rather than recording.
+- **The fixture is a fixed point, not a snapshot.** The only sanctioned reason to write new numbers into it in this plan is the fold-back proof in Task 1 Steps 8-11 passing 14/14. If it does not pass, stop and report rather than recording.
 - **Use hyphens, never em or en dashes,** in every file touched.
 - **No issue number in a commit subject.** `Closes #189` goes in the PR body only.
 - Branch is `test/entity-accessor-value-tally`, already created, based on `wormeyman-space-age-support`. The design commit `d768ca11` is already on it.
@@ -43,7 +43,7 @@ No new files. The spec file stays one file: it is a characterization harness who
 **Interfaces:**
 
 - Consumes: `discoverBlueprintFiles`, `readBlueprintString` from `./helpers/blueprint-files` (unchanged signatures).
-- Produces: the fixture object shape `{ entityCount: number, blueprintCount: number, shape: Record<string, Tally>, values: Record<string, Record<string, number>> }`, which Tasks 2, 3 and 4 all read.
+- Produces: the fixture object shape `{ entityCount: number, blueprintCount: number, shape: Record<string, Tally>, values: Record<string, Record<string, number>> }`, which Tasks 2 and 3 both read.
 
 - [ ] **Step 1: Replace the `TALLIED` list with two named lists**
 
@@ -327,39 +327,13 @@ npx playwright test tests/entity-accessors.spec.ts --reporter=line
 
 Expected: PASS, 1 test.
 
-- [ ] **Step 8: Commit**
+#### The fold-back gate, Steps 8-11
 
-```bash
-git add tests/entity-accessors.spec.ts
-git commit -m "test: record exact values for the fourteen closed-set accessors
+This is the gate, and it runs **before** the commit rather than after it. The file header forbids blindly re-recording the fixture and the original recorder was deleted, so the justification for the new numbers is that folding each histogram into four buckets reproduces the committed ones exactly. Nothing is committed by these four steps - `/tmp/foldback.mjs` is created and then deleted.
 
-The four-bucket tally cannot see a value, so 0 and 9 both read as 'value'.
-Eight of the twenty-five accessors are total functions and were pinned at
-exactly entityCount, so their tally was a constant that could not move.
+Its inputs are the `values` record written in Step 6 and the four-bucket numbers from `git show d768ca11~1:tests/entity-accessors.spec.ts`. Its saved output is consumed by Task 3, in both the file header comment and the PR body.
 
-TALLIED splits into TALLIED_SHAPE (11 open-set accessors, unchanged) and
-TALLIED_VALUES (14 closed-set, exact histograms). 52 histogram entries replace
-56 bucket numbers.
-
-Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
-```
-
----
-
-### Task 2: Prove the recapture folds back to the committed fixed point
-
-**Files:**
-
-- Create then delete: `/tmp/foldback.mjs` (never committed)
-
-**Interfaces:**
-
-- Consumes: the `values` record committed in Task 1, and the four-bucket numbers from `git show d768ca11~1:tests/entity-accessors.spec.ts`.
-- Produces: the proof text pasted into the PR body in Task 5 and the file header comment in Task 5.
-
-This is the gate. The file header forbids blindly re-recording the fixture and the original recorder was deleted, so the justification for new numbers is that folding each histogram into four buckets reproduces the committed ones exactly.
-
-- [ ] **Step 1: Write the fold-back script**
+- [ ] **Step 8: Write the fold-back script**
 
 ```js
 // /tmp/foldback.mjs
@@ -399,7 +373,7 @@ console.log(`\n${Object.keys(HIST).length - bad}/${Object.keys(HIST).length} fol
 process.exit(bad === 0 ? 0 : 1)
 ```
 
-- [ ] **Step 2: Extract both inputs**
+- [ ] **Step 9: Extract both inputs**
 
 Write `/tmp/hist.json` by copying the `values` object from the committed
 `tests/entity-accessors.spec.ts` and converting it to JSON (quote every key,
@@ -413,7 +387,7 @@ git show d768ca11~1:tests/entity-accessors.spec.ts | sed -n '/^const EXPECTED/,/
 
 Take the 14 entries named in `TALLIED_VALUES` out of it.
 
-- [ ] **Step 3: Run the proof**
+- [ ] **Step 10: Run the proof**
 
 ```bash
 node /tmp/foldback.mjs
@@ -442,18 +416,41 @@ ok   possibleRotations        folded {"value":256846,"empty":90879,"nothing":0,"
 
 **If any line says FAIL, stop and report.** A mismatch means the recapture is not the committed fixed point at higher resolution, and the numbers must not be committed on the strength of "the test passes with them".
 
-- [ ] **Step 4: Save the output and delete the script**
+- [ ] **Step 11: Save the output and delete the script**
 
 ```bash
 node /tmp/foldback.mjs > /tmp/foldback-output.txt
 rm /tmp/foldback.mjs
 ```
 
-Nothing is committed by this task. The output is used in Task 5.
+Keep `/tmp/foldback-output.txt` - Task 3 pastes it into the header comment and the PR body.
+
+- [ ] **Step 12: Commit**
+
+Only after Step 10 reported 14/14.
+
+```bash
+git add tests/entity-accessors.spec.ts
+git commit -m "test: record exact values for the fourteen closed-set accessors
+
+The four-bucket tally cannot see a value, so 0 and 9 both read as 'value'.
+Eight of the twenty-five accessors are total functions and were pinned at
+exactly entityCount, so their tally was a constant that could not move.
+
+TALLIED splits into TALLIED_SHAPE (11 open-set accessors, unchanged) and
+TALLIED_VALUES (14 closed-set, exact histograms). 52 histogram entries replace
+56 bucket numbers.
+
+Not a blind re-record, which the file header forbids: all fourteen histograms
+fold back into the four buckets committed before this change, reproducing them
+exactly, so these are the same fixed point at higher resolution.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+```
 
 ---
 
-### Task 3: Add the two permanent guards
+### Task 2: Add the two permanent guards
 
 **Files:**
 
@@ -540,14 +537,21 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Mutation-check five ways
+### Task 3: Mutation-check, update the docs, and open the PR
 
 **Files:**
 
 - Temporarily modify then revert: `packages/editor/src/core/factorioData.ts`, `packages/editor/src/core/Entity.ts`
-- No commit from this task except the results, which go into Task 5's PR body.
+- Modify and commit: `tests/entity-accessors.spec.ts` (header comment only), `CLAUDE.md` (one bullet)
 
-Each mutation is applied, the spec run, the result recorded, and the mutation reverted with `git checkout --` before the next. Run each with:
+**Interfaces:**
+
+- Consumes: the committed spec from Tasks 1 and 2, and `/tmp/foldback-output.txt` saved in Task 1 Step 11.
+- Produces: the PR.
+
+#### Part A: the five mutations, Steps 1-6
+
+Each mutation is applied, the spec run, the result recorded for the PR body, and the mutation reverted with `git checkout --` before the next. **Nothing here is committed** - Step 6 asserts the tree is clean before Part B starts. Run each with:
 
 ```bash
 export PATH="$HOME/.vite-plus/bin:$PATH"
@@ -611,16 +615,9 @@ git status --short
 
 Expected: empty. If any mutation survives into the commit, the fixture no longer describes the real accessors.
 
----
+#### Part B: the docs and the PR, Steps 7-11
 
-### Task 5: Update the file header and CLAUDE.md, then open the PR
-
-**Files:**
-
-- Modify: `tests/entity-accessors.spec.ts` (header comment only)
-- Modify: `CLAUDE.md` (one bullet)
-
-- [ ] **Step 1: Rewrite the file header comment**
+- [ ] **Step 7: Rewrite the file header comment**
 
 Replace the comment at lines 4-24 and the fixture provenance comment (lines 119-133 today) so they describe two records rather than one. The provenance comment must carry the fold-back proof, because that is what replaces the deleted recorder as the audit trail. Add, in the provenance comment:
 
@@ -636,7 +633,7 @@ Replace the comment at lines 4-24 and the fixture provenance comment (lines 119-
     at higher resolution, not a new snapshot.
 ```
 
-- [ ] **Step 2: Update the CLAUDE.md bullet**
+- [ ] **Step 8: Update the CLAUDE.md bullet**
 
 Find the bullet beginning `` `tests/entity-accessors.spec.ts` - Tallies what every `Entity` accessor returns `` and replace it with:
 
@@ -644,7 +641,7 @@ Find the bullet beginning `` `tests/entity-accessors.spec.ts` - Tallies what eve
 - `tests/entity-accessors.spec.ts` - What every `Entity` accessor answers across all 367 blueprints, in two records. The eleven open-set accessors are tallied by **shape** (a value, an empty list, nothing, or threw), which is what catches a getter returning `[]` where it returned `undefined`. The fourteen with a small closed value set are recorded as **exact histograms** (issue #189), because the shape tally cannot see a value: `0` and `9` both bucket as `value`, and eight accessors are total functions whose four-bucket tally was pinned at exactly `entityCount` and so could not move at all. That is the structural reason #186's splitter bug survived the corpus. Two guards keep it honest - every histogram must cover every entity, and none may exceed 16 distinct keys, so an accessor that turns open-set says so instead of dumping a thousand-line diff. Fixed point, not a refreshable snapshot: the sanctioned way to move a histogram is to prove it folds back to the previous four buckets, which is how the #189 recapture was justified.
 ```
 
-- [ ] **Step 3: Run the whole gate**
+- [ ] **Step 9: Run the whole gate**
 
 ```bash
 export PATH="$HOME/.vite-plus/bin:$PATH"
@@ -655,7 +652,7 @@ npx playwright test
 
 Expected: `vp check` clean; `vp test` 154 passing across 12 files; Playwright 176 passed across 40 files.
 
-- [ ] **Step 4: Commit and push**
+- [ ] **Step 10: Commit and push**
 
 ```bash
 git add tests/entity-accessors.spec.ts CLAUDE.md
@@ -665,7 +662,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 git push -u origin test/entity-accessor-value-tally
 ```
 
-- [ ] **Step 5: Open the PR**
+- [ ] **Step 11: Open the PR**
 
 Base `wormeyman-space-age-support`. The body must carry the fold-back output from Task 2 Step 4, the mutation table from Task 4 including the control's deliberate negative, and `Closes #189`. No issue number in the title.
 
@@ -673,8 +670,10 @@ Base `wormeyman-space-age-support`. The body must carry the fold-back output fro
 
 ## Self-Review
 
-**Spec coverage.** Two lists (Task 1 Step 1), key derivation (Task 1 Step 2), the `values`/`shape` records (Task 1 Steps 3-6), sum-to-entityCount and 16-key guards (Task 3), the fold-back proof (Task 2), the five mutations including the control (Task 4), the header and CLAUDE.md (Task 5). The spec's "what this deliberately does not do" section maps to Task 4 Mutation 5, which turns the open-set gap into a recorded result rather than an unstated limitation.
+**Spec coverage.** Two lists (Task 1 Step 1), key derivation (Task 1 Step 2), the `values`/`shape` records (Task 1 Steps 3-7), the fold-back proof (Task 1 Steps 8-11), sum-to-entityCount and 16-key guards (Task 2), the five mutations including the control (Task 3 Part A), the header and CLAUDE.md (Task 3 Part B). The spec's "what this deliberately does not do" section maps to Task 3 Mutation 5, which turns the open-set gap into a recorded result rather than an unstated limitation.
 
-**Types.** `Tally` and `Histogram` are declared once in Task 1 Step 1 and used unchanged in Steps 2 and 3 and in Task 3. The fixture keys `entityCount`, `blueprintCount`, `shape`, `values` are identical in the collection code, the `EXPECTED` type, and both guards.
+**Types.** `Tally` and `Histogram` are declared once in Task 1 Step 1 and used unchanged in Steps 2 and 3 and in Task 2. The fixture keys `entityCount`, `blueprintCount`, `shape`, `values` are identical in the collection code, the `EXPECTED` type, and both guards.
 
-**One risk worth naming.** Task 1 Step 6's histograms are transcribed from a probe run, and a transcription error would produce a spec that passes against wrong numbers. Task 2 is precisely the check for that: a mistyped count breaks the fold-back, since the buckets it must reproduce are independently committed. Run Task 2 before trusting Task 1.
+**One risk worth naming.** Task 1 Step 6's histograms are transcribed from a probe run, and a transcription error would produce a spec that passes against wrong numbers. The fold-back at Steps 8-11 is precisely the check for that: a mistyped count breaks it, since the buckets it must reproduce are independently committed. That is why the commit is Step 12 and not Step 8 - the gate runs before the numbers land.
+
+**Three tasks, not five.** The plan originally had the fold-back and the mutations as tasks of their own. Both commit nothing, so under subagent-driven execution their review package would have been an empty diff and the per-task review gate would have had nothing to look at. Each is now folded into the task whose deliverable needs it: the proof gates Task 1's own numbers, and the mutation results are consumed by Task 3's PR body.
