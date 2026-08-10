@@ -99,14 +99,22 @@
 
     // NOTHING MERGES UNREAD. No exceptions, including GitHub Action digest re-pins.
     //
-    // The local reason is specific and stronger than the usual one: CI here runs
+    // The local reason is specific and stronger than the usual one: CI runs
     // `vp check` (oxfmt + oxlint + tsc), `vp test` (vitest units + the type-check
-    // gate) and nothing else. It does NOT run Playwright - and tests/ is where
-    // essentially all of this project's behavioural coverage lives, 25-odd specs
-    // covering placement, paste, sprites and the blueprint round trip. It also
-    // never compiles packages/exporter. So a green check here proves the repo is
-    // CONSISTENT under lint and types; it says nothing about whether a bump is
-    // CORRECT.
+    // gate), and compiles packages/exporter on ubuntu and Windows. It does NOT run
+    // Playwright - and tests/ is where essentially all of this project's
+    // behavioural coverage lives, 25-odd specs covering placement, paste, sprites
+    // and the blueprint round trip. So a green check here proves the repo is
+    // CONSISTENT under lint and types and that the Rust side still builds; it says
+    // nothing about whether a bump is CORRECT.
+    //
+    // This paragraph used to end "it also never compiles packages/exporter", which
+    // the `Rust exporter` and `Rust exporter (Windows)` jobs at ci.yml:89 and :163
+    // contradict - and which the cargo rule below already contradicted in the same
+    // file, noting that an earlier draft said the opposite and was corrected. The
+    // conclusion is unchanged either way: the exporter is COMPILED and never RUN,
+    // which is the boundary the cargo note draws, and the Playwright gap carries
+    // this argument on its own.
     //
     // The sibling repo has the counterexample on record: pako 3.0.0 flipped a hash
     // default that passes a green suite while silently breaking a byte-exactness
@@ -282,9 +290,20 @@
             // Note also that with the default `rangeStrategy: auto` most crate bumps
             // land as Cargo.lock-only diffs, with no Cargo.toml change to read - the
             // job's `--locked` is what checks the lockfile Renovate wrote is coherent.
+            //
+            // The note used to end by asking for a local macOS run on image, zip, tar
+            // or compression bumps. Half of that was unreachable and it is corrected
+            // below: `download()` panics on macOS at src/setup.rs:568, where the
+            // `"macos" => "osx"` arm is commented out, and BOTH extraction branches sit
+            // below that panic - zip under cfg(windows), tokio-tar over an
+            // async-compression LzmaDecoder under cfg(linux). So no macOS run can reach
+            // an archive crate, and asking for one sends the reader at code that cannot
+            // execute. The image half survives: image::* at src/setup.rs:134-150 is
+            // ungated. Same correction as CLAUDE.md's "Known and unfixed" entry, which
+            // was fixed first; keep the two in step.
             matchManagers: ['cargo'],
             prBodyNotes: [
-                'CI compiles this crate (the `Rust exporter` job) but **cannot run it** - the exporter needs a Factorio install to extract from, and sprite encoding shells out to `./basisu`, for which only a macOS ARM64 binary is tracked. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching image, zip, tar or compression handling, run the exporter locally on macOS before merging.',
+                'CI compiles this crate (the `Rust exporter` job) but **cannot run it** - the exporter needs a Factorio install to extract from, and sprite encoding shells out to `./basisu`, for which only a macOS ARM64 binary is tracked. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching **image** handling, run the exporter locally on macOS before merging. For **zip, tar or compression**, a macOS run is not an option and should not be attempted: `download()` panics on macOS (`src/setup.rs:568`), and both extraction branches sit below that panic - `zip` under `cfg(target_os = "windows")` and `tokio-tar` over an `async-compression` `LzmaDecoder` under `cfg(target_os = "linux")`. The ubuntu and Windows compiles are the only evidence available short of running the exporter on one of those platforms.',
             ],
         },
         {
