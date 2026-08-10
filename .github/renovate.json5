@@ -99,14 +99,22 @@
 
     // NOTHING MERGES UNREAD. No exceptions, including GitHub Action digest re-pins.
     //
-    // The local reason is specific and stronger than the usual one: CI here runs
+    // The local reason is specific and stronger than the usual one: CI runs
     // `vp check` (oxfmt + oxlint + tsc), `vp test` (vitest units + the type-check
-    // gate) and nothing else. It does NOT run Playwright - and tests/ is where
-    // essentially all of this project's behavioural coverage lives, 25-odd specs
-    // covering placement, paste, sprites and the blueprint round trip. It also
-    // never compiles packages/exporter. So a green check here proves the repo is
-    // CONSISTENT under lint and types; it says nothing about whether a bump is
-    // CORRECT.
+    // gate), and compiles packages/exporter on ubuntu and Windows. It does NOT run
+    // Playwright - and tests/ is where essentially all of this project's
+    // behavioural coverage lives, 25-odd specs covering placement, paste, sprites
+    // and the blueprint round trip. So a green check here proves the repo is
+    // CONSISTENT under lint and types and that the Rust side still builds; it says
+    // nothing about whether a bump is CORRECT.
+    //
+    // This paragraph used to end "it also never compiles packages/exporter", which
+    // the `Rust exporter` and `Rust exporter (Windows)` jobs at ci.yml:89 and :163
+    // contradict - and which the cargo rule below already contradicted in the same
+    // file, noting that an earlier draft said the opposite and was corrected. The
+    // conclusion is unchanged either way: the exporter is COMPILED and never RUN,
+    // which is the boundary the cargo note draws, and the Playwright gap carries
+    // this argument on its own.
     //
     // The sibling repo has the counterexample on record: pako 3.0.0 flipped a hash
     // default that passes a green suite while silently breaking a byte-exactness
