@@ -589,8 +589,19 @@ one per package that has earned it.
   basisu - `./basisu` is a runtime `Command::new` at `src/setup.rs:501`, there is
   no `build.rs`, and no dependency is platform-gated. **Running** it needs both, and
   the tracked basisu binary is macOS ARM64 only, so a crate that changes runtime
-  behaviour without breaking the build passes green. Anything touching image, zip,
-  tar or compression handling still wants a local run on macOS.
+  behaviour without breaking the build passes green. Anything touching image
+  handling still wants a local run on macOS - `image::*` at `setup.rs:134-150` is
+  ungated and runs there. **Archive handling is the exception, and a macOS run
+  cannot reach it at all.** `download()` panics on macOS at `setup.rs:568`, where
+  the `"macos" => "osx"` arm of the `std::env::consts::OS` match is commented out,
+  and both extraction branches sit below that panic: `zip::ZipArchive` under
+  `#[cfg(target_os = "windows")]` and `tokio_tar` over an `async-compression`
+  `LzmaDecoder` under `#[cfg(target_os = "linux")]`. So for zip, tar or
+  compression the ubuntu and Windows CI compiles are the only evidence available
+  short of running the exporter on one of those platforms, and a macOS run is
+  theatre. Measured while merging the `async-compression` 0.4.19 -> 0.4.43 bump,
+  which swapped the lzma backend from `xz2` to `liblzma` and so looked exactly
+  like the case this note was written for.
 - `ajv` is ~100 kB minified and **nothing branches on its result** - the load
   proceeds identically either way, and `ModdedBlueprintError` /
   `TrainBlueprintError` are declared, exported, handled, and never thrown. Decide
