@@ -63,6 +63,9 @@ export class InventoryDialog extends Dialog {
     /** Scrollbar thumb rendered alongside the items viewport */
     private readonly m_ScrollThumb: Graphics
 
+    /** Whether the recipe panel was built - `setPosition` needs it after the constructor has returned */
+    private readonly m_ShowRecipePanel: boolean
+
     // Items viewport geometry (matches the layout comment above)
     private static readonly VP_X = 12
     private static readonly VP_Y = 126
@@ -70,15 +73,52 @@ export class InventoryDialog extends Dialog {
     private static readonly VP_H = 304
     private static readonly ROW_H = 38
 
+    /** Whether an item qualifies for a group tab, mirroring the population loop below */
+    private static itemQualifies(itemName: string, itemsFilter: string[] | undefined): boolean {
+        if (itemsFilter === undefined) {
+            const itemData = FD.items[itemName]
+            if (!itemData) return false
+            if (!itemData.place_result && !itemData.place_as_tile) return false
+            if (itemData.place_result && !FD.entities[itemData.place_result]) return false
+            return true
+        }
+        return itemsFilter.includes(itemName)
+    }
+
+    /**
+     * Widen the dialog if more group tabs need to fit than the 404px base
+     * layout was designed for. `DisplayPanelIcon` is the first caller whose
+     * filter (items + fluids + virtual signals) spans enough of
+     * `FD.inventoryLayout` to hit this - up to 7 tabs against Space Age data,
+     * where every other filtered caller stays within a handful of the base
+     * game's own groups.
+     */
+    private static computeWidth(itemsFilter: string[] | undefined): number {
+        let groupCount = 0
+        for (const group of FD.inventoryLayout) {
+            if (group.name === 'creative' && itemsFilter !== undefined) continue
+            const hasItems = group.subgroups.some(subgroup =>
+                subgroup.items.some(item => InventoryDialog.itemQualifies(item.name, itemsFilter))
+            )
+            if (hasItems) groupCount += 1
+        }
+        return Math.max(404, groupCount * 70 + 22)
+    }
+
     public constructor(
         title = 'Inventory',
         itemsFilter: string[] | undefined,
         // Not optional: picking an item is the whole point of the dialog, and all
         // five call sites pass one. Optional only made the invocation below a
         // type error, with nothing to do about it that was not a fiction.
-        selectedCallBack: (selectedItem: string) => void
+        selectedCallBack: (selectedItem: string) => void,
+        // Off for DisplayPanelIcon: it picks from items/fluids/signals with no
+        // recipe, so the panel would only ever show as a permanently empty bar.
+        showRecipePanel = true
     ) {
-        super(404, 442, title)
+        super(InventoryDialog.computeWidth(itemsFilter), 442, title)
+
+        this.m_ShowRecipePanel = showRecipePanel
 
         const D = InventoryDialog
 
@@ -227,27 +267,33 @@ export class InventoryDialog extends Dialog {
             }
         }
 
-        const recipePanel = new Container()
-        recipePanel.position.set(0, 442)
-        this.addChild(recipePanel)
-
-        const recipeBackground = F.DrawRectangle(
-            404,
-            78,
-            colors.dialog.background.color,
-            colors.dialog.background.alpha,
-            colors.dialog.background.border
-        )
-        recipeBackground.position.set(0, 0)
-        recipePanel.addChild(recipeBackground)
-
+        // Detached placeholders when the recipe panel is hidden - keeps
+        // updateRecipeVisualization a safe no-op rather than needing its own
+        // showRecipePanel check, since item buttons call it unconditionally.
         this.m_RecipeLabel = new Text({ text: '', style: styles.dialog.label })
-        this.m_RecipeLabel.position.set(12, 10)
-        recipePanel.addChild(this.m_RecipeLabel)
-
         this.m_RecipeContainer = new Container()
-        this.m_RecipeContainer.position.set(12, 36)
-        recipePanel.addChild(this.m_RecipeContainer)
+
+        if (this.m_ShowRecipePanel) {
+            const recipePanel = new Container()
+            recipePanel.position.set(0, 442)
+            this.addChild(recipePanel)
+
+            const recipeBackground = F.DrawRectangle(
+                this.width,
+                78,
+                colors.dialog.background.color,
+                colors.dialog.background.alpha,
+                colors.dialog.background.border
+            )
+            recipeBackground.position.set(0, 0)
+            recipePanel.addChild(recipeBackground)
+
+            this.m_RecipeLabel.position.set(12, 10)
+            recipePanel.addChild(this.m_RecipeLabel)
+
+            this.m_RecipeContainer.position.set(12, 36)
+            recipePanel.addChild(this.m_RecipeContainer)
+        }
 
         this.refreshScrollbar()
     }
@@ -267,14 +313,19 @@ export class InventoryDialog extends Dialog {
         const thumbY = D.VP_Y + (scroll / maxScroll) * (D.VP_H - thumbH)
         this.m_ScrollThumb.visible = true
         this.m_ScrollThumb.height = thumbH
-        this.m_ScrollThumb.position.set(D.VP_X + D.VP_W, thumbY)
+        // Anchored to the dialog's actual right border (mirrors the 12px left
+        // margin) rather than a fixed VP_X + VP_W: computeWidth can widen the
+        // dialog well past the base 404px layout the viewport geometry was
+        // designed for, and a fixed-offset thumb would strand itself deep
+        // inside the dialog instead of at its edge.
+        this.m_ScrollThumb.position.set(this.width - 12 - 4, thumbY)
     }
 
     /** Override automatically set position of dialog due to additional area for recipe */
     protected override setPosition(): void {
         this.position.set(
             G.app.screen.width / 2 - this.width / 2,
-            G.app.screen.height / 2 - 520 / 2
+            G.app.screen.height / 2 - (this.m_ShowRecipePanel ? 520 : 442) / 2
         )
     }
 

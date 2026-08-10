@@ -8,6 +8,7 @@ import {
     ComparatorString,
     ArithmeticOperation,
     ISignal,
+    ICondition,
     SelectorCombinatorOperation,
     LogisticSection,
     LogisticSections,
@@ -175,6 +176,9 @@ export interface EntityEvents {
     wagonInventory: []
     launchToOrbitAutomatically: []
     useTransitionalRequests: []
+    displayPanelIcon: [icon: ISignal | undefined]
+    displayPanelText: [text: string | undefined]
+    displayPanelAlwaysShow: [alwaysShow: boolean]
 }
 
 /** Entity Base Class */
@@ -1642,6 +1646,90 @@ export class Entity extends EventEmitter<EntityEvents> {
     public get displayPanelIcon(): ISignal | undefined {
         if (this.type !== 'display-panel') return undefined
         return this.m_rawEntity.icon || this.m_rawEntity.control_behavior?.parameters?.[0]?.icon
+    }
+
+    public set displayPanelIcon(icon: ISignal | undefined) {
+        if (this.m_rawEntity.icon === icon) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'icon', icon, 'Change display panel icon')
+            .onDone(() => this.emit('displayPanelIcon', this.displayPanelIcon))
+            .commit()
+    }
+
+    /**
+     * Entity Display Panel text.
+     *
+     * Falls back to the first circuit-network condition's text (mirrors the
+     * icon getter above) so a panel imported with only `control_behavior.parameters`
+     * set still shows something here, even though this UI only ever writes the
+     * top-level `text` field.
+     */
+    public get displayPanelText(): string | undefined {
+        if (this.type !== 'display-panel') return undefined
+        return this.m_rawEntity.text ?? this.m_rawEntity.control_behavior?.parameters?.[0]?.text
+    }
+
+    public set displayPanelText(text: string | undefined) {
+        if (this.m_rawEntity.text === text) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'text', text, 'Change display panel text')
+            .onDone(() => this.emit('displayPanelText', this.displayPanelText))
+            .commit()
+    }
+
+    /**
+     * Whether the display panel's first line of text is always shown above the
+     * entity, rather than only on hover. Stored as `undefined` rather than
+     * `false` when off, to avoid persisting a field Factorio itself omits.
+     */
+    public get displayPanelAlwaysShow(): boolean {
+        return !!this.m_rawEntity.always_show
+    }
+
+    public set displayPanelAlwaysShow(alwaysShow: boolean) {
+        if (this.displayPanelAlwaysShow === alwaysShow) return
+
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'always_show',
+                alwaysShow || undefined,
+                'Change display panel always show text'
+            )
+            .onDone(() => this.emit('displayPanelAlwaysShow', this.displayPanelAlwaysShow))
+            .commit()
+    }
+
+    /** Read-only circuit-network conditions of a circuit-connected display panel. Editing these is not yet supported. */
+    public get displayPanelParameters():
+        | { text?: string; icon?: ISignal; condition?: ICondition }[]
+        | undefined {
+        if (this.type !== 'display-panel') return undefined
+        return this.m_rawEntity.control_behavior?.parameters
+    }
+
+    /**
+     * Names of everything a display panel's icon can be set to: items,
+     * fluids, and virtual signals. Unlike `acceptedRecipes`/`acceptedModules`
+     * this does not depend on `this` at all - the panel places no constraint
+     * on its own icon - but lives here rather than as a free function so
+     * `DisplayPanelIcon` can read it the same way it reads every other
+     * accepted-* list.
+     */
+    public get acceptedDisplayPanelIcons(): string[] {
+        const itemNames = FD.inventoryLayout.flatMap(group =>
+            group.subgroups.flatMap(subgroup => subgroup.items.map(item => item.name))
+        )
+        return [...itemNames, ...Object.keys(FD.fluids), ...Object.keys(FD.signals)]
+    }
+
+    /** The `ISignal.type` a name from `acceptedDisplayPanelIcons` should be set with. */
+    public displayPanelIconType(name: string): ISignal['type'] {
+        if (FD.fluids[name]) return 'fluid'
+        if (FD.signals[name]) return 'virtual'
+        return undefined
     }
 
     public get mayCraftWithFluid(): boolean {
