@@ -18,6 +18,19 @@ class WireSlot extends Slot<string> {
     public constructor(wireName: string) {
         super(wireName)
         this.content = F.CreateIcon(wireName)
+
+        this.on('pointerdown', e => {
+            if (e.button !== 0) return
+            if (G.BPC.mode === EditorMode.PAINT) {
+                if (this.wireName === G.BPC.painting.getItemName()) {
+                    G.BPC.painting.destroy()
+                } else {
+                    G.BPC.spawnPaintContainer(this.wireName)
+                }
+            } else {
+                G.BPC.spawnPaintContainer(this.wireName)
+            }
+        })
     }
 
     public get wireName(): string {
@@ -41,29 +54,33 @@ class ActionSlot extends Slot<undefined> {
     }
 }
 
+const WIRES = ['copper-wire', 'red-wire', 'green-wire']
+
 /*
-    Columns fixed at 3 - the wire row's own count - rather than widening the
-    panel to fit the 4 action slots on the same row. This panel sits flush
-    against the quickbar's right edge (see setPosition), close enough to the
-    screen's right side at common viewport widths (1280 and narrower) that
-    growing rightward runs the new slots under `.toasts-container`, which is
-    `position: fixed; right: 0; width: 320px` and sits above the canvas -
-    verified by clicking a widened-panel action slot there and finding the
-    click reached the toast, not the button. Growing downward into extra rows
-    instead keeps the panel's width - and therefore its right edge - exactly
-    what it was before these buttons existed.
+    2 rows, filled column-major (top-to-bottom, then next column) rather than
+    a single wide row. This panel sits flush against the quickbar's right edge
+    (see setPosition), close enough to the screen's right side at common
+    viewport widths (1280 and narrower) that a single 7-wide row runs under
+    `.toasts-container`, which is `position: fixed; right: 0; width: 320px`
+    and sits above the canvas - verified by clicking a widened-panel slot
+    there and finding the click reached the toast, not the button. Wrapping
+    into a second row instead keeps the panel no wider than 4 slots.
+
+    Each action pairs with the wire below it - import-replace/copper-wire,
+    import-append/red-wire, export-string/green-wire - with export-image left
+    on its own in the fourth column, row 1 empty beneath it.
 */
-const COLS = 3
-const ACTION_ROWS = Math.ceil(4 / COLS)
+const ROWS = 2
 
 export class WiresPanel extends Panel {
     private slotsContainer: Container
-    public static Wires = ['copper-wire', 'red-wire', 'green-wire']
+    public static Wires = WIRES
 
     public constructor() {
+        const cols = Math.ceil((WIRES.length + 4) / ROWS)
         super(
-            24 + 38 * COLS - 2,
-            24 + 38 * (1 + ACTION_ROWS) - 2,
+            24 + 38 * cols - 2,
+            24 + 38 * ROWS - 2,
             colors.quickbar.background.color,
             colors.quickbar.background.alpha,
             colors.quickbar.background.border
@@ -74,59 +91,38 @@ export class WiresPanel extends Panel {
         this.addChild(this.slotsContainer)
 
         this.generateSlots()
-        this.generateActionSlots()
-    }
-
-    public generateSlots(): void {
-        for (const [i, wire] of WiresPanel.Wires.entries()) {
-            const slot = new WireSlot(wire)
-            slot.position.set((36 + 2) * i, 0)
-
-            slot.on('pointerdown', e => {
-                if (e.button === 0) {
-                    if (G.BPC.mode === EditorMode.PAINT) {
-                        if (slot.wireName === G.BPC.painting.getItemName()) {
-                            G.BPC.painting.destroy()
-                        } else {
-                            G.BPC.spawnPaintContainer(slot.wireName)
-                        }
-                    } else {
-                        G.BPC.spawnPaintContainer(slot.wireName)
-                    }
-                }
-            })
-
-            this.slotsContainer.addChild(slot)
-        }
     }
 
     /**
-     * Import-replace, import-append, export-to-string and export-to-image -
-     * the four actions that only ever existed as a keyboard shortcut (paste,
-     * Ctrl+Shift+V, copy and Ctrl+S respectively), with no menu entry to find
-     * them from. Icons are the game's own GUI sprites rather than repurposed
-     * item icons, since nothing in the item list means "import" or "export".
-     * Laid out in the rows below the wire row, `COLS` wide - see the comment
-     * on `COLS` for why this doesn't sit beside the wires instead.
+     * The wire slots and the import/export quick actions in one interleaved
+     * grid - see the comment on `ROWS` for the layout and why it wraps
+     * instead of running in a single row. The four actions are
+     * import-replace, import-append, export-to-string and export-to-image,
+     * the only ways to reach paste, Ctrl+Shift+V, copy and Ctrl+S that don't
+     * require already knowing the shortcut. Icons are the game's own GUI
+     * sprites rather than repurposed item icons, since nothing in the item
+     * list means "import" or "export".
      */
-    private generateActionSlots(): void {
-        const actions: [icon: Container, onClick: () => void][] = [
-            [
-                F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot),
-                () => G.quickActions.importReplace(),
-            ],
-            [F.CreateUtilitySpriteIcon(FD.utilitySprites.add), () => G.quickActions.importAppend()],
-            [
-                F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot),
-                () => G.quickActions.exportString(),
-            ],
-            [F.CreateIcon('blueprint'), () => G.quickActions.exportImage()],
+    public generateSlots(): void {
+        const cells: Container[] = [
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot), () =>
+                G.quickActions.importReplace()
+            ),
+            new WireSlot(WIRES[0]),
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.add), () =>
+                G.quickActions.importAppend()
+            ),
+            new WireSlot(WIRES[1]),
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot), () =>
+                G.quickActions.exportString()
+            ),
+            new WireSlot(WIRES[2]),
+            new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
         ]
 
-        for (const [i, [icon, onClick]] of actions.entries()) {
-            const slot = new ActionSlot(icon, onClick)
-            const row = 1 + Math.floor(i / COLS)
-            const col = i % COLS
+        for (const [i, slot] of cells.entries()) {
+            const col = Math.floor(i / ROWS)
+            const row = i % ROWS
             slot.position.set((36 + 2) * col, (36 + 2) * row)
             this.slotsContainer.addChild(slot)
         }
