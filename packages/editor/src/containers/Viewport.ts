@@ -1,11 +1,11 @@
 import { Matrix } from 'pixi.js'
 import { IPoint } from '../types'
+import { clampZoom, ZOOM_MAX } from '../core/zoomLevels'
 
 export class Viewport {
     private size: IPoint
     private viewPortSize: IPoint
     private anchor: IPoint
-    private maxZoom: number
     private dirty = true
     private positionX = 0
     private positionY = 0
@@ -16,11 +16,17 @@ export class Viewport {
     private origTransform = new Matrix()
     private transform = new Matrix()
 
-    public constructor(size: IPoint, viewPortSize: IPoint, anchor: IPoint, maxZoom: number) {
+    /*
+        The zoom ceiling used to arrive as a constructor argument, which
+        `BlueprintContainer` passed as a literal 3. It now comes from
+        `zoomLevels.ts`, where the same 3 is recorded as the game's measured
+        limit (#206) - a bound written down in two places is one that has to be
+        kept in sync, and the copy nothing tests is the one that loses.
+    */
+    public constructor(size: IPoint, viewPortSize: IPoint, anchor: IPoint) {
         this.size = size
         this.viewPortSize = viewPortSize
         this.anchor = anchor
-        this.maxZoom = maxZoom
     }
 
     private _updateMatrix(): void {
@@ -95,10 +101,17 @@ export class Viewport {
         this.scaleCenterX = this.size.x / 2 + -offset.x
         this.scaleCenterY = this.size.y / 2 + -offset.y
 
+        /*
+            Capped at the ceiling but deliberately **not** at the floor: a
+            blueprint wider than `ZOOM_MIN` allows still has to fit exactly, and
+            30 of the 367 corpus blueprints are wide enough to need it. Keeping
+            the fit exact is why the continuous scale stays the source of truth
+            rather than a ladder index (#206).
+        */
         const zoom = Math.min(
             this.viewPortSize.x / focusObjectSize.x,
             this.viewPortSize.y / focusObjectSize.y,
-            this.maxZoom
+            ZOOM_MAX
         )
         this.scaleX = zoom
         this.scaleY = zoom
@@ -152,10 +165,28 @@ export class Viewport {
         this.dirty = true
     }
 
-    public zoomBy(deltaX: number, deltaY?: number): void {
-        if (Math.sign(deltaX) === 1 && this.origTransform.a > this.maxZoom) return
-        this.scaleX += deltaX
-        this.scaleY += deltaY === undefined ? deltaX : deltaY
+    /**
+     * Continuous zoom by a proportional delta, for **mobile pinch only** - it
+     * derives `scaleDelta` from finger distance, which cannot be expressed in
+     * rungs. The wheel goes through `stepZoom` and `setCurrentScale` instead.
+     *
+     * Two fixes over what this used to be (#206 defect 3). The guard tested the
+     * ceiling *before* applying, so from 2.99 a tick still landed at 3.289 -
+     * soft by a whole step. And there was no floor anywhere: because the step is
+     * multiplicative it approached 0 asymptotically rather than going negative,
+     * degrading into an unusable speck instead of failing outright.
+     *
+     * The second parameter is gone with them. It allowed a non-uniform zoom that
+     * no caller ever asked for and that a single clamped scale cannot express -
+     * `getCurrentScale` only ever reports the x axis, so the two could disagree
+     * with nothing able to see it.
+     */
+    public zoomBy(delta: number): void {
+        /* Rebuild first, or `origTransform.a` is the scale from before a pending change. */
+        if (this.dirty) this._updateMatrix()
+        const current = this.origTransform.a
+        this.scaleX = clampZoom(current * (1 + delta)) / current
+        this.scaleY = this.scaleX
         this.dirty = true
     }
 
@@ -183,7 +214,16 @@ export class Viewport {
         this.dirty = true
     }
 
+    /**
+     * Rebuilds a pending change first, for the same reason `getTransform` does
+     * (#144): every mutator here sets `dirty` and leaves the matrix alone, so
+     * without this a read between a change and the next render frame answers the
+     * scale from *before* it. That mattered little while the caller only
+     * displayed the number; it matters now that `zoom()` computes the next rung
+     * from it, since a stale reading steps from the wrong rung.
+     */
     public getCurrentScale(): number {
+        if (this.dirty) this._updateMatrix()
         return this.origTransform.a
     }
 
