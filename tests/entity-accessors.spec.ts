@@ -181,6 +181,31 @@ test('Entity accessors report the same shape across every test blueprint', async
         { strings: sources, shapeKeys: [...TALLIED_SHAPE], valueKeys: [...TALLIED_VALUES] }
     )
 
+    /*
+        Two guards on the histograms, before the fixture comparison so that a
+        structural problem is named rather than arriving as a diff.
+
+        Every histogram must account for every entity. That is free and always
+        true, and it catches a recording bug that silently skips an accessor -
+        which the toEqual would otherwise report as an unexplained diff in a
+        fixture nobody wants to re-record.
+
+        And no histogram may exceed 16 distinct keys. The measured maximum is 10
+        (inserterStackSize). An accessor that turns open-set - which is what
+        would happen if one of these started answering a name or a recipe - then
+        fails by name here instead of dumping a thousand-line toEqual diff and
+        inviting someone to paste it in.
+    */
+    for (const [key, hist] of Object.entries(tally.values)) {
+        const total = Object.values(hist).reduce((a, b) => a + b, 0)
+        expect(total, `${key} histogram does not cover every entity`).toBe(tally.entityCount)
+        expect(
+            Object.keys(hist).length,
+            `${key} has more distinct values than a closed set should - ` +
+                `move it to TALLIED_SHAPE or find out why it changed`
+        ).toBeLessThanOrEqual(16)
+    }
+
     expect(tally).toEqual(EXPECTED)
     expect(errors, `console/page errors: ${errors.join(' | ')}`).toEqual([])
 })
