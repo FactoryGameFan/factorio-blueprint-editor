@@ -67,17 +67,18 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
     into a second row instead keeps the panel no wider than 4 slots.
 
     Each action pairs with the wire below it - import-replace/copper-wire,
-    import-append/red-wire, export-string/green-wire - with export-image left
-    on its own in the fourth column, row 1 empty beneath it.
+    import-append/red-wire, export-string/green-wire - with export-image and
+    the Import/Export dialog toggle sharing the fourth column between them.
 */
 const ROWS = 2
+const CELL_COUNT = WIRES.length + 5
 
 export class WiresPanel extends Panel {
     private slotsContainer: Container
     public static Wires = WIRES
 
     public constructor() {
-        const cols = Math.ceil((WIRES.length + 4) / ROWS)
+        const cols = Math.ceil(CELL_COUNT / ROWS)
         super(
             24 + 38 * cols - 2,
             24 + 38 * ROWS - 2,
@@ -96,12 +97,14 @@ export class WiresPanel extends Panel {
     /**
      * The wire slots and the import/export quick actions in one interleaved
      * grid - see the comment on `ROWS` for the layout and why it wraps
-     * instead of running in a single row. The four actions are
-     * import-replace, import-append, export-to-string and export-to-image,
-     * the only ways to reach paste, Ctrl+Shift+V, copy and Ctrl+S that don't
-     * require already knowing the shortcut. Icons are the game's own GUI
-     * sprites rather than repurposed item icons, since nothing in the item
-     * list means "import" or "export".
+     * instead of running in a single row. import-replace, import-append,
+     * export-to-string and export-to-image are the only ways to reach paste,
+     * Ctrl+Shift+V, copy and Ctrl+S that don't require already knowing the
+     * shortcut; the last cell opens ImportExportDialog, for a string that
+     * needs to be seen or edited rather than round-tripped through the OS
+     * clipboard untouched. Icons are the game's own GUI sprites rather than
+     * repurposed item icons, since nothing in the item list means "import" or
+     * "export".
      */
     public generateSlots(): void {
         const cells: Container[] = [
@@ -118,6 +121,7 @@ export class WiresPanel extends Panel {
             ),
             new WireSlot(WIRES[2]),
             new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
+            new ActionSlot(F.CreateIcon('blueprint-book'), () => G.UI.toggleImportExportDialog()),
         ]
 
         for (const [i, slot] of cells.entries()) {

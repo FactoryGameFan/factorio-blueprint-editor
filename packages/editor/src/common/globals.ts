@@ -21,10 +21,22 @@ export type Logger = (msg: ILogMessage) => void
  * reaching for `navigator.clipboard`/`FileSaver` itself.
  */
 export interface QuickActions {
-    importReplace: () => void
-    importAppend: () => void
+    /** Reads the OS clipboard when `source` is omitted - a key press or a
+     * WiresPanel button - or uses `source` directly, which is what
+     * ImportExportDialog's textarea passes instead of going through the
+     * clipboard at all. */
+    importReplace: (source?: string) => void
+    /** Same as `importReplace` re: `source`. */
+    importAppend: (source?: string) => void
     exportString: () => void
     exportImage: () => void
+    /**
+     * The loaded blueprint (or book) encoded as a string, for
+     * ImportExportDialog to show in its textarea - undefined when the
+     * blueprint is empty, the same guard `exportString`/`exportImage` use
+     * before doing anything.
+     */
+    encodeCurrent: () => Promise<string | undefined>
 }
 
 const logger: Logger = msg => {

@@ -536,10 +536,16 @@ export class TextInput extends OriginalTextInput {
         width: number,
         text: string,
         maxLength: number,
-        numericOnly = false
+        numericOnly = false,
+        // For ImportExportDialog's textarea: OriginalTextInput already supports
+        // a multiline (textarea) mode, but nothing before that dialog needed it
+        // through this wrapper, so it stopped at the single-line `<input>`.
+        multiline = false,
+        height?: number
     ) {
         super({
             renderer,
+            multiline,
             input: {
                 fontFamily: styles.controls.textbox.fontFamily,
                 fontWeight: styles.controls.textbox.fontWeight,
@@ -555,6 +561,7 @@ export class TextInput extends OriginalTextInput {
                 */
                 fontSize: `${styles.controls.textbox.fontSize}px`,
                 width: `${width}px`,
+                height: height !== undefined ? `${height}px` : undefined,
                 color: `black`,
             },
             box: {

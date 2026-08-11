@@ -4,6 +4,7 @@ import { DebugContainer } from './DebugContainer'
 import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
+import { ImportExportDialog } from './ImportExportDialog'
 import { WiresPanel } from './WiresPanel'
 import { createEditor } from './editors/factory'
 
@@ -14,6 +15,7 @@ export class UIContainer extends Container {
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
+    private importExportDialog: ImportExportDialog | undefined
 
     public constructor() {
         super()
@@ -80,6 +82,25 @@ export class UIContainer extends Container {
     /** How many dialogs are open. 0 when the canvas has none. */
     public get openDialogCount(): number {
         return this.dialogsContainer.children.length
+    }
+
+    /**
+     * Opens ImportExportDialog, or closes it if it is already open - the
+     * WiresPanel button that reaches this is a single toggle, not a spawner,
+     * so a second click has to answer "close" rather than stacking a second
+     * copy on top of the first.
+     */
+    public toggleImportExportDialog(): void {
+        if (this.importExportDialog) {
+            this.importExportDialog.close()
+            return
+        }
+
+        this.importExportDialog = new ImportExportDialog()
+        this.importExportDialog.on('close', () => {
+            this.importExportDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.importExportDialog)
     }
 
     public createInventory(

@@ -139,12 +139,16 @@ let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
  * the same logic the `copy`/`paste` document listeners and the
  * `appendBlueprint`/`takePicture` keybinds below call, extracted so both the
  * keyboard and the button reach one implementation instead of two.
+ *
+ * `importReplace`/`importAppend` read the OS clipboard when called with no
+ * argument - a key press or a WiresPanel button - or use `source` directly
+ * when ImportExportDialog's textarea calls them, which never touches the
+ * clipboard at all.
  */
-function importReplace(): void {
+function importReplace(source?: string): void {
     loadingScreen.show()
 
-    navigator.clipboard
-        .readText()
+    ;(source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
         .then(getBlueprintOrBookFromSource)
         .then(loadBp)
         .catch(error => {
@@ -153,9 +157,8 @@ function importReplace(): void {
         })
 }
 
-function importAppend(): void {
-    navigator.clipboard
-        .readText()
+function importAppend(source?: string): void {
+    ;(source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
         .then(getBlueprintOrBookFromSource)
         .then(bp => editor.appendBlueprint(bp instanceof Book ? bp.selectBlueprint(0) : bp))
         .catch(error => {
@@ -186,11 +189,19 @@ function exportImage(): boolean {
     return true
 }
 
+/** For ImportExportDialog's textarea - the same guard `exportString` uses,
+ * but handing back the string instead of writing it to the clipboard. */
+function encodeCurrent(): Promise<string | undefined> {
+    if (bp.isEmpty()) return Promise.resolve(undefined)
+    return encode(book || bp)
+}
+
 const quickActions: QuickActions = {
     importReplace,
     importAppend,
     exportString,
     exportImage,
+    encodeCurrent,
 }
 
 editor
