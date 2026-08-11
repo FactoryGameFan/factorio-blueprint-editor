@@ -155,7 +155,14 @@ test('editing the text field writes through to the serialized blueprint', async 
     await openEditorOn(page, 1)
 
     await focusInputWithValue(page, INITIAL_TEXT)
-    await page.keyboard.press('Control+A')
+    /*
+        Select-all, and it has to be ControlOrMeta rather than Control. On macOS
+        Control+A is the emacs "beginning of line" binding, not select-all, so
+        nothing is selected and the typed text lands in *front* of what is
+        already there - the assertion below gets "New textOld text". It passes
+        on Linux either way, which is why it reached the default branch.
+    */
+    await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.type('New text')
     // Tabbing away is what commits the change in the running app.
     await page.keyboard.press('Tab')
