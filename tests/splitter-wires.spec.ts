@@ -21,13 +21,28 @@ import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
     The asymmetry is why this spec exists rather than leaving it to the corpus.
     The connector half is loudly covered by accident: revert it and the overlay,
     sprite-generation and sprite-data specs all fail, because a blueprint that
-    will not load produces no digests. Nothing at all covers the distance half.
-    `entity-accessors.spec.ts` does tally `maxWireDistance` over every entity in
-    the corpus, but it buckets into value/empty/nothing/threw, and 0 and 9 both
-    land in `value` - so the fixture does not move. Mutation-checked: deleting
-    `case 'splitter'` from `getMaxWireDistance` alone leaves Playwright, vitest
-    and `vp check` all green, and every wired splitter in every blueprint quietly
-    draws its wires as out of range.
+    will not load produces no digests. Nothing at all covered the distance half
+    when this spec was written. `entity-accessors.spec.ts` did tally
+    `maxWireDistance` over every entity in the corpus, but it bucketed into
+    value/empty/nothing/threw, and 0 and 9 both landed in `value` - so the
+    fixture did not move. Mutation-checked at the time: deleting `case 'splitter'`
+    from `getMaxWireDistance` alone left Playwright, vitest and `vp check` all
+    green, and every wired splitter in every blueprint quietly drew its wires as
+    out of range.
+
+    That mutation is now caught twice, from opposite directions, and neither
+    catcher is this spec. #205's `wire-switch-completeness.test.ts` asks the
+    prototype side - every entity declaring `circuit_wire_max_distance` must read
+    back the same number - and it is vitest, so it runs in CI, which this does
+    not. #189 then moved `maxWireDistance` into `entity-accessors.spec.ts`'s
+    exact-histogram half, where the same deletion moves 4202 splitters from the
+    `9` key to the `0` key.
+
+    So read this spec as covering the *editor-facing* behaviour rather than as
+    the only thing standing between that case and a regression. And note how the
+    claim above went stale: it was invalidated twice by changes to files that
+    never open this one, which is the failure mode any "mutation-checked:
+    nothing catches this" note carries.
 
     Synthetic rather than corpus-driven on purpose. The blueprint that found this
     is JEPAKAZOL/fulgora-mall-4-planets, but a spec that named it would be
