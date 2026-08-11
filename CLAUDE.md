@@ -530,12 +530,25 @@ justifies a hold expires without anyone editing this file.
   the tree at all, the root `overrides` aliases it
   (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.8"`). So "bump vitest" has no
   answer except "bump vite-plus". 0.2.8 is `latest`, measured 2026-08-11.
-  **Nothing tracks this pin, so it goes stale without anyone touching the
-  file** - Renovate does not propose it, because it is an exact version rather
-  than a range and the CI half lives in a workflow `run:` line no manager reads.
-  It sat at 0.2.6 through 0.2.7 and 0.2.8 for that reason, under a note in this
-  file asserting it was `latest`. Re-measure with `npm view vite-plus dist-tags`
+  **Renovate tracks it now, on a 24-hour cooldown** - it did not until
+  2026-08-11, and the thirteen days it did not are the reason this entry is
+  worth reading. `renovate.json5` had it `enabled: false`, so the pin sat at
+  0.2.6 while 0.2.7 and 0.2.8 shipped, under a note in this file and a comment
+  in that one both asserting 0.2.6 was `latest`. Both were true when written and
+  neither could notice it had stopped being true. **A hold enforced only by a
+  sentence is not a hold.** Re-measure with `npm view vite-plus dist-tags`
   rather than trusting the number above.
+- **What made the disable look justified was half right, and the wrong half was
+  backwards.** The stated fear was that Renovate would bump the manifests and
+  leave `.github/actions/setup-vp/action.yml` behind - green, and wrong. The
+  `VP_VERSION` half of that is real: CI's `vp` CLI comes from that line while
+  `vp install` reads the lockfile, so the two can end up a release apart with
+  every check passing. Two `customManagers` in `renovate.json5` now move
+  `VP_VERSION` and the cache key in the same PR. The **checksum** half was the
+  backwards part: a stale installer sha256 cannot pass silently, because the
+  action runs `sha256sum -c -` and a mismatch **fails the step**. It is the one
+  self-guarding piece, and it was the one cited as unguardable. Ask whether a
+  thing is checked before citing it as a reason to automate nothing.
 - The pin appears in **five** places that must move as one: root, editor and
   website `package.json`; the root `overrides`; and
   `.github/actions/setup-vp/action.yml`, which carries both `VP_VERSION`, a cache

@@ -227,25 +227,57 @@
         {
             // vite-plus is the ENTIRE toolchain - there is no `vite` package in this
             // tree at all, the root `overrides` aliases it to
-            // `npm:@voidzero-dev/vite-plus-core@0.2.6`. So Vite, Rolldown, oxlint,
+            // `npm:@voidzero-dev/vite-plus-core@0.2.8`. So Vite, Rolldown, oxlint,
             // oxfmt and Vitest are not independently upgradable, and "bump vitest" has
             // no answer except "bump vite-plus".
             //
-            // Disabled rather than merely noted, because a Renovate PR here would be
-            // WRONG BY CONSTRUCTION rather than merely risky. The pin appears in five
-            // places that must move as one: root, editor and website package.json; the
-            // root `overrides` alias; and .github/actions/setup-vp/action.yml, which
-            // carries VP_VERSION, a cache key, AND A SHA256 OF THE INSTALLER SCRIPT.
-            // Renovate cannot compute that checksum, so a PR touching only the
-            // manifests would leave CI installing a different toolchain version than
-            // the lockfile pins - green, and wrong.
+            // ENABLED, on a 24-hour cooldown. This rule used to be `enabled: false`,
+            // and leaving it that way cost three releases: the pin sat at 0.2.6 from
+            // 2026-07-29 to 2026-08-11 while 0.2.7 and 0.2.8 shipped, under a comment
+            // here and in CLAUDE.md both asserting 0.2.6 was `latest`. Nothing
+            // re-measured, because nothing was watching. A hold whose only enforcement
+            // is a sentence in a config file is not a hold, it is a wish.
             //
-            // Note 0.2.6 is `latest`, not a lagging pin, so there is nothing to propose
-            // today anyway. Revisit by hand, changing all five places in one commit.
+            // The old reason for disabling was that a PR touching only the manifests
+            // would leave .github/actions/setup-vp/action.yml behind, so CI would
+            // install a different vp than the lockfile pins - "green, and wrong". That
+            // failure is real, and the customManager at the bottom of this file closes
+            // it: VP_VERSION and the cache key now move in the same PR.
+            //
+            // The old reason ALSO said Renovate cannot compute the installer sha256, so
+            // the checksum would go stale. Two corrections, both measured on
+            // 2026-08-11. First, that hash pins the mutable bootstrap script at
+            // https://vite.plus, which is versioned INDEPENDENTLY of the toolchain - it
+            // did not change across 0.2.6 -> 0.2.8, so most bumps do not touch it at
+            // all. Second, and this is the part that was backwards: a stale checksum
+            // cannot be "green and wrong", because the action VERIFIES it
+            // (`sha256sum -c -`) and a mismatch FAILS THE STEP. It is the one part of
+            // this that is self-guarding. The unguarded part was VP_VERSION, which is
+            // what the customManager now covers.
+            //
+            // 24 hours rather than the 3-day default, by explicit decision: this is
+            // developer tooling that never ships to users, the whole gate
+            // (vp check + vp test + build + 192 Playwright specs) runs against it
+            // locally before merge, and .npmrc already sets `min-release-age=1` so npm
+            // itself will not resolve anything younger.
+            //
             // The `@voidzero-dev/vite-plus-core` name is here because that is what
             // Renovate sees behind the `overrides` alias, not a second dependency.
+            //
+            // STILL TRUE AND STILL THE REVIEWER'S JOB: all five sites must move as one,
+            // and CI cannot see a mismatch between the vp CLI and the local vite-plus.
+            // Read the diff before merging, and if the installer script itself changed,
+            // re-fetch and re-hash by hand.
             matchPackageNames: ['vite-plus', '@voidzero-dev/vite-plus-core'],
-            enabled: false,
+            enabled: true,
+            minimumReleaseAge: '24 hours',
+            groupName: 'vite-plus toolchain',
+            addLabels: ['toolchain'],
+            prBodyNotes: [
+                'This is the ENTIRE toolchain (Vite, Rolldown, oxlint, oxfmt, Vitest). Nothing under it is independently upgradable.',
+                'Check `.github/actions/setup-vp/action.yml` moved too - `VP_VERSION` and the cache key are updated by a customManager, but **the installer sha256 is not**. Re-fetch https://vite.plus and re-hash if that script changed; a mismatch fails CI rather than passing silently.',
+                'CI does not run Playwright. Run `npm run localpreview` then `npx playwright test` locally before merging.',
+            ],
         },
         {
             // Enabled - this one is a "needs care", not a refusal. The bundled browser
@@ -318,6 +350,48 @@
             prBodyNotes: [
                 'Nothing reads this file - no workflow or script references it, and CI installs Node through `vp` (`VP_NODE_MANAGER=yes` in `.github/actions/setup-vp`). This is a local development hint, so the bump changes nothing about CI.',
             ],
+        },
+    ],
+
+    // The vite-plus pin does not live only in package.json. Two of its six
+    // occurrences are inside a composite action - a `VP_VERSION=` assignment in a
+    // shell `run:` block and an actions/cache key - and no built-in manager reads
+    // either. That is the specific hole that made this dependency worth disabling
+    // before: Renovate would bump the three manifests and the `overrides` alias,
+    // CI would still install the OLD vp, and the check would pass, because `vp
+    // install` reads the lockfile while the vp CLI itself comes from VP_VERSION.
+    // A CLI and a toolchain one release apart is exactly the kind of mismatch a
+    // green run does not surface.
+    //
+    // These two entries close it, so all six occurrences move in one PR. The
+    // `datasourceTemplate` is npm and the `depNameTemplate` is vite-plus, so
+    // Renovate treats them as the same dependency as the manifests and the
+    // packageRule above (cooldown, grouping, labels, prBodyNotes) applies to them
+    // too - that grouping is the point, not a nicety. Without it they would arrive
+    // as a separate PR and could merge apart from the manifests.
+    //
+    // NOT covered, deliberately: the installer sha256 on the line below
+    // VP_VERSION. It pins the bootstrap script at https://vite.plus, which is
+    // versioned separately from the toolchain and did not move across
+    // 0.2.6 -> 0.2.8. Renovate has no way to compute it, and it does not need one:
+    // the action runs `sha256sum -c -`, so a genuinely changed script fails the
+    // step loudly. Left to the human, and said so in prBodyNotes.
+    customManagers: [
+        {
+            customType: 'regex',
+            managerFilePatterns: ['/^\\.github/actions/setup-vp/action\\.yml$/'],
+            matchStrings: ['VP_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
+            depNameTemplate: 'vite-plus',
+            datasourceTemplate: 'npm',
+        },
+        {
+            customType: 'regex',
+            managerFilePatterns: ['/^\\.github/actions/setup-vp/action\\.yml$/'],
+            matchStrings: [
+                'key: vite-plus-\\$\\{\\{ runner\\.os \\}\\}-(?<currentValue>\\d+\\.\\d+\\.\\d+)',
+            ],
+            depNameTemplate: 'vite-plus',
+            datasourceTemplate: 'npm',
         },
     ],
 }
