@@ -11,13 +11,28 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     which silently changes what every caller sees - and Entity has no other
     coverage that would notice.
 
-    So this walks every blueprint in every test book and tallies, per accessor,
-    how many entities return a value, an empty list, or nothing. A getter that
-    starts returning [] where it used to return undefined moves a number here.
+    So this walks every blueprint in every test book and records, per accessor,
+    what came back. It does that in two records, because one instrument does not
+    fit all twenty-five accessors.
 
-    The counts are a fixed point, not a snapshot to refresh. A diff means
+    `shape` holds the eleven whose value set is open, tallied into four buckets:
+    a value, an empty list, nothing, or threw. That is what catches a getter
+    returning [] where it used to return undefined, and it is what this file has
+    always done.
+
+    `values` holds the fourteen whose value set is small and closed, recorded as
+    exact histograms keyed by the stringified value (issue #189). A bucket tally
+    cannot see a value, so 0 and 9 both read as `value` and a wholesale swap of
+    left and right moves no number; and eight of these accessors are total
+    functions, whose four-bucket tally was pinned at exactly entityCount and so
+    could not move at all. That is the structural reason #186's splitter bug
+    survived the corpus.
+
+    Both records are a fixed point, not a snapshot to refresh. A diff means
     behaviour changed; that may be correct, but review it as a behaviour change
-    rather than re-recording it blind.
+    rather than re-recording it blind. The one sanctioned way to move a `values`
+    histogram is to prove it folds back into the four buckets committed before
+    the change - see the provenance note at the foot of this file.
 
     Entity needs FD loaded from data.json, so this is Playwright rather than
     vitest - see CLAUDE.md for the two servers that have to be up.
@@ -188,18 +203,18 @@ test('Entity accessors report the same shape across every test blueprint', async
         The first is static and needs no tally: TALLIED_VALUES and EXPECTED.values
         must declare the same keys. The fixture is an independent artifact that
         does not move when the list does, so this is the one that catches an
-        accessor removed from (or added to) TALLIED_VALUES outright, before
-        anything about entities or histograms is even read.
+        accessor removed from (or added to) TALLIED_VALUES outright, before any
+        histogram is read.
 
         The second checks that every accessor in TALLIED_VALUES was recorded at
         all, against the list itself rather than the fixture - comparing the
-        fixture to itself would prove nothing. That catches an accessor whose
-        bumpValue call was deleted from the collection loop while it stays
-        declared in TALLIED_VALUES, which never appears as a key in tally.values
-        for the loop below to see. It does not catch removing the accessor from
-        TALLIED_VALUES itself - that also removes it from the collection loop's
-        own input, so both sides of this check drop it together, which is why
-        the static check above it exists.
+        fixture to itself would prove nothing. That catches an accessor that
+        stays declared in TALLIED_VALUES but is skipped by the collection loop,
+        so it never appears as a key in tally.values for the loop below to see.
+        It does not catch removing the accessor from TALLIED_VALUES itself -
+        that also removes it from the collection loop's own input, so both sides
+        of this check drop it together, which is why the static check above it
+        exists.
 
         Every histogram that IS recorded must account for every entity. That is
         free and always true, and it catches a recording bug that silently
@@ -254,6 +269,18 @@ test('Entity accessors report the same shape across every test blueprint', async
     fixed point: see the note at the top of this file before changing any of
     it - with the recorder gone, a diff here can only be reviewed as a
     behaviour change, never blindly re-recorded.
+
+    The eleven `shape` tallies below are that 2026-08-05 capture, unchanged.
+
+    The fourteen `values` histograms were recaptured on 2026-08-10 (issue #189).
+    That recapture is not a blind re-record, which the rule above forbids: each
+    histogram folds back into the four buckets this file committed before the
+    change - undefined/null to `nothing`, THREW to `threw`, [] to `empty`,
+    everything else to `value` - and all fourteen reproduce the committed numbers
+    exactly. splitterOutputPriority's {left:726, right:874} folds to value 1600
+    against a committed value of 1600; inserterStackSize's null:302999 folds to
+    nothing 302999 against a committed 302999. So these are the same fixed point
+    at higher resolution, not a new snapshot.
 */
 const EXPECTED: {
     entityCount: number
