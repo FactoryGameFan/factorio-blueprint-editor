@@ -51,6 +51,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-rail-signal-spots.mjs`        | Every legal signal position, and whether the #95 window clipped them (#133)   |
 | `probe-elevated-rail-support.mjs`    | What holds an elevated rail up, and whether a tile grid can express it (#141) |
 | `probe-entity-tile-size.mjs`         | What `tile_width`/`tile_height` the game publishes for every entity (#142)    |
+| `probe-zoom-limits.mjs`              | What zoom range and what per-notch step the game uses (#206, #211)            |
 
 One script here is not a probe and asks the game nothing:
 
@@ -232,6 +233,45 @@ model wants the same treatment.
   configuration, so 20 is the number that describes real exports, and the corpus
   confirms it: every export spaces its supports exactly 20 apart. Measuring only
   the walk would have produced a rule that refuses every real elevated bridge.
+- **Some questions need a human, and that is a cost rather than a wall.**
+  `probe-zoom-limits.mjs` is the first probe here that runs the **graphics
+  client** rather than a headless `--create`, because zoom belongs to a
+  `LuaPlayer` and a created map has nobody in it. It is also the first that does
+  not `error("DUMPED-OK")` out: the automated half writes its dump and the mod
+  keeps running while a human scrolls, appending every changed `player.zoom` to
+  disk as it happens, so a quit at any moment loses nothing. #206's design had
+  written the per-notch step off as unreachable - "an input-handling constant no
+  headless probe can reach" - and proposed shipping a guessed 1.33 in its place.
+  The real answer is `2^(1/7)`, three notches of the real ladder away from the
+  guess, and getting it took one sitting. **"No headless probe can reach it" is
+  not the same claim as "not worth measuring"**, and the first was allowed to
+  stand in for the second.
+- **Which hypotheses a probe value can separate is part of the question.** Three
+  rules for what a zoom notch does from an off-ladder start agree on every
+  sample taken from a rung, so only an off-rung start says anything - and _which
+  pair_ it separates depends on where in the gap it sits. 0.83 sits below its
+  gap's midpoint, so a notch **in** rules out "multiply where you are" and
+  cannot tell "snap to the nearest rung then step" from "move to the next rung
+  in the direction of travel": both say 0.905724, exactly. A notch **out** from
+  the same value separates them (0.742997 against 0.820335) and settled it.
+  Reading the first probe as a verdict would have adopted the wrong rule with a
+  number that matched to nine digits. Evaluate every probe against every rule,
+  and report the rules that survive **all** of them rather than the one that
+  fits the last.
+- **A script-set value is not a measured one**, and it enters the same stream.
+  The command that sets an off-ladder zoom trips the live sampler on the same
+  tick, so 0.83 arrives looking exactly like a rung the wheel stopped on - it
+  would join the distinct set, sit between two real rungs, and break the
+  constant-ratio check for a reason that has nothing to do with the game. Tag
+  what the probe itself wrote, and exclude it by tag rather than by value.
+- **Ask what a limit _is_ before comparing it to a number.** `zoom_limits` has
+  three fields, not two, and they are not all the same kind of thing. `closest`
+  is a zoom; `furthest` is a **rule** - at most `distance = 200` tiles across the
+  window, capped at 500 - so comparing it to a readback answers "DISAGREE" for a
+  limit that is perfectly correct. Transcribing the documented formula turned an
+  incomparable field into a third instrument that agrees with the readback to
+  1e-9. The third field, `furthest_game_view`, was not known to the design at
+  all and is the one that matters to a viewer with no map view.
 - **Entities snap, so a requested position is not a measured one.** A rail asked
   for at (-4,-4) lands at (-3,-3) on the 2-tile rail grid, and several accepted
   (position, direction) triples collapse to one real placement. Read offsets off
@@ -275,6 +315,38 @@ This is also the first capture here taken on a **2.0.x** binary rather than on
 2.1.12, and the cross-check paid for itself again: four entities move footprint
 between 2.0.77 and 2.1.12 (`tree-plant` and the three demolisher corpses), none
 of them among the 155 the editor knows.
+
+And what zoom the game uses (issue #206, `fixtures/zoom-limits.json`), the first
+measurement here that needed a human and the first to answer a question a design
+had already given up on:
+
+- The step is **`2^(1/7)`** - seven notches per doubling - on a ladder anchored
+  at exactly 1.0. All 23 non-clamp values scrolled through are exact `2^(n/7)`,
+  worst deviation in `n` of 4.2e-10 across four sessions.
+- From a value on no rung, a notch **snaps to the nearest rung and then moves one
+  index**. See the hypothesis-separation gotcha above for why that took two
+  probes in opposite directions rather than one.
+- A step that would overshoot a limit **lands on the limit exactly**, so the
+  clamp value is reachable and is not itself a rung.
+- The ceiling is **3**, which is already what the editor passes as `maxZoom`.
+- The floor is a rule, not a number: at most **200 tiles across the window**,
+  hard-capped at 500. That is 0.3 on a 16:9 window and 0.283889 on the
+  3736x2044-at-scale-2 window measured, which the documented formula reproduces
+  to 1e-9 - and only at **32 px per tile against the window in logical pixels**
+  (`display_resolution / display_scale`), which is the same 32 the editor draws
+  with. `furthest_game_view` is `distance 200` for the character, god and
+  spectator controllers alike: the game never renders the world further out than
+  that, and god and spectator's extra range (to 0.015625 and 0.00390625) is
+  chart view.
+
+The floor is also where the measurement **refused the change it was capturing
+evidence for**, which is now the third time that has happened here. #206's stated
+goal is the game's range, but 30 of the 367 corpus blueprints are wider than 200
+tiles - the widest is 397, needing zoom 0.151 to fit at 1920px against a floor of
+0.300 - so adopting the game's own floor makes 8% of real blueprints impossible
+to view whole. The game's 200-tile limit exists to stop a player seeing
+ungenerated chunks, a constraint an editor does not have. Its **map editor**
+floor, 0.1, is the number that transfers.
 
 ## Fixture policy
 
