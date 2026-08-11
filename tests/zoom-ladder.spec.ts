@@ -30,9 +30,14 @@ import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
         is a no-op and half these assertions are vacuous. The fixture is 100
         tiles wide so the fit lands mid-ladder, at about 0.4, which also means
         every test here starts off-rung and so exercises the snap.
-      - **The accumulator carries a remainder between events**, so a test that
-        scrolls twice is not testing the same thing twice. Each test gets a
-        fresh page.
+      - **The wheel carries a position between events**, so a test that scrolls
+        twice is not testing the same thing twice. Each test gets a fresh page.
+
+    Note the wheel is **continuous** as of 2026-08-11 and no longer lands on
+    rungs - it travels along the same curve, one rung per `WHEEL_NOTCH_PX`. The
+    ladder is still what the game stops on, and `BlueprintContainer.zoom()` still
+    steps it; that is unit tested rather than driven from here, since no keybind
+    reaches it yet.
 */
 
 /** One mouse notch in Chrome. Matches WHEEL_NOTCH_PX in zoomLevels.ts. */
@@ -71,74 +76,70 @@ test.beforeEach(async ({ page }) => {
     await suppressOverlays(page)
 })
 
-test('a wheel notch down lands one rung below the nearest', async ({ page }) => {
+test('one notch down moves exactly one rung out', async ({ page }) => {
     const before = await openWithBlueprint(page)
     await page.mouse.wheel(0, NOTCH)
 
     const after = await settled(page)
     expect(after).toBeLessThan(before)
-    /* On a rung, not merely smaller - that is the whole point of a ladder. */
-    expect(rungIndex(after)).toBeCloseTo(Math.round(rungIndex(before)) - 1, 6)
+    /* One rung of travel, measured from wherever the fit happened to leave it. */
+    expect(rungIndex(after)).toBeCloseTo(rungIndex(before) - 1, 6)
 })
 
-test('a wheel notch up lands one rung above the nearest', async ({ page }) => {
+test('one notch up moves exactly one rung in', async ({ page }) => {
     const before = await openWithBlueprint(page)
     await page.mouse.wheel(0, -NOTCH)
 
     const after = await settled(page)
     expect(after).toBeGreaterThan(before)
-    expect(rungIndex(after)).toBeCloseTo(Math.round(rungIndex(before)) + 1, 6)
+    expect(rungIndex(after)).toBeCloseTo(rungIndex(before) + 1, 6)
 })
 
-test('one notch each way is exactly reversible once on the ladder', async ({ page }) => {
+test('one notch each way is exactly reversible', async ({ page }) => {
     /*
         Defect 1, end to end. The old flat step made this x1.1 then x0.9 = 0.99,
         losing 1% every round trip - and because the loss was proportional it
         never converged, it drifted.
 
-        The return is to the rung below the one the first notch reached, not to
-        the fitted scale it started from: that value was on no rung and is gone
-        the moment the first notch snaps. Asserting a return to it would be
-        asserting the snap never happened.
+        Exact to the last bit rather than merely close, which is the reason the
+        wheel keeps its position in rungs and adds to it: multiplying a scale by
+        2^(1/7) and then dividing does not return the identical float.
     */
-    await openWithBlueprint(page)
+    const start = await openWithBlueprint(page)
 
     await page.mouse.wheel(0, -NOTCH)
-    const zoomedIn = await settled(page)
     await page.mouse.wheel(0, NOTCH)
-    const back = await settled(page)
-    expect(rungIndex(back)).toBeCloseTo(Math.round(rungIndex(zoomedIn)) - 1, 6)
-
-    /* And from a rung it is exact both ways, forever. */
-    await page.mouse.wheel(0, -NOTCH)
-    expect(await settled(page)).toBeCloseTo(zoomedIn, 10)
-    await page.mouse.wheel(0, NOTCH)
-    expect(await settled(page)).toBeCloseTo(back, 10)
+    expect(await settled(page)).toBe(start)
 })
 
-test('a burst of small trackpad deltas is one notch, not one each', async ({ page }) => {
+test('small deltas move proportionally instead of waiting for a threshold', async ({ page }) => {
     /*
-        Defect 2. The old handler read only Math.sign(e.deltaY), so these ten
-        events would have been ten rungs - a jump of 2^(10/7), nearly a
-        tripling, off one flick of a trackpad.
+        The change that came out of driving it (2026-08-11). A tenth of a notch
+        moves a tenth of a rung; it does not sit still banking travel until a
+        threshold trips, which is what made a trackpad or a smooth-scrolling
+        mouse hold still and then lurch.
+
+        The measured reason to prefer this over a finer ladder: in the #206
+        capture the game moved 11 rungs in 11 ticks, where a 100px-per-rung
+        accumulator makes those same 11 rungs cost 1100px of finger travel. The
+        gap is cadence, so smaller steps would trade chunky for sluggish.
+    */
+    const before = await openWithBlueprint(page)
+    await page.mouse.wheel(0, NOTCH / 10)
+
+    expect(rungIndex(await settled(page))).toBeCloseTo(rungIndex(before) - 0.1, 6)
+})
+
+test('ten small deltas reach the same place as one whole notch', async ({ page }) => {
+    /*
+        The control on the test above: proportional-per-event has to sum to the
+        same travel, or a trackpad and a mouse would disagree about how far a
+        given amount of scrolling gets you.
     */
     const before = await openWithBlueprint(page)
     for (let i = 0; i < 10; i++) await page.mouse.wheel(0, NOTCH / 10)
 
-    expect(rungIndex(await settled(page))).toBeCloseTo(Math.round(rungIndex(before)) - 1, 6)
-})
-
-test('a partial burst moves nothing at all', async ({ page }) => {
-    /*
-        The other half of the accumulator, and the one that fails if the
-        threshold is dropped: nine tenths of a notch is not a notch. Without
-        this, an implementation that stepped on every event would still pass the
-        test above by arriving at the same place through ten steps.
-    */
-    const before = await openWithBlueprint(page)
-    for (let i = 0; i < 9; i++) await page.mouse.wheel(0, NOTCH / 10)
-
-    expect(await settled(page)).toBe(before)
+    expect(rungIndex(await settled(page))).toBeCloseTo(rungIndex(before) - 1, 6)
 })
 
 test('scrolling out repeatedly stops at the floor', async ({ page }) => {

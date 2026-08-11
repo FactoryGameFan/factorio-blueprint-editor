@@ -131,11 +131,19 @@ Rejected: an index whose ladder gains the computed fit value per blueprint. Pres
 
 ### Wheel events accumulate a normalised delta
 
+**Amended 2026-08-11, after driving it: the wheel is continuous, not quantised.** The normalising and the accumulating both stay; what goes is rounding the total down to whole rungs. A wheel event now moves `deltaY / WHEEL_NOTCH_PX` rungs, so `WHEEL_NOTCH_PX` of travel is still exactly one rung and a notched mouse still walks the game's ladder, while everything smaller moves proportionally instead of waiting to cross a threshold.
+
+Two things drove that, and only the first is a matter of taste. The feel report was that scrolling is **chunky**. The measurement underneath it is in the capture already: the game moved **11 rungs in 11 ticks**, the whole top of its range in 183ms, where a threshold of 100px per rung makes those same 11 rungs cost 1100px of finger travel. So the gap between us and the game was **cadence**, not step size - which is also why a finer ladder was rejected rather than chosen, since halving the rung trades chunky for sluggish and fixes neither.
+
+The position is kept **in rungs** rather than recomputed from the scale, because that is what preserves defect 1's fix without a ladder to snap to: adding and then subtracting the same number returns the identical float, where multiplying a scale by `2^(1/7)` and dividing again does not. It is clamped as a **position**, not merely as the scale it produces - otherwise scrolling hard against a limit banks travel that has to be unwound before the view moves again, which reads as the wheel having died.
+
 `deltaY` is normalised via `deltaMode` into a common unit and added to a running total. Each time the total crosses a threshold, one rung is stepped and the threshold subtracted, keeping the remainder.
 
 A mouse notch crosses the threshold in one event; a trackpad needs several; slow scrolling still arrives because the remainder carries.
 
 Rejected: one step per event. Smallest diff, but it leaves the defect most likely to explain the original complaint, and a discrete ladder makes it more visible than continuous zoom does.
+
+**That last sentence had it backwards, and the binary says so.** One step per event is close to what the game does - measured at one rung per tick during a fast scroll - so it was never the defect; the asymmetric step and the missing limits were. And the discrete ladder did not make anything more visible, it made the quantisation itself the thing you feel. Checked against the 2.0.77 binary because "maybe the engine tweens between levels" was the obvious rival explanation: there is no `smooth` or `interpolate` symbol anywhere near `CameraBase`, no smooth-zoom setting in the locale, and the two zoom-shaped strings in the binary (`zoomFactor`, `zoomIntensity`) are cloud prototype fields. The engine snaps, exactly as the Lua capture showed. So the game's smoothness is **cadence**, and ours has to come from not quantising.
 
 Rejected: rungs proportional to magnitude. Most responsive to a flick, but one event could jump most of the ladder, which with discrete levels reads as teleporting - the same failure the rail signal `R` key had before its ordering was fixed.
 

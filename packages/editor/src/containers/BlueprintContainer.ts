@@ -15,7 +15,7 @@ import { Tile } from '../core/Tile'
 import { Entity } from '../core/Entity'
 import { Blueprint } from '../core/Blueprint'
 import { IConnection } from '../core/WireConnections'
-import { stepZoom, WheelAccumulator } from '../core/zoomLevels'
+import { stepZoom, WheelZoom } from '../core/zoomLevels'
 import { IPoint } from '../types'
 import { Dialog } from '../UI/controls/Dialog'
 import { Viewport } from './Viewport'
@@ -431,20 +431,24 @@ export class BlueprintContainer extends Container {
         }
 
         /*
-            One accumulator for the life of the container, because the whole
-            point of it is the remainder it carries between events (#206
+            One `WheelZoom` for the life of the container, because it holds the
+            continuous position that makes zoom exactly reversible (#206
             defect 2). The handler used to read only `Math.sign(e.deltaY)`, so a
             trackpad emitting a burst of small pixel deltas and a mouse emitting
-            one notch produced the same fixed jump - the likeliest single cause
-            of the original complaint that scrolling does not feel like the game.
+            one notch produced the same fixed jump.
+
+            The viewport's scale is passed in as the authority rather than kept
+            here: a blueprint load re-fits it and mobile pinch writes it
+            directly, and neither goes through this handler.
         */
-        const wheel = new WheelAccumulator()
+        const wheel = new WheelZoom(this.viewport.getCurrentScale())
         const onWheel = (e: WheelEvent): void => {
             e.preventDefault()
             e.stopPropagation()
 
-            const rungs = wheel.feed(e.deltaY, e.deltaMode)
-            for (let i = 0; i < Math.abs(rungs); i++) this.zoom(rungs > 0)
+            const scale = wheel.feed(e.deltaY, e.deltaMode, this.viewport.getCurrentScale())
+            this.viewport.setScaleCenter(this.gridData.x, this.gridData.y)
+            this.viewport.setCurrentScale(scale)
         }
 
         this.addEventListener('wheel', onWheel, { passive: false })
@@ -799,12 +803,19 @@ export class BlueprintContainer extends Container {
     }
 
     /**
-     * One notch of the measured zoom ladder (#206).
+     * One discrete step of the measured zoom ladder (#206), landing on a rung.
      *
      * The old flat `zoomFactor = 0.1` fed `zoomBy`, whose effective multiplier
      * is `1 + delta` - so zooming in was x1.1 and out x0.9, and those are not
      * inverses: one notch each way left the view 1% further out than it started,
      * with nothing to snap back to.
+     *
+     * The wheel does **not** come through here any more - it moves continuously
+     * along the same curve, because quantising every trackpad event to a whole
+     * rung is what made scrolling feel chunky. This is the stepped entry point,
+     * which is what a zoom-in/zoom-out command wants; the game has exactly those
+     * two keybinds (`zoom-in`/`zoom-out` in its own locale) and this editor has
+     * none bound yet.
      *
      * The next scale is read **before** the scale centre is moved, so the rung
      * is computed from the scale actually in effect.

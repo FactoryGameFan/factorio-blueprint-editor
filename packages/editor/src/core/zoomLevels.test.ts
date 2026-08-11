@@ -4,7 +4,7 @@ import {
     LINE_HEIGHT_PX,
     stepZoom,
     WHEEL_NOTCH_PX,
-    WheelAccumulator,
+    WheelZoom,
     ZOOM_LEVELS,
     ZOOM_MAX,
     ZOOM_MIN,
@@ -163,59 +163,99 @@ describe('clampZoom', () => {
     })
 })
 
-describe('WheelAccumulator', () => {
+describe('WheelZoom', () => {
     /*
-        Defect 2: the old handler read only Math.sign(deltaY), so a trackpad
-        burst of small pixel deltas and one mouse notch produced the same jump.
+        Continuous zoom along the same curve the ladder steps through, decided
+        2026-08-11 after driving it. The measurement behind that: in the capture
+        the game moved 11 rungs in 11 ticks - one per tick, the whole top of the
+        range in 183ms - where an accumulator needing 100px per rung makes those
+        same 11 rungs cost 1100px of finger travel. Slow discrete steps are what
+        "chunky" describes, and the fix is to stop quantising rather than to
+        quantise faster.
+
+        A notched mouse is unaffected: one 100px notch is still exactly one rung,
+        so it still walks the game's ladder. Everything below a notch, which is
+        every event a trackpad or a smooth-scrolling mouse sends, now moves
+        proportionally instead of waiting to cross a threshold.
     */
-    it('turns one mouse notch into one rung', () => {
-        const acc = new WheelAccumulator()
-        expect(acc.feed(WHEEL_NOTCH_PX, 0)).toBe(-1)
+    it('turns one mouse notch into exactly one rung', () => {
+        const z = new WheelZoom(1)
+        expect(z.feed(-WHEEL_NOTCH_PX, 0, 1)).toBeCloseTo(rung(1), 12)
     })
 
-    it('signs the rung count: up is in, down is out', () => {
-        const acc = new WheelAccumulator()
-        expect(acc.feed(-WHEEL_NOTCH_PX, 0)).toBe(1)
+    it('signs it the way a wheel does: pushing away zooms out', () => {
+        const z = new WheelZoom(1)
+        expect(z.feed(WHEEL_NOTCH_PX, 0, 1)).toBeCloseTo(rung(-1), 12)
     })
 
-    it('needs several trackpad events to make one rung', () => {
-        const acc = new WheelAccumulator()
-        const tenth = WHEEL_NOTCH_PX / 10
-        for (let i = 0; i < 9; i++) expect(acc.feed(tenth, 0)).toBe(0)
-        expect(acc.feed(tenth, 0)).toBe(-1)
+    it('moves a fraction of a rung for a fraction of a notch', () => {
+        // The whole point: no threshold to cross, so nothing waits.
+        const z = new WheelZoom(1)
+        expect(z.feed(-WHEEL_NOTCH_PX / 10, 0, 1)).toBeCloseTo(rung(0.1), 12)
     })
 
-    it('carries the remainder, so slow scrolling still arrives', () => {
-        const acc = new WheelAccumulator()
-        const threeQuarters = WHEEL_NOTCH_PX * 0.75
-        expect(acc.feed(threeQuarters, 0)).toBe(0)
-        expect(acc.feed(threeQuarters, 0)).toBe(-1)
-        // 1.5 notches fed, 1 taken, 0.5 still pending - so half a notch more
-        // completes the second rung rather than starting from nothing.
-        expect(acc.feed(WHEEL_NOTCH_PX * 0.5, 0)).toBe(-1)
+    it('accumulates small events into the same place one big one reaches', () => {
+        const small = new WheelZoom(1)
+        let last = 1
+        for (let i = 0; i < 10; i++) last = small.feed(-WHEEL_NOTCH_PX / 10, 0, last)
+
+        const big = new WheelZoom(1)
+        expect(last).toBeCloseTo(big.feed(-WHEEL_NOTCH_PX, 0, 1), 12)
     })
 
-    it('drops the remainder when the direction reverses', () => {
-        // Otherwise a nudge one way then the other fires a rung early, which
-        // reads as the view jumping while settling.
-        const acc = new WheelAccumulator()
-        expect(acc.feed(WHEEL_NOTCH_PX * 0.9, 0)).toBe(0)
-        expect(acc.feed(-WHEEL_NOTCH_PX * 0.2, 0)).toBe(0)
-        expect(acc.feed(-WHEEL_NOTCH_PX * 0.9, 0)).toBe(1)
+    it('is exactly reversible, to the last bit', () => {
+        /*
+            Defect 1, and the reason the position is kept in rungs rather than
+            recomputed from the scale: adding then subtracting the same number
+            returns the identical float, where multiplying and then dividing a
+            scale by 2^(1/7) does not.
+        */
+        const z = new WheelZoom(0.83)
+        const out = z.feed(37, 0, 0.83)
+        expect(z.feed(-37, 0, out)).toBe(0.83)
     })
 
     it('normalises line units to the same answer as pixels', () => {
-        const acc = new WheelAccumulator()
-        expect(acc.feed(WHEEL_NOTCH_PX / LINE_HEIGHT_PX, 1)).toBe(-1)
+        const z = new WheelZoom(1)
+        expect(z.feed(-WHEEL_NOTCH_PX / LINE_HEIGHT_PX, 1, 1)).toBeCloseTo(rung(1), 12)
     })
 
     it('normalises page units to the same answer as pixels', () => {
-        const acc = new WheelAccumulator()
-        expect(acc.feed(1, 2)).toBe(-1)
+        const z = new WheelZoom(1)
+        expect(z.feed(-1, 2, 1)).toBeCloseTo(rung(1), 12)
     })
 
-    it('can report more than one rung from a single large event', () => {
-        const acc = new WheelAccumulator()
-        expect(acc.feed(WHEEL_NOTCH_PX * 3, 0)).toBe(-3)
+    it('stops exactly at each limit', () => {
+        const z = new WheelZoom(1)
+        expect(z.feed(WHEEL_NOTCH_PX * 100, 0, 1)).toBe(ZOOM_MIN)
+        const y = new WheelZoom(1)
+        expect(y.feed(-WHEEL_NOTCH_PX * 100, 0, 1)).toBe(ZOOM_MAX)
+    })
+
+    it('does not bank travel past a limit', () => {
+        /*
+            The position is clamped, not just the scale it produces. Without
+            that, scrolling hard against the floor banks a huge negative
+            position that has to be unwound before zooming in does anything -
+            the view sits still through several notches, which reads as the
+            wheel having died.
+        */
+        const z = new WheelZoom(1)
+        let scale = z.feed(WHEEL_NOTCH_PX * 100, 0, 1)
+        expect(scale).toBe(ZOOM_MIN)
+        scale = z.feed(-WHEEL_NOTCH_PX, 0, scale)
+        expect(scale).toBeCloseTo(ZOOM_MIN * ZOOM_RATIO, 12)
+    })
+
+    it('re-derives when something else moved the view', () => {
+        /*
+            Loading a blueprint re-fits the viewport, and mobile pinch writes the
+            scale directly. Neither goes through here, so the caller's scale is
+            the authority and a disagreement means the position is stale.
+        */
+        const z = new WheelZoom(1)
+        z.feed(-WHEEL_NOTCH_PX, 0, 1)
+        // ...a blueprint load then puts the viewport somewhere else entirely.
+        expect(z.feed(-WHEEL_NOTCH_PX, 0, 0.5)).toBeCloseTo(0.5 * ZOOM_RATIO, 12)
     })
 })
