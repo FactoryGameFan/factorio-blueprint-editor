@@ -156,6 +156,7 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'constant-combinator': [-1, 1],
     'cryogenic-plant': [4],
     'decider-combinator': [2],
+    'display-panel': [-1, 1],
     'electric-furnace': [-1, 1],
     'electromagnetic-plant': [1, 2, 4],
     'express-splitter': [-1, 1],

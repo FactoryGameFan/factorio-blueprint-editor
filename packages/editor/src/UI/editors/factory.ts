@@ -8,6 +8,7 @@ import { MiningEditor } from './MiningEditor'
 import { SplitterEditor } from './SplitterEditor'
 import { TempEditor } from './TempEditor'
 import { TrainStopEditor } from './TrainStopEditor'
+import { DisplayPanelEditor } from './DisplayPanelEditor'
 
 /**
  * Factory Function for creating Editor based on Entity Number
@@ -79,6 +80,10 @@ export function createEditor(entity: Entity): Editor | undefined {
         // Train stop
         case 'train-stop':
             editor = new TrainStopEditor(entity)
+            break
+        // Display panel
+        case 'display-panel':
+            editor = new DisplayPanelEditor(entity)
             break
         default: {
             return undefined

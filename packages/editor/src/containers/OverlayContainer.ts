@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite } from 'pixi.js'
+import { Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js'
 import { IPoint } from '../types'
 import FD, {
     getFluidBoxes,
@@ -38,6 +38,7 @@ export class OverlayContainer extends Container {
     private readonly cursorBoxes = new Container()
     private readonly undergroundLines = new Container()
     private readonly selectionArea = new Graphics()
+    private readonly entityTooltip = new Container()
     private copyCursorBox: Container | undefined
     // Absent outside a selection drag, same as `copyCursorBox` above.
     private selectionAreaUpdateFn: ((endX: number, endY: number) => void) | undefined
@@ -46,7 +47,32 @@ export class OverlayContainer extends Container {
         super()
         this.bpc = bpc
 
-        this.addChild(this.entityInfos, this.cursorBoxes, this.undergroundLines, this.selectionArea)
+        this.addChild(
+            this.entityInfos,
+            this.cursorBoxes,
+            this.undergroundLines,
+            this.selectionArea,
+            this.entityTooltip
+        )
+    }
+
+    /**
+     * All lines of a display panel's text, shown above the entity on hover
+     * regardless of `always_show` - per the wiki, the always-show option only
+     * controls whether the first line is visible without hovering.
+     */
+    public showEntityTooltip(entity: Entity, position: IPoint): void {
+        this.entityTooltip.removeChildren()
+
+        if (entity.type !== 'display-panel' || !entity.displayPanelText) return
+
+        const label = createDisplayPanelLabel(entity.displayPanelText)
+        label.position.set(position.x, position.y - 24)
+        this.entityTooltip.addChild(label)
+    }
+
+    public hideEntityTooltip(): void {
+        this.entityTooltip.removeChildren()
     }
 
     /** undefined when the entity has nothing to draw, which is most of them. */
@@ -351,6 +377,22 @@ export class OverlayContainer extends Container {
             entityInfo.addChild(arrows)
         }
 
+        // Only the first line, and only while `always_show` is on - the wiki's
+        // "even when not selected" case. All lines regardless of `always_show`
+        // is the hover tooltip instead, see `showEntityTooltip`.
+        if (
+            entity.type === 'display-panel' &&
+            entity.displayPanelAlwaysShow &&
+            entity.displayPanelText
+        ) {
+            const firstLine = entity.displayPanelText.split('\n')[0]
+            if (firstLine) {
+                const label = createDisplayPanelLabel(firstLine)
+                label.position.set(0, -40)
+                entityInfo.addChild(label)
+            }
+        }
+
         if (entityInfo.children.length !== 0) {
             entityInfo.position.set(position.x, position.y)
             return entityInfo
@@ -608,4 +650,33 @@ export class OverlayContainer extends Container {
             this.selectionAreaUpdateFn = undefined
         }
     }
+}
+
+/**
+ * A single line of display panel text, on a padded semi-transparent
+ * background, anchored above its own origin - callers position the origin at
+ * the point in the world the label should hang above.
+ */
+function createDisplayPanelLabel(text: string): Container {
+    const label = new Text({
+        text,
+        style: new TextStyle({ fontSize: 16, fill: 0xffffff, align: 'center' }),
+    })
+    label.anchor.set(0.5, 1)
+
+    const paddingX = 10
+    const paddingY = 6
+    const background = new Graphics()
+        .rect(
+            -label.width / 2 - paddingX,
+            -label.height - paddingY,
+            label.width + paddingX * 2,
+            label.height + paddingY * 2
+        )
+        .fill({ color: 0x000000, alpha: 0.25 })
+
+    const container = new Container()
+    container.addChild(background, label)
+    container.scale.set(0.5, 0.5)
+    return container
 }

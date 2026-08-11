@@ -411,6 +411,15 @@ const testApi = {
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
     /*
+        Whether the entity's info overlay container is currently visible - not
+        what it was built with, which overlayInfoTally already covers, but
+        whether EntityContainer has it switched on right now. The display panel
+        editor swaps this opposite the hover tooltip so the two never draw at
+        once; nothing else needed to read it before.
+    */
+    entityInfoVisible: (entityNumber: number) =>
+        EntityContainer.containerOf(entityNumber).entityInfoVisible,
+    /*
         The size of EntityContainer.mappings, the static entity-number -> container
         index. Loading a blueprint should leave it holding exactly that
         blueprint's containers; anything above is retention from a previously

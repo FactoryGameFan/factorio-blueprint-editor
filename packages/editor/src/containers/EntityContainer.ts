@@ -107,6 +107,10 @@ export class EntityContainer {
             }
         }
 
+        const onDisplayPanelIconChange = (): void => {
+            this.redraw()
+        }
+
         const onEntityDestroy = (): void => {
             this.redrawSurroundingEntities()
 
@@ -134,6 +138,9 @@ export class EntityContainer {
         this.m_Entity.on('filters', this.redrawEntityInfo)
         this.m_Entity.on('splitterInputPriority', this.redrawEntityInfo)
         this.m_Entity.on('splitterOutputPriority', this.redrawEntityInfo)
+        this.m_Entity.on('displayPanelIcon', onDisplayPanelIconChange)
+        this.m_Entity.on('displayPanelText', this.redrawEntityInfo)
+        this.m_Entity.on('displayPanelAlwaysShow', this.redrawEntityInfo)
 
         this.m_Entity.on('destroy', onEntityDestroy)
 
@@ -147,6 +154,9 @@ export class EntityContainer {
             this.m_Entity.off('filters', this.redrawEntityInfo)
             this.m_Entity.off('splitterInputPriority', this.redrawEntityInfo)
             this.m_Entity.off('splitterOutputPriority', this.redrawEntityInfo)
+            this.m_Entity.off('displayPanelIcon', onDisplayPanelIconChange)
+            this.m_Entity.off('displayPanelText', this.redrawEntityInfo)
+            this.m_Entity.off('displayPanelAlwaysShow', this.redrawEntityInfo)
 
             this.m_Entity.off('destroy', onEntityDestroy)
 
@@ -268,6 +278,19 @@ export class EntityContainer {
         return this.m_Entity
     }
 
+    /**
+     * Whether the entity info overlay is currently shown, `false` when there is
+     * none to show at all. Exposed for tests/display-panel-editor.spec.ts: the
+     * hover-tooltip/always-show swap in pointerOverEventHandler and
+     * pointerOutEventHandler toggles this container's own `visible` rather than
+     * anything `overlayInfoTally` (tests/overlay-container.spec.ts) can see,
+     * since that tally reads what `createEntityInfo` built, not whether the
+     * container it produced is currently on screen.
+     */
+    public get entityInfoVisible(): boolean {
+        return this.entityInfo?.visible ?? false
+    }
+
     public get position(): IPoint {
         return {
             x: this.m_Entity.position.x * 32,
@@ -334,7 +357,8 @@ export class EntityContainer {
             this.m_Entity.type === 'arithmetic-combinator' ||
             this.m_Entity.type === 'decider-combinator' ||
             this.m_Entity.type === 'inserter' ||
-            this.m_Entity.type === 'logistic-container'
+            this.m_Entity.type === 'logistic-container' ||
+            this.m_Entity.type === 'display-panel'
         ) {
             if (this.entityInfo !== undefined) {
                 this.entityInfo.destroy()
@@ -351,6 +375,16 @@ export class EntityContainer {
 
         G.UI.updateEntityInfoPanel(this.m_Entity)
         this.visualizationArea.show()
+
+        // The always-show label (drawn by createEntityInfo, above) and the hover
+        // tooltip (all lines, per the wiki) would otherwise stack on top of each
+        // other while hovering a panel that has both enabled.
+        if (this.m_Entity.type === 'display-panel' && this.m_Entity.displayPanelText) {
+            if (this.entityInfo !== undefined) {
+                this.entityInfo.visible = false
+            }
+            G.BPC.overlayContainer.showEntityTooltip(this.m_Entity, this.position)
+        }
     }
 
     public pointerOutEventHandler(): void {
@@ -359,6 +393,13 @@ export class EntityContainer {
 
         G.UI.updateEntityInfoPanel(undefined)
         this.visualizationArea.hide()
+
+        if (this.m_Entity.type === 'display-panel' && this.m_Entity.displayPanelText) {
+            if (this.entityInfo !== undefined) {
+                this.entityInfo.visible = true
+            }
+            G.BPC.overlayContainer.hideEntityTooltip()
+        }
     }
 
     private redrawSurroundingEntities(position: IPoint = this.m_Entity.position): void {
