@@ -176,6 +176,19 @@ export class Editor {
      * #144).
      */
     /**
+     * One step of the measured zoom ladder, for the `zoomIn`/`zoomOut` keybinds.
+     *
+     * The wheel does not come through here - it moves continuously along the
+     * same curve, since quantising every trackpad event to a whole rung is what
+     * made scrolling feel chunky (#206). This is the stepped route, and it is
+     * the only one that lands on the values the game itself stops on. The game
+     * has exactly these two controls, `zoom-in` and `zoom-out`.
+     */
+    public zoomStep(zoomIn: boolean): void {
+        G.BPC.zoom(zoomIn)
+    }
+
+    /**
      * The viewport's current continuous scale, which is the zoom level.
      *
      * The editor draws 32 px per tile at scale 1, and so does Factorio at zoom

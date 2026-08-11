@@ -2,6 +2,12 @@ import { test, expect, Page } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
 import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
+import {
+    NOTCHES_PER_DOUBLING,
+    WHEEL_NOTCH_PX,
+    ZOOM_MAX,
+    ZOOM_MIN,
+} from '../packages/editor/src/core/zoomLevels'
 
 /*
     The zoom ladder in a browser (#206). Deliberately thin: the arithmetic is
@@ -11,9 +17,9 @@ import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
     that runs to the half that does not.
 
     What is left is the part no unit test can see, which is the **wiring**: that
-    a wheel event over the canvas reaches the accumulator and lands the viewport
-    on a rung. Nothing under tests/ read a zoom level before this, so the whole
-    path could have been deleted with the suite green.
+    a wheel event over the canvas reaches the zoom at all and moves the viewport
+    by what the module says it should. Nothing under tests/ read a zoom level
+    before this, so the whole path could have been deleted with the suite green.
 
     Three things this spec was shaped by, each of which cost a run:
 
@@ -40,11 +46,17 @@ import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
     reaches it yet.
 */
 
-/** One mouse notch in Chrome. Matches WHEEL_NOTCH_PX in zoomLevels.ts. */
-const NOTCH = 100
+/*
+    Imported rather than restated. These were three literals here with a comment
+    saying they matched the module - a bound written down twice, which is the
+    failure this repo keeps a note about. Nothing stops a spec importing editor
+    source: the module is pure TypeScript with no pixi or FD in it, so it costs
+    only the import.
+*/
+const NOTCH = WHEEL_NOTCH_PX
 
 /** Which rung a scale sits on: n in 2^(n/7). Non-integral means off-ladder. */
-const rungIndex = (scale: number): number => Math.log2(scale) * 7
+const rungIndex = (scale: number): number => Math.log2(scale) * NOTCHES_PER_DOUBLING
 
 /**
  * The scale once the page has actually handled the wheel events dispatched to
@@ -153,7 +165,7 @@ test('scrolling out repeatedly stops at the floor', async ({ page }) => {
     await openWithBlueprint(page)
     for (let i = 0; i < 60; i++) await page.mouse.wheel(0, NOTCH)
 
-    expect(await settled(page)).toBeCloseTo(0.1, 10)
+    expect(await settled(page)).toBeCloseTo(ZOOM_MIN, 10)
 })
 
 test('scrolling in repeatedly stops at the ceiling, exactly', async ({ page }) => {
@@ -166,7 +178,7 @@ test('scrolling in repeatedly stops at the ceiling, exactly', async ({ page }) =
     await openWithBlueprint(page)
     for (let i = 0; i < 60; i++) await page.mouse.wheel(0, -NOTCH)
 
-    expect(await settled(page)).toBeCloseTo(3, 10)
+    expect(await settled(page)).toBeCloseTo(ZOOM_MAX, 10)
 })
 
 test('loading a blueprint still fits it exactly, on no rung', async ({ page }) => {
@@ -191,8 +203,8 @@ test('loading a blueprint still fits it exactly, on no rung', async ({ page }) =
     if (!a || !b) throw new Error('both chests must have a screen position')
 
     expect(Math.abs(b.x - a.x)).toBeCloseTo(100 * 32 * scale, 6)
-    expect(scale).toBeGreaterThan(0.1)
-    expect(scale).toBeLessThan(3)
+    expect(scale).toBeGreaterThan(ZOOM_MIN)
+    expect(scale).toBeLessThan(ZOOM_MAX)
     /* Off-ladder, which is why stepZoom has to snap at all. */
     expect(Math.abs(rungIndex(scale) - Math.round(rungIndex(scale)))).toBeGreaterThan(0.01)
 })
