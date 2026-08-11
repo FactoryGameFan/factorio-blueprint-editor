@@ -11,7 +11,9 @@ import FD, { ColorWithAlpha, getColor, recipeResults } from '../../core/factorio
 import { styles } from '../style'
 import G from '../../common/globals'
 import util from '../../common/util'
+import { need } from '../../core/need'
 import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
+import { Sprite as SpriteData } from 'factorio:prototype'
 
 /**
  * Shade Color
@@ -367,6 +369,36 @@ function rgbToColorSource(r: number, g: number, b: number): ColorSource {
     return Math.floor(r * 255) * 0x10000 + Math.floor(g * 255) * 0x100 + Math.floor(b * 255)
 }
 
+/**
+ * Create Icon from a `FD.utilitySprites` entry - the game's own GUI icons
+ * (import/export/add/...) rather than an item, fluid, recipe or signal.
+ * Takes the resolved sprite (e.g. `FD.utilitySprites.import_slot`) rather
+ * than a key: `UtilitySprites[K]` for a generic `K` collapses to the union
+ * of every field's type - `Sprite | Animation | CursorBoxSpecification | ...`
+ * - which loses `filename`/`width`/`height` for all of them, where a plain
+ * property access keeps the one field's own `Sprite` type.
+ *
+ * `need()` on filename/width/height rather than the `data.x ?? 0` style
+ * `x`/`y` get: every utility sprite this is called with is a plain single
+ * icon that declares them, unlike the `layers`/`size`-tuple/mipmap shapes
+ * some other utility sprites use, which this does not attempt to support -
+ * a caller reaching for one of those would rather see why than get a blank
+ * texture.
+ */
+function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = true): Sprite {
+    const filename = need(data, 'filename')
+    const width = need(data, 'width')
+    const height = need(data, 'height')
+
+    const texture = G.getTexture(filename, data.x ?? 0, data.y ?? 0, width, height)
+    const sprite = new Sprite(texture)
+    sprite.scale.set(maxSize / width)
+    if (setAnchor) {
+        sprite.anchor.set(0.5)
+    }
+    return sprite
+}
+
 export default {
     ShadeColor,
     DrawRectangle,
@@ -374,6 +406,7 @@ export default {
     CreateIcon,
     CreateIconWithAmount,
     CreateRecipe,
+    CreateUtilitySpriteIcon,
     applyTint,
     colorAndAlphaToColorSource,
     rgbToColorSource,

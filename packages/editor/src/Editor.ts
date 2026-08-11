@@ -11,7 +11,7 @@ import { Application, TextureSource, setBasisTranscoderPath, Assets } from 'pixi
 import basisTranscoderJS from './basis/transcoder.1.16.4.js?url'
 import basisTranscoderWASM from './basis/transcoder.1.16.4.wasm?url'
 import { loadData } from './core/factorioData'
-import G, { Logger } from './common/globals'
+import G, { Logger, QuickActions } from './common/globals'
 import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
@@ -22,7 +22,11 @@ import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
 
 export class Editor {
-    public async init(canvas: HTMLCanvasElement, logger?: Logger): Promise<void> {
+    public async init(
+        canvas: HTMLCanvasElement,
+        quickActions: QuickActions,
+        logger?: Logger
+    ): Promise<void> {
         setBasisTranscoderPath({ jsUrl: basisTranscoderJS, wasmUrl: basisTranscoderWASM })
 
         TextureSource.defaultOptions.scaleMode = 'linear'
@@ -31,6 +35,8 @@ export class Editor {
         if (logger) {
             G.logger = logger
         }
+
+        G.quickActions = quickActions
 
         const app = new Application()
 

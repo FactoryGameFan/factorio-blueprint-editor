@@ -13,6 +13,20 @@ export interface ILogMessage {
 
 export type Logger = (msg: ILogMessage) => void
 
+/**
+ * The clipboard/file actions that only ever existed as keyboard shortcuts -
+ * paste to replace, Ctrl+Shift+V to append, copy to export, Ctrl+S for an
+ * image - exposed so WiresPanel's quick-action buttons can trigger the exact
+ * same website-level logic a key press does, rather than the editor package
+ * reaching for `navigator.clipboard`/`FileSaver` itself.
+ */
+export interface QuickActions {
+    importReplace: () => void
+    importAppend: () => void
+    exportString: () => void
+    exportImage: () => void
+}
+
 const logger: Logger = msg => {
     switch (msg.type) {
         case 'error':
@@ -52,6 +66,7 @@ interface Globals {
     actions: ActionRegistry
     getTexture: typeof getTexture
     logger: Logger
+    quickActions: QuickActions
 }
 
 const started = new Map<string, Promise<Texture>>()

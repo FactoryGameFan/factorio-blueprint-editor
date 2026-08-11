@@ -21,6 +21,7 @@ import EDITOR, {
     EntityInfoPanel,
     getSpriteData,
     SPRITE_GENERATION_FAILED,
+    type QuickActions,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
@@ -132,8 +133,68 @@ for (const p of params) {
 
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
+/**
+ * The four actions WiresPanel's quick-action buttons trigger through
+ * `G.quickActions` (see `QuickActions` in `packages/editor/src/common/globals.ts`) -
+ * the same logic the `copy`/`paste` document listeners and the
+ * `appendBlueprint`/`takePicture` keybinds below call, extracted so both the
+ * keyboard and the button reach one implementation instead of two.
+ */
+function importReplace(): void {
+    loadingScreen.show()
+
+    navigator.clipboard
+        .readText()
+        .then(getBlueprintOrBookFromSource)
+        .then(loadBp)
+        .catch(error => {
+            loadingScreen.hide()
+            createBPImportError(error)
+        })
+}
+
+function importAppend(): void {
+    navigator.clipboard
+        .readText()
+        .then(getBlueprintOrBookFromSource)
+        .then(bp => editor.appendBlueprint(bp instanceof Book ? bp.selectBlueprint(0) : bp))
+        .catch(error => {
+            createBPImportError(error)
+        })
+}
+
+function exportString(): boolean {
+    if (bp.isEmpty()) return false
+
+    encode(book || bp)
+        .then(s => navigator.clipboard.writeText(s))
+        .then(() => createToast({ text: 'Blueprint string copied to clipboard', type: 'success' }))
+        .catch(error => createErrorMessage('Blueprint string could not be generated.', error))
+    return true
+}
+
+function exportImage(): boolean {
+    if (bp.isEmpty()) return false
+
+    editor
+        .getPicture()
+        .then(blob => {
+            FileSaver.saveAs(blob, `${bp.name}.png`)
+            createToast({ text: 'Blueprint image successfully generated', type: 'success' })
+        })
+        .catch(error => createErrorMessage('Failed to generate the image.', error))
+    return true
+}
+
+const quickActions: QuickActions = {
+    importReplace,
+    importAppend,
+    exportString,
+    exportImage,
+}
+
 editor
-    .init(CANVAS, createToast)
+    .init(CANVAS, quickActions, createToast)
     .then(() => {
         const quickbarItems = storedJson<string[]>('quickbarItemNames')
         if (quickbarItems) {
@@ -211,37 +272,13 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
 document.addEventListener('copy', (e: ClipboardEvent) => {
     if (document.activeElement !== CANVAS) return
     e.preventDefault()
-
-    if (bp.isEmpty()) return
-
-    const onSuccess = (): void => {
-        createToast({ text: 'Blueprint string copied to clipboard', type: 'success' })
-    }
-
-    const onError = (error: Error): void => {
-        createErrorMessage('Blueprint string could not be generated.', error)
-    }
-
-    encode(book || bp)
-        .then(s => navigator.clipboard.writeText(s))
-        .then(onSuccess)
-        .catch(onError)
+    exportString()
 })
 
 document.addEventListener('paste', (e: ClipboardEvent) => {
     if (document.activeElement !== CANVAS) return
     e.preventDefault()
-
-    loadingScreen.show()
-
-    navigator.clipboard
-        .readText()
-        .then(getBlueprintOrBookFromSource)
-        .then(loadBp)
-        .catch(error => {
-            loadingScreen.hide()
-            createBPImportError(error)
-        })
+    importReplace()
 })
 
 /*
@@ -632,15 +669,7 @@ function registerActions(): void {
         modifiers: { shift: true, control: true },
         callbacks: {
             onPress: () => {
-                navigator.clipboard
-                    .readText()
-                    .then(getBlueprintOrBookFromSource)
-                    .then(bp =>
-                        editor.appendBlueprint(bp instanceof Book ? bp.selectBlueprint(0) : bp)
-                    )
-                    .catch(error => {
-                        createBPImportError(error)
-                    })
+                importAppend()
                 return true
             },
         },
@@ -663,23 +692,7 @@ function registerActions(): void {
         trigger: { code: 'KeyS' },
         modifiers: { control: true },
         callbacks: {
-            onPress: () => {
-                // false, not a bare return: onPress answers whether the action was
-                // handled, and an empty blueprint takes no picture.
-                if (bp.isEmpty()) return false
-
-                editor
-                    .getPicture()
-                    .then(blob => {
-                        FileSaver.saveAs(blob, `${bp.name}.png`)
-                        createToast({
-                            text: 'Blueprint image successfully generated',
-                            type: 'success',
-                        })
-                    })
-                    .catch(error => createErrorMessage('Failed to generate the image.', error))
-                return true
-            },
+            onPress: () => exportImage(),
         },
     })
 
