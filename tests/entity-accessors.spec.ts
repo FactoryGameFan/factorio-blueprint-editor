@@ -182,13 +182,24 @@ test('Entity accessors report the same shape across every test blueprint', async
     )
 
     /*
-        Two guards on the histograms, before the fixture comparison so that a
+        Three guards on the histograms, before the fixture comparison so that a
         structural problem is named rather than arriving as a diff.
 
-        Every histogram must account for every entity. That is free and always
-        true, and it catches a recording bug that silently skips an accessor -
-        which the toEqual would otherwise report as an unexplained diff in a
-        fixture nobody wants to re-record.
+        The first checks that every accessor in TALLIED_VALUES was recorded at
+        all, against the list itself rather than the fixture - comparing the
+        fixture to itself would prove nothing. That catches an accessor whose
+        bumpValue call was deleted from the collection loop while it stays
+        declared in TALLIED_VALUES, which never appears as a key in tally.values
+        for the loop below to see. It does not catch removing the accessor from
+        TALLIED_VALUES itself - that also removes it from the collection loop's
+        own input, so both sides of this check drop it together, and the
+        mismatch surfaces only in the final toEqual against the fixture.
+
+        Every histogram that IS recorded must account for every entity. That is
+        free and always true, and it catches a recording bug that silently
+        under-counts an accessor for some entities - which the toEqual would
+        otherwise report as an unexplained diff in a fixture nobody wants to
+        re-record.
 
         And no histogram may exceed 16 distinct keys. The measured maximum is 10
         (inserterStackSize). An accessor that turns open-set - which is what
@@ -196,6 +207,13 @@ test('Entity accessors report the same shape across every test blueprint', async
         fails by name here instead of dumping a thousand-line toEqual diff and
         inviting someone to paste it in.
     */
+    const recorded = Object.keys(tally.values).sort()
+    expect(
+        recorded,
+        'every TALLIED_VALUES accessor must be recorded - a missing one\n' +
+            'is a dropped accessor, not a changed fixture'
+    ).toEqual([...TALLIED_VALUES].sort())
+
     for (const [key, hist] of Object.entries(tally.values)) {
         const total = Object.values(hist).reduce((a, b) => a + b, 0)
         expect(total, `${key} histogram does not cover every entity`).toBe(tally.entityCount)
