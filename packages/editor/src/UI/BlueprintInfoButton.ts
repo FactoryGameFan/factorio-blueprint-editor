@@ -4,11 +4,14 @@ import { Button } from './controls/Button'
 import F from './controls/functions'
 
 /**
- * Persistent top-right button that opens BlueprintInfoEditor.
+ * Persistent top-left button that opens BlueprintInfoEditor.
  *
- * Positioned to the left of EntityInfoPanel's own 270px width rather than
- * flush in the corner, since EntityInfoPanel docks there too (whenever an
- * entity is hovered) and the two would otherwise overlap.
+ * Positioned just right of the website's own DOM corner overlay (the FBE logo
+ * plus the Discord/Github buttons in packages/website/index.html), which is
+ * 140px wide and sits at the fixed (0, 0) corner - a canvas-drawn button at
+ * that x would render underneath it. Left rather than right avoids
+ * EntityInfoPanel instead, which docks flush against the right edge whenever
+ * an entity is hovered.
  */
 export class BlueprintInfoButton extends Container {
     private readonly m_Button: Button<undefined>
@@ -21,17 +24,8 @@ export class BlueprintInfoButton extends Container {
         this.m_Button.on('pointerdown', this.onPointerDown)
         this.addChild(this.m_Button)
 
-        this.setPosition()
-        window.addEventListener('resize', this.setPosition)
-    }
-
-    public override destroy(): void {
-        window.removeEventListener('resize', this.setPosition)
-        super.destroy({ children: true })
-    }
-
-    private readonly setPosition = (): void => {
-        this.position.set(G.app.screen.width - 270 - 12 - 36, 6)
+        // Independent of screen size, unlike a right-docked position would be.
+        this.position.set(152, 6)
     }
 
     private readonly onPointerDown = (e: FederatedPointerEvent): void => {
