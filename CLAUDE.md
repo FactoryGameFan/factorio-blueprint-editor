@@ -99,7 +99,7 @@ cd packages/website && npm run build:analyze
 
 ## Vite+ Toolchain
 
-`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.6 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
+`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.8 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
 
 ## Git and PR Conventions
 
@@ -525,15 +525,26 @@ justifies a hold expires without anyone editing this file.
 
 ### Coupled - these move together or not at all
 
-- **`vite-plus` 0.2.6 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
+- **`vite-plus` 0.2.8 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
   and Vitest are **not independently upgradable** - there is no `vite` package in
   the tree at all, the root `overrides` aliases it
-  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"`). So "bump vitest" has no
-  answer except "bump vite-plus". **0.2.6 is `latest`, not a lagging pin.**
+  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.8"`). So "bump vitest" has no
+  answer except "bump vite-plus". 0.2.8 is `latest`, measured 2026-08-11.
+  **Nothing tracks this pin, so it goes stale without anyone touching the
+  file** - Renovate does not propose it, because it is an exact version rather
+  than a range and the CI half lives in a workflow `run:` line no manager reads.
+  It sat at 0.2.6 through 0.2.7 and 0.2.8 for that reason, under a note in this
+  file asserting it was `latest`. Re-measure with `npm view vite-plus dist-tags`
+  rather than trusting the number above.
 - The pin appears in **five** places that must move as one: root, editor and
   website `package.json`; the root `overrides`; and
   `.github/actions/setup-vp/action.yml`, which carries both `VP_VERSION`, a cache
   key, **and a sha256 of the installer script** - the part people forget.
+  Measured across 0.2.6 -> 0.2.8, the installer checksum did **not** move: it
+  pins the mutable bootstrap script at `https://vite.plus`, which is versioned
+  independently of the toolchain, so a bump usually touches `VP_VERSION` and the
+  cache key and leaves the hash alone. Re-fetch and re-hash anyway rather than
+  assuming - the whole point of the pin is that the script can change silently.
 - **`@playwright/test`** needs `npx playwright install` in the same commit as any
   bump, or every spec fails on a missing `chrome-headless-shell` and reads as a
   suite-wide regression.
