@@ -175,6 +175,18 @@ export class Editor {
      * coordinate the editor reports stays perfectly self-consistent (issue
      * #144).
      */
+    /**
+     * The viewport's current continuous scale, which is the zoom level.
+     *
+     * The editor draws 32 px per tile at scale 1, and so does Factorio at zoom
+     * 1 - measured, not assumed (#206). Exposed because the zoom ladder is
+     * otherwise invisible from outside: `zoom()` changes nothing a spec can
+     * read, since entity positions move with the view rather than against it.
+     */
+    public get viewportScale(): number {
+        return G.BPC.getViewportScale()
+    }
+
     public get viewportRenderedInSync(): boolean {
         return G.BPC.viewportRenderedInSync
     }

@@ -156,6 +156,8 @@ export class WheelAccumulator {
 
 `ZOOM_LEVELS` is a **committed literal array**, not computed at runtime. It is generated once from the probe's measured endpoints and the chosen ratio, then written into the file, so the ladder a test asserts is the ladder that ships. Regenerating it is a deliberate act, the same rule the other measured tables here follow.
 
+**Reversed 2026-08-11: it ships computed, as `2^(n/7)` for `n` in -23..11.** The argument above holds when the ladder is a table of measurements, which is what `railSignalSpots.ts` is - 152 placements with no formula behind them, where a generated literal is the only re-derivable form. This ladder turned out to have a closed form, so a literal would be a _transcription_ of a formula rather than a record of measurements, and 35 hand-copied digits are the kind of thing that drifts without any reviewer being able to see it. The unit test asserts the closed form, the two exact endpoints and the measured off-rung cases.
+
 `stepZoom` is where the snap lives: nearest ladder value to the current continuous scale, move one index, clamp. From `0.83` on a ladder containing `1.0`, a notch in yields the rung above `1.0`.
 
 `WheelAccumulator.feed` returns a **signed** rung count - negative for zoom out, positive for zoom in, `0` when the threshold has not been crossed. Usually -1, 0 or 1.

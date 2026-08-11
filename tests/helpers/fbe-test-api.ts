@@ -95,6 +95,11 @@ export interface FbeTestApi {
      * tests/viewport-transform-freshness.spec.ts.
      */
     viewportRenderedInSync: () => boolean
+    /**
+     * The viewport's continuous scale, ie. the zoom level. 32 px per tile at 1,
+     * the same baseline Factorio uses - see tests/zoom-ladder.spec.ts.
+     */
+    viewportScale: () => number
     /** Whether the paint container is drawn; undefined when there is none. */
     paintContainerVisible: () => boolean | undefined
     /**

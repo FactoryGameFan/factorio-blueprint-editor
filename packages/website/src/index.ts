@@ -286,6 +286,7 @@ const testApi = {
     */
     paintContainerVisible: () => editor.paintContainerVisible,
     viewportRenderedInSync: () => editor.viewportRenderedInSync,
+    viewportScale: () => editor.viewportScale,
     paintContainerState: () => editor.paintContainerState,
     entityPosition: (entityNumber: number) => editor.entityPosition(entityNumber),
     /*
