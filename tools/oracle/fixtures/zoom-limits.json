@@ -1,0 +1,401 @@
+{
+    "provenance": {
+        "issue": 206,
+        "binary": "Version: 2.0.77 (build 84539, mac-arm64, full)",
+        "modFactorioVersion": "2.0",
+        "capturedBy": "tools/oracle/probe-zoom-limits.mjs",
+        "mods": {
+            "base": "2.0.77",
+            "bp_zoom_limits": "0.0.1",
+            "elevated-rails": "2.0.77",
+            "quality": "2.0.77",
+            "space-age": "2.0.77"
+        },
+        "display": {
+            "resolution": {
+                "width": 3736,
+                "height": 2044
+            },
+            "scale": 2
+        },
+        "note": "Zoom is a property of a player controller, so this ran against the graphics client with a human at the wheel for the ladder half. The editor targets 2.0.45 to 2.0.73 and the corpus spans 2.0.32 to 2.1.12."
+    },
+    "characterController": {
+        "limitsRead": {
+            "closest": {
+                "zoom": 3
+            },
+            "furthest": {
+                "distance": 200,
+                "max_distance": 500
+            },
+            "furthest_game_view": {
+                "distance": 200,
+                "max_distance": 500
+            }
+        },
+        "readbackClosest": 3,
+        "readbackFurthest": 0.2838888888888889,
+        "observedGameViewFloor": 0.2838888888888889,
+        "renderModesSeen": ["1"]
+    },
+    "scrolledLadder": {
+        "sampleCount": 51,
+        "rungFormula": "2^(n/7), baseline 2^0 = 1.0",
+        "notchesPerDoubling": 7,
+        "ratio": 1.1040895136738123,
+        "distinct": [
+            0.2838888888888889, 0.30475341356374647, 0.33647504817086915, 0.37149857229706473,
+            0.4101676780165656, 0.45286183214446296, 0.5000000000120853, 0.5520447568483433,
+            0.6095068271127607, 0.6729500963254726, 0.7429971445761708, 0.8203353560133031,
+            0.9057236642670341, 1, 1.10408951367, 1.219013654196057, 1.3459001926184142,
+            1.4859942891164242, 1.6406707119869501, 1.8114473284902843, 1.9999999999516587,
+            2.2081790272866266, 2.438027308333185, 2.691800385171766, 3
+        ],
+        "worstRungDeviationInN": 4.184510515869988e-10,
+        "plateaus": [
+            {
+                "z": 1,
+                "heldTicks": 721,
+                "rm": "1"
+            },
+            {
+                "z": 1.10408951367,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 1.219013654196057,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 1.3459001926184142,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 1.4859942891164242,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 1.6406707119869501,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 1.8114473284902843,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 1.9999999999516587,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 2.2081790272866266,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 2.438027308333185,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 2.691800385171766,
+                "heldTicks": 1,
+                "rm": "1"
+            },
+            {
+                "z": 3,
+                "heldTicks": 451,
+                "rm": "1"
+            },
+            {
+                "z": 2.691800385171766,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 2.438027308333185,
+                "heldTicks": 67,
+                "rm": "1"
+            },
+            {
+                "z": 2.2081790272866266,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 1.9999999999516587,
+                "heldTicks": 10,
+                "rm": "1"
+            },
+            {
+                "z": 1.8114473284902843,
+                "heldTicks": 71,
+                "rm": "1"
+            },
+            {
+                "z": 1.6406707119869501,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 1.4859942891164242,
+                "heldTicks": 10,
+                "rm": "1"
+            },
+            {
+                "z": 1.3459001926184142,
+                "heldTicks": 70,
+                "rm": "1"
+            },
+            {
+                "z": 1.219013654196057,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 1.10408951367,
+                "heldTicks": 82,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.9057236642670341,
+                "heldTicks": 10,
+                "rm": "1"
+            },
+            {
+                "z": 0.8203353560133031,
+                "heldTicks": 69,
+                "rm": "1"
+            },
+            {
+                "z": 0.7429971445761708,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.6729500963254726,
+                "heldTicks": 10,
+                "rm": "1"
+            },
+            {
+                "z": 0.6095068271127607,
+                "heldTicks": 71,
+                "rm": "1"
+            },
+            {
+                "z": 0.5520447568483433,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.5000000000120853,
+                "heldTicks": 59,
+                "rm": "1"
+            },
+            {
+                "z": 0.45286183214446296,
+                "heldTicks": 11,
+                "rm": "1"
+            },
+            {
+                "z": 0.4101676780165656,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.37149857229706473,
+                "heldTicks": 71,
+                "rm": "1"
+            },
+            {
+                "z": 0.33647504817086915,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.30475341356374647,
+                "heldTicks": 10,
+                "rm": "1"
+            },
+            {
+                "z": 0.2838888888888889,
+                "heldTicks": 0,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 713,
+                "rm": "1"
+            },
+            {
+                "z": 1.10408951367,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 1.219013654196057,
+                "heldTicks": 107,
+                "rm": "1"
+            },
+            {
+                "z": 1.10408951367,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 0,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 1279,
+                "rm": "1"
+            },
+            {
+                "z": 0.9057236642670341,
+                "heldTicks": 8,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 61,
+                "rm": "1"
+            },
+            {
+                "z": 0.9057236642670341,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.8203353560133031,
+                "heldTicks": 0,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 4083,
+                "rm": "1"
+            },
+            {
+                "z": 0.9057236642670341,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 1,
+                "heldTicks": 527,
+                "rm": "1"
+            },
+            {
+                "z": 0.7429971445761708,
+                "heldTicks": 9,
+                "rm": "1"
+            },
+            {
+                "z": 0.6729500963254726,
+                "heldTicks": 0,
+                "rm": "1"
+            }
+        ]
+    },
+    "offLadderNotches": [
+        {
+            "start": 0.8299999999999998,
+            "direction": "in",
+            "landed": 0.9057236642670341,
+            "predictions": {
+                "relative": 0.916394296349264,
+                "nearestThenStep": 0.9057236642639066,
+                "directional": 0.9057236642639067
+            },
+            "fits": ["nearestThenStep", "directional"]
+        },
+        {
+            "start": 0.8299999999999998,
+            "direction": "in",
+            "landed": 0.9057236642670341,
+            "predictions": {
+                "relative": 0.916394296349264,
+                "nearestThenStep": 0.9057236642639066,
+                "directional": 0.9057236642639067
+            },
+            "fits": ["nearestThenStep", "directional"]
+        },
+        {
+            "start": 0.8299999999999998,
+            "direction": "out",
+            "landed": 0.7429971445761708,
+            "predictions": {
+                "relative": 0.7517506413390425,
+                "nearestThenStep": 0.7429971445684743,
+                "directional": 0.820335356007638
+            },
+            "fits": ["nearestThenStep"]
+        }
+    ],
+    "samplesByController": {
+        "1": {
+            "count": 57,
+            "min": 0.2838888888888889,
+            "max": 3
+        }
+    },
+    "otherControllers": [
+        {
+            "controller": "god",
+            "limits": {
+                "closest": {
+                    "zoom": 3
+                },
+                "furthest": {
+                    "zoom": 0.015625
+                },
+                "furthest_game_view": {
+                    "distance": 200,
+                    "max_distance": 500
+                }
+            },
+            "readback_closest_same_tick": 3,
+            "readback_furthest_same_tick": 0.015625
+        },
+        {
+            "controller": "spectator",
+            "limits": {
+                "closest": {
+                    "zoom": 3
+                },
+                "furthest": {
+                    "zoom": 0.00390625
+                },
+                "furthest_game_view": {
+                    "distance": 200,
+                    "max_distance": 500
+                }
+            },
+            "readback_closest_same_tick": 3,
+            "readback_furthest_same_tick": 0.00390625
+        }
+    ],
+    "controls": {
+        "sessions": 4,
+        "sessionsAgreeOnLimits": true,
+        "ceilingInstrumentsAgree": true,
+        "floorInstrumentsAgree": true,
+        "distinctScrolledValues": 25,
+        "everyValueIsAnExactRung": true,
+        "scrolledEndpointsEqualLimits": true
+    }
+}

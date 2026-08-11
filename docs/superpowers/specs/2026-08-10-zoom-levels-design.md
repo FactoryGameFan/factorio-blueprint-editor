@@ -1,6 +1,59 @@
 # Zoom levels that behave like the game's
 
-Issue #206. Design settled 2026-08-10.
+Issue #206. Design settled 2026-08-10; measured against the game 2026-08-11, which
+answered every number this document left open and corrected two of its claims.
+
+## What the probe found (2026-08-11)
+
+`tools/oracle/probe-zoom-limits.mjs`, fixture `tools/oracle/fixtures/zoom-limits.json`,
+against the 2.0.77 client over four sessions with a human at the wheel.
+
+- **The step is `2^(1/7)` - seven notches per doubling - and the ladder is
+  absolute, anchored at exactly 1.0.** Every one of the 23 non-clamp values
+  scrolled through is an exact `2^(n/7)`, worst deviation in `n` of 4.2e-10.
+  The ratio this document declined to choose did not need choosing.
+- **A notch from between two rungs snaps to the _nearest_ rung and then moves one
+  index** - the rule guessed under "the first notch snaps", now measured. Two
+  further rules survived the obvious probe and one of them is wrong: from 0.83 a
+  notch in gives 0.905724 under both `nearest+step` and "next rung in the
+  direction of travel", and only a notch **out** separates them (0.742997
+  against 0.820335). It answered 0.742997.
+- **The ceiling is 3**, exactly what `BlueprintContainer.ts:87` already passes.
+  The editor's ceiling was never wrong; only its softness was.
+- **A step that would overshoot a limit lands on the limit exactly**, not on the
+  last rung before it. So the clamp value is reachable and is not itself a rung.
+- **The floor is not a number, it is a rule**: at most `distance = 200` tiles
+  across the window, capped at `max_distance = 500`. On a 16:9 window that is
+  exactly 0.3; on the 3736x2044-at-scale-2 window measured it is 0.283889, which
+  the documented formula reproduces to 1e-9.
+- **The units claim is confirmed exactly.** That floor formula only lands on the
+  measured value at 32 px per tile per unit zoom, against the window in logical
+  pixels (`display_resolution / display_scale`). The editor's 32 and the game's
+  are the same 32.
+- `furthest_game_view` is a **third** limit this document did not know about, and
+  it is `distance 200` for the character, god and spectator controllers alike -
+  the game never draws the world further out than 200 tiles across. God and
+  spectator may zoom out further (to 0.015625 and 0.00390625), but that range
+  renders as **chart view**, which the editor does not have.
+
+### The one decision the measurement did not settle: the floor
+
+**Adopting the game's world-view floor is not open to us.** 30 of the 367 corpus
+blueprints are wider than 200 tiles and the widest is 397, which needs zoom 0.151
+to fit at a 1920px viewport where the game's floor is 0.300. Taking the game's
+number literally would make 8% of real blueprints impossible to view whole. The
+200-tile limit exists so a player cannot see ungenerated chunks - a constraint
+that does not apply to an editor at all.
+
+**The floor is 0.1, the game's own map editor floor** (decided 2026-08-11). It is
+the game's number for the editing context rather than an invented constant, and
+it fits the widest corpus blueprint with room to spare. So the ladder runs
+`2^(n/7)` for `n` in -23..11, clamped exactly at 0.1 and 3 - clamping to the
+limit itself rather than to the last rung, which is what the game does.
+
+Everything below is the design as settled on 2026-08-10, before any of this was
+measured. Where it disagrees with the section above, the section above is what
+was found.
 
 ## The problem, measured
 
@@ -116,6 +169,8 @@ Keeps its continuous scale and its accumulating matrix. Two changes:
 
 **The measured range replaces `maxZoom = 3`.** The ladder's endpoints become the editor's limits, so the constructor argument at `BlueprintContainer.ts:87` is superseded by `ZOOM_LEVELS[0]` and its last element. If the probe reports a ceiling above 3 the editor gains reach it did not have, and if below, it loses some - either is intended, since the stated goal is the game's range. The one number that must not move silently is the floor, because there is none today and anything is stricter than nothing.
 
+**Measured 2026-08-11: the ceiling is 3, so `maxZoom` was already right** and the only change at the top is that the clamp stops being soft by a step. The floor is 0.1, and the anticipation above is exactly inverted - the number that moves is not the ceiling, and the floor is not adopted from the game's range at all but from its map editor, because the game's own world-view floor cannot express a 397-tile blueprint. See "the one decision the measurement did not settle" at the top.
+
 `zoomBy` stays as it is for **mobile pinch**, which feeds a genuinely continuous `scaleDelta` derived from finger distance and cannot be expressed in rungs. Pinch gets `clampZoom` only; the ladder never touches it.
 
 ### `BlueprintContainer.ts`
@@ -139,6 +194,10 @@ Two things make this unlike every previous probe in this repo, and both belong i
 - **Limits are per controller type.** The character controller is the one that means "like the game"; god and spectator will differ. Recording all of them costs nothing and says whether the number chosen is the one a player actually experiences.
 
 ## The ladder's ratio is deliberately not chosen here
+
+**Superseded 2026-08-11: it is `2^(1/7)`, measured.** The rest of this section is what was believed before the probe ran, and why it was wrong is worth keeping. The ratio was called pure feel and handed to a driving session because the design assumed a human scrolling against a logging mod was too expensive to ask for. It took one sitting. This section was reasoning about a number that was sitting in the game waiting to be read - and the guessed starting point below, 1.33, is three real notches wide. Shipping it would have felt wrong in exactly the way #206 complains about, and no test could have said so.
+
+---
 
 The ratio is the one number in this design that is pure feel, and it is left to a driving session inside the implementation PR.
 
@@ -175,6 +234,6 @@ Landing `zoomLevels.ts` on its own between the two was considered and rejected: 
 
 ## Out of scope
 
-- Matching the game's exact per-notch step. It is an input-handling constant no headless probe can reach, and getting it means a manual scrolling session against a logging mod. The measured range plus a chosen ratio is the agreed substitute. **Tracked as #211**, which is blocked on this work landing and carries the method, including the control that makes it worth doing: the endpoints of a hand-scrolled ladder must equal the limits this design's headless probe measures independently, so the two instruments check each other.
+- ~~Matching the game's exact per-notch step.~~ **Done on 2026-08-11, before any of this shipped, and #211 is answered rather than blocked.** It is `2^(1/7)`. The reasoning that put it out of scope was sound and the conclusion was wrong: it is indeed an input-handling constant no headless probe can reach, and it did need a manual scrolling session against a logging mod - which turned out to cost one sitting rather than being a reason to ship a substitute. The control named here is the one that passed: the hand-scrolled endpoints equal the independently measured limits at both ends, in all four sessions. **The lesson is the cost estimate, not the method** - "no headless probe can reach it" was allowed to stand in for "not worth measuring", and those are different claims.
 - Changing what `centerViewPort` computes. The fit stays exact; that is the point of keeping scale as truth.
 - Mobile pinch behaviour beyond gaining a clamp.
