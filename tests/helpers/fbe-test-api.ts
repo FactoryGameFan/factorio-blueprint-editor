@@ -194,6 +194,13 @@ export interface FbeTestApi {
      * control inside one. Throws when nothing is open.
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
+    /**
+     * Whether `EntityContainer.entityInfo` is currently visible for this
+     * entity - the persistent always-show label and the hover tooltip toggle
+     * it opposite each other so the two never stack. See
+     * tests/display-panel-editor.spec.ts.
+     */
+    entityInfoVisible: (entityNumber: number) => boolean
 }
 
 /**

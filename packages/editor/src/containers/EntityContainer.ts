@@ -278,6 +278,19 @@ export class EntityContainer {
         return this.m_Entity
     }
 
+    /**
+     * Whether the entity info overlay is currently shown, `false` when there is
+     * none to show at all. Exposed for tests/display-panel-editor.spec.ts: the
+     * hover-tooltip/always-show swap in pointerOverEventHandler and
+     * pointerOutEventHandler toggles this container's own `visible` rather than
+     * anything `overlayInfoTally` (tests/overlay-container.spec.ts) can see,
+     * since that tally reads what `createEntityInfo` built, not whether the
+     * container it produced is currently on screen.
+     */
+    public get entityInfoVisible(): boolean {
+        return this.entityInfo?.visible ?? false
+    }
+
     public get position(): IPoint {
         return {
             x: this.m_Entity.position.x * 32,
