@@ -60,18 +60,18 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
     2 rows, filled column-major (top-to-bottom, then next column) rather than
     a single wide row. This panel sits flush against the quickbar's right edge
     (see setPosition), close enough to the screen's right side at common
-    viewport widths (1280 and narrower) that a single 7-wide row runs under
+    viewport widths (1280 and narrower) that a wide single row runs under
     `.toasts-container`, which is `position: fixed; right: 0; width: 320px`
     and sits above the canvas - verified by clicking a widened-panel slot
     there and finding the click reached the toast, not the button. Wrapping
-    into a second row instead keeps the panel no wider than 4 slots.
+    into a second row instead keeps the panel as narrow as the action count
+    allows.
 
-    Each action pairs with the wire below it - import-replace/copper-wire,
-    import-append/red-wire, export-string/green-wire - with export-image and
-    the Import/Export dialog toggle sharing the fourth column between them.
+    Each action pairs with the wire below it - open-Import/copper-wire,
+    open-Export/red-wire, export-image/green-wire.
 */
 const ROWS = 2
-const CELL_COUNT = WIRES.length + 5
+const CELL_COUNT = WIRES.length + 3
 
 export class WiresPanel extends Panel {
     private slotsContainer: Container
@@ -97,31 +97,26 @@ export class WiresPanel extends Panel {
     /**
      * The wire slots and the import/export quick actions in one interleaved
      * grid - see the comment on `ROWS` for the layout and why it wraps
-     * instead of running in a single row. import-replace, import-append,
-     * export-to-string and export-to-image are the only ways to reach paste,
-     * Ctrl+Shift+V, copy and Ctrl+S that don't require already knowing the
-     * shortcut; the last cell opens ImportExportDialog, for a string that
-     * needs to be seen or edited rather than round-tripped through the OS
-     * clipboard untouched. Icons are the game's own GUI sprites rather than
-     * repurposed item icons, since nothing in the item list means "import" or
-     * "export".
+     * instead of running in a single row. Opening ImportDialog/ExportDialog
+     * is how paste and copy (and, inside ImportDialog, Ctrl+Shift+V) become
+     * reachable without already knowing the shortcut; export-to-image (Ctrl+S)
+     * stays a direct one-click action since it produces a PNG rather than a
+     * string a dialog would have anything to show. Icons are the game's own
+     * GUI sprites rather than repurposed item icons, since nothing in the
+     * item list means "import" or "export".
      */
     public generateSlots(): void {
         const cells: Container[] = [
             new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot), () =>
-                G.quickActions.importReplace()
+                G.UI.toggleImportDialog()
             ),
             new WireSlot(WIRES[0]),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.add), () =>
-                G.quickActions.importAppend()
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot), () =>
+                G.UI.toggleExportDialog()
             ),
             new WireSlot(WIRES[1]),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot), () =>
-                G.quickActions.exportString()
-            ),
-            new WireSlot(WIRES[2]),
             new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
-            new ActionSlot(F.CreateIcon('blueprint-book'), () => G.UI.toggleImportExportDialog()),
+            new WireSlot(WIRES[2]),
         ]
 
         for (const [i, slot] of cells.entries()) {

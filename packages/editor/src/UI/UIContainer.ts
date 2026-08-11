@@ -4,7 +4,8 @@ import { DebugContainer } from './DebugContainer'
 import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
-import { ImportExportDialog } from './ImportExportDialog'
+import { ImportDialog } from './ImportDialog'
+import { ExportDialog } from './ExportDialog'
 import { WiresPanel } from './WiresPanel'
 import { createEditor } from './editors/factory'
 
@@ -15,7 +16,8 @@ export class UIContainer extends Container {
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
-    private importExportDialog: ImportExportDialog | undefined
+    private importDialog: ImportDialog | undefined
+    private exportDialog: ExportDialog | undefined
 
     public constructor() {
         super()
@@ -85,22 +87,36 @@ export class UIContainer extends Container {
     }
 
     /**
-     * Opens ImportExportDialog, or closes it if it is already open - the
-     * WiresPanel button that reaches this is a single toggle, not a spawner,
-     * so a second click has to answer "close" rather than stacking a second
-     * copy on top of the first.
+     * Opens ImportDialog, or closes it if it is already open - the WiresPanel
+     * button that reaches this is a single toggle, not a spawner, so a
+     * second click has to answer "close" rather than stacking a second copy
+     * on top of the first.
      */
-    public toggleImportExportDialog(): void {
-        if (this.importExportDialog) {
-            this.importExportDialog.close()
+    public toggleImportDialog(): void {
+        if (this.importDialog) {
+            this.importDialog.close()
             return
         }
 
-        this.importExportDialog = new ImportExportDialog()
-        this.importExportDialog.on('close', () => {
-            this.importExportDialog = undefined
+        this.importDialog = new ImportDialog()
+        this.importDialog.on('close', () => {
+            this.importDialog = undefined
         })
-        this.dialogsContainer.addChild(this.importExportDialog)
+        this.dialogsContainer.addChild(this.importDialog)
+    }
+
+    /** Same as `toggleImportDialog`, for ExportDialog. */
+    public toggleExportDialog(): void {
+        if (this.exportDialog) {
+            this.exportDialog.close()
+            return
+        }
+
+        this.exportDialog = new ExportDialog()
+        this.exportDialog.on('close', () => {
+            this.exportDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.exportDialog)
     }
 
     public createInventory(
