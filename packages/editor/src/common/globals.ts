@@ -37,6 +37,13 @@ export interface QuickActions {
      * before doing anything.
      */
     encodeCurrent: () => Promise<string | undefined>
+    /**
+     * The raw OS clipboard text, for ImportDialog's Paste button - fills the
+     * textarea so it can be reviewed or edited before Replace/Append acts on
+     * it, unlike `importReplace`/`importAppend`'s own clipboard reads, which
+     * parse and act immediately.
+     */
+    readClipboardText: () => Promise<string>
 }
 
 const logger: Logger = msg => {

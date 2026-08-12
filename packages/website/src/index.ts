@@ -196,12 +196,20 @@ function encodeCurrent(): Promise<string | undefined> {
     return encode(book || bp)
 }
 
+/** For ImportDialog's Paste button - fills the textarea from the OS
+ * clipboard without parsing or loading it, unlike `importReplace`/
+ * `importAppend`'s own clipboard reads. */
+function readClipboardText(): Promise<string> {
+    return navigator.clipboard.readText()
+}
+
 const quickActions: QuickActions = {
     importReplace,
     importAppend,
     exportString,
     exportImage,
     encodeCurrent,
+    readClipboardText,
 }
 
 editor

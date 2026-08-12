@@ -542,7 +542,10 @@ export class TextInput extends OriginalTextInput {
         // dialogs needed it through this wrapper, so it stopped at the
         // single-line `<input>`.
         multiline = false,
-        height?: number
+        height?: number,
+        // For ImportDialog's textarea, which wants the game's own import-field
+        // colour instead of the shared textbox background every other field uses.
+        boxBackgroundColor: number = colors.controls.textbox.background.color
     ) {
         super({
             renderer,
@@ -567,11 +570,14 @@ export class TextInput extends OriginalTextInput {
             },
             box: {
                 default: {
-                    fill: colors.controls.textbox.background.color,
+                    fill: boxBackgroundColor,
                     rounded: 1,
                     stroke: { color: 0xcbcee0, width: 1 },
                 },
                 focused: {
+                    // Left as the shared "active" colour even for a custom
+                    // boxBackgroundColor - focus feedback should read the same
+                    // everywhere, not just on the fields using the default.
                     fill: colors.controls.textbox.active.color,
                     rounded: 1,
                     stroke: { color: 0xabafc6, width: 1 },
