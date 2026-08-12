@@ -227,11 +227,15 @@ export default defineConfig({
                     The tests under tests/ that need no browser. Two reasons they
                     are here rather than in a package's own project.
 
-                    Playwright does not run in CI, and `vp test` does, so a check
-                    that lives only in a .spec.ts gates nothing - which is the
-                    whole point of the corpus guard in tests/helpers/
-                    blueprint-files.test.ts (#190). It has to fail a PR, not
-                    somebody's laptop.
+                    A check that needs no browser should not be behind one. Both
+                    runners gate a PR now that the Playwright suite runs in CI
+                    too, but they do not cost the same: `vp test` is seconds
+                    inside `checks`, where the browser suite is a separate
+                    ~5-minute job that first has to bring up two dev servers. The
+                    corpus guard in tests/helpers/blueprint-files.test.ts (#190)
+                    is pure Node, so it belongs in the cheap one - and it stays
+                    green even on a day the browser job is broken for reasons of
+                    its own.
 
                     And the root tsconfig is the only one here that puts `node`
                     in `types`; packages/editor narrows it back to typed-factorio
