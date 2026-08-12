@@ -7,11 +7,14 @@ import { discoverBlueprintFiles } from './blueprint-files'
 /*
     A vitest test rather than a Playwright spec, and that is the whole point of
     it rather than a filing decision. `discoverBlueprintFiles` is pure Node - no
-    browser, no dev server, no FD - but more importantly Playwright does not run
-    in CI here, and `vp test` does. A guard that only fires on someone's local
-    run is most of the way back to the silence #190 is about: a contributor drops
-    test-blueprints/foo.txt, it merges green, and it is found whenever somebody
-    next happens to run the browser suite.
+    browser, no dev server, no FD - and when this was written that was decisive,
+    because Playwright ran nowhere but a laptop while `vp test` gated every PR. A
+    guard that only fires on someone's local run is most of the way back to the
+    silence #190 is about: a contributor drops test-blueprints/foo.txt, it merges
+    green, and it is found whenever somebody next happens to run the browser
+    suite. The browser suite gates PRs too now, so that argument is weaker than
+    it was - what is left of it is cost: this answers in milliseconds inside
+    `checks`, against a separate job that needs two dev servers and five minutes.
 
     So the last test below calls the function bare, against the real corpus, and
     that call is what makes a committed stray file a red CI run.

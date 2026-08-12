@@ -10,10 +10,14 @@ export default defineConfig({
     testDir: './tests',
     /*
         Specs only. Playwright's default also collects *.test.ts, and tests/
-        now holds one - blueprint-files.test.ts, a vitest test, because Playwright
-        does not run in CI and the corpus guard in #190 has to (see the `corpus`
-        project in vite.config.ts). Without this it would be collected by both
-        runners and fail under Playwright, which cannot supply `describe`/`it`.
+        now holds one - blueprint-files.test.ts, a vitest test, because the
+        corpus guard in #190 wants the fast gate rather than this one (see the
+        `corpus` project in vite.config.ts). That reasoning survived Playwright
+        joining CI: the browser suite is a separate ~5-minute job behind two dev
+        servers, `vp test` is seconds inside `checks`, and a guard on a stray
+        committed file needs neither a browser nor the wait. Without this
+        testMatch it would be collected by both runners and fail under
+        Playwright, which cannot supply `describe`/`it`.
 
         A no-op for what actually runs: all 40 existing files here are .spec.ts.
     */
