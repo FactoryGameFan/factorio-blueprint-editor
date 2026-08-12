@@ -105,9 +105,11 @@ export class ToolsPanel extends Panel {
      * produces a PNG rather than a string a dialog would have anything to
      * show. Undo/Redo (Ctrl+Z/Ctrl+Y) call `G.bp.history` directly, the same
      * as their keybinds in Editor.ts - unlike the clipboard/file actions,
-     * undoing a change needs nothing outside the editor package. Icons are
-     * the game's own GUI sprites rather than repurposed item icons, since
-     * nothing in the item list means "import", "export" or "undo".
+     * undoing a change needs nothing outside the editor package. Import/
+     * Export/Undo/Redo use the game's own GUI sprites and signal icons -
+     * `signal-anticlockwise-circle-arrow`/`signal-clockwise-circle-arrow`,
+     * a Space Age virtual signal, is the only "undo"/"redo"-shaped icon
+     * anywhere in vanilla Factorio's data, item or utility sprite alike.
      */
     public generateSlots(): void {
         const cells: Container[] = [
@@ -121,10 +123,10 @@ export class ToolsPanel extends Panel {
             new WireSlot(WIRES[1]),
             new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
             new WireSlot(WIRES[2]),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.left_arrow), () =>
+            new ActionSlot(F.CreateIcon('signal-anticlockwise-circle-arrow'), () =>
                 G.bp.history.undo()
             ),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.right_arrow), () =>
+            new ActionSlot(F.CreateIcon('signal-clockwise-circle-arrow'), () =>
                 G.bp.history.redo()
             ),
         ]
