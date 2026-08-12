@@ -196,20 +196,43 @@ jobs:
   # this stays as offline as the rest of CI.
   #
   # A separate job rather than steps in `checks`, for the same reason `rust` is:
-  # it runs in parallel instead of adding thirteen minutes to that job's wall
-  # clock, `checks` itself being 46s.
+  # it runs in parallel instead of adding to that job's wall clock, `checks`
+  # itself being 46s.
   # `deploy` waits on this as well as on `checks` - see the note there.
   e2e:
-    name: Playwright
+    name: Playwright ${{ matrix.shard }}/${{ strategy.job-total }}
     runs-on: ubuntu-latest
-    # Measured on the first push run: 774s, just under 13 minutes, against 4.6
-    # locally - a GitHub runner is about 2.8x slower at this than an M-series
-    # laptop, which is worth knowing before anyone sizes a timeout off a local
-    # run again. `workers: 1` is not a knob to turn up for it: playwright.config.ts
-    # sets that on purpose, since the specs share ports 8080/8081 and a single
-    # editor. 30 leaves room for a slow runner and a cold browser download
-    # without being so loose that a hung suite sits for an hour.
-    timeout-minutes: 30
+    # Sharded across runners rather than run in one job, and the per-step
+    # timings are why that is the lever worth pulling. The first push run spent
+    # 708s of its 774 inside `Run Playwright specs`; everything else - checkout,
+    # vp install, the browser download on a cold cache, both dev servers - came
+    # to 56s. So the part that shards is essentially all of it, and each added
+    # runner pays about a minute to take a quarter off the rest.
+    #
+    # Sharding rather than raising `workers`, which is the other obvious knob
+    # and the wrong one: playwright.config.ts pins `workers: 1` because the
+    # specs share ports 8080/8081 and a single editor instance, and that
+    # conflict is *within a machine*. Giving each shard its own runner, and so
+    # its own pair of dev servers, sidesteps it instead of solving it.
+    #
+    # `fail-fast: false` because a red shard should not cancel the other three.
+    # The point of running the suite at all is to learn what broke, and three
+    # cancelled shards answer that question much less well than three finished
+    # ones.
+    #
+    # Note Playwright splits shards by test count, not by duration, and these
+    # specs are nowhere near uniform - the corpus-wide ones (sprite-data,
+    # entity-accessors, blueprint-round-trip) dwarf the rest. So expect uneven
+    # shards, and read the slowest one as the wall clock rather than the mean.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    # Generous for a shard that should finish in single-digit minutes. It is a
+    # backstop against a hung suite rather than an estimate: a shard that has
+    # genuinely stopped making progress should be killed, and one that is merely
+    # slow should not.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -292,13 +315,13 @@ jobs:
           exit 1
 
       - name: Run Playwright specs
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload report
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
