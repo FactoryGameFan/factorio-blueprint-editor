@@ -181,6 +181,31 @@ export class Editor {
      * coordinate the editor reports stays perfectly self-consistent (issue
      * #144).
      */
+    /**
+     * One step of the measured zoom ladder, for the `zoomIn`/`zoomOut` keybinds.
+     *
+     * The wheel does not come through here - it moves continuously along the
+     * same curve, since quantising every trackpad event to a whole rung is what
+     * made scrolling feel chunky (#206). This is the stepped route, and it is
+     * the only one that lands on the values the game itself stops on. The game
+     * has exactly these two controls, `zoom-in` and `zoom-out`.
+     */
+    public zoomStep(zoomIn: boolean): void {
+        G.BPC.zoom(zoomIn)
+    }
+
+    /**
+     * The viewport's current continuous scale, which is the zoom level.
+     *
+     * The editor draws 32 px per tile at scale 1, and so does Factorio at zoom
+     * 1 - measured, not assumed (#206). Exposed because the zoom ladder is
+     * otherwise invisible from outside: `zoom()` changes nothing a spec can
+     * read, since entity positions move with the view rather than against it.
+     */
+    public get viewportScale(): number {
+        return G.BPC.getViewportScale()
+    }
+
     public get viewportRenderedInSync(): boolean {
         return G.BPC.viewportRenderedInSync
     }

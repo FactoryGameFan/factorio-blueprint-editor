@@ -355,6 +355,7 @@ const testApi = {
     */
     paintContainerVisible: () => editor.paintContainerVisible,
     viewportRenderedInSync: () => editor.viewportRenderedInSync,
+    viewportScale: () => editor.viewportScale,
     paintContainerState: () => editor.paintContainerState,
     entityPosition: (entityNumber: number) => editor.entityPosition(entityNumber),
     /*
@@ -698,6 +699,33 @@ function registerActions(): void {
         callbacks: {
             onPress: () => {
                 importAppend()
+                return true
+            },
+        },
+    })
+
+    /*
+        Bound to the physical `=` and `-` keys, which are matched on `e.code` -
+        so they work without a layout table on keyboards where those characters
+        need a modifier. The game has the same two controls (`zoom-in` and
+        `zoom-out`); this editor had none, which left the measured ladder
+        reachable only from tests once the wheel went continuous (#206).
+    */
+    EDITOR.registerAction('zoomIn', {
+        trigger: { code: 'Equal' },
+        callbacks: {
+            onPress: () => {
+                editor.zoomStep(true)
+                return true
+            },
+        },
+    })
+
+    EDITOR.registerAction('zoomOut', {
+        trigger: { code: 'Minus' },
+        callbacks: {
+            onPress: () => {
+                editor.zoomStep(false)
                 return true
             },
         },
