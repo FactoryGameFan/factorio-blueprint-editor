@@ -83,6 +83,21 @@ function addToggleHighlight(slot: Container, color: number): Graphics {
     return highlight
 }
 
+/**
+ * Same polling reasoning as `ALT_ACTIVE_COLOR`'s highlight - "is a book
+ * loaded" lives at the website level (`QuickActions.getCurrentBook`), so a
+ * one-off check at construction would go stale the moment a book is loaded,
+ * replaced by a bare blueprint, or replaced by a different book.
+ */
+function addBookSlot(): ActionSlot {
+    const slot = new ActionSlot(F.CreateIcon('blueprint-book'), () => G.UI.toggleBookDialog())
+    slot.visible = false
+    G.app.ticker.add(() => {
+        slot.visible = G.quickActions.getCurrentBook() !== undefined
+    })
+    return slot
+}
+
 const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 
 /*
@@ -97,12 +112,13 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
     allows.
 
     Each action pairs with the wire below it - Alt/copper-wire,
-    open-Import/green-wire, open-Export/red-wire, Undo/Redo - except the
-    last column, export-image, which has no wire to pair with and doesn't
-    need one.
+    open-Import/green-wire, open-Export/red-wire, Undo/Redo,
+    export-image/Book - the last pairing only because it was the one empty
+    cell the 5x2 grid already had (9 real cells before Book, filling 4 full
+    columns and one on the last), not because the two are related.
 */
 const ROWS = 2
-const CELL_COUNT = WIRES.length + 6
+const CELL_COUNT = WIRES.length + 7
 
 export class ToolsPanel extends Panel {
     private slotsContainer: Container
@@ -147,7 +163,9 @@ export class ToolsPanel extends Panel {
      * `size` as well as `width`/`height`) reads as "save this out" more than
      * the blueprint icon it replaced did. Alt has no icon anywhere in the
      * game's data at all, since the game spells its own key hints out as
-     * text.
+     * text. Book opens `BookDialog`, and its slot is the one hidden by
+     * default - `addBookSlot`'s own polling, not this method - since most
+     * loaded blueprints are not books at all.
      */
     public generateSlots(): void {
         const altSlot = new ActionSlot(createTextIcon('ALT'), () =>
@@ -186,6 +204,7 @@ export class ToolsPanel extends Panel {
             new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.downloading), () =>
                 G.quickActions.exportImage()
             ),
+            addBookSlot(),
         ]
 
         for (const [i, slot] of cells.entries()) {

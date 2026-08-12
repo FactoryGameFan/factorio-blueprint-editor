@@ -33,6 +33,15 @@ class Book {
         return this._activeIndex
     }
 
+    /**
+     * The raw, still-nested entries, for `BookDialog` to walk directly rather
+     * than through the flattened index space `selectBlueprint` reads and
+     * writes - a tree view wants the nesting, not a position in it.
+     */
+    public get entries(): readonly IBlueprintBookEntry[] {
+        return this.blueprints
+    }
+
     public get lastBookIndex(): number {
         return countNestedBlueprints(this.blueprints) - 1
     }
