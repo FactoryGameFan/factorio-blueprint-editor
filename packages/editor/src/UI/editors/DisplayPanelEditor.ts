@@ -1,4 +1,4 @@
-import { Container, Text } from 'pixi.js'
+import { Container, Text, Graphics } from 'pixi.js'
 import { Entity } from '../../core/Entity'
 import { ICondition } from '../../types'
 import { TextInput } from '../controls/TextInput'
@@ -17,6 +17,36 @@ const ICON_COL_WIDTH = 24
 const COMPARATOR_COL_WIDTH = 18
 const VALUE_COL_WIDTH = 40
 const CONDITION_WIDTH = ICON_COL_WIDTH + COMPARATOR_COL_WIDTH + VALUE_COL_WIDTH
+const ALT_BADGE_WIDTH = 34
+const ALT_BADGE_HEIGHT = 16
+
+/**
+ * A key-hint badge in the game's own style (a dark rounded box with a light
+ * border around bold white text), for labelling what "Alt-mode" refers to
+ * next to the checkbox - nothing in vanilla Factorio's sprites spells out a
+ * key name, since the game draws its own hints as text rather than an icon.
+ */
+function createKeyBadge(text: string): Container {
+    const badge = new Graphics()
+        .roundRect(0, 0, ALT_BADGE_WIDTH, ALT_BADGE_HEIGHT, 3)
+        .fill({ color: 0x000000, alpha: 0.6 })
+        .stroke({ width: 1, color: 0xaaaaaa, alpha: 0.9 })
+
+    const label = new Text({
+        text,
+        style: {
+            fill: 0xffffff,
+            fontFamily: 'Roboto, sans-serif',
+            fontWeight: '700',
+            fontSize: 10,
+        },
+    })
+    label.anchor.set(0.5)
+    label.position.set(ALT_BADGE_WIDTH / 2, ALT_BADGE_HEIGHT / 2)
+    badge.addChild(label)
+
+    return badge
+}
 
 /** Icon(s) + comparator + value, laid out in fixed-width columns to line up across rows */
 function createConditionDisplay(condition: ICondition | undefined): Container {
@@ -76,6 +106,10 @@ export class DisplayPanelEditor extends Editor {
         )
         alwaysShow.position.set(12, connected ? 160 : 168)
         this.addChild(alwaysShow)
+
+        const altBadge = createKeyBadge('ALT')
+        altBadge.position.set(320 - 12 - ALT_BADGE_WIDTH, (connected ? 160 : 168) + 5)
+        this.addChild(altBadge)
 
         alwaysShow.on('changed', () => {
             this.m_Entity.displayPanelAlwaysShow = alwaysShow.checked
