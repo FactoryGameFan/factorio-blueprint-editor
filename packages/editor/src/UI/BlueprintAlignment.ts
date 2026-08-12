@@ -9,6 +9,22 @@ import { styles } from './style'
 
 const ROW_HEIGHT = 32
 const FIELD_WIDTH = 44
+// The minimum a field label's text sits from its own input - each label
+// right-aligns to its own input at this gap (see makeFieldLabel), rather
+// than a fixed left-hand start position that left "X:"/"Y:" stranded far
+// from their box while "Width:"/"Height:" sat close to theirs.
+const LABEL_GAP = 3
+// The two value columns' input boxes, right-aligned the way the game's own
+// dialog has them - CONTENT_RIGHT matches Name/Description's own width
+// (`BlueprintInfoEditor`'s TextInputs are 336 wide), so this lines up with
+// their right edge rather than running past the dialog, which is what
+// fixed x-coordinates copied from a mock-up had done (issue reported: both
+// "not flush right" for Grid size and "runs off the dialog" for Grid
+// position/Absolute - the same bug, since both rooted in guessed
+// coordinates rather than the dialog's real content width).
+const CONTENT_RIGHT = 336
+const COL2_X = CONTENT_RIGHT - FIELD_WIDTH
+const COL1_X = COL2_X - FIELD_WIDTH - 62
 
 function parseGridValue(text: string): number {
     const n = parseInt(text, 10)
@@ -18,6 +34,15 @@ function parseGridValue(text: string): number {
 function makeLabel(text: string, x: number, y: number): Text {
     const t = new Text({ text, style: styles.dialog.label })
     t.position.set(x, y)
+    return t
+}
+
+/** A field label right-aligned `LABEL_GAP` before `inputX`, regardless of
+ * how wide the label text itself measures out to - so "X:"/"Y:" sit just
+ * as close to their input as "Width:"/"Height:" do to theirs. */
+function makeFieldLabel(text: string, inputX: number, y: number): Text {
+    const t = new Text({ text, style: styles.dialog.label })
+    t.position.set(inputX - LABEL_GAP - t.width, y)
     return t
 }
 
@@ -78,32 +103,32 @@ export class BlueprintAlignment extends Container {
         this.addChild(this.m_SnapCheckbox)
 
         this.addChild(makeLabel('Grid size', 0, ROW_HEIGHT + 8))
-        this.addChild(makeLabel('Width:', 96, ROW_HEIGHT + 8))
+        this.addChild(makeFieldLabel('Width:', COL1_X, ROW_HEIGHT + 8))
         this.m_WidthInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${size.x}`, 4, true)
-        this.m_WidthInput.position.set(140, ROW_HEIGHT + 4)
+        this.m_WidthInput.position.set(COL1_X, ROW_HEIGHT + 4)
         this.addChild(this.m_WidthInput)
 
-        this.addChild(makeLabel('Height:', 196, ROW_HEIGHT + 8))
+        this.addChild(makeFieldLabel('Height:', COL2_X, ROW_HEIGHT + 8))
         this.m_HeightInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${size.y}`, 4, true)
-        this.m_HeightInput.position.set(244, ROW_HEIGHT + 4)
+        this.m_HeightInput.position.set(COL2_X, ROW_HEIGHT + 4)
         this.addChild(this.m_HeightInput)
 
         // One X/Y pair on the "Grid position" row itself - Absolute/Relative
         // below are only the choice of whether it applies, not a value each.
         this.addChild(makeLabel('Grid position', 0, ROW_HEIGHT * 2 + 8))
 
-        this.addChild(makeLabel('X:', 196, ROW_HEIGHT * 2 + 8))
+        this.addChild(makeFieldLabel('X:', COL1_X, ROW_HEIGHT * 2 + 8))
         this.m_XInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${position.x}`, 5, true)
-        this.m_XInput.position.set(220, ROW_HEIGHT * 2 + 4)
+        this.m_XInput.position.set(COL1_X, ROW_HEIGHT * 2 + 4)
         // Non-negative via `numericOnly` above isn't right for an offset - a
         // blueprint's grid position can sit either side of the grid it snaps
         // to - so this widens the restriction to an optional leading minus.
         this.m_XInput.restrict = /^-?\d*$/
         this.addChild(this.m_XInput)
 
-        this.addChild(makeLabel('Y:', 280, ROW_HEIGHT * 2 + 8))
+        this.addChild(makeFieldLabel('Y:', COL2_X, ROW_HEIGHT * 2 + 8))
         this.m_YInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${position.y}`, 5, true)
-        this.m_YInput.position.set(304, ROW_HEIGHT * 2 + 4)
+        this.m_YInput.position.set(COL2_X, ROW_HEIGHT * 2 + 4)
         this.m_YInput.restrict = /^-?\d*$/
         this.addChild(this.m_YInput)
 
@@ -118,14 +143,14 @@ export class BlueprintAlignment extends Container {
         // Absolute is the active choice, so this matches that rather than
         // leaving the row permanently greyed out next to "Grid position"'s
         // genuinely-live X/Y above.
-        this.addChild(makeLabel('X:', 196, ROW_HEIGHT * 3 + 8))
+        this.addChild(makeFieldLabel('X:', COL1_X, ROW_HEIGHT * 3 + 8))
         this.m_AbsoluteXInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
-        this.m_AbsoluteXInput.position.set(220, ROW_HEIGHT * 3 + 4)
+        this.m_AbsoluteXInput.position.set(COL1_X, ROW_HEIGHT * 3 + 4)
         this.addChild(this.m_AbsoluteXInput)
 
-        this.addChild(makeLabel('Y:', 280, ROW_HEIGHT * 3 + 8))
+        this.addChild(makeFieldLabel('Y:', COL2_X, ROW_HEIGHT * 3 + 8))
         this.m_AbsoluteYInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
-        this.m_AbsoluteYInput.position.set(304, ROW_HEIGHT * 3 + 4)
+        this.m_AbsoluteYInput.position.set(COL2_X, ROW_HEIGHT * 3 + 4)
         this.addChild(this.m_AbsoluteYInput)
 
         this.m_RelativeRadio = new RadioButton(!blueprint.absoluteSnapping, 'Relative')
