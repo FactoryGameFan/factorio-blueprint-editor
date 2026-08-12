@@ -138,12 +138,16 @@ export class ToolsPanel extends Panel {
      * dialog would have anything to show. Undo/Redo (Ctrl+Z/Ctrl+Y) call
      * `G.bp.history` directly, the same as their keybinds in Editor.ts -
      * unlike the clipboard/file actions, undoing a change needs nothing
-     * outside the editor package. Import/Export/Undo/Redo use the game's own
-     * GUI sprites and signal icons - `signal-anticlockwise-circle-arrow`/
-     * `signal-clockwise-circle-arrow`, a Space Age virtual signal, is the
-     * only "undo"/"redo"-shaped icon anywhere in vanilla Factorio's data,
-     * item or utility sprite alike; Alt has no icon anywhere in the game's
-     * data at all, since the game spells its own key hints out as text.
+     * outside the editor package. Import/Export/Undo/Redo/export-image use
+     * the game's own GUI sprites and signal icons -
+     * `signal-anticlockwise-circle-arrow`/`signal-clockwise-circle-arrow`, a
+     * Space Age virtual signal, is the only "undo"/"redo"-shaped icon
+     * anywhere in vanilla Factorio's data, item or utility sprite alike, and
+     * `downloading` (a mip GUI icon, hence `CreateUtilitySpriteIcon` reading
+     * `size` as well as `width`/`height`) reads as "save this out" more than
+     * the blueprint icon it replaced did. Alt has no icon anywhere in the
+     * game's data at all, since the game spells its own key hints out as
+     * text.
      */
     public generateSlots(): void {
         const altSlot = new ActionSlot(createTextIcon('ALT'), () =>
@@ -179,7 +183,9 @@ export class ToolsPanel extends Panel {
             new ActionSlot(F.CreateIcon('signal-clockwise-circle-arrow'), () =>
                 G.bp.history.redo()
             ),
-            new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.downloading), () =>
+                G.quickActions.exportImage()
+            ),
         ]
 
         for (const [i, slot] of cells.entries()) {

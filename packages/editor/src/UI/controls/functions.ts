@@ -375,20 +375,27 @@ function rgbToColorSource(r: number, g: number, b: number): ColorSource {
  * Takes the resolved sprite (e.g. `FD.utilitySprites.import_slot`) rather
  * than a key: `UtilitySprites[K]` for a generic `K` collapses to the union
  * of every field's type - `Sprite | Animation | CursorBoxSpecification | ...`
- * - which loses `filename`/`width`/`height` for all of them, where a plain
- * property access keeps the one field's own `Sprite` type.
+ * - which loses `filename`/`width`/`height`/`size` for all of them, where a
+ * plain property access keeps the one field's own `Sprite` type.
  *
- * `need()` on filename/width/height rather than the `data.x ?? 0` style
- * `x`/`y` get: every utility sprite this is called with is a plain single
- * icon that declares them, unlike the `layers`/`size`-tuple/mipmap shapes
- * some other utility sprites use, which this does not attempt to support -
- * a caller reaching for one of those would rather see why than get a blank
+ * Reads `width`/`height` directly rather than through `need()`, because a
+ * mip sprite (`downloading`, `refresh`, ...) declares `size` instead - a
+ * single number for a square icon, per `SpriteSource`'s own type, which is
+ * every mip icon this is called with. `data.x ?? 0`/`data.y ?? 0` stay a
+ * plain default rather than a `need()`: every utility sprite this is called
+ * with is a single flat icon, unlike the `layers`/tuple-`size` shapes some
+ * other utility sprites use, which this does not attempt to support - a
+ * caller reaching for one of those would rather see why than get a blank
  * texture.
  */
 function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = true): Sprite {
     const filename = need(data, 'filename')
-    const width = need(data, 'width')
-    const height = need(data, 'height')
+    const size = typeof data.size === 'number' ? data.size : undefined
+    const width = data.width ?? size
+    const height = data.height ?? size
+    if (width === undefined || height === undefined) {
+        throw new Error(`No width/height/size for ${filename}`)
+    }
 
     const texture = G.getTexture(filename, data.x ?? 0, data.y ?? 0, width, height)
     const sprite = new Sprite(texture)
