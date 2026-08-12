@@ -11,7 +11,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.vite-plus
-        key: vite-plus-${{ runner.os }}-0.2.6
+        key: vite-plus-${{ runner.os }}-0.2.8
 
     - name: Cache npm downloads
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -31,6 +31,6 @@ runs:
         # when intentionally upgrading the toolchain.
         curl -fsSL https://vite.plus -o vp-install.sh
         echo "58bb052c6a007e662e99667d65686251b16d6b39aa21155487da6d51280b3d54  vp-install.sh" | sha256sum -c -
-        VP_VERSION=0.2.6 VP_NODE_MANAGER=yes bash vp-install.sh
+        VP_VERSION=0.2.8 VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh

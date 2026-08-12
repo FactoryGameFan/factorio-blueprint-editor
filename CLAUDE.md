@@ -99,7 +99,7 @@ cd packages/website && npm run build:analyze
 
 ## Vite+ Toolchain
 
-`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.6 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
+`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.8 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
 
 ## Git and PR Conventions
 
@@ -525,15 +525,39 @@ justifies a hold expires without anyone editing this file.
 
 ### Coupled - these move together or not at all
 
-- **`vite-plus` 0.2.6 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
+- **`vite-plus` 0.2.8 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
   and Vitest are **not independently upgradable** - there is no `vite` package in
   the tree at all, the root `overrides` aliases it
-  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"`). So "bump vitest" has no
-  answer except "bump vite-plus". **0.2.6 is `latest`, not a lagging pin.**
+  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.8"`). So "bump vitest" has no
+  answer except "bump vite-plus". 0.2.8 is `latest`, measured 2026-08-11.
+  **Renovate tracks it now, on a 24-hour cooldown** - it did not until
+  2026-08-11, and the thirteen days it did not are the reason this entry is
+  worth reading. `renovate.json5` had it `enabled: false`, so the pin sat at
+  0.2.6 while 0.2.7 and 0.2.8 shipped, under a note in this file and a comment
+  in that one both asserting 0.2.6 was `latest`. Both were true when written and
+  neither could notice it had stopped being true. **A hold enforced only by a
+  sentence is not a hold.** Re-measure with `npm view vite-plus dist-tags`
+  rather than trusting the number above.
+- **What made the disable look justified was half right, and the wrong half was
+  backwards.** The stated fear was that Renovate would bump the manifests and
+  leave `.github/actions/setup-vp/action.yml` behind - green, and wrong. The
+  `VP_VERSION` half of that is real: CI's `vp` CLI comes from that line while
+  `vp install` reads the lockfile, so the two can end up a release apart with
+  every check passing. Two `customManagers` in `renovate.json5` now move
+  `VP_VERSION` and the cache key in the same PR. The **checksum** half was the
+  backwards part: a stale installer sha256 cannot pass silently, because the
+  action runs `sha256sum -c -` and a mismatch **fails the step**. It is the one
+  self-guarding piece, and it was the one cited as unguardable. Ask whether a
+  thing is checked before citing it as a reason to automate nothing.
 - The pin appears in **five** places that must move as one: root, editor and
   website `package.json`; the root `overrides`; and
   `.github/actions/setup-vp/action.yml`, which carries both `VP_VERSION`, a cache
   key, **and a sha256 of the installer script** - the part people forget.
+  Measured across 0.2.6 -> 0.2.8, the installer checksum did **not** move: it
+  pins the mutable bootstrap script at `https://vite.plus`, which is versioned
+  independently of the toolchain, so a bump usually touches `VP_VERSION` and the
+  cache key and leaves the hash alone. Re-fetch and re-hash anyway rather than
+  assuming - the whole point of the pin is that the script can change silently.
 - **`@playwright/test`** needs `npx playwright install` in the same commit as any
   bump, or every spec fails on a missing `chrome-headless-shell` and reads as a
   suite-wide regression.
