@@ -220,10 +220,18 @@ jobs:
     # cancelled shards answer that question much less well than three finished
     # ones.
     #
-    # Note Playwright splits shards by test count, not by duration, and these
-    # specs are nowhere near uniform - the corpus-wide ones (sprite-data,
-    # entity-accessors, blueprint-round-trip) dwarf the rest. So expect uneven
-    # shards, and read the slowest one as the wall clock rather than the mean.
+    # Measured on this job's own first run: the four legs took 201/187/192/213s
+    # wall clock, of which 160/144/144/153 were specs. So 774s becomes 213 - the
+    # slowest leg is the wall clock, not the mean - a 3.6x speedup for 561s
+    # saved, and the deploy behind it waits three and a half minutes rather than
+    # thirteen.
+    #
+    # Playwright splits shards by test count rather than by duration, and the
+    # specs here are nowhere near uniform - the corpus-wide ones (sprite-data,
+    # entity-accessors, blueprint-round-trip) dwarf the rest - so the honest
+    # prediction was lopsided legs. Measured, they land within 11% of each
+    # other. Recorded because the prediction was wrong and the next person
+    # sizing a shard count should trust the numbers over the reasoning.
     strategy:
       fail-fast: false
       matrix:
@@ -336,11 +344,11 @@ jobs:
     # dropping `position-relative-to-grid` is the worked example, and `checks`
     # was green on it. Without `e2e` here, exactly that could reach
     # fbe.factorygamefan.com. The price is the deploy's critical path growing by
-    # the length of the suite - measured at 774s on the first push run, so a
-    # deploy that used to start after 46s of `checks` now waits about 13
-    # minutes. That is the real cost of this line, and it is 2.6x what a local
-    # timing suggested; if it ever stops being worth paying, this is the gate to
-    # reconsider rather than the job.
+    # the length of the suite's slowest shard - measured at 213s, so a deploy
+    # that used to start after 46s of `checks` now waits about three and a half
+    # minutes. It was thirteen before the suite was sharded across four runners,
+    # which is most of why it was. If the wait ever stops being worth paying,
+    # this is the gate to reconsider rather than the job.
     needs: [checks, e2e]
     # Gate deploys on green checks. Runs on push to the deploy branch, or on a
     # manual dispatch with the deploy input set; never on pull requests.
