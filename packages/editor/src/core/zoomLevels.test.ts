@@ -14,8 +14,9 @@ import {
 /*
     The zoom ladder (#206). Pure and FD-free, so it runs under `vp test` in CI -
     the fast gate, seconds inside `checks`, rather than the browser suite, which
-    also runs in CI now but costs three and a half minutes and two dev servers on
-    each of four runners to get there - measured at 213s for its slowest shard.
+    also runs in CI now but costs close to four minutes and two dev servers on
+    each of four runners to get there - its slowest shard measured 213s and 225s
+    over two runs.
     When this was written it was the ladder's only gate at all, Playwright
     running nowhere but a laptop (#210).
 

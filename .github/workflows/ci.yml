@@ -220,11 +220,12 @@ jobs:
     # cancelled shards answer that question much less well than three finished
     # ones.
     #
-    # Measured on this job's own first run: the four legs took 201/187/192/213s
-    # wall clock, of which 160/144/144/153 were specs. So 774s becomes 213 - the
-    # slowest leg is the wall clock, not the mean - a 3.6x speedup for 561s
-    # saved, and the deploy behind it waits three and a half minutes rather than
-    # thirteen.
+    # Measured over this job's own two runs: 201/187/192/213s and then
+    # 214/168/220/225s, of which 160/144/144/153 were specs the first time. The
+    # slowest leg is the wall clock, not the mean, so 774s becomes 213-225 - call
+    # it a 3.5x speedup, and the deploy behind it waits under four minutes rather
+    # than thirteen. Two samples rather than one because the first run's 213
+    # would have read as precision the number does not have.
     #
     # Playwright splits shards by test count rather than by duration, and the
     # specs here are nowhere near uniform - the corpus-wide ones (sprite-data,
@@ -344,9 +345,9 @@ jobs:
     # dropping `position-relative-to-grid` is the worked example, and `checks`
     # was green on it. Without `e2e` here, exactly that could reach
     # fbe.factorygamefan.com. The price is the deploy's critical path growing by
-    # the length of the suite's slowest shard - measured at 213s, so a deploy
-    # that used to start after 46s of `checks` now waits about three and a half
-    # minutes. It was thirteen before the suite was sharded across four runners,
+    # the length of the suite's slowest shard - measured at 213s and 225s over
+    # two runs, so a deploy that used to start after 46s of `checks` now waits
+    # under four minutes. It was thirteen before the suite was sharded across four runners,
     # which is most of why it was. If the wait ever stops being worth paying,
     # this is the gate to reconsider rather than the job.
     needs: [checks, e2e]
