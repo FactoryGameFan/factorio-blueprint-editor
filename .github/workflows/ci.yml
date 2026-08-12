@@ -184,9 +184,141 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
+  # The Playwright suite, which until now ran nowhere but a maintainer's laptop.
+  # That gap was not theoretical: PR #222 arrived with every check green and a
+  # `blueprint-round-trip.spec.ts` failure in it, dropping `position-relative-to-grid`
+  # from every absolutely-snapped blueprint - 325 of the corpus's 367. `vp check`
+  # and `vp test` cannot see any of that, because the whole decode -> model ->
+  # serialize path needs `FD` loaded, which needs a browser and the sprite server.
+  #
+  # It needs no Factorio and no network beyond npm: the corpus is committed under
+  # test-blueprints/ and the sprite data under packages/exporter/data/output, so
+  # this stays as offline as the rest of CI.
+  #
+  # A separate job rather than steps in `checks`, for the same reason `rust` is:
+  # it runs in parallel instead of adding thirteen minutes to that job's wall
+  # clock, `checks` itself being 46s.
+  # `deploy` waits on this as well as on `checks` - see the note there.
+  e2e:
+    name: Playwright
+    runs-on: ubuntu-latest
+    # Measured on the first push run: 774s, just under 13 minutes, against 4.6
+    # locally - a GitHub runner is about 2.8x slower at this than an M-series
+    # laptop, which is worth knowing before anyone sizes a timeout off a local
+    # run again. `workers: 1` is not a knob to turn up for it: playwright.config.ts
+    # sets that on purpose, since the specs share ports 8080/8081 and a single
+    # editor. 30 leaves room for a slow runner and a cold browser download
+    # without being so loose that a hung suite sits for an hour.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Vite+
+        uses: ./.github/actions/setup-vp
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      # Pinned by the lockfile like everything else, and cached on the browser
+      # revision rather than on the declared range: `@playwright/test` is a caret
+      # dependency, so the resolved version - and with it the browser build the
+      # runner needs - can move without package.json changing. Keying on the
+      # resolved version is what makes a stale cache impossible; keying on
+      # `^1.62.0` would serve yesterday's browser to today's Playwright, which
+      # fails as a missing chrome-headless-shell executable and reads as a
+      # suite-wide regression rather than a cache miss.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # --with-deps is skipped above on a cache hit, but the OS packages it
+      # installs do not survive in the cache - only the browser does. This puts
+      # them back without re-downloading the browser.
+      - name: Install browser system dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # The same script a maintainer runs locally, rather than a second copy of
+      # "how to start the two servers" that can drift from it. It refuses to
+      # start if either port is taken and ties both lifetimes together, so a
+      # half-started pair fails here instead of presenting as /data 502s inside
+      # the specs.
+      #
+      # `serve` is a declared devDependency rather than something localpreview's
+      # `npx --yes` fetches fresh, which it was until this job existed. Unpinned
+      # was tolerable while that command only ever ran on a laptop; as a CI
+      # dependency it is a package resolved at run time that the lockfile has no
+      # opinion about, and the whole point of `vp install --frozen-lockfile` two
+      # steps up is that nothing else in the run is. It costs ~990 lines of
+      # lockfile for a dev-only static file server, and buys a reproducible
+      # sprite server plus Renovate tracking the thing.
+      #
+      # stdout is redirected to a file rather than inherited, which is not
+      # cosmetic: a backgrounded process holding the step's stdout pipe open can
+      # stop that step from ever completing. The log is uploaded with the report
+      # on failure, since "the specs all failed" and "the sprite server never
+      # started" look identical from the Playwright output alone.
+      - name: Start dev servers
+        run: nohup npm run localpreview > /tmp/localpreview.log 2>&1 &
+
+      # localpreview exits non-zero on a port clash but otherwise never returns,
+      # so readiness has to be waited for rather than awaited. Both ports, since
+      # Vite comes up first and the specs need the sprite server too.
+      - name: Wait for both servers
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:8080 \
+              && curl -sf -o /dev/null http://localhost:8081; then
+              echo "both servers up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "servers did not come up within 60s" >&2
+          echo "--- localpreview log ---" >&2
+          cat /tmp/localpreview.log >&2 || true
+          exit 1
+
+      - name: Run Playwright specs
+        run: npx playwright test
+
+      - name: Upload report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/localpreview.log
+          retention-days: 7
+
   deploy:
     name: Deploy to Cloudflare
-    needs: checks
+    # Both gates, not just `checks`. The class of bug this adds cover for is the
+    # one that motivated the `e2e` job: a change that type-checks, lints and
+    # passes every unit test while breaking the editor in a browser - PR #222
+    # dropping `position-relative-to-grid` is the worked example, and `checks`
+    # was green on it. Without `e2e` here, exactly that could reach
+    # fbe.factorygamefan.com. The price is the deploy's critical path growing by
+    # the length of the suite - measured at 774s on the first push run, so a
+    # deploy that used to start after 46s of `checks` now waits about 13
+    # minutes. That is the real cost of this line, and it is 2.6x what a local
+    # timing suggested; if it ever stops being worth paying, this is the gate to
+    # reconsider rather than the job.
+    needs: [checks, e2e]
     # Gate deploys on green checks. Runs on push to the deploy branch, or on a
     # manual dispatch with the deploy input set; never on pull requests.
     if: >-
