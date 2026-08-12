@@ -10,7 +10,8 @@
     was written that was the only gate the ladder had, Playwright running nowhere
     but a laptop (#210); the browser suite runs in CI now, but the split still
     earns its keep - `vp test` answers in seconds where the browser job takes
-    five minutes and two dev servers to say the same thing about arithmetic.
+    thirteen minutes and two dev servers to say the same thing about arithmetic
+    - measured at 774s on a runner, against 4.6 locally.
 */
 
 /**

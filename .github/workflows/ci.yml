@@ -196,15 +196,19 @@ jobs:
   # this stays as offline as the rest of CI.
   #
   # A separate job rather than steps in `checks`, for the same reason `rust` is:
-  # it runs in parallel instead of adding five minutes to that job's wall clock.
+  # it runs in parallel instead of adding thirteen minutes to that job's wall
+  # clock, `checks` itself being 46s.
   # `deploy` waits on this as well as on `checks` - see the note there.
   e2e:
     name: Playwright
     runs-on: ubuntu-latest
-    # The suite is ~5 minutes locally at workers: 1, which playwright.config.ts
-    # sets on purpose - the specs share ports 8080/8081 and a single editor, so
-    # parallelising them is not a knob that can simply be turned up. Doubled for
-    # a slower runner, plus the browser download.
+    # Measured on the first push run: 774s, just under 13 minutes, against 4.6
+    # locally - a GitHub runner is about 2.8x slower at this than an M-series
+    # laptop, which is worth knowing before anyone sizes a timeout off a local
+    # run again. `workers: 1` is not a knob to turn up for it: playwright.config.ts
+    # sets that on purpose, since the specs share ports 8080/8081 and a single
+    # editor. 30 leaves room for a slow runner and a cold browser download
+    # without being so loose that a hung suite sits for an hour.
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -309,7 +313,11 @@ jobs:
     # dropping `position-relative-to-grid` is the worked example, and `checks`
     # was green on it. Without `e2e` here, exactly that could reach
     # fbe.factorygamefan.com. The price is the deploy's critical path growing by
-    # the length of the suite, about five minutes.
+    # the length of the suite - measured at 774s on the first push run, so a
+    # deploy that used to start after 46s of `checks` now waits about 13
+    # minutes. That is the real cost of this line, and it is 2.6x what a local
+    # timing suggested; if it ever stops being worth paying, this is the gate to
+    # reconsider rather than the job.
     needs: [checks, e2e]
     # Gate deploys on green checks. Runs on push to the deploy branch, or on a
     # manual dispatch with the deploy input set; never on pull requests.
