@@ -93,7 +93,7 @@ export class ImportDialog extends Dialog {
             APPEND_Y,
             WIDTH,
             'Append',
-            'Adds the one above on top of the current blueprint.',
+            'Allows to add the one above on top of the current blueprint.',
             () => {
                 G.quickActions.importAppend(this.m_TextInput.text)
                 this.close()
