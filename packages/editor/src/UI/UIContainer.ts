@@ -6,13 +6,13 @@ import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { ImportDialog } from './ImportDialog'
 import { ExportDialog } from './ExportDialog'
-import { WiresPanel } from './WiresPanel'
+import { ToolsPanel } from './ToolsPanel'
 import { createEditor } from './editors/factory'
 
 export class UIContainer extends Container {
     private debugContainer: DebugContainer
     public quickbarPanel: QuickbarPanel
-    private wiresPanel: WiresPanel
+    private toolsPanel: ToolsPanel
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
@@ -24,7 +24,7 @@ export class UIContainer extends Container {
 
         this.debugContainer = new DebugContainer()
         this.quickbarPanel = new QuickbarPanel(2)
-        this.wiresPanel = new WiresPanel()
+        this.toolsPanel = new ToolsPanel()
         this.entityInfoPanel = new EntityInfoPanel()
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
@@ -37,7 +37,7 @@ export class UIContainer extends Container {
         )
 
         if (!isMobile.any) {
-            this.addChild(this.quickbarPanel, this.wiresPanel)
+            this.addChild(this.quickbarPanel, this.toolsPanel)
         }
     }
 
@@ -87,7 +87,7 @@ export class UIContainer extends Container {
     }
 
     /**
-     * Opens ImportDialog, or closes it if it is already open - the WiresPanel
+     * Opens ImportDialog, or closes it if it is already open - the ToolsPanel
      * button that reaches this is a single toggle, not a spawner, so a
      * second click has to answer "close" rather than stacking a second copy
      * on top of the first.

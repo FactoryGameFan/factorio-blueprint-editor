@@ -134,15 +134,15 @@ for (const p of params) {
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
 /**
- * The four actions WiresPanel's quick-action buttons trigger through
+ * The four actions ToolsPanel's quick-action buttons trigger through
  * `G.quickActions` (see `QuickActions` in `packages/editor/src/common/globals.ts`) -
  * the same logic the `copy`/`paste` document listeners and the
  * `appendBlueprint`/`takePicture` keybinds below call, extracted so both the
  * keyboard and the button reach one implementation instead of two.
  *
  * `importReplace`/`importAppend` read the OS clipboard when called with no
- * argument - a key press or a WiresPanel button - or use `source` directly
- * when ImportExportDialog's textarea calls them, which never touches the
+ * argument - a key press or a ToolsPanel button - or use `source` directly
+ * when ImportDialog's textarea calls them, which never touches the
  * clipboard at all.
  */
 function importReplace(source?: string): void {
@@ -189,7 +189,7 @@ function exportImage(): boolean {
     return true
 }
 
-/** For ImportExportDialog's textarea - the same guard `exportString` uses,
+/** For ExportDialog's textarea - the same guard `exportString` uses,
  * but handing back the string instead of writing it to the clipboard. */
 function encodeCurrent(): Promise<string | undefined> {
     if (bp.isEmpty()) return Promise.resolve(undefined)

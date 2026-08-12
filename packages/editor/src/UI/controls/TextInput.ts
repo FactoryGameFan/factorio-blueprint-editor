@@ -537,9 +537,10 @@ export class TextInput extends OriginalTextInput {
         text: string,
         maxLength: number,
         numericOnly = false,
-        // For ImportExportDialog's textarea: OriginalTextInput already supports
-        // a multiline (textarea) mode, but nothing before that dialog needed it
-        // through this wrapper, so it stopped at the single-line `<input>`.
+        // For ImportDialog/ExportDialog's textarea: OriginalTextInput already
+        // supports a multiline (textarea) mode, but nothing before those
+        // dialogs needed it through this wrapper, so it stopped at the
+        // single-line `<input>`.
         multiline = false,
         height?: number
     ) {

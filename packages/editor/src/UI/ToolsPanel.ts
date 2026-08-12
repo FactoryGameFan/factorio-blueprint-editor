@@ -68,12 +68,13 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
     allows.
 
     Each action pairs with the wire below it - open-Import/copper-wire,
-    open-Export/red-wire, export-image/green-wire.
+    open-Export/red-wire, export-image/green-wire - except the last column,
+    Undo/Redo, which has no wire to pair with and doesn't need one.
 */
 const ROWS = 2
-const CELL_COUNT = WIRES.length + 3
+const CELL_COUNT = WIRES.length + 5
 
-export class WiresPanel extends Panel {
+export class ToolsPanel extends Panel {
     private slotsContainer: Container
     public static Wires = WIRES
 
@@ -95,15 +96,18 @@ export class WiresPanel extends Panel {
     }
 
     /**
-     * The wire slots and the import/export quick actions in one interleaved
-     * grid - see the comment on `ROWS` for the layout and why it wraps
-     * instead of running in a single row. Opening ImportDialog/ExportDialog
-     * is how paste and copy (and, inside ImportDialog, Ctrl+Shift+V) become
-     * reachable without already knowing the shortcut; export-to-image (Ctrl+S)
-     * stays a direct one-click action since it produces a PNG rather than a
-     * string a dialog would have anything to show. Icons are the game's own
-     * GUI sprites rather than repurposed item icons, since nothing in the
-     * item list means "import" or "export".
+     * The wire slots and the import/export/undo/redo quick actions in one
+     * interleaved grid - see the comment on `ROWS` for the layout and why it
+     * wraps instead of running in a single row. Opening ImportDialog/
+     * ExportDialog is how paste and copy (and, inside ImportDialog,
+     * Ctrl+Shift+V) become reachable without already knowing the shortcut;
+     * export-to-image (Ctrl+S) stays a direct one-click action since it
+     * produces a PNG rather than a string a dialog would have anything to
+     * show. Undo/Redo (Ctrl+Z/Ctrl+Y) call `G.bp.history` directly, the same
+     * as their keybinds in Editor.ts - unlike the clipboard/file actions,
+     * undoing a change needs nothing outside the editor package. Icons are
+     * the game's own GUI sprites rather than repurposed item icons, since
+     * nothing in the item list means "import", "export" or "undo".
      */
     public generateSlots(): void {
         const cells: Container[] = [
@@ -117,6 +121,12 @@ export class WiresPanel extends Panel {
             new WireSlot(WIRES[1]),
             new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
             new WireSlot(WIRES[2]),
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.left_arrow), () =>
+                G.bp.history.undo()
+            ),
+            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.right_arrow), () =>
+                G.bp.history.redo()
+            ),
         ]
 
         for (const [i, slot] of cells.entries()) {

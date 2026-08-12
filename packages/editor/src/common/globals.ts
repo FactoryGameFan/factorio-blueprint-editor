@@ -16,14 +16,14 @@ export type Logger = (msg: ILogMessage) => void
 /**
  * The clipboard/file actions that only ever existed as keyboard shortcuts -
  * paste to replace, Ctrl+Shift+V to append, copy to export, Ctrl+S for an
- * image - exposed so WiresPanel's quick-action buttons can trigger the exact
+ * image - exposed so ToolsPanel's quick-action buttons can trigger the exact
  * same website-level logic a key press does, rather than the editor package
  * reaching for `navigator.clipboard`/`FileSaver` itself.
  */
 export interface QuickActions {
     /** Reads the OS clipboard when `source` is omitted - a key press or a
-     * WiresPanel button - or uses `source` directly, which is what
-     * ImportExportDialog's textarea passes instead of going through the
+     * ToolsPanel button - or uses `source` directly, which is what
+     * ImportDialog's textarea passes instead of going through the
      * clipboard at all. */
     importReplace: (source?: string) => void
     /** Same as `importReplace` re: `source`. */
@@ -32,7 +32,7 @@ export interface QuickActions {
     exportImage: () => void
     /**
      * The loaded blueprint (or book) encoded as a string, for
-     * ImportExportDialog to show in its textarea - undefined when the
+     * ExportDialog to show in its textarea - undefined when the
      * blueprint is empty, the same guard `exportString`/`exportImage` use
      * before doing anything.
      */

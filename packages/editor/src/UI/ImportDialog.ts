@@ -12,7 +12,7 @@ const ROW_HEIGHT = 38
 const HEIGHT = ROW_Y + ROW_HEIGHT + ROW_BUTTON_HEIGHT + PADDING
 
 /**
- * A textarea alternative to WiresPanel's one-click import buttons, for a
+ * A textarea alternative to ToolsPanel's one-click import buttons, for a
  * browser that blocks `navigator.clipboard`, or a string being hand-edited
  * rather than pasted whole.
  *
