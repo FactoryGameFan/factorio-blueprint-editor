@@ -1,11 +1,11 @@
-import { Container } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import FD from '../core/factorioData'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
 import F from './controls/functions'
-import { colors } from './style'
+import { colors, styles } from './style'
 
 /*
     Slot<string>, not the Slot<string | undefined> QuickbarSlot uses. The two
@@ -54,6 +54,18 @@ class ActionSlot extends Slot<undefined> {
     }
 }
 
+/**
+ * A text-labelled slot, for Alt - there is no "ALT"-shaped icon anywhere in
+ * vanilla Factorio's sprites, since the game spells its own key hints out as
+ * text rather than drawing them (see ToolsPanel's `generateSlots` doc for the
+ * icons that do exist).
+ */
+function createTextIcon(text: string): Container {
+    const label = new Text({ text, style: styles.controls.checkbox })
+    label.anchor.set(0.5)
+    return label
+}
+
 const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 
 /*
@@ -67,12 +79,13 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
     into a second row instead keeps the panel as narrow as the action count
     allows.
 
-    Each action pairs with the wire below it - open-Import/copper-wire,
-    open-Export/red-wire, export-image/green-wire - except the last column,
-    Undo/Redo, which has no wire to pair with and doesn't need one.
+    Each action pairs with the wire below it - Alt/copper-wire,
+    open-Import/green-wire, open-Export/red-wire, Undo/Redo - except the
+    last column, export-image, which has no wire to pair with and doesn't
+    need one.
 */
 const ROWS = 2
-const CELL_COUNT = WIRES.length + 5
+const CELL_COUNT = WIRES.length + 6
 
 export class ToolsPanel extends Panel {
     private slotsContainer: Container
@@ -96,39 +109,46 @@ export class ToolsPanel extends Panel {
     }
 
     /**
-     * The wire slots and the import/export/undo/redo quick actions in one
-     * interleaved grid - see the comment on `ROWS` for the layout and why it
-     * wraps instead of running in a single row. Opening ImportDialog/
-     * ExportDialog is how paste and copy (and, inside ImportDialog,
-     * Ctrl+Shift+V) become reachable without already knowing the shortcut;
-     * export-to-image (Ctrl+S) stays a direct one-click action since it
-     * produces a PNG rather than a string a dialog would have anything to
-     * show. Undo/Redo (Ctrl+Z/Ctrl+Y) call `G.bp.history` directly, the same
-     * as their keybinds in Editor.ts - unlike the clipboard/file actions,
-     * undoing a change needs nothing outside the editor package. Import/
-     * Export/Undo/Redo use the game's own GUI sprites and signal icons -
-     * `signal-anticlockwise-circle-arrow`/`signal-clockwise-circle-arrow`,
-     * a Space Age virtual signal, is the only "undo"/"redo"-shaped icon
-     * anywhere in vanilla Factorio's data, item or utility sprite alike.
+     * The wire slots and the Alt/import/export/undo/redo/export-image quick
+     * actions in one interleaved grid - see the comment on `ROWS` for the
+     * layout and why it wraps instead of running in a single row. Alt does
+     * exactly what `AltLeft` does in Editor.ts's keybinds -
+     * `overlayContainer.toggleEntityInfoVisibility()` - so a touch/no-keyboard
+     * user can reach it too. Opening ImportDialog/ExportDialog is how paste
+     * and copy (and, inside ImportDialog, Ctrl+Shift+V) become reachable
+     * without already knowing the shortcut; export-to-image (Ctrl+S) stays a
+     * direct one-click action since it produces a PNG rather than a string a
+     * dialog would have anything to show. Undo/Redo (Ctrl+Z/Ctrl+Y) call
+     * `G.bp.history` directly, the same as their keybinds in Editor.ts -
+     * unlike the clipboard/file actions, undoing a change needs nothing
+     * outside the editor package. Import/Export/Undo/Redo use the game's own
+     * GUI sprites and signal icons - `signal-anticlockwise-circle-arrow`/
+     * `signal-clockwise-circle-arrow`, a Space Age virtual signal, is the
+     * only "undo"/"redo"-shaped icon anywhere in vanilla Factorio's data,
+     * item or utility sprite alike; Alt has no icon anywhere in the game's
+     * data at all, since the game spells its own key hints out as text.
      */
     public generateSlots(): void {
         const cells: Container[] = [
+            new ActionSlot(createTextIcon('ALT'), () =>
+                G.BPC.overlayContainer.toggleEntityInfoVisibility()
+            ),
+            new WireSlot(WIRES[0]),
             new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot), () =>
                 G.UI.toggleImportDialog()
             ),
-            new WireSlot(WIRES[0]),
+            new WireSlot(WIRES[2]),
             new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot), () =>
                 G.UI.toggleExportDialog()
             ),
             new WireSlot(WIRES[1]),
-            new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
-            new WireSlot(WIRES[2]),
             new ActionSlot(F.CreateIcon('signal-anticlockwise-circle-arrow'), () =>
                 G.bp.history.undo()
             ),
             new ActionSlot(F.CreateIcon('signal-clockwise-circle-arrow'), () =>
                 G.bp.history.redo()
             ),
+            new ActionSlot(F.CreateIcon('blueprint'), () => G.quickActions.exportImage()),
         ]
 
         for (const [i, slot] of cells.entries()) {
