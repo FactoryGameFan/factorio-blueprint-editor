@@ -22,6 +22,21 @@ function makeLabel(text: string, x: number, y: number): Text {
 }
 
 /**
+ * `.disabled` (the real DOM `disabled` attribute underneath) already stops
+ * typing, but doesn't dim anything - TextInput's own box config comments out
+ * its `disabled` style, and `.alpha` only reaches the box graphic, not the
+ * DOM text: `_updateDOMInput`'s `opacity` line is commented out too, citing
+ * a pixi.js worldAlpha/DOM sync issue (see TextInput.ts). `setInputStyle`
+ * goes straight to the DOM element's own CSS instead, so this dims both
+ * halves the two other routes miss one of.
+ */
+function setFieldEnabled(input: TextInput, enabled: boolean): void {
+    input.disabled = !enabled
+    input.alpha = enabled ? 1 : 0.5
+    input.setInputStyle('opacity', enabled ? '1' : '0.5')
+}
+
+/**
  * The blueprint's own grid-snapping settings - `snap-to-grid`,
  * `absolute-snapping` and `position-relative-to-grid` in the blueprint
  * string, which the editor has always round-tripped on import/export without
@@ -102,13 +117,13 @@ export class BlueprintAlignment extends Container {
         this.addChild(makeLabel('X:', 196, ROW_HEIGHT * 3 + 8))
         const absoluteXInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
         absoluteXInput.position.set(220, ROW_HEIGHT * 3 + 4)
-        absoluteXInput.disabled = true
+        setFieldEnabled(absoluteXInput, false)
         this.addChild(absoluteXInput)
 
         this.addChild(makeLabel('Y:', 280, ROW_HEIGHT * 3 + 8))
         const absoluteYInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
         absoluteYInput.position.set(304, ROW_HEIGHT * 3 + 4)
-        absoluteYInput.disabled = true
+        setFieldEnabled(absoluteYInput, false)
         this.addChild(absoluteYInput)
 
         this.m_RelativeRadio = new RadioButton(!blueprint.absoluteSnapping, 'Relative')
@@ -193,8 +208,8 @@ export class BlueprintAlignment extends Container {
 
     private refreshEnabled(): void {
         const gridEnabled = this.m_Blueprint.snapToGrid !== undefined
-        this.m_WidthInput.disabled = !gridEnabled
-        this.m_HeightInput.disabled = !gridEnabled
+        setFieldEnabled(this.m_WidthInput, gridEnabled)
+        setFieldEnabled(this.m_HeightInput, gridEnabled)
 
         this.m_AbsoluteRadio.eventMode = gridEnabled ? 'static' : 'none'
         this.m_AbsoluteRadio.alpha = gridEnabled ? 1 : 0.5
@@ -202,8 +217,8 @@ export class BlueprintAlignment extends Container {
         this.m_RelativeRadio.alpha = gridEnabled ? 1 : 0.5
 
         const positionEnabled = gridEnabled && !this.m_Blueprint.absoluteSnapping
-        this.m_XInput.disabled = !positionEnabled
-        this.m_YInput.disabled = !positionEnabled
+        setFieldEnabled(this.m_XInput, positionEnabled)
+        setFieldEnabled(this.m_YInput, positionEnabled)
     }
 
     private onBlueprintChange<T extends EventEmitter.EventNames<BlueprintEvents>>(
