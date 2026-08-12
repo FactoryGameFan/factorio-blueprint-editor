@@ -12,9 +12,11 @@ import {
 } from './zoomLevels'
 
 /*
-    The zoom ladder (#206). Pure and FD-free, so it runs under `vp test` in CI,
-    which is the point: nothing under `tests/` reads a zoom level and Playwright
-    does not run in CI at all (#210).
+    The zoom ladder (#206). Pure and FD-free, so it runs under `vp test` in CI -
+    the fast gate, seconds inside `checks`, rather than the browser suite, which
+    also runs in CI now but costs five minutes and two dev servers to get there.
+    When this was written it was the ladder's only gate at all, Playwright
+    running nowhere but a laptop (#210).
 
     Every expectation about the ladder itself traces to
     tools/oracle/fixtures/zoom-limits.json, captured off the 2.0.77 client with a
