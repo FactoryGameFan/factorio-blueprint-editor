@@ -1,4 +1,4 @@
-import { Container, Text } from 'pixi.js'
+import { Container, Graphics, Text } from 'pixi.js'
 import FD from '../core/factorioData'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
@@ -66,6 +66,23 @@ function createTextIcon(text: string): Container {
     return label
 }
 
+const ALT_ACTIVE_COLOR = 0xf1be64
+
+/**
+ * A colour overlay toggled onto a slot to reflect a persistent on/off state,
+ * rather than the momentary hover/press one `Button` already draws. Used for
+ * Alt, so the button shows whether entity info is visible even when the
+ * state last changed through the `AltLeft` keybind rather than a click here.
+ * Inserted just below the slot's own content (added last, so it's the final
+ * child) so the icon/text stays legible on top of it.
+ */
+function addToggleHighlight(slot: Container, color: number): Graphics {
+    const highlight = new Graphics().rect(0, 0, 36, 36).fill(color)
+    highlight.visible = false
+    slot.addChildAt(highlight, slot.children.length - 1)
+    return highlight
+}
+
 const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 
 /*
@@ -129,10 +146,24 @@ export class ToolsPanel extends Panel {
      * data at all, since the game spells its own key hints out as text.
      */
     public generateSlots(): void {
+        const altSlot = new ActionSlot(createTextIcon('ALT'), () =>
+            G.BPC.overlayContainer.toggleEntityInfoVisibility()
+        )
+        /*
+            Polls rather than listening for an event, because `G.BPC` - and so
+            `overlayContainer` - is a fresh instance every `loadBlueprint`
+            (Editor.ts), while this panel and its ticker callback are
+            constructed once and outlive every reload. A listener attached to
+            today's overlayContainer would go silent on the next one; reading
+            `G.BPC` fresh each frame can't go stale the same way.
+        */
+        const altHighlight = addToggleHighlight(altSlot, ALT_ACTIVE_COLOR)
+        G.app.ticker.add(() => {
+            altHighlight.visible = G.BPC.overlayContainer.entityInfoVisible
+        })
+
         const cells: Container[] = [
-            new ActionSlot(createTextIcon('ALT'), () =>
-                G.BPC.overlayContainer.toggleEntityInfoVisibility()
-            ),
+            altSlot,
             new WireSlot(WIRES[0]),
             new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot), () =>
                 G.UI.toggleImportDialog()
