@@ -132,8 +132,12 @@ export class BlueprintAlignment extends Container {
         this.m_YInput.restrict = /^-?\d*$/
         this.addChild(this.m_YInput)
 
+        // The +8 matches every field label's own y (see makeFieldLabel calls
+        // below) - RadioButton draws its label at its own local y=0, so
+        // without this the "Absolute" text sat 8px above the X:/Y: label
+        // sharing its row, not level with it.
         this.m_AbsoluteRadio = new RadioButton(blueprint.absoluteSnapping, 'Absolute')
-        this.m_AbsoluteRadio.position.set(0, ROW_HEIGHT * 3)
+        this.m_AbsoluteRadio.position.set(0, ROW_HEIGHT * 3 + 8)
         this.addChild(this.m_AbsoluteRadio)
 
         // No `Blueprint` field backs these, unlike every other input here -
@@ -153,8 +157,12 @@ export class BlueprintAlignment extends Container {
         this.m_AbsoluteYInput.position.set(COL2_X, ROW_HEIGHT * 3 + 4)
         this.addChild(this.m_AbsoluteYInput)
 
+        // Same +8 as Absolute above, for the same reason - kept even though
+        // this row has no field label of its own, so both radios sit at the
+        // same relative height within their row rather than only one of them
+        // being nudged into alignment.
         this.m_RelativeRadio = new RadioButton(!blueprint.absoluteSnapping, 'Relative')
-        this.m_RelativeRadio.position.set(0, ROW_HEIGHT * 4)
+        this.m_RelativeRadio.position.set(0, ROW_HEIGHT * 4 + 8)
         this.addChild(this.m_RelativeRadio)
 
         this.refreshEnabled()
