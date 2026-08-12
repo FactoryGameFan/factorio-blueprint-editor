@@ -10,9 +10,9 @@
     was written that was the only gate the ladder had, Playwright running nowhere
     but a laptop (#210); the browser suite runs in CI now, but the split still
     earns its keep - `vp test` answers in seconds where the browser job takes
-    close to four minutes and two dev servers on each of four runners to say the
-    same thing about arithmetic - its slowest shard measured 213s and 225s over
-    two runs.
+    three to four minutes and two dev servers on each of four runners to say the
+    same thing about arithmetic - its slowest shard measured 213s, 225s and 250s
+    over three runs.
 */
 
 /**
