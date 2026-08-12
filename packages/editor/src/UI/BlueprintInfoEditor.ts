@@ -7,6 +7,7 @@ import { Dialog } from './controls/Dialog'
 import { Slot } from './controls/Slot'
 import { TextInput } from './controls/TextInput'
 import F from './controls/functions'
+import { BlueprintAlignment } from './BlueprintAlignment'
 
 const ICON_INDICES = [1, 2, 3, 4] as const
 
@@ -58,12 +59,15 @@ class BlueprintIconSlot extends Slot<undefined> {
     }
 }
 
+const ALIGNMENT_Y = 278
+
 /**
- * Editor for the blueprint's own name, description, and icons - as opposed to
- * every other Dialog in `editors/`, which edits one placed entity. Opened via
- * the corner button (see UIContainer.toggleBlueprintInfoEditor), not through
- * `editors/factory.ts`, so it extends Dialog directly rather than Editor,
- * which requires an Entity for its preview thumbnail.
+ * Editor for the blueprint's own name, icons, description, and grid
+ * alignment - as opposed to every other Dialog in `editors/`, which edits
+ * one placed entity. Opened via the corner button (see
+ * UIContainer.toggleBlueprintInfoEditor), not through `editors/factory.ts`,
+ * so it extends Dialog directly rather than Editor, which requires an
+ * Entity for its preview thumbnail.
  *
  * `Editor.loadBlueprint` calls `Dialog.closeAll()` before swapping `G.bp`, so
  * this never needs to guard against outliving the blueprint it was opened for.
@@ -72,7 +76,7 @@ export class BlueprintInfoEditor extends Dialog {
     private readonly m_Blueprint: Blueprint
 
     public constructor(blueprint: Blueprint) {
-        super(360, 270, 'Blueprint Info')
+        super(360, ALIGNMENT_Y + BlueprintAlignment.HEIGHT + 12, 'Blueprint Info')
 
         this.m_Blueprint = blueprint
 
@@ -88,7 +92,14 @@ export class BlueprintInfoEditor extends Dialog {
             nameInput.text = this.m_Blueprint.name
         })
 
-        this.addLabel(12, 100, 'Description:')
+        this.addLabel(12, 100, 'Icons:')
+        for (const [i, index] of ICON_INDICES.entries()) {
+            const slot = new BlueprintIconSlot(blueprint, index)
+            slot.position.set(12 + i * 44, 119)
+            this.addChild(slot)
+        }
+
+        this.addLabel(12, 169, 'Description:')
         const descriptionInput = new TextInput(
             G.app.renderer,
             336,
@@ -98,7 +109,7 @@ export class BlueprintInfoEditor extends Dialog {
             true,
             70
         )
-        descriptionInput.position.set(12, 119)
+        descriptionInput.position.set(12, 188)
         this.addChild(descriptionInput)
 
         descriptionInput.on('changed', () => {
@@ -108,12 +119,9 @@ export class BlueprintInfoEditor extends Dialog {
             descriptionInput.text = this.m_Blueprint.description || ''
         })
 
-        this.addLabel(12, 199, 'Icons:')
-        for (const [i, index] of ICON_INDICES.entries()) {
-            const slot = new BlueprintIconSlot(blueprint, index)
-            slot.position.set(12 + i * 44, 218)
-            this.addChild(slot)
-        }
+        const alignment = new BlueprintAlignment(blueprint)
+        alignment.position.set(12, ALIGNMENT_Y)
+        this.addChild(alignment)
     }
 
     private onBlueprintChange<T extends EventEmitter.EventNames<BlueprintEvents>>(

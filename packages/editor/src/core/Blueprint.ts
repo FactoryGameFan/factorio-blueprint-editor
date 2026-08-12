@@ -94,6 +94,17 @@ export interface BlueprintEvents {
     name: []
     description: []
     icon: [index: 1 | 2 | 3 | 4]
+    snapToGrid: []
+    absoluteSnapping: []
+    positionRelativeToGrid: []
+}
+
+/** `IPoint`s compare by value everywhere they're read; this is the one place
+ * that needs to know whether a new one is actually a change. */
+function pointsEqual(a: IPoint | undefined, b: IPoint | undefined): boolean {
+    if (a === b) return true
+    if (a === undefined || b === undefined) return false
+    return a.x === b.x && a.y === b.y
 }
 
 /** Blueprint base class */
@@ -125,9 +136,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         editor, and nothing reads the contents.
     */
     private readonly scheduleStore: { schedules?: ISchedule[] } = {}
-    private readonly absolute_snapping?: boolean
-    private readonly snap_to_grid?: IPoint
-    private readonly position_relative_to_grid?: IPoint
+    // Boxed for the same reason as nameStore/descriptionStore above - editable
+    // now via BlueprintAlignmentEditor, so each needs a History.updateValue
+    // target `keyof this` cannot give it directly.
+    private readonly snapToGridStore: { snapToGrid?: IPoint } = {}
+    private readonly absoluteSnappingStore: { absoluteSnapping?: boolean } = {}
+    private readonly positionRelativeToGridStore: { positionRelativeToGrid?: IPoint } = {}
 
     private m_nextEntityNumber = 1
 
@@ -387,9 +401,10 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
             this.description = data.description
             this.scheduleStore.schedules = data.schedules
-            this.absolute_snapping = data['absolute-snapping']
-            this.snap_to_grid = data['snap-to-grid']
-            this.position_relative_to_grid = data['position-relative-to-grid']
+            this.snapToGridStore.snapToGrid = data['snap-to-grid']
+            this.absoluteSnappingStore.absoluteSnapping = data['absolute-snapping']
+            this.positionRelativeToGridStore.positionRelativeToGrid =
+                data['position-relative-to-grid']
         }
 
         // makes initial entities non undoable and resets the history if the user cleared the editor
@@ -427,6 +442,66 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 'Change blueprint description'
             )
             .onDone(() => this.emit('description'))
+            .commit()
+    }
+
+    /** Undefined means snapping is off - the same absence that made the
+     * blueprint string omit `snap-to-grid` in the first place. */
+    public get snapToGrid(): IPoint | undefined {
+        return this.snapToGridStore.snapToGrid
+    }
+
+    public set snapToGrid(point: IPoint | undefined) {
+        if (pointsEqual(this.snapToGridStore.snapToGrid, point)) return
+
+        this.history
+            .updateValue(this.snapToGridStore, 'snapToGrid', point, 'Change blueprint grid size')
+            .onDone(() => this.emit('snapToGrid'))
+            .commit()
+    }
+
+    /**
+     * False (relative) is Factorio's own default - confirmed by decoding a
+     * real blueprint string exported with Relative selected: the game omits
+     * `absolute-snapping` entirely rather than writing `false`, the same way
+     * it omits `position-relative-to-grid` at `{0, 0}`. Only an explicit
+     * Absolute choice serializes the key, as `true`.
+     */
+    public get absoluteSnapping(): boolean {
+        return this.absoluteSnappingStore.absoluteSnapping ?? false
+    }
+
+    public set absoluteSnapping(value: boolean) {
+        if (this.absoluteSnapping === value) return
+
+        this.history
+            .updateValue(
+                this.absoluteSnappingStore,
+                'absoluteSnapping',
+                value,
+                'Change blueprint grid position mode'
+            )
+            .onDone(() => this.emit('absoluteSnapping'))
+            .commit()
+    }
+
+    /** Only meaningful while `absoluteSnapping` is false - relative mode is
+     * what actually reads this. */
+    public get positionRelativeToGrid(): IPoint | undefined {
+        return this.positionRelativeToGridStore.positionRelativeToGrid
+    }
+
+    public set positionRelativeToGrid(point: IPoint | undefined) {
+        if (pointsEqual(this.positionRelativeToGridStore.positionRelativeToGrid, point)) return
+
+        this.history
+            .updateValue(
+                this.positionRelativeToGridStore,
+                'positionRelativeToGrid',
+                point,
+                'Change blueprint grid position'
+            )
+            .onDone(() => this.emit('positionRelativeToGrid'))
             .commit()
     }
 
@@ -953,6 +1028,28 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 index,
             }
         })
+        /*
+            Confirmed against three real exported strings (decoded by hand,
+            not guessed): with Absolute chosen, `absolute-snapping: true` is
+            written; with Relative chosen but the position left at its
+            default `{0, 0}`, neither `absolute-snapping` nor
+            `position-relative-to-grid` appears at all; with the grid off,
+            none of the three keys appear. Factorio omits each field at its
+            own default (`snap-to-grid` off, `absolute-snapping` false,
+            `position-relative-to-grid` `{0, 0}`) rather than writing it, and
+            the two alignment fields both need `snap-to-grid` present before
+            they mean anything - so this can't just forward the boxed stores
+            the way `label`/`description` do, or turning `snap-to-grid` back
+            off would leave a stale `absolute-snapping: true` behind from
+            before it was.
+        */
+        const snapToGrid = this.snapToGridStore.snapToGrid
+        const absoluteSnapping = this.absoluteSnappingStore.absoluteSnapping ?? false
+        const positionRelativeToGrid = this.positionRelativeToGridStore.positionRelativeToGrid
+        const positionIsDefault =
+            positionRelativeToGrid === undefined ||
+            (positionRelativeToGrid.x === 0 && positionRelativeToGrid.y === 0)
+
         return {
             icons: iconData,
             entities: this.entities.isEmpty() ? undefined : entityInfo,
@@ -962,9 +1059,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             label: this.name,
             description: this.description,
             schedules: this.scheduleStore.schedules,
-            'absolute-snapping': this.absolute_snapping,
-            'snap-to-grid': this.snap_to_grid,
-            'position-relative-to-grid': this.position_relative_to_grid,
+            'absolute-snapping': snapToGrid && absoluteSnapping ? true : undefined,
+            'snap-to-grid': snapToGrid,
+            'position-relative-to-grid':
+                snapToGrid && !absoluteSnapping && !positionIsDefault
+                    ? positionRelativeToGrid
+                    : undefined,
             wires,
         }
     }
