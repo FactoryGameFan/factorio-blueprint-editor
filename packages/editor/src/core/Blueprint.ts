@@ -485,8 +485,9 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             .commit()
     }
 
-    /** Only meaningful while `absoluteSnapping` is false - relative mode is
-     * what actually reads this. */
+    /** Only meaningful while `absoluteSnapping` is true - Absolute is the
+     * mode the game actually carries a grid position under (issue #226);
+     * `serialize()` drops it under Relative regardless of what this holds. */
     public get positionRelativeToGrid(): IPoint | undefined {
         return this.positionRelativeToGridStore.positionRelativeToGrid
     }
@@ -1029,26 +1030,36 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             }
         })
         /*
-            Confirmed against three real exported strings (decoded by hand,
-            not guessed): with Absolute chosen, `absolute-snapping: true` is
-            written; with Relative chosen but the position left at its
-            default `{0, 0}`, neither `absolute-snapping` nor
-            `position-relative-to-grid` appears at all; with the grid off,
-            none of the three keys appear. Factorio omits each field at its
-            own default (`snap-to-grid` off, `absolute-snapping` false,
-            `position-relative-to-grid` `{0, 0}`) rather than writing it, and
-            the two alignment fields both need `snap-to-grid` present before
-            they mean anything - so this can't just forward the boxed stores
-            the way `label`/`description` do, or turning `snap-to-grid` back
-            off would leave a stale `absolute-snapping: true` behind from
+            Measured against Factorio 2.0.77 (issue #226, tools/oracle/probe-
+            blueprint-snapping.mjs), not reasoned about - the first version of
+            this comment guessed `position-relative-to-grid` belongs to
+            Relative mode from three hand-decoded strings, and the guess was
+            wrong. The game writes the position under Absolute snapping and
+            omits it under Relative; `tools/oracle/fixtures/blueprint-
+            snapping.json` is the measured table this reads back to zero
+            disagreements, the current condition disagreed on three of seven
+            grid-bearing rows. Factorio omits each field at its own default
+            (`snap-to-grid` off, `absolute-snapping` false, `position-
+            relative-to-grid` `{0, 0}`) rather than writing it in both modes,
+            and the two alignment fields both need `snap-to-grid` present
+            before they mean anything - so this can't just forward the boxed
+            stores the way `label`/`description` do, or turning `snap-to-grid`
+            back off would leave a stale `absolute-snapping: true` behind from
             before it was.
         */
         const snapToGrid = this.snapToGridStore.snapToGrid
         const absoluteSnapping = this.absoluteSnappingStore.absoluteSnapping ?? false
         const positionRelativeToGrid = this.positionRelativeToGridStore.positionRelativeToGrid
-        const positionIsDefault =
-            positionRelativeToGrid === undefined ||
-            (positionRelativeToGrid.x === 0 && positionRelativeToGrid.y === 0)
+        /*
+            Unset only, not "or equals {0, 0}" - tests/blueprint-snapping.spec.ts's
+            origin case pins that an explicit `{0, 0}` a blueprint arrived with
+            passes straight through rather than being stripped as if it matched
+            the game's own omit-at-origin behaviour. That is a deliberate
+            difference from the game: this layer round-trips what it was given,
+            and only an absent position (never set at all) counts as "nothing to
+            write" here.
+        */
+        const positionIsUnset = positionRelativeToGrid === undefined
 
         return {
             icons: iconData,
@@ -1062,7 +1073,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             'absolute-snapping': snapToGrid && absoluteSnapping ? true : undefined,
             'snap-to-grid': snapToGrid,
             'position-relative-to-grid':
-                snapToGrid && !absoluteSnapping && !positionIsDefault
+                snapToGrid && absoluteSnapping && !positionIsUnset
                     ? positionRelativeToGrid
                     : undefined,
             wires,

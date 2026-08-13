@@ -72,9 +72,11 @@ function setFieldEnabled(input: TextInput, enabled: boolean): void {
  * `absoluteSnapping`/`positionRelativeToGrid` are only meaningful while
  * `snapToGrid` is set - their inputs disable together with Grid size's while
  * it's off, rather than silently accepting edits the game would ignore.
- * `positionRelativeToGrid` stays editable regardless of Absolute vs
- * Relative, though: only `Blueprint.serialize` cares which is chosen, so
- * switching between them and back doesn't lose whatever was typed there.
+ * Grid position's X/Y additionally disable whenever Relative is chosen
+ * instead of Absolute: measured against the game (issue #226), Absolute is
+ * the mode that actually carries a grid position through export -
+ * `Blueprint.serialize` drops it under Relative regardless of what's typed
+ * here, so the field disables there rather than silently discarding it.
  */
 export class BlueprintAlignment extends Container {
     private readonly m_Blueprint: Blueprint
@@ -85,8 +87,6 @@ export class BlueprintAlignment extends Container {
     private readonly m_RelativeRadio: RadioButton
     private readonly m_XInput: TextInput
     private readonly m_YInput: TextInput
-    private readonly m_AbsoluteXInput: TextInput
-    private readonly m_AbsoluteYInput: TextInput
 
     public static readonly HEIGHT = ROW_HEIGHT * 5
 
@@ -139,23 +139,6 @@ export class BlueprintAlignment extends Container {
         this.m_AbsoluteRadio = new RadioButton(blueprint.absoluteSnapping, 'Absolute')
         this.m_AbsoluteRadio.position.set(0, ROW_HEIGHT * 3 + 8)
         this.addChild(this.m_AbsoluteRadio)
-
-        // No `Blueprint` field backs these, unlike every other input here -
-        // absolute mode has no configurable offset (it snaps to the world's
-        // own grid, not one positioned by these) - but the game's own dialog
-        // still shows the row with its own X/Y, enabled exactly while
-        // Absolute is the active choice, so this matches that rather than
-        // leaving the row permanently greyed out next to "Grid position"'s
-        // genuinely-live X/Y above.
-        this.addChild(makeFieldLabel('X:', COL1_X, ROW_HEIGHT * 3 + 8))
-        this.m_AbsoluteXInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
-        this.m_AbsoluteXInput.position.set(COL1_X, ROW_HEIGHT * 3 + 4)
-        this.addChild(this.m_AbsoluteXInput)
-
-        this.addChild(makeFieldLabel('Y:', COL2_X, ROW_HEIGHT * 3 + 8))
-        this.m_AbsoluteYInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
-        this.m_AbsoluteYInput.position.set(COL2_X, ROW_HEIGHT * 3 + 4)
-        this.addChild(this.m_AbsoluteYInput)
 
         // Same +8 as Absolute above, for the same reason - kept even though
         // this row has no field label of its own, so both radios sit at the
@@ -251,20 +234,15 @@ export class BlueprintAlignment extends Container {
         this.m_RelativeRadio.eventMode = gridEnabled ? 'static' : 'none'
         this.m_RelativeRadio.alpha = gridEnabled ? 1 : 0.5
 
-        // Editable whenever the grid itself is, regardless of Absolute vs
-        // Relative - only *serialization* cares which one is chosen (see
-        // Blueprint.serialize), so switching to Absolute and back to
-        // Relative doesn't lose whatever was typed here in between.
-        setFieldEnabled(this.m_XInput, gridEnabled)
-        setFieldEnabled(this.m_YInput, gridEnabled)
-
-        // The opposite of Grid position's X/Y: these have no data behind
-        // them (see the comment where they're built), so they track the
-        // choice exactly rather than surviving across it - enabled only
-        // while grid is on *and* Absolute is the one selected.
-        const absoluteEnabled = gridEnabled && this.m_Blueprint.absoluteSnapping
-        setFieldEnabled(this.m_AbsoluteXInput, absoluteEnabled)
-        setFieldEnabled(this.m_AbsoluteYInput, absoluteEnabled)
+        // Editable only while the grid is on *and* Absolute is the chosen
+        // mode - measured against the game (issue #226), Relative never
+        // carries a grid position through export, so leaving this enabled
+        // there would let someone type a value that silently never reaches
+        // the exported string. The value itself still survives switching to
+        // Relative and back, since disabling doesn't clear `m_XInput.text`.
+        const positionEnabled = gridEnabled && this.m_Blueprint.absoluteSnapping
+        setFieldEnabled(this.m_XInput, positionEnabled)
+        setFieldEnabled(this.m_YInput, positionEnabled)
     }
 
     private onBlueprintChange<T extends EventEmitter.EventNames<BlueprintEvents>>(

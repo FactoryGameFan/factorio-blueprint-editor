@@ -33,14 +33,13 @@ export class UIContainer extends Container {
 
         this.addChild(
             this.debugContainer,
-            this.blueprintInfoButton,
             this.entityInfoPanel,
             this.dialogsContainer,
             this.paintIconContainer
         )
 
         if (!isMobile.any) {
-            this.addChild(this.quickbarPanel, this.wiresPanel)
+            this.addChild(this.quickbarPanel, this.wiresPanel, this.blueprintInfoButton)
         }
     }
 
