@@ -6,9 +6,7 @@ import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { ImportDialog } from './ImportDialog'
 import { ExportDialog } from './ExportDialog'
-import { BookDialog } from './BookDialog'
 import { ToolsPanel } from './ToolsPanel'
-import G from '../common/globals'
 import { createEditor } from './editors/factory'
 
 export class UIContainer extends Container {
@@ -20,7 +18,6 @@ export class UIContainer extends Container {
     private paintIconContainer: Container
     private importDialog: ImportDialog | undefined
     private exportDialog: ExportDialog | undefined
-    private bookDialog: BookDialog | undefined
 
     public constructor() {
         super()
@@ -120,27 +117,6 @@ export class UIContainer extends Container {
             this.exportDialog = undefined
         })
         this.dialogsContainer.addChild(this.exportDialog)
-    }
-
-    /**
-     * Same as `toggleImportDialog`, for `BookDialog` - a no-op when no book
-     * is loaded, since ToolsPanel's Book button is only visible then anyway
-     * and there is nothing for the dialog to list.
-     */
-    public toggleBookDialog(): void {
-        if (this.bookDialog) {
-            this.bookDialog.close()
-            return
-        }
-
-        const book = G.quickActions.getCurrentBook()
-        if (book === undefined) return
-
-        this.bookDialog = new BookDialog(book)
-        this.bookDialog.on('close', () => {
-            this.bookDialog = undefined
-        })
-        this.dialogsContainer.addChild(this.bookDialog)
     }
 
     public createInventory(

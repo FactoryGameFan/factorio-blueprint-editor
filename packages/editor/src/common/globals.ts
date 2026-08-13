@@ -1,6 +1,5 @@
 import { Application, Texture, Assets, Renderer } from 'pixi.js'
 import { Blueprint } from '../core/Blueprint'
-import { Book } from '../core/Book'
 import { UIContainer } from '../UI/UIContainer'
 import { BlueprintContainer } from '../containers/BlueprintContainer'
 import { ActionRegistry } from '../actions'
@@ -45,20 +44,6 @@ export interface QuickActions {
      * parse and act immediately.
      */
     readClipboardText: () => Promise<string>
-    /**
-     * The currently loaded Book, or undefined when a bare blueprint is
-     * loaded - "is a book loaded" lives at the website level (`loadBp`'s
-     * `book` variable), not on `G`, so ToolsPanel's Book button and
-     * `BookDialog` read it through here rather than the editor package
-     * keeping its own copy of that state.
-     */
-    getCurrentBook: () => Book | undefined
-    /**
-     * Switches the editor to the blueprint at the book's own flattened
-     * index - the same thing changing "BP Book Index" in the settings pane
-     * does, and what a `BookDialog` row calls on click.
-     */
-    selectBookEntry: (flatIndex: number) => Promise<void>
 }
 
 const logger: Logger = msg => {

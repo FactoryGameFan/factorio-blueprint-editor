@@ -203,25 +203,6 @@ function readClipboardText(): Promise<string> {
     return navigator.clipboard.readText()
 }
 
-/** For `BookDialog`'s trigger button and the settings pane's "is a book
- * loaded" visibility check - undefined whenever a bare blueprint is loaded. */
-function getCurrentBook(): Book | undefined {
-    return book
-}
-
-/**
- * Switches to the blueprint at the book's own flattened index - what the
- * settings pane's "BP Book Index" control, `BookDialog`'s rows, and the
- * `selectBookIndex` test hook all do. One function rather than three copies:
- * this used to be defined again inline for the settings pane and a third
- * time in `testApi`, both doing exactly this.
- */
-async function selectBookIndex(index: number): Promise<void> {
-    if (!book) throw new Error('No book loaded')
-    bp = book.selectBlueprint(index)
-    await editor.loadBlueprint(bp)
-}
-
 const quickActions: QuickActions = {
     importReplace,
     importAppend,
@@ -229,8 +210,6 @@ const quickActions: QuickActions = {
     exportImage,
     encodeCurrent,
     readClipboardText,
-    getCurrentBook,
-    selectBookEntry: selectBookIndex,
 }
 
 editor
@@ -243,7 +222,15 @@ editor
 
         registerActions()
 
-        changeBookForIndexSelector = initSettingsPane(editor, selectBookIndex).changeBook
+        const changeBookIndex = async (index: number): Promise<void> => {
+            // The settings pane only shows a book index selector while a book is
+            // loaded, so this cannot fire without one - same check, and the same
+            // reason for it, as the selectBookIndex test hook below.
+            if (!book) throw new Error('No book loaded')
+            bp = book.selectBlueprint(index)
+            await editor.loadBlueprint(bp)
+        }
+        changeBookForIndexSelector = initSettingsPane(editor, changeBookIndex).changeBook
 
         getBlueprintOrBookFromSource(bpSource)
             .catch(error => createBPImportError(error))
@@ -393,8 +380,12 @@ const testApi = {
         }
     },
     loadingScreen,
-    getBook: getCurrentBook,
-    selectBookIndex,
+    getBook: () => book,
+    selectBookIndex: async (index: number) => {
+        if (!book) throw new Error('No book loaded')
+        bp = book.selectBlueprint(index)
+        await editor.loadBlueprint(bp)
+    },
     /*
         The blueprint string a copy would put on the clipboard, which for a loaded
         book is Book.serialize(). Nothing else reaches that method: the round-trip
