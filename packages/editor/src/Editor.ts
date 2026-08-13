@@ -21,22 +21,31 @@ import { Dialog } from './UI/controls/Dialog'
 import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
 
+/**
+ * A single object rather than trailing positional parameters, so a caller
+ * can supply just `logger` without also passing `quickActions` positionally
+ * ahead of it (or the reverse) - two optional-ish things read far more
+ * clearly as named fields than as an ordered pair, and a third one added
+ * later cannot reshuffle anyone's call site the way a new positional
+ * parameter would.
+ */
+export interface EditorInitOptions {
+    quickActions: QuickActions
+    logger?: Logger
+}
+
 export class Editor {
-    public async init(
-        canvas: HTMLCanvasElement,
-        quickActions: QuickActions,
-        logger?: Logger
-    ): Promise<void> {
+    public async init(canvas: HTMLCanvasElement, options: EditorInitOptions): Promise<void> {
         setBasisTranscoderPath({ jsUrl: basisTranscoderJS, wasmUrl: basisTranscoderWASM })
 
         TextureSource.defaultOptions.scaleMode = 'linear'
         TextureSource.defaultOptions.addressMode = 'repeat'
 
-        if (logger) {
-            G.logger = logger
+        if (options.logger) {
+            G.logger = options.logger
         }
 
-        G.quickActions = quickActions
+        G.quickActions = options.quickActions
 
         const app = new Application()
 

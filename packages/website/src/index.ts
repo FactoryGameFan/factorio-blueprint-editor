@@ -213,7 +213,7 @@ const quickActions: QuickActions = {
 }
 
 editor
-    .init(CANVAS, quickActions, createToast)
+    .init(CANVAS, { quickActions, logger: createToast })
     .then(() => {
         const quickbarItems = storedJson<string[]>('quickbarItemNames')
         if (quickbarItems) {
