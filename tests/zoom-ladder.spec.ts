@@ -12,9 +12,11 @@ import {
 /*
     The zoom ladder in a browser (#206). Deliberately thin: the arithmetic is
     unit tested in packages/editor/src/core/zoomLevels.test.ts, which is pure and
-    FD-free and so runs under `vp test` in CI, where Playwright does not run at
-    all (#210). Duplicating the ladder here would move coverage from the half
-    that runs to the half that does not.
+    FD-free and so runs under `vp test` in seconds. This suite runs in CI too
+    now, where it did not when this was written (#210), so the split is no longer
+    "the half that runs against the half that does not" - it is the cheap gate
+    against the five-minute one. Duplicating the ladder here would still be
+    paying the second price for an answer the first already gives.
 
     What is left is the part no unit test can see, which is the **wiring**: that
     a wheel event over the canvas reaches the zoom at all and moves the viewport

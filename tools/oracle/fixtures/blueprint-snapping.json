@@ -1,0 +1,410 @@
+{
+    "provenance": {
+        "probe": "tools/oracle/probe-blueprint-snapping.mjs",
+        "binary": "Version: 2.0.77 (build 84539, mac-arm64, full)",
+        "modFactorioVersion": "2.0",
+        "mods": {
+            "base": "2.0.77",
+            "elevated-rails": "2.0.77",
+            "quality": "2.0.77",
+            "space-age": "2.0.77",
+            "bp_snapping": "0.0.1"
+        },
+        "question": "Which of snap-to-grid / absolute-snapping / position-relative-to-grid does the game write into an exported blueprint string, for each combination of the three LuaItemStack snapping properties?"
+    },
+    "controls": [
+        {
+            "name": "writes reach the export",
+            "detail": "6 distinct exported strings across 10 configurations",
+            "ok": true
+        },
+        {
+            "name": "properties read back as set",
+            "detail": "mismatched: no-grid",
+            "ok": false
+        },
+        {
+            "name": "export then import reproduces the properties",
+            "detail": "differed: no-grid, no-grid-absolute-set",
+            "ok": false
+        }
+    ],
+    "rows": [
+        {
+            "case": "no-grid",
+            "gridRow": false,
+            "set": {
+                "snap": null,
+                "absolute": false,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": null,
+                "absolute-snapping": true,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": null,
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": true
+            }
+        },
+        {
+            "case": "no-grid-absolute-set",
+            "gridRow": false,
+            "set": {
+                "snap": null,
+                "absolute": true,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": null,
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "roundTrip": {
+                "snap": null,
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": true
+            }
+        },
+        {
+            "case": "relative-origin",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": null,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": false
+            }
+        },
+        {
+            "case": "relative-offset",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": null,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": false
+            }
+        },
+        {
+            "case": "absolute-origin",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": true
+            }
+        },
+        {
+            "case": "absolute-offset",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": true
+            }
+        },
+        {
+            "case": "relative-no-position-set",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": null
+            },
+            "setPosition": false,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": null,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterAbsolute": false
+            }
+        },
+        {
+            "case": "absolute-no-position-set",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": null
+            },
+            "setPosition": false,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterAbsolute": true
+            }
+        },
+        {
+            "case": "no-grid-no-position-set",
+            "gridRow": false,
+            "set": {
+                "snap": null,
+                "absolute": false,
+                "position": null
+            },
+            "setPosition": false,
+            "written": {
+                "snap-to-grid": null,
+                "absolute-snapping": null,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": null,
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterAbsolute": false
+            }
+        },
+        {
+            "case": "relative-position-then-absolute-false",
+            "gridRow": true,
+            "set": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "setPosition": true,
+            "written": {
+                "snap-to-grid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute-snapping": null,
+                "position-relative-to-grid": null
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "position": null
+            },
+            "absoluteAfterEachSetter": {
+                "atStart": false,
+                "afterSnap": false,
+                "afterPosition": true,
+                "afterAbsolute": false
+            }
+        }
+    ],
+    "mechanism": "Setting blueprint_position_relative_to_grid turns blueprint_absolute_snapping ON - see absoluteAfterEachSetter.afterPosition, true on every row that sets a position. A probe that sets position last cannot reach relative mode at all, which is what the first run of this probe did.",
+    "finding": "position-relative-to-grid is written under ABSOLUTE snapping and omitted under RELATIVE. Measured on the four rows with a grid and an explicit mode: relative-offset sets position {3,5} and the game writes none; absolute-offset sets the same and the game writes {3,5}. The editor round-trips it correctly today; PR #222 inverts it.",
+    "voided": {
+        "rows": ["no-grid", "no-grid-absolute-set", "no-grid-no-position-set"],
+        "why": "A grid position or absolute snapping with no snap-to-grid is a state the GUI cannot produce, and the game answers it inconsistently - it writes keys with no grid beside them and does not reconstruct them on import. Recorded, not counted."
+    },
+    "candidateRules": {
+        "pr-222-position-under-relative": {
+            "agrees": false,
+            "disagreeingCases": [
+                "relative-offset",
+                "absolute-offset",
+                "relative-position-then-absolute-false"
+            ]
+        },
+        "inverted-position-under-absolute": {
+            "agrees": true,
+            "disagreeingCases": []
+        }
+    }
+}
