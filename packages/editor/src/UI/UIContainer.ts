@@ -5,7 +5,10 @@ import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { WiresPanel } from './WiresPanel'
+import { BookButton } from './BookButton'
+import { BookDialog } from './BookDialog'
 import { createEditor } from './editors/factory'
+import G from '../common/globals'
 
 export class UIContainer extends Container {
     private debugContainer: DebugContainer
@@ -14,6 +17,8 @@ export class UIContainer extends Container {
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
+    private bookButton: BookButton
+    private bookDialog: BookDialog | undefined
 
     public constructor() {
         super()
@@ -24,6 +29,7 @@ export class UIContainer extends Container {
         this.entityInfoPanel = new EntityInfoPanel()
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
+        this.bookButton = new BookButton()
 
         this.addChild(
             this.debugContainer,
@@ -33,7 +39,7 @@ export class UIContainer extends Container {
         )
 
         if (!isMobile.any) {
-            this.addChild(this.quickbarPanel, this.wiresPanel)
+            this.addChild(this.quickbarPanel, this.wiresPanel, this.bookButton)
         }
     }
 
@@ -91,6 +97,27 @@ export class UIContainer extends Container {
         const inv = new InventoryDialog(title, itemsFilter, selectedCallBack, showRecipePanel)
         this.dialogsContainer.addChild(inv)
         return inv
+    }
+
+    /**
+     * Opens BookDialog, or closes it if already open - BookButton's click
+     * handler. A no-op when no book is loaded, since the button that reaches
+     * this is only visible then anyway.
+     */
+    public toggleBookDialog(): void {
+        if (this.bookDialog) {
+            this.bookDialog.close()
+            return
+        }
+
+        const book = G.quickActions.getCurrentBook()
+        if (book === undefined) return
+
+        this.bookDialog = new BookDialog(book)
+        this.bookDialog.on('close', () => {
+            this.bookDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.bookDialog)
     }
 
     // public changeQuickbarRows(rows: number): void {
