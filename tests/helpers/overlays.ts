@@ -6,7 +6,7 @@ type Page = import('@playwright/test').Page
  * editor was displaying.
  */
 const CSS = `
-    .toasts-container { pointer-events: none !important; }
+    .toasts-container, .toasts-persistent { pointer-events: none !important; }
     .dg.main { pointer-events: none !important; }
 `
 
@@ -25,6 +25,15 @@ const CSS = `
  * column goes to the toast `div` instead of the canvas, pixi never sees a
  * `pointerdown`, and the action behind it never fires. Measured: the failing
  * click's target was `DIV#toast-3.toasts-toast`, not `CANVAS#editor`.
+ *
+ * Issue #228 made ordinary toasts click-through in **production**, so that half
+ * of this is now belt and braces rather than the only thing standing between a
+ * spec and a lost click. `.toasts-persistent` is why it is still needed: that
+ * class carries `pointer-events: auto` to keep a non-expiring error toast
+ * dismissable, and a rule on the container does **not** override a child's own
+ * declaration however many `!important`s it carries. So the selector has to name
+ * the child too, and dropping it would leave specs losing clicks to exactly the
+ * toast that never goes away on its own.
  *
  * That made every pointer-driven spec a coin flip, because the toast animates in
  * - its own bounding box moved between two runs of the same test - so whether a
