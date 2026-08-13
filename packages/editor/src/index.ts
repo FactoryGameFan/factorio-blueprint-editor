@@ -1,7 +1,6 @@
 import { Book } from './core/Book'
 import { Blueprint } from './core/Blueprint'
 import { GridPattern } from './containers/BlueprintContainer'
-import type { QuickActions } from './common/globals'
 import {
     registerAction,
     forEachAction,
@@ -47,8 +46,6 @@ export {
     getSpriteData,
     SPRITE_GENERATION_FAILED,
 }
-// For packages/website, which builds the object Editor.init now requires.
-export type { QuickActions }
 export default {
     registerAction,
     forEachAction,

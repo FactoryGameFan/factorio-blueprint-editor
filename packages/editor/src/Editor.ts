@@ -11,7 +11,7 @@ import { Application, TextureSource, setBasisTranscoderPath, Assets } from 'pixi
 import basisTranscoderJS from './basis/transcoder.1.16.4.js?url'
 import basisTranscoderWASM from './basis/transcoder.1.16.4.wasm?url'
 import { loadData } from './core/factorioData'
-import G, { Logger, QuickActions } from './common/globals'
+import G, { Logger } from './common/globals'
 import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
@@ -21,28 +21,16 @@ import { Dialog } from './UI/controls/Dialog'
 import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
 
-/**
- * A single object rather than trailing positional parameters, so a required
- * `quickActions` and an optional `logger` don't have to fight over which
- * comes first, and a third option later doesn't reshuffle anyone's call site.
- */
-export interface EditorInitOptions {
-    quickActions: QuickActions
-    logger?: Logger
-}
-
 export class Editor {
-    public async init(canvas: HTMLCanvasElement, options: EditorInitOptions): Promise<void> {
+    public async init(canvas: HTMLCanvasElement, logger?: Logger): Promise<void> {
         setBasisTranscoderPath({ jsUrl: basisTranscoderJS, wasmUrl: basisTranscoderWASM })
 
         TextureSource.defaultOptions.scaleMode = 'linear'
         TextureSource.defaultOptions.addressMode = 'repeat'
 
-        if (options.logger) {
-            G.logger = options.logger
+        if (logger) {
+            G.logger = logger
         }
-
-        G.quickActions = options.quickActions
 
         const app = new Application()
 
