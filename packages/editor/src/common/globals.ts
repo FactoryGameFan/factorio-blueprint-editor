@@ -1,5 +1,6 @@
 import { Application, Texture, Assets, Renderer } from 'pixi.js'
 import { Blueprint } from '../core/Blueprint'
+import { Book } from '../core/Book'
 import { UIContainer } from '../UI/UIContainer'
 import { BlueprintContainer } from '../containers/BlueprintContainer'
 import { ActionRegistry } from '../actions'
@@ -12,6 +13,23 @@ export interface ILogMessage {
 }
 
 export type Logger = (msg: ILogMessage) => void
+
+/**
+ * The bridge to state that lives at the website level, not on `G` - "is a
+ * book loaded" is `loadBp`'s own `book` variable in packages/website, so
+ * BookButton/BookDialog reach it through here rather than the editor
+ * package keeping a second copy of it.
+ */
+export interface QuickActions {
+    /** The currently loaded Book, or undefined when a bare blueprint is loaded. */
+    getCurrentBook: () => Book | undefined
+    /**
+     * Switches the editor to the blueprint at the book's own flattened
+     * index - the same thing changing "BP Book Index" in the settings pane
+     * does, and what a `BookDialog` row calls on click.
+     */
+    selectBookEntry: (flatIndex: number) => Promise<void>
+}
 
 const logger: Logger = msg => {
     switch (msg.type) {
@@ -52,6 +70,7 @@ interface Globals {
     actions: ActionRegistry
     getTexture: typeof getTexture
     logger: Logger
+    quickActions: QuickActions
 }
 
 const started = new Map<string, Promise<Texture>>()
