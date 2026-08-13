@@ -461,6 +461,42 @@ Three method notes, all in the probe README:
   matter: four entities move footprint between 2.0.77 and 2.1.12 (`tree-plant`
   and the three demolisher corpses), none of them among the 155.
 
+And which snapping mode carries a blueprint's grid position (PR #222,
+`tools/oracle/fixtures/blueprint-snapping.json`), measured on **2.0.77** rather
+than 2.1.12. The rule is short: the game writes `position-relative-to-grid`
+under **absolute** snapping and omits it under **relative**. Set a position of
+`{3, 5}` in relative mode and the game writes no position key at all; set the
+same one in absolute mode and it writes it. The `{0, 0}` rows say the
+non-default check belongs there too, since the game omits the key at the origin
+in either mode. So the condition is `snapToGrid && absoluteSnapping &&
+!positionIsDefault`, and the editor's existing pass-through is already right.
+
+Three things came out of it, and the first is the one to remember.
+
+- **The corpus could not have answered this, and it looks like it can.** 325 of
+  the 367 blueprints carry snapping and every one is absolute, including the
+  only one carrying a grid position. That is 325 rows agreeing, and it says the
+  two co-occur - never that one requires the other, because no corpus blueprint
+  uses relative snapping at all. Same shape of argument #133 item 5 and #142
+  both got wrong.
+- **Setting `blueprint_position_relative_to_grid` turns
+  `blueprint_absolute_snapping` on.** The first run set snap, then absolute,
+  then position, so the position write flipped absolute back on afterwards and
+  every row exported as absolute. Relative mode was never reached and the
+  relative rows measured nothing, while looking entirely reasonable. The
+  readback control caught that the instrument was broken; only a per-setter
+  trace of `absolute_snapping` said which setter did it. **Set position before
+  absolute, or not at all.**
+- **A grid position with no `snap-to-grid` is a state the GUI cannot reach**,
+  and the game answers it inconsistently - writing keys with no grid beside them
+  and failing to reconstruct them on import. Those rows are in the fixture and
+  deliberately not scored, per #133 item 4.
+
+And one note about the probe file rather than the game: its Lua lives inside a
+JS template literal, so **a backtick in a Lua comment closes the template**. A
+matched pair on one line closes it and reopens it, which a scan for odd backtick
+counts cannot see. Cost a debugging round; there is a comment at that spot now.
+
 ## Cloudflare Deployment
 
 The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom
