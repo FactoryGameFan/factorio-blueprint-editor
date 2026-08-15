@@ -1,7 +1,8 @@
-import { Text } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import G from '../../common/globals'
 import { colors, styles } from '../style'
 import { Panel } from './Panel'
+import { TextInput } from './TextInput'
 
 /**
  * Base Dialog for usage whenever a dialog shall be shown to the user
@@ -34,6 +35,38 @@ export abstract class Dialog extends Panel {
         }
 
         Dialog.s_openDialogs.push(this)
+        Dialog.updateDOMInputVisibility()
+    }
+
+    /**
+     * Keeps the DOM fields of covered dialogs off the screen.
+     *
+     * A TextInput is the one control here that is not drawn with pixi - it
+     * appends an <input> to document.body and keeps it positioned over the
+     * canvas. Nothing pixi draws can cover it, so a dialog opened on top of
+     * another leaves the one underneath showing its text through the new
+     * dialog and still answering elementFromPoint, which eats the clicks meant
+     * for the dialog above. Measured with the icon picker over Blueprint Info:
+     * six fields, one of them visibly printing its text across the picker's
+     * slots and five invisible only because their background is none.
+     *
+     * Topmost rather than "not overlapped" because occlusion is not a question
+     * the DOM can answer for canvas content - there is no partial hiding to be
+     * had, so the dialog stack decides it.
+     */
+    private static updateDOMInputVisibility(): void {
+        const top = Dialog.s_openDialogs[Dialog.s_openDialogs.length - 1]
+        for (const dialog of Dialog.s_openDialogs) {
+            Dialog.setDOMInputsVisible(dialog, dialog === top)
+        }
+    }
+
+    /** Walks the dialog's tree - a TextInput can sit inside a sub-container, as BlueprintAlignment's do. */
+    private static setDOMInputsVisible(container: Container, visible: boolean): void {
+        for (const child of container.children) {
+            if (child instanceof TextInput) child.domVisible = visible
+            else if (child instanceof Container) Dialog.setDOMInputsVisible(child, visible)
+        }
     }
 
     /** Closes last open dialog */
@@ -81,6 +114,10 @@ export abstract class Dialog extends Panel {
 
         this.emit('close')
         this.destroy()
+        // The dialog underneath is the topmost one again and gets its fields
+        // back. Runs after destroy so the closing dialog is gone from the tree
+        // rather than being handed a visibility it will never render.
+        Dialog.updateDOMInputVisibility()
     }
 
     /**

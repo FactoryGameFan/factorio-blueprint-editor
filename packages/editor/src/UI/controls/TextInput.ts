@@ -191,6 +191,26 @@ class OriginalTextInput extends Container {
         return this._dom_input
     }
 
+    public get domVisible(): boolean {
+        return this._dom_visible
+    }
+
+    /**
+     * Whether the element may show at all, independent of `visible`. False is
+     * how a dialog that is no longer the topmost one hides its fields: the
+     * element sits on document.body over the canvas, so no pixi dialog drawn
+     * above it can occlude it - it shows through, and goes on taking the
+     * clicks aimed at whatever covers it.
+     */
+    public set domVisible(visible: boolean) {
+        if (this._dom_visible === visible) return
+        this._dom_visible = visible
+        // _needsUpdate watches the transform and the canvas rect only, so no
+        // update is otherwise pending - a field that never moves again would
+        // keep the old visibility forever.
+        this._setDOMInputVisible(this.visible && visible)
+    }
+
     public focus(): void {
         this._dom_input.focus()
     }
