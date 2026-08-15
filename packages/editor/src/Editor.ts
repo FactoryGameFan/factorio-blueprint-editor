@@ -281,6 +281,16 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
+    /**
+     * Opens BlueprintInfoEditor, the same as clicking its persistent
+     * top-left button - which sits at a fixed screen position a spec could
+     * click directly, but this avoids hardcoding that position in a second
+     * place. See tests/blueprint-grid-position.spec.ts.
+     */
+    public openBlueprintInfoEditor(): void {
+        G.UI.toggleBlueprintInfoEditor(G.bp)
+    }
+
     public get debug(): boolean {
         return G.debug
     }

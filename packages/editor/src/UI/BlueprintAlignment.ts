@@ -66,23 +66,25 @@ function setFieldEnabled(input: TextInput, enabled: boolean): void {
  * `absolute-snapping` and `position-relative-to-grid` in the blueprint
  * string, which the editor has always round-tripped on import/export without
  * ever showing or letting anyone change them. Mirrors the corresponding
- * section of the game's own blueprint editor: a grid size, and a choice
- * between snapping to the world's absolute grid or one offset by a position.
+ * section of the game's own blueprint editor, including a control the game
+ * has that carries no blueprint data at all - see "Grid position" below.
  *
  * `absoluteSnapping`/`positionRelativeToGrid` are only meaningful while
  * `snapToGrid` is set - their inputs disable together with Grid size's while
  * it's off, rather than silently accepting edits the game would ignore.
- * Grid position's X/Y additionally disable whenever Relative is chosen
- * instead of Absolute: measured against the game (issue #226), Absolute is
- * the mode that actually carries a grid position through export -
- * `Blueprint.serialize` drops it under Relative regardless of what's typed
- * here, so the field disables there rather than silently discarding it.
+ * Absolute's X/Y additionally disable whenever Relative is chosen instead:
+ * measured against the game (issue #226), Absolute is the mode that
+ * actually carries a position through export - `Blueprint.serialize` drops
+ * it under Relative regardless of what's typed here, so the field disables
+ * there rather than silently discarding it.
  */
 export class BlueprintAlignment extends Container {
     private readonly m_Blueprint: Blueprint
     private readonly m_SnapCheckbox: Checkbox
     private readonly m_WidthInput: TextInput
     private readonly m_HeightInput: TextInput
+    private readonly m_GridPosXInput: TextInput
+    private readonly m_GridPosYInput: TextInput
     private readonly m_AbsoluteRadio: RadioButton
     private readonly m_RelativeRadio: RadioButton
     private readonly m_XInput: TextInput
@@ -113,37 +115,59 @@ export class BlueprintAlignment extends Container {
         this.m_HeightInput.position.set(COL2_X, ROW_HEIGHT + 4)
         this.addChild(this.m_HeightInput)
 
-        // One X/Y pair on the "Grid position" row itself - Absolute/Relative
-        // below are only the choice of whether it applies, not a value each.
+        /*
+            "Grid position" is not backed by any blueprint field - measured
+            against the game (bp string round-trips, issue #226 follow-up):
+            typing here does not touch `snap-to-grid`/`absolute-snapping`/
+            `position-relative-to-grid` at all. It moves every entity's own
+            `position` by the negation of whatever's typed, baked straight
+            into the exported entity coordinates, then resets to 0 - a nudge
+            that fires once per commit, not a value with anything to read
+            back. See `Blueprint.translateEntities`.
+        */
         this.addChild(makeLabel('Grid position', 0, ROW_HEIGHT * 2 + 8))
 
         this.addChild(makeFieldLabel('X:', COL1_X, ROW_HEIGHT * 2 + 8))
-        this.m_XInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${position.x}`, 5, true)
-        this.m_XInput.position.set(COL1_X, ROW_HEIGHT * 2 + 4)
-        // Non-negative via `numericOnly` above isn't right for an offset - a
-        // blueprint's grid position can sit either side of the grid it snaps
-        // to - so this widens the restriction to an optional leading minus.
-        this.m_XInput.restrict = /^-?\d*$/
-        this.addChild(this.m_XInput)
+        this.m_GridPosXInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
+        this.m_GridPosXInput.position.set(COL1_X, ROW_HEIGHT * 2 + 4)
+        this.m_GridPosXInput.restrict = /^-?\d*$/
+        this.addChild(this.m_GridPosXInput)
 
         this.addChild(makeFieldLabel('Y:', COL2_X, ROW_HEIGHT * 2 + 8))
-        this.m_YInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${position.y}`, 5, true)
-        this.m_YInput.position.set(COL2_X, ROW_HEIGHT * 2 + 4)
-        this.m_YInput.restrict = /^-?\d*$/
-        this.addChild(this.m_YInput)
+        this.m_GridPosYInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
+        this.m_GridPosYInput.position.set(COL2_X, ROW_HEIGHT * 2 + 4)
+        this.m_GridPosYInput.restrict = /^-?\d*$/
+        this.addChild(this.m_GridPosYInput)
 
         // The +8 matches every field label's own y (see makeFieldLabel calls
-        // below) - RadioButton draws its label at its own local y=0, so
+        // above) - RadioButton draws its label at its own local y=0, so
         // without this the "Absolute" text sat 8px above the X:/Y: label
         // sharing its row, not level with it.
         this.m_AbsoluteRadio = new RadioButton(blueprint.absoluteSnapping, 'Absolute')
         this.m_AbsoluteRadio.position.set(0, ROW_HEIGHT * 3 + 8)
         this.addChild(this.m_AbsoluteRadio)
 
+        // Absolute's own X/Y, on its own row rather than shared with "Grid
+        // position" above - this pair IS `positionRelativeToGrid`, the one
+        // that actually round-trips through the blueprint string.
+        this.addChild(makeFieldLabel('X:', COL1_X, ROW_HEIGHT * 3 + 8))
+        this.m_XInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${position.x}`, 5, true)
+        this.m_XInput.position.set(COL1_X, ROW_HEIGHT * 3 + 4)
+        // Non-negative via `numericOnly` above isn't right for an offset - a
+        // blueprint's grid position can sit either side of the grid it snaps
+        // to - so this widens the restriction to an optional leading minus.
+        this.m_XInput.restrict = /^-?\d*$/
+        this.addChild(this.m_XInput)
+
+        this.addChild(makeFieldLabel('Y:', COL2_X, ROW_HEIGHT * 3 + 8))
+        this.m_YInput = new TextInput(G.app.renderer, FIELD_WIDTH, `${position.y}`, 5, true)
+        this.m_YInput.position.set(COL2_X, ROW_HEIGHT * 3 + 4)
+        this.m_YInput.restrict = /^-?\d*$/
+        this.addChild(this.m_YInput)
+
         // Same +8 as Absolute above, for the same reason - kept even though
-        // this row has no field label of its own, so both radios sit at the
-        // same relative height within their row rather than only one of them
-        // being nudged into alignment.
+        // this row has no field label or X/Y of its own, so both radios sit
+        // at the same relative height within their row.
         this.m_RelativeRadio = new RadioButton(!blueprint.absoluteSnapping, 'Relative')
         this.m_RelativeRadio.position.set(0, ROW_HEIGHT * 4 + 8)
         this.addChild(this.m_RelativeRadio)
@@ -169,6 +193,9 @@ export class BlueprintAlignment extends Container {
 
         this.m_WidthInput.on('changed', () => this.commitSize())
         this.m_HeightInput.on('changed', () => this.commitSize())
+
+        this.m_GridPosXInput.on('changed', () => this.commitGridPositionNudge())
+        this.m_GridPosYInput.on('changed', () => this.commitGridPositionNudge())
 
         // RadioButton only ever sets itself checked (see RadioButton.ts), so
         // unlike Checkbox there is no accidental "toggle off" to worry about
@@ -201,6 +228,22 @@ export class BlueprintAlignment extends Container {
         }
     }
 
+    /**
+     * "Grid position"'s own commit - moves every entity by the negated
+     * typed value (see the field's own doc comment above) and resets the
+     * fields to 0, since there is no blueprint value for them to keep
+     * showing afterwards.
+     */
+    private commitGridPositionNudge(): void {
+        const nudge = {
+            x: parseGridValue(this.m_GridPosXInput.text),
+            y: parseGridValue(this.m_GridPosYInput.text),
+        }
+        this.m_Blueprint.translateEntities({ x: -nudge.x, y: -nudge.y })
+        this.m_GridPosXInput.text = '0'
+        this.m_GridPosYInput.text = '0'
+    }
+
     private commitPosition(): void {
         this.m_Blueprint.positionRelativeToGrid = {
             x: parseGridValue(this.m_XInput.text),
@@ -229,6 +272,11 @@ export class BlueprintAlignment extends Container {
         setFieldEnabled(this.m_WidthInput, gridEnabled)
         setFieldEnabled(this.m_HeightInput, gridEnabled)
 
+        // Gated the same as Grid size, not by Absolute/Relative - the nudge
+        // moves entities regardless of which snapping mode is chosen.
+        setFieldEnabled(this.m_GridPosXInput, gridEnabled)
+        setFieldEnabled(this.m_GridPosYInput, gridEnabled)
+
         this.m_AbsoluteRadio.eventMode = gridEnabled ? 'static' : 'none'
         this.m_AbsoluteRadio.alpha = gridEnabled ? 1 : 0.5
         this.m_RelativeRadio.eventMode = gridEnabled ? 'static' : 'none'
@@ -236,9 +284,9 @@ export class BlueprintAlignment extends Container {
 
         // Editable only while the grid is on *and* Absolute is the chosen
         // mode - measured against the game (issue #226), Relative never
-        // carries a grid position through export, so leaving this enabled
-        // there would let someone type a value that silently never reaches
-        // the exported string. The value itself still survives switching to
+        // carries a position through export, so leaving this enabled there
+        // would let someone type a value that silently never reaches the
+        // exported string. The value itself still survives switching to
         // Relative and back, since disabling doesn't clear `m_XInput.text`.
         const positionEnabled = gridEnabled && this.m_Blueprint.absoluteSnapping
         setFieldEnabled(this.m_XInput, positionEnabled)

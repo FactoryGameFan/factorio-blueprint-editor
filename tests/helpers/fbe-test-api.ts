@@ -45,6 +45,8 @@ export interface TestFilterSlot extends Omit<TestFilter, 'name'> {
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
+    /** Opens BlueprintInfoEditor. See tests/blueprint-grid-position.spec.ts. */
+    openBlueprintInfoEditor: () => void
     /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that

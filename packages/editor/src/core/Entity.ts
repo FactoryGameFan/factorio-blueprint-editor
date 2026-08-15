@@ -281,6 +281,15 @@ export class Entity extends EventEmitter<EntityEvents> {
             )
         if (G.BPC.limitWireReach && connectionsBreak) return
 
+        this.commitPositionChange(position)
+    }
+
+    /**
+     * Writes a new position straight through, skipping the collision and
+     * wire-reach checks `position`'s setter applies - shared by it and by
+     * `forceMoveBy` below.
+     */
+    private commitPositionChange(position: IPoint): void {
         this.m_BP.history
             .updateValue(this.m_rawEntity, 'position', position, 'Change position')
             .onDone((newValue, oldValue) => {
@@ -300,6 +309,23 @@ export class Entity extends EventEmitter<EntityEvents> {
                 this.emit('position', newValue, oldValue)
             })
             .commit()
+    }
+
+    /**
+     * Moves the entity by `offset`, bypassing `position`'s collision and
+     * wire-reach checks entirely - for `Blueprint.translateEntities`, which
+     * moves every entity in the blueprint by the same offset in one
+     * transaction. Those checks compare against other entities' CURRENT
+     * position, which mid-shift is a mix of already-moved and not-yet-moved
+     * ones; a uniform translation can't introduce a genuine collision or
+     * break a wire's reach, since every entity's position relative to every
+     * other stays exactly the same, so nothing they would have caught
+     * applies here anyway - and checking regardless would misfire against
+     * that transient mix. `moveBy` above is the checked version, for moving
+     * one entity relative to everything else that stays put.
+     */
+    public forceMoveBy(offset: IPoint): void {
+        this.commitPositionChange(util.sumprod(this.position, offset))
     }
 
     public get maxWireDistance(): number {

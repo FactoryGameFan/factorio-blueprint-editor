@@ -262,6 +262,11 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
 const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
+    /**
+     * Opens BlueprintInfoEditor, whose persistent button has no keybind of
+     * its own. See tests/blueprint-grid-position.spec.ts.
+     */
+    openBlueprintInfoEditor: () => editor.openBlueprintInfoEditor(),
     /*
         The interaction mode the canvas is in, by name. The first thing any spec
         driving real pointer or keyboard input needs to assert on (issue #44).

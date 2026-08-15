@@ -567,6 +567,25 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.commitTransaction()
     }
 
+    /**
+     * Translates every entity by the same offset, in one undo step -
+     * `BlueprintAlignment`'s "Grid position" field. Measured against the
+     * game (issue #226 follow-up): that field does not persist as blueprint
+     * data at all, unlike `absoluteSnapping`/`positionRelativeToGrid` beside
+     * it - entering a value there just moves every entity's own `position`
+     * by its negation, baked straight into the exported entity positions.
+     * See `Entity.forceMoveBy` for why the normal per-entity checks are
+     * bypassed here.
+     */
+    public translateEntities(offset: IPoint): void {
+        if (offset.x === 0 && offset.y === 0) return
+        this.history.startTransaction('Move blueprint entities')
+        for (const entity of this.entities.valuesArray()) {
+            entity.forceMoveBy(offset)
+        }
+        this.history.commitTransaction()
+    }
+
     public fastReplaceEntity(name: string, direction: number, position: IPoint): boolean {
         const entity = this.entityPositionGrid.checkFastReplaceableGroup(name, direction, position)
 
