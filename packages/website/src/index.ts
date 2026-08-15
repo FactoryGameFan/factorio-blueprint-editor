@@ -318,6 +318,26 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
 const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
+    /**
+     * Opens ImportDialog, ToolsPanel's Import slot with no keybind of its own
+     * to reach it by. See tests/quick-actions.spec.ts.
+     */
+    openImportDialog: () => editor.openImportDialog(),
+    /**
+     * `exportString`/`exportImage`'s own guard result - false, with no
+     * clipboard write or file save attempted, whenever the loaded blueprint
+     * is empty. The only part of the two that is safe to call from a spec:
+     * a non-empty blueprint would reach `navigator.clipboard`/`FileSaver`,
+     * neither of which a headless run can assert on. See
+     * tests/quick-actions.spec.ts.
+     */
+    exportGuardResult: () => ({ exportString: exportString(), exportImage: exportImage() }),
+    /**
+     * `encodeCurrent`'s own empty-blueprint guard - undefined rather than a
+     * string, the same condition `exportGuardResult` pins for the other two
+     * QuickActions members. See tests/quick-actions.spec.ts.
+     */
+    encodeCurrentResult: () => encodeCurrent(),
     /*
         The interaction mode the canvas is in, by name. The first thing any spec
         driving real pointer or keyboard input needs to assert on (issue #44).

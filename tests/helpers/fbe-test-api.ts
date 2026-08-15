@@ -45,6 +45,17 @@ export interface TestFilterSlot extends Omit<TestFilter, 'name'> {
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
+    /** Opens ImportDialog. See tests/quick-actions.spec.ts. */
+    openImportDialog: () => void
+    /**
+     * `exportString`/`exportImage`'s own empty-blueprint guard result - the
+     * only part of either that is safe to call from a spec, since a
+     * non-empty blueprint would reach the OS clipboard or a file save. See
+     * tests/quick-actions.spec.ts.
+     */
+    exportGuardResult: () => { exportString: boolean; exportImage: boolean }
+    /** `encodeCurrent`'s own empty-blueprint guard result. See tests/quick-actions.spec.ts. */
+    encodeCurrentResult: () => Promise<string | undefined>
     /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that

@@ -296,6 +296,16 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
+    /**
+     * Opens ImportDialog, the same as clicking ToolsPanel's Import slot -
+     * there is no keybind for opening it (only for the paste/append it
+     * shortcuts), so a spec has no other way to reach it without computing
+     * ToolsPanel's own screen position. See tests/quick-actions.spec.ts.
+     */
+    public openImportDialog(): void {
+        G.UI.toggleImportDialog()
+    }
+
     public get debug(): boolean {
         return G.debug
     }

@@ -12,8 +12,12 @@ import { styles } from '../style'
 import G from '../../common/globals'
 import util from '../../common/util'
 import { need } from '../../core/need'
-import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
-import { Sprite as SpriteData } from 'factorio:prototype'
+import {
+    IngredientPrototype,
+    IconData,
+    ProductPrototype,
+    Sprite as SpriteData,
+} from 'factorio:prototype'
 
 /**
  * Shade Color

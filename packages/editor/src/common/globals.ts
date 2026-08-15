@@ -28,8 +28,12 @@ export interface QuickActions {
     importReplace: (source?: string) => void
     /** Same as `importReplace` re: `source`. */
     importAppend: (source?: string) => void
-    exportString: () => void
-    exportImage: () => void
+    /** False, and a no-op, when the loaded blueprint is empty - the same
+     * guard `encodeCurrent` uses. Nothing currently reads the return value;
+     * it is typed here because the website implementation reports it. */
+    exportString: () => boolean
+    /** Same as `exportString` re: the empty-blueprint guard. */
+    exportImage: () => boolean
     /**
      * The loaded blueprint (or book) encoded as a string, for
      * ExportDialog to show in its textarea - undefined when the

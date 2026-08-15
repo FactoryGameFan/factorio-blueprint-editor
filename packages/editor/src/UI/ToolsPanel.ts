@@ -106,6 +106,7 @@ const CELL_COUNT = WIRES.length + 6
 
 export class ToolsPanel extends Panel {
     private slotsContainer: Container
+    private altHighlightTick: (() => void) | undefined
     public static Wires = WIRES
 
     public constructor() {
@@ -160,11 +161,22 @@ export class ToolsPanel extends Panel {
             constructed once and outlive every reload. A listener attached to
             today's overlayContainer would go silent on the next one; reading
             `G.BPC` fresh each frame can't go stale the same way.
+
+            `generateSlots` is public and re-callable in principle (the same
+            shape `QuickbarPanel.generateSlots` uses for row changes), so the
+            previous tick is removed before a new one is added rather than
+            trusting this method to run only once - otherwise a second call
+            would leave the first callback running against a slot that no
+            longer exists.
         */
+        if (this.altHighlightTick) {
+            G.app.ticker.remove(this.altHighlightTick)
+        }
         const altHighlight = addToggleHighlight(altSlot, ALT_ACTIVE_COLOR)
-        G.app.ticker.add(() => {
+        this.altHighlightTick = () => {
             altHighlight.visible = G.BPC.overlayContainer.entityInfoVisible
-        })
+        }
+        G.app.ticker.add(this.altHighlightTick)
 
         const cells: Container[] = [
             altSlot,
