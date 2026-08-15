@@ -279,8 +279,9 @@ test('a dialog opened on top hides the DOM fields of the one underneath', async 
     await page.mouse.click(170, 24)
     await nextFrame(page)
     const opened = await textInputVisibility(page)
-    // Name, description, and BlueprintAlignment's grid width/height and position x/y.
-    expect(opened.map(f => f.shown)).toEqual([true, true, true, true, true, true])
+    // Name, description, and BlueprintAlignment's grid width/height, grid
+    // position x/y, and absolute x/y.
+    expect(opened.map(f => f.shown)).toEqual([true, true, true, true, true, true, true, true])
 
     /*
         The first icon slot, at dialog-local (12, 119) and 36 across, opens the
@@ -299,12 +300,16 @@ test('a dialog opened on top hides the DOM fields of the one underneath', async 
         false,
         false,
         false,
+        false,
+        false,
     ])
 
     await page.keyboard.press('Escape')
     expect(await page.evaluate(() => (window as any).__fbe_test.openDialogCount())).toBe(1)
     await nextFrame(page)
     expect((await textInputVisibility(page)).map(f => f.shown)).toEqual([
+        true,
+        true,
         true,
         true,
         true,

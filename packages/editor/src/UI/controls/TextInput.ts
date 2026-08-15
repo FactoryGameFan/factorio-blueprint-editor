@@ -307,7 +307,7 @@ class OriginalTextInput extends Container {
 
     private _onBlurred(): void {
         this._setState('DEFAULT')
-        // this.emit('blur')
+        this.emit('blur')
     }
 
     private _onAdded(): void {

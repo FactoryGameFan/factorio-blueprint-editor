@@ -194,8 +194,16 @@ export class BlueprintAlignment extends Container {
         this.m_WidthInput.on('changed', () => this.commitSize())
         this.m_HeightInput.on('changed', () => this.commitSize())
 
-        this.m_GridPosXInput.on('changed', () => this.commitGridPositionNudge())
-        this.m_GridPosYInput.on('changed', () => this.commitGridPositionNudge())
+        // On 'blur', not 'changed' - 'changed' fires on every keystroke (the
+        // DOM 'input' event), and commitGridPositionNudge() resets the field
+        // to '0' each time it runs. Wired to 'changed' the first typed digit
+        // would immediately wipe itself back to '0' mid-edit, making the
+        // field look unable to hold more than one character. The other
+        // fields here stay on 'changed' safely: their commits re-write the
+        // blueprint with the *current* full text rather than clearing
+        // anything, so an intermediate keystroke is harmless to repeat.
+        this.m_GridPosXInput.on('blur', () => this.commitGridPositionNudge())
+        this.m_GridPosYInput.on('blur', () => this.commitGridPositionNudge())
 
         // RadioButton only ever sets itself checked (see RadioButton.ts), so
         // unlike Checkbox there is no accidental "toggle off" to worry about
