@@ -39,6 +39,7 @@ import FD, {
     getModuleInventoryIndex,
     recipeIngredients,
     recipeResults,
+    acceptedSignalIcons,
 } from './factorioData'
 import { Blueprint } from './Blueprint'
 import { getBeltWireConnectionIndex } from './spriteDataBuilder'
@@ -1712,17 +1713,14 @@ export class Entity extends EventEmitter<EntityEvents> {
 
     /**
      * Names of everything a display panel's icon can be set to: items,
-     * fluids, and virtual signals. Unlike `acceptedRecipes`/`acceptedModules`
-     * this does not depend on `this` at all - the panel places no constraint
-     * on its own icon - but lives here rather than as a free function so
-     * `DisplayPanelIcon` can read it the same way it reads every other
-     * accepted-* list.
+     * fluids, and virtual signals - the same range `acceptedSignalIcons`
+     * already computes for a blueprint's own icon slots, since a display
+     * panel places no extra constraint of its own. Kept as a getter rather
+     * than read directly from `factorioData.ts` so `DisplayPanelIcon` can
+     * read it the same way it reads every other accepted-* list.
      */
     public get acceptedDisplayPanelIcons(): string[] {
-        const itemNames = FD.inventoryLayout.flatMap(group =>
-            group.subgroups.flatMap(subgroup => subgroup.items.map(item => item.name))
-        )
-        return [...itemNames, ...Object.keys(FD.fluids), ...Object.keys(FD.signals)]
+        return acceptedSignalIcons()
     }
 
     /** The `ISignal.type` a name from `acceptedDisplayPanelIcons` should be set with. */
