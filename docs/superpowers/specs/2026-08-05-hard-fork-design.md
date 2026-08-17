@@ -108,15 +108,15 @@ or cherry-pick strategy is needed.
 
 **What each side holds** (2026-08-17, with 2026-08-05 in brackets where it moved):
 
-|             | this fork      | upstream                |
-| ----------- | -------------- | ----------------------- |
-| Stars       | 6 (was 5)      | 422                     |
-| Forks       | 3              | 102 (was 101)           |
-| Open issues | 15 (was 8)     | 38                      |
-| Open PRs    | 4 (was 0)      | 0 (was 1, #272, merged) |
-| Merged PRs  | 166 (was 86)   | -                       |
-| Last push   | 2026-08-17     | 2026-08-16 (was 2025-10-17) |
-| Archived    | no             | no, and stated as never |
+|             | this fork    | upstream                    |
+| ----------- | ------------ | --------------------------- |
+| Stars       | 6 (was 5)    | 422                         |
+| Forks       | 3            | 102 (was 101)               |
+| Open issues | 15 (was 8)   | 38                          |
+| Open PRs    | 4 (was 0)    | 0 (was 1, #272, merged)     |
+| Merged PRs  | 166 (was 86) | -                           |
+| Last push   | 2026-08-17   | 2026-08-16 (was 2025-10-17) |
+| Archived    | no           | no, and stated as never     |
 
 That gap is why the 2026-08-05 outreach asked for a repository transfer rather
 than only a link. The answer was no, so the gap stays. It is the cost of the
@@ -272,14 +272,14 @@ its own reviewable PR is worth the second disruption to contributors.
 Phases 1 and 2 are done, in the wrong order and at no cost. What follows starts
 at 3.
 
-| Phase | Action                                                                                                    | State                |
-| ----- | --------------------------------------------------------------------------------------------------------- | -------------------- |
-| 1     | Outreach. Superseded by #276 - upstream answered publicly and declined the transfer                       | done, answer was no  |
-| 2     | Transfer to `FactoryGameFan`. Secrets verified present, Renovate reinstalled (#236)                        | done 2026-08-17      |
-| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                | to do, asynchronous  |
-| 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | to do                |
-| 5     | Repository description and topics; enable Discussions                                                     | to do                |
-| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | after phase 4 ships  |
+| Phase | Action                                                                                                     | State                  |
+| ----- | ---------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 1     | Outreach. Superseded by #276 - upstream answered publicly and declined the transfer                        | done, answer was no    |
+| 2     | Transfer to `FactoryGameFan`. Secrets verified present, Renovate reinstalled (#236)                        | done 2026-08-17        |
+| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                 | to do, asynchronous    |
+| 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | to do                  |
+| 5     | Repository description and topics; enable Discussions                                                      | to do                  |
+| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | after phase 4 ships    |
 | later | Branch rename to `main`, its own PR                                                                        | deferred, re-confirmed |
 
 Phase 3 does not block phase 4. The detach is a ticket in someone else's queue
