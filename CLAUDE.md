@@ -2,7 +2,11 @@
 
 ## Project Overview
 
-Web-based Factorio blueprint viewer/editor using PixiJS. Fork adding Space Age DLC support on branch `wormeyman-space-age-support`. Upstream repo: `teoxoy/factorio-blueprint-editor`, tracking issue #268.
+Web-based Factorio blueprint viewer/editor using PixiJS, adding Factorio 2.0 and Space Age DLC support. Development happens on branch `wormeyman-space-age-support`.
+
+**This is its own project now, not a fork that tracks upstream.** It grew out of `teoxoy/factorio-blueprint-editor`, whose author stepped away in August 2026 (upstream issue #276) and asked forks to make their identity clear - naming the logo specifically. So the artwork, the loading screen, the corner-panel mark and the favicon are this project's own, and nothing here should reintroduce upstream's. GitHub still models the repo as a fork; detaching it is a Support ticket, tracked in `docs/superpowers/specs/2026-08-05-hard-fork-design.md`. Upstream's tracking issue #268 for Space Age is historical - nobody is reading it. The one thing that stays is attribution: the MIT notice keeps teoxoy's copyright line, and the README keeps crediting him.
+
+The identity assets are **generated** by `tools/logo/generate-logo.py` and regenerated rather than hand-edited: the wordmark is outlined from the Titillium Web the site already ships, because an SVG loaded through `<img>` cannot use the page's fonts, so those paths are machine output. Nothing under `tests/` reads any of them, so a broken asset is green everywhere and only shows on screen.
 
 ## Monorepo Structure
 
