@@ -8,10 +8,22 @@ Writes, relative to the repository root:
     packages/website/public/logo-small.svg 140x80 corner panel, transparent
     packages/website/public/favicon.png    196x196, the mark alone
 
-The mark is a chamfered plate holding a 3x3 blueprint grid with one placed tile.
-The 3x3 grid is measured rather than chosen: at 32 pixels a 4x4 grid turns to
-mush and a 3x3 does not, and the favicon is the smallest place any of this has to
-survive.
+The mark is a belt turning a corner, feeding a placed entity.
+
+Two things about it are measured rather than chosen, both at the sizes a favicon
+actually renders at. The chevron count is **two**, one per straight run: three
+stay distinct down to 32 pixels but merge into a dash at 16, and 16 is what some
+browsers ask for. And the belt spans 20..84 rather than the 16..88 it was drawn
+at, because the stroke is centred on the path - at 28 units wide, a run ending at
+88 reaches 102 and is clipped by the 0..100 viewBox the favicon renders through.
+Nothing here draws a guard box, so that clipping is invisible until you compare
+the corner of the PNG against the SVG.
+
+The earlier mark was a chamfered plate holding a 3x3 grid with one placed tile.
+It was legible at 32 and said nothing: a blue rounded square with an orange dot
+is every second icon in a tab strip. The belt is the departure - asymmetric, so
+it has a findable silhouette, and specific, so a Factorio player reads it at a
+glance.
 
 The type is Titillium Web 400, which the site already serves under the SIL Open
 Font License, outlined to paths here because an SVG loaded through an <img> tag
@@ -25,6 +37,7 @@ Needs `fonttools` for the outlining and `rsvg-convert` for the favicon:
     .venv/bin/python tools/logo/generate-logo.py
 """
 
+import math
 import pathlib
 import shutil
 import subprocess
@@ -78,25 +91,52 @@ def chamfer(x, y, w, h, c):
     )
 
 
+# The belt. X0/Y0 is the corner, X1/Y1 the two open ends, BELT_W the full width.
+# Keep X0 - BELT_W/2 >= 0 and X1 + BELT_W/2 <= 100 or the favicon clips - see the
+# module docstring.
+BELT_W = 28.0
+X0 = Y0 = 20.0
+X1 = Y1 = 84.0
+CORNER_R = 22.0
+
+
+def _chevron(cx, cy, rot, s, x, y, arm=11.0):
+    """One direction arrow, pointing along the belt. `rot` is degrees clockwise."""
+    a = math.radians(rot)
+    ox, oy = x + cx * s, y + cy * s
+    pts = ((-arm, arm * 0.66), (0.0, -arm * 0.44), (arm, arm * 0.66))
+    return 'M' + ' L'.join(
+        f'{ox + (px * math.cos(a) - py * math.sin(a)) * s:.2f},'
+        f'{oy + (px * math.sin(a) + py * math.cos(a)) * s:.2f}'
+        for px, py in pts
+    )
+
+
 def mark(size=100.0, x=0.0, y=0.0):
     s = size / 100.0
-    step = 100.0 / 3
-    lines = []
-    for i in (1, 2):
-        t = i * step
-        lines.append(f'M{x + t * s:.2f},{y + 12 * s:.2f} L{x + t * s:.2f},{y + 88 * s:.2f}')
-        lines.append(f'M{x + 12 * s:.2f},{y + t * s:.2f} L{x + 88 * s:.2f},{y + t * s:.2f}')
-    pad = step * 0.14
-    tile = chamfer(
-        x + (step + pad) * s, y + (step + pad) * s, (step - 2 * pad) * s, (step - 2 * pad) * s, 6 * s
+    belt = (
+        f'M{x + X0 * s:.2f},{y + Y1 * s:.2f} L{x + X0 * s:.2f},{y + (Y0 + CORNER_R) * s:.2f} '
+        f'Q{x + X0 * s:.2f},{y + Y0 * s:.2f} {x + (X0 + CORNER_R) * s:.2f},{y + Y0 * s:.2f} '
+        f'L{x + X1 * s:.2f},{y + Y0 * s:.2f}'
     )
-    plate = chamfer(x, y, size, size, 16 * s)
+    chevrons = ' '.join(
+        (
+            _chevron(X0, 60.0, 0, s, x, y),
+            _chevron(58.0, Y0, 90, s, x, y),
+        )
+    )
+    tile = chamfer(x + 50 * s, y + 50 * s, 40 * s, 40 * s, 8 * s)
+    caps = 'stroke-linecap="round" stroke-linejoin="round"'
     return (
-        f'<path d="{plate}" fill="{DEEP}"/>'
-        f'<path d="{" ".join(lines)}" stroke="{BLUE}" stroke-width="{3.6 * s:.2f}" '
-        f'stroke-linecap="round" opacity=".55"/>'
+        f'<path d="{belt}" fill="none" stroke="{DEEP}" stroke-width="{BELT_W * s:.2f}" {caps}/>'
+        f'<path d="{belt}" fill="none" stroke="{BLUE}" stroke-width="{BELT_W * s:.2f}" {caps} '
+        f'opacity=".26"/>'
+        f'<path d="{belt}" fill="none" stroke="{BLUE}" '
+        f'stroke-width="{BELT_W * 0.16 * s:.2f}" {caps}/>'
+        f'<path d="{chevrons}" fill="none" stroke="{AMBER}" '
+        f'stroke-width="{BELT_W * 0.19 * s:.2f}" {caps}/>'
         f'<path d="{tile}" fill="{AMBER}"/>'
-        f'<path d="{plate}" fill="none" stroke="{BLUE}" stroke-width="{7 * s:.2f}"/>'
+        f'<path d="{tile}" fill="none" stroke="{DEEP}" stroke-width="{4 * s:.2f}"/>'
     )
 
 

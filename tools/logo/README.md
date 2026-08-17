@@ -30,9 +30,25 @@ browser picked. The paths come from
 already serves, under the SIL Open Font License. Only the 400 weight is in the
 repo, so the bolder weight is faked with a stroke in the fill colour.
 
-**Why the grid is 3x3.** The favicon is the smallest thing here and it decides the
-mark. Rendered at 32 pixels, a 4x4 grid turns to mush and a 3x3 stays legible.
-Every other size was comfortable either way, so the small one chose.
+**Why the mark is a belt and not a grid.** The first version was a chamfered plate
+holding a 3x3 grid with one placed tile, and it was legible at every size and
+said nothing: at 32 pixels the grid lines collapse and what is left is a blue
+rounded square with an orange dot, which describes half the icons in a tab strip.
+The belt is asymmetric, so it has a silhouette you can find, and it is specific,
+so a Factorio player reads it without being told.
+
+**Why two chevrons and not three.** The favicon is the smallest thing here and it
+decides the mark. Three chevrons stay distinct down to 32 pixels and merge into a
+dash at 16, which is a size browsers still ask for; two survive both. Every
+larger size was comfortable either way, so the small one chose. That is the same
+rule the old 3x3 grid was picked under, applied to a different detail.
+
+**Why the belt stops short of the box.** An SVG stroke is centred on its path, so
+a run ending at 88 with a 28-unit stroke reaches 102 and is clipped by the
+`0 0 100 100` viewBox the favicon renders through. The ends sit at 84 and the
+corner at 20, which keeps the whole mark inside 6..98. Nothing draws a guard box,
+so this kind of clipping does not announce itself - it looks like a design
+choice. If you change `BELT_W`, re-check both ends.
 
 **Why the README copy has a background and the others do not.** GitHub renders the
 README on white in light mode, and the wordmark is cream. The `.github/logo.svg`
@@ -46,6 +62,15 @@ what lays it out, and keeping it means the panel does not move.
 **Nothing under `tests/` reads any of these.** A missing or broken asset is green
 across the whole suite and only shows on screen. Look at the loading screen, the
 corner panel and the browser tab after regenerating.
+
+**A fifth file changes with the mark, and this script does not write it.**
+`.github/preview.png` is a screenshot of the running editor, and the corner panel
+is in the frame, so every mark change leaves it showing the previous one. The
+README then puts the new logo directly above a screenshot of the old one, which
+is the exact inconsistency the identity work existed to remove. Reshoot it: start
+the dev servers, load a large blueprint, remove `.toasts-container`, and capture
+at 1738x1243, which is what the committed file is. `test-blueprints/JEPAKAZOL/gleba-base-mall-all.txt`
+is the one in it today.
 
 **Do not reintroduce upstream's artwork.** The project it grew out of asked forks
 not to keep its logo, so people would not assume a shared maintainer. That is the
