@@ -187,6 +187,29 @@ existing forks of this repository (`byalex33`, `olafrose`, `seesee010`, all stil
 present on 2026-08-17) when it leaves the network. This design does not assert an
 answer.
 
+**Answered on 2026-08-17, by the support form's own assistant, and it is two
+operations rather than one.** Neither the docs page nor this document knew that.
+
+- **Detach** creates a new fork network holding only this repository. Its
+  sub-forks are re-parented and **stay in the original network**.
+- **Extract** moves this repository **and all its sub-forks** into a new network,
+  with this repository as the new root.
+
+Both make the repository standalone, so both fix the search problem. The choice
+is only about where `byalex33`, `olafrose` and `seesee010` end up, and the
+awkward part is that they forked this project's work rather than upstream's, so
+detach re-parents them to a project their code did not come from. Worth knowing
+before choosing, and not worth reopening after: they are other people's
+repositories either way.
+
+**Still unanswered:** whether the repository keeps its issues, pull requests,
+stars and watchers. The assistant did not address it, so the filed ticket asks.
+
+The ticket was filed on 2026-08-17 under the FactoryGameFan organization, in the
+"Transfer" category - the form's nine categories name neither forks nor
+detaching, and the fork routing rides on a `tags=rr-forks` parameter carried from
+the topic tile instead.
+
 **The ticket text**, drafted 2026-08-17 and kept here because a ticket that lives
 only in a chat log gets rewritten from memory the second time. File it at
 <https://support.github.com/request/fork>, which is the form the docs page links
@@ -372,7 +395,7 @@ someone else's queue, and 6, which waits on nothing now.
 | ----- | ---------------------------------------------------------------------------------------------------------- | ---------------------- |
 | 1     | Outreach. Superseded by #276 - upstream answered publicly and declined the transfer                        | done, answer was no    |
 | 2     | Transfer to `FactoryGameFan`. Secrets verified present, Renovate reinstalled (#236)                        | done 2026-08-17        |
-| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                 | drafted, not yet filed |
+| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                 | filed 2026-08-17       |
 | 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | done 2026-08-17 (#237) |
 | 5     | Repository description and topics; enable Discussions                                                      | done 2026-08-17        |
 | 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | unblocked, to do       |
