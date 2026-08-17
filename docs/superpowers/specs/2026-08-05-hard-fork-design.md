@@ -3,6 +3,53 @@
 Detach this repository from `teoxoy/factorio-blueprint-editor`, move it into a
 `FactoryGameFan` organization, and rebrand it as a project in its own right.
 
+> **Revised 2026-08-17.** The transfer is done. The detach is not. Upstream
+> answered, and the answer changed two sections of this document - see "What
+> changed since 2026-08-05" below. Everything not marked as revised was measured
+> on 2026-08-05 and re-checked today.
+
+## What changed since 2026-08-05
+
+**Upstream answered, publicly, and said no to a transfer.** Issue #276, "Project
+no longer maintained", was opened by teoxoy on 2026-08-16. It says he is stepping
+away, that the repository will not be archived so people can keep commenting, and
+it asks anyone who forks the project to "make the new identity clear", adding
+that "ideally, a fork should not continue using the original logo since people
+will naturally assume it's still the same project, same maintainer, and same
+direction". wormeyman asked in that thread for the repository to be handed over.
+teoxoy declined: "I would rather keep the repository and website up since it's
+not terribly broken."
+
+So the outreach section of this design is finished, and its answer is no. The
+plan of asking on #208 and waiting four weeks is deleted rather than deferred.
+What replaces it is a requirement this document did not have: a visual identity
+of our own, because that is the specific thing the person we forked from asked
+for.
+
+**The transfer already happened**, out of the order this document set. The
+repository is `FactoryGameFan/factorio-blueprint-editor` and has been since
+2026-08-17, but `fork` is still `true` and `parent` still names teoxoy. Detaching
+is the only step of the original sequence left, and doing it second cost nothing.
+
+**Both risks this document refused to guess at came back clean.** Actions secrets
+survived the transfer - `gh secret list` shows `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN`, both still stamped 2026-06-25. Renovate was reinstalled on
+the org and is working; PR #236, "Adopt the org Renovate preset", merged
+2026-08-17. Neither needed to be re-derived from behaviour, and both were checked
+rather than assumed.
+
+**Upstream pushed for the first time in ten months**, three commits on 2026-08-16,
+so this fork is 3 behind where it was 0. Nothing here needs them:
+
+- `12bbcef0` Factoriobin support (#272) - already ported here, credited in
+  `bpString.ts` to nyakokitsu
+- `9c73f979` remove discord and feedback buttons
+- `62d8b92d` mark project as unmaintained (README title only)
+
+The middle one matters to a decision below. **Upstream removed its own Discord
+button from its own site**, so our README badge now points at a server that the
+project it belongs to no longer links to.
+
 ## The problem
 
 Other projects are switching to this copy and pull requests are arriving, but
@@ -14,57 +61,72 @@ GitHub still models it as someone else's fork. That is not a matter of framing -
 - **Pull requests default to the parent's base branch**, which is a trap for a
   first-time contributor who does not notice.
 - Insights, discussions and the fork network all read as belonging upstream.
+- **It is what gates Renovate.** On the Mend-hosted app, a fork is skipped during
+  `init`, before any config is read, unless the app is kept on "Only select
+  repositories". That happened on 2026-08-05 and left no trace in the repo.
 
-Three smaller leaks compound it, each one actively misdirecting somebody:
+Smaller leaks compound it, each one actively misdirecting somebody:
 
+- The logo, the loading screen, the corner-panel mark and the favicon are all
+  teoxoy's artwork - the illustrated orange `F.B.E.` - which is the exact thing
+  #276 asks forks not to keep.
 - `packages/editor/package.json` declares `author: "Teoxoy"`, and points
   `repository`, `homepage` and `bugs` at `github.com/Teoxoy/...`. The `bugs`
   field sends bug reports to a tracker with 38 open issues and no maintainer.
-- The README's Discord badge points at upstream's server, whose maintainer left.
+- The in-app GitHub link and the console "Looking for the source?" line both point
+  at `wormeyman/factorio-blueprint-editor`, which redirects but names the old
+  owner.
+- Three strings tell users to report bugs "using the feedback button", which this
+  fork does not have: `packages/website/index.html:50`,
+  `packages/website/src/index.ts:105` and `:765`.
+- The README's Discord badge points at upstream's server, whose maintainer left
+  and which upstream itself stopped linking to on 2026-08-16.
+- The repository description is character-for-character upstream's, and the repo
+  has no topics at all.
 - The default branch is `wormeyman-space-age-support`, which names one person and
   one DLC, and needs a paragraph of explanation in both `README.md` and
   `CONTRIBUTING.md`.
 
 ## What was measured before deciding
 
-All measured 2026-08-05. Re-derive rather than trust - most of these expire.
+Measured 2026-08-05, re-measured 2026-08-17 where marked. Re-derive rather than
+trust - most of these expire.
 
-**This is not a hostile fork, and the evidence is upstream's own issue tracker.**
-`teoxoy/factorio-blueprint-editor#208`, "Looking for maintainer(s)", has been
-open and pinned since 2020-03-18. Its body reads "Going forward, I would like to
-find at least one person that can help maintain the project." wormeyman commented
-on it on 2026-07-30 naming this fork; byalex33 asked "Is this still needed?" on
-2026-06-23. Neither has a reply. teoxoy's last comment anywhere in that repo is
-2025-10-17, and the last push to `master` is the same day.
+**This is not a hostile fork, and upstream's own words are the evidence.** The
+2026-08-05 version of this document rested that claim on issue #208, "Looking for
+maintainer(s)", open and pinned since 2020-03-18, which reads "Going forward, I
+would like to find at least one person that can help maintain the project."
+wormeyman answered it on 2026-07-30 and got no reply. That reading is now
+confirmed by #276 rather than inferred from silence: upstream stepped away on its
+own terms, asked forks to identify themselves clearly, and pointed people at that
+thread to find one.
 
-So the sequence is: upstream asked for maintainers, someone answered, and upstream
-went quiet. Every public document produced by this change should say it that way,
-because it is what happened.
+**There is nothing to reconcile.** This fork is **428 commits ahead of
+`upstream/master` and 3 behind** (2026-08-17). The three are listed above and
+none is wanted. A hard fork here is a detachment, not a divergence, and no merge
+or cherry-pick strategy is needed.
 
-**There is nothing to reconcile.** This fork is **399 commits ahead of
-`upstream/master` and 0 behind** - a strict superset. A hard fork here is a
-detachment, not a divergence, and no merge or cherry-pick strategy is needed.
+**What each side holds** (2026-08-17, with 2026-08-05 in brackets where it moved):
 
-**What each side holds:**
+|             | this fork      | upstream                |
+| ----------- | -------------- | ----------------------- |
+| Stars       | 6 (was 5)      | 422                     |
+| Forks       | 3              | 102 (was 101)           |
+| Open issues | 15 (was 8)     | 38                      |
+| Open PRs    | 4 (was 0)      | 0 (was 1, #272, merged) |
+| Merged PRs  | 166 (was 86)   | -                       |
+| Last push   | 2026-08-17     | 2026-08-16 (was 2025-10-17) |
+| Archived    | no             | no, and stated as never |
 
-|             | this fork  | upstream                    |
-| ----------- | ---------- | --------------------------- |
-| Stars       | 5          | 422                         |
-| Forks       | 3          | 101                         |
-| Open issues | 8          | 38                          |
-| Open PRs    | 0          | 1 (#272, opened 2026-05-20) |
-| Last push   | 2026-08-04 | 2025-10-17                  |
-| Archived    | no         | no                          |
-
-That gap is why the outreach in this design asks for a repository transfer rather
-than only for a link: the stars, the forks and the inbound links are worth
-substantially more than anything a detach can produce.
+That gap is why the 2026-08-05 outreach asked for a repository transfer rather
+than only a link. The answer was no, so the gap stays. It is the cost of the
+fork, and it is now a fixed cost rather than an open question.
 
 **Upstream's Discord is alive even though its maintainer is not.** The invite in
 the README (`discord.gg/c5eXyBU`, guild `540738973413408809`) still resolves, to
-**968 members with 175 online**. This inverts the obvious plan: standing up a
-FactoryGameFan server would start at zero against a live community and the usual
-result is that both go quiet.
+**968 members with 175 online** (2026-08-05). This inverted the obvious plan:
+standing up a FactoryGameFan server would start at zero against a live community
+and the usual result is that both go quiet.
 
 **Nothing is published to npm.** Both `@fbe/editor` and `factorio-blueprint-editor`
 return 404 from the registry. The `@fbe/` scope is internal to this monorepo, so
@@ -72,68 +134,121 @@ renaming it has no ecosystem consequence in either direction.
 
 **The deploy has two secrets and no branch protection.** `.github/workflows/ci.yml`
 has a `deploy` job gated on green checks that uses `secrets.CLOUDFLARE_API_TOKEN`
-and `secrets.CLOUDFLARE_ACCOUNT_ID`, both set 2026-06-25. The default branch has
-no protection rules at all.
+and `secrets.CLOUDFLARE_ACCOUNT_ID`, both set 2026-06-25 and both confirmed
+present after the transfer. The default branch has no protection rules at all.
 
-**The org exists.** `FactoryGameFan` was created 2026-08-05T18:30:41Z, free plan,
-0 repositories, with wormeyman as an active admin. `factorygamefan` and
-`factory-game-fan` were also free at that moment and were not claimed.
+**The site's own type and palette are already a brand, and nobody used them as
+one.** `packages/website/public/fonts/titillium-web-v8-latin/` ships Titillium Web
+400 under the SIL Open Font License, and `packages/website/src/index.css` uses
+`#ffe6c0` for text, `#27abdb` for blue, `#db9215` for amber and `#303030` for the
+background. A new mark drawn from those needs no new font, no new license and no
+new asset pipeline, and it matches the type the app already renders.
 
 ## Decisions
 
-### Detach through GitHub Support, then transfer
+### Detach through GitHub Support
 
-Ask GitHub Support to detach the fork - convert it to a standalone repository -
-then transfer it into `FactoryGameFan`. **In that order.** A transfer first would
-leave the support ticket naming a repository that has moved.
+Ask GitHub Support to detach the fork - convert it to a standalone repository.
+The transfer this document paired it with is already done, so the ordering note
+that used to be here is spent.
 
-Detaching keeps the URL, the 5 stars, all 8 open issues, the 86 merged pull
+Detaching keeps the URL, the 6 stars, all 15 open issues, the 166 merged pull
 requests and the entire history, and flips `fork` to false so the repo becomes
-searchable. The alternative - a fresh repository - is immediate but forfeits all
-of that and breaks every existing link and the 3 downstream forks.
+searchable and Renovate stops depending on an app setting nobody can see from
+here. The alternative - a fresh repository - is immediate but forfeits all of
+that and breaks every existing link and the 3 downstream forks.
 
 **One thing to ask Support rather than assume:** what happens to the three
-existing forks of this repository (`byalex33`, `olafrose`, `seesee010`) when it
-leaves the network. This design does not assert an answer.
+existing forks of this repository (`byalex33`, `olafrose`, `seesee010`, all still
+present on 2026-08-17) when it leaves the network. This design does not assert an
+answer.
 
-### One outreach comment, no email, and nothing waits on it
+### A distinct visual identity
 
-Post a single comment on upstream #208 that states the intent plainly, asks for a
-transfer of `teoxoy/factorio-blueprint-editor` into the org as the preferred
-outcome, and names a date after which the fork proceeds independently. **No
-email** - the issue is the channel the request was made on, and it is public, so
-the record is visible to the community that has been waiting on it.
+Replace teoxoy's artwork everywhere it ships, and take the replacement from the
+app's own palette and type rather than from his.
 
-Everything this repository controls proceeds on its own schedule regardless. A
-project that has been asking for maintainers since 2020 and has not spoken since
-October cannot be a blocker. If teoxoy does answer with a transfer, that outcome
-is strictly better than the detach and supersedes it.
+This is the section #276 asks for, and the standard it sets is not "different
+enough to defend" but "nobody assumes it is the same project". Four assets carry
+his work today and all four change: `.github/logo.svg` (498 KB of illustrated
+orange `F.B.E.`), `packages/website/public/logo.svg` (the loading screen, drawn
+at 50% of viewport width), `packages/website/public/logo-small.svg` (the 140x80
+corner panel) and `packages/website/public/favicon.png` (196x196).
 
-The comment is a message to another person, so it goes through the `humanizer`
-skill before it is posted, and wormeyman posts it - not the agent.
+The new mark is a chamfered blueprint plate: a grid with one placed tile, in the
+blue and amber the app already uses, beside a two-line wordmark reading
+`FACTORIO` over `BLUEPRINT EDITOR`. Three things about that choice are
+deliberate:
+
+- **The colour story is blue, not orange.** Upstream's mark is orange and so is
+  the Factorio logo it echoes. Blue is the strongest single signal that this is
+  not that project, and it is not invented - it is `#27abdb`, already on screen
+  in the editor.
+- **The wordmark spells the name instead of the initials.** Upstream's logo is
+  `F.B.E.`, so a letterform mark, in any colour, is the one shape most likely to
+  be read as his. The name is also what people search for, and it already sits in
+  `index.html` as the page title.
+- **The type is outlined, not referenced.** An SVG loaded through `<img>` cannot
+  use the page's fonts, so the wordmark ships as paths drawn from the OFL-licensed
+  Titillium Web the site already serves. That keeps the lockup identical to the
+  app's own type with no new dependency.
+
+`logo-small.svg` is the mark and a compressed wordmark, sized for a 140x80 box;
+the favicon is the mark alone, which is the case that decided the design, since
+it has to survive 32 pixels.
 
 ### GitHub Discussions, and the Discord badge goes
 
 Enable Discussions on the repository; remove the Discord badge from the README.
+Discussions is still off as of 2026-08-17.
 
 This forfeits direct reach to 968 Factorio players, which is a real cost and is
 recorded here as one. What it buys is a surface that is owned, moderated, indexed
 by the same search that is about to start finding the repository, and adjacent to
-the issues. The alternative - keeping a badge that points into a server where
-nobody can act on what is said - trades a solvable problem for an unsolvable one.
+the issues.
+
+The revision strengthens this rather than reopening it: on 2026-08-16 upstream
+removed its own Discord button from its own site. Keeping a badge that points into
+a server the parent project no longer links to, and where nobody can act on what
+is said, is worse than it was when this decision was first made.
+
+While the README is open, `packages/website/public/discord.svg` is a dead asset -
+the in-app button that used it is already gone here - and the three strings
+pointing users at a "feedback button" this fork does not have are corrected to
+name GitHub issues instead. Those are not branding, but they are the same
+question the `bugs` field answers wrongly: where does a user go with a problem.
+
+### One comment on #276, after the rebrand lands
+
+Post a single comment on upstream #276 naming the new URL and the new identity.
+It goes after the visual identity ships, not before, because the thread's purpose
+is helping people find a maintained fork and the useful version of that link is
+one where the logo already differs.
+
+The comment is a message to another person, so it goes through the `humanizer`
+skill first, and wormeyman posts it - not the agent. The existing comment on that
+thread, which names `wormeyman/factorio-blueprint-editor`, stays as the record of
+what was asked and answered.
 
 ### Deferred: renaming the default branch
 
 `wormeyman-space-age-support` should become `main`, and the stale `master` branch
 that tracks upstream should be deleted. Both are deliberately **not** in this
-change. The rename touches `ci.yml`, the Cloudflare deploy gate, `CLAUDE.md`,
-`CONTRIBUTING.md`, `README.md` and several plan documents, and isolating that risk
-into its own reviewable PR is worth the second disruption to contributors.
+change, and that was re-confirmed on 2026-08-17. The rename touches `ci.yml` and
+its Cloudflare deploy gate, `.github/renovate.json5`, `CLAUDE.md`,
+`CONTRIBUTING.md`, `README.md`, `packages/website/index.html`,
+`packages/website/src/index.ts` and several plan documents - 27 references across
+16 files - and it would retarget 4 open pull requests. Isolating that risk into
+its own reviewable PR is worth the second disruption to contributors.
 
 ## Judgment calls, recorded so they can be reversed knowingly
 
 - **The repository name stays `factorio-blueprint-editor`.** It is what people
   search for.
+- **The project name stays "Factorio Blueprint Editor".** #276 asks that the
+  identity be clear, and names the logo specifically. A descriptive name shared
+  with a project that is now explicitly retired is not what makes someone assume
+  a shared maintainer; the artwork is.
 - **The `@fbe/` package scope stays.** Nothing is published, so a rename is churn
   with no ecosystem benefit, and `fbe` is an abbreviation of the project rather
   than of a person.
@@ -142,7 +257,8 @@ into its own reviewable PR is worth the second disruption to contributors.
   only as the legacy `fbeworkeyman.workers.dev` host, which exists solely to 301
   to `fbe.factorygamefan.com`. Renaming means creating a second worker and moving
   the `custom_domain` route off the live one. That is production risk against a
-  hostname that is already deprecated by its own redirect.
+  hostname that is already deprecated by its own redirect. Its placeholder page,
+  which reads `FBEWormeyman`, is corrected - that is text, not infrastructure.
 - **`packages/editor/package.json` is corrected, not rebranded.** `author`,
   `repository`, `homepage` and `bugs` are changed because they are **wrong** and
   `bugs` misdirects reports, not because of naming.
@@ -153,29 +269,34 @@ into its own reviewable PR is worth the second disruption to contributors.
 
 ## Sequence
 
-Phase 0 is the public blueprint corpus work (#186) landing, since it is in flight
-and touches many of the same documents.
+Phases 1 and 2 are done, in the wrong order and at no cost. What follows starts
+at 3.
 
-| Phase | Action                                                                                                           | Blocking?        |
-| ----- | ---------------------------------------------------------------------------------------------------------------- | ---------------- |
-| 1     | Post the #208 comment (humanizer pass first). Open the GitHub Support detach ticket. Same day, both asynchronous | no               |
-| 2     | Support detaches. Transfer to `FactoryGameFan`. Verify secrets, reinstall Renovate, enable Discussions           | waits on Support |
-| 3     | One rebrand commit: package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md                                   | no               |
-| 4     | Announce - repository description, topics, and a note wherever adopters are already pointing                     | no               |
-| 5     | Deadline check at week 4. Silence means proceed as the project; a reply offering transfer supersedes the detach  | no               |
-| later | Branch rename to `main`, its own PR                                                                              | no               |
+| Phase | Action                                                                                                    | State                |
+| ----- | --------------------------------------------------------------------------------------------------------- | -------------------- |
+| 1     | Outreach. Superseded by #276 - upstream answered publicly and declined the transfer                       | done, answer was no  |
+| 2     | Transfer to `FactoryGameFan`. Secrets verified present, Renovate reinstalled (#236)                        | done 2026-08-17      |
+| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                | to do, asynchronous  |
+| 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | to do                |
+| 5     | Repository description and topics; enable Discussions                                                     | to do                |
+| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | after phase 4 ships  |
+| later | Branch rename to `main`, its own PR                                                                        | deferred, re-confirmed |
+
+Phase 3 does not block phase 4. The detach is a ticket in someone else's queue
+and the identity work is local; either can land first.
 
 ## Risks
 
-- **Renovate stops, silently.** GitHub App installations are per-account, so
-  after the transfer the app must be installed on `FactoryGameFan` or dependency
-  pull requests simply cease. Nothing fails; they just stop arriving. Verify
-  explicitly after the transfer rather than waiting to notice.
-- **The Cloudflare secrets may not survive the transfer.** This design does not
-  assert whether repository Actions secrets are retained. Verify with
-  `gh secret list` immediately after, and re-add if absent. Left unchecked, the
-  failure surfaces on the next push to the deploy branch, which is late.
-- **Ordering.** Detach, then transfer. Not the reverse.
+- ~~**Renovate stops, silently.**~~ Checked 2026-08-17: reinstalled on the org and
+  working, PR #236 merged. The underlying hazard stands - app installations are
+  per-account, and a fork is skipped before its config is read - which is one more
+  reason the detach is worth a ticket.
+- ~~**The Cloudflare secrets may not survive the transfer.**~~ Checked 2026-08-17:
+  both present, both still stamped 2026-06-25.
+- **A logo swap is invisible to the test suite.** Nothing under `tests/` reads
+  `logo.svg`, `logo-small.svg` or `favicon.png`, so a broken or missing asset is
+  green everywhere and only shows on screen. Load the page and look at it, at the
+  loading screen, the corner panel and the browser tab.
 - **Branch protection does not exist**, and an org with more than one person who
   can merge wants it. It is a consequence of the org rather than part of the fork,
   so it is noted rather than scheduled.
@@ -188,10 +309,16 @@ and touches many of the same documents.
   `false`, and `.parent` is absent
 - The repository appears in a GitHub search for `factorio blueprint editor` that
   does not pass `fork:true`
-- `gh secret list` shows both Cloudflare secrets, and a deploy succeeds
-- Renovate opens or updates its dependency dashboard issue after the transfer
-- `git grep -n "Teoxoy/factorio-blueprint-editor"` returns only the credit lines
-  in `README.md` and the historical documents under `docs/superpowers/`
+- `git grep -in teoxoy` returns only the credit lines in `README.md` and the
+  historical documents under `docs/superpowers/`
+- `git grep -n "feedback button" -- packages` returns nothing - scoped to `packages`,
+  since this document names the string it is asking about
+- No file under `packages/website/public/` or `.github/` still holds upstream's
+  artwork, and `discord.svg` is gone
+- The loading screen, the corner panel and the browser tab all show the new mark,
+  checked by eye against a running dev server
+- `vp check` and `vp test` clean, and all four Playwright shards green - every
+  spec loads `index.html`
 - `wormeyman-space-age-support` still builds and deploys - the branch rename is
   explicitly not part of this
 
@@ -199,8 +326,7 @@ and touches many of the same documents.
 
 - Starting a release or tagging scheme. The packages are at 1.0.0 and 0.0.1 with
   no releases; giving the project a version story is worth doing and is not this.
-- Moving Playwright into CI (#186 notes it becomes possible once the corpus is
-  committed).
 - Factorio 2.1 data regeneration (#187).
-- Adopting upstream's 38 open issues or its open PR #272. Worth triaging once the
-  transfer question resolves, since a transfer would bring them along anyway.
+- Adopting upstream's 38 open issues. Worth triaging now that the transfer
+  question is settled, since nobody there will.
+- ~~Moving Playwright into CI~~ - done, the `e2e` job, four sharded runners.
