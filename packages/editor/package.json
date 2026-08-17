@@ -2,14 +2,17 @@
     "name": "@fbe/editor",
     "version": "1.0.0",
     "description": "A Factorio blueprint editor and renderer webapp",
-    "author": "Teoxoy",
+    "author": "FactoryGameFan",
+    "contributors": [
+        "Teoxoy (original author)"
+    ],
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git://github.com/Teoxoy/factorio-blueprint-editor.git"
+        "url": "git://github.com/FactoryGameFan/factorio-blueprint-editor.git"
     },
-    "bugs": "https://github.com/Teoxoy/factorio-blueprint-editor/issues",
-    "homepage": "https://github.com/Teoxoy/factorio-blueprint-editor",
+    "bugs": "https://github.com/FactoryGameFan/factorio-blueprint-editor/issues",
+    "homepage": "https://github.com/FactoryGameFan/factorio-blueprint-editor",
     "module": "./src/index.ts",
     "scripts": {
         "test:unit": "vp test run",
