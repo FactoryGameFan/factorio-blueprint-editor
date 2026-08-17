@@ -268,6 +268,22 @@ skill first, and wormeyman posts it - not the agent. The existing comment on tha
 thread, which names `wormeyman/factorio-blueprint-editor`, stays as the record of
 what was asked and answered.
 
+**The comment text**, drafted and humanized 2026-08-17, kept here for the same
+reason the ticket text is. Note what it answers: the request in #276's body is
+specifically about the logo, so the logo is the first thing it addresses, and the
+stale URL is second.
+
+> About the identity ask in your first post: the fork has its own logo now, plus
+> its own wordmark and favicon, none of it based on yours. The README says at the
+> top that this is a different project than this one, and the MIT notice still
+> carries your copyright line.
+>
+> It also moved orgs, so the link I posted earlier is stale. It's now
+> https://github.com/FactoryGameFan/factorio-blueprint-editor and the site is
+> https://fbe.factorygamefan.com. The old wormeyman URL redirects.
+>
+> Thanks again for eight years of work on it.
+
 ### Deferred: renaming the default branch
 
 `wormeyman-space-age-support` should become `main`, and the stale `master` branch
