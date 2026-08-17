@@ -535,7 +535,15 @@ export class TextInput extends OriginalTextInput {
         renderer: Renderer,
         width: number,
         text: string,
-        maxLength: number,
+        // undefined leaves the DOM element's `maxlength` attribute unset,
+        // which is what "no limit" means natively - ImportDialog/ExportDialog
+        // pass this for the blueprint-string field, which has no honest cap
+        // to pick: a hardcoded 2**20 (1 MiB) silently truncated the largest
+        // real blueprint in the corpus (2.4 MB) on paste, the one route
+        // `maxlength` actually constrains (programmatic `.text = ...`
+        // assignment, which is how the field gets its initial value here, is
+        // not subject to it at all).
+        maxLength: number | undefined,
         numericOnly = false,
         // For ImportDialog/ExportDialog's textarea: OriginalTextInput already
         // supports a multiline (textarea) mode, but nothing before those
@@ -588,7 +596,9 @@ export class TextInput extends OriginalTextInput {
         if (numericOnly) {
             this.restrict = '0123456789'
         }
-        this.maxLength = maxLength
+        if (maxLength !== undefined) {
+            this.maxLength = maxLength
+        }
         this.text = text
     }
 }

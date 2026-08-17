@@ -25,7 +25,9 @@ export class ExportDialog extends Dialog {
             G.app.renderer,
             WIDTH - PADDING * 2,
             '',
-            2 ** 20,
+            // Same reasoning as ImportDialog's field - no honest cap on a
+            // blueprint string's length.
+            undefined,
             false,
             true,
             FIELD_HEIGHT

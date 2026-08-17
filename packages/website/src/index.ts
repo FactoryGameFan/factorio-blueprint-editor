@@ -189,8 +189,8 @@ function exportImage(): boolean {
     return true
 }
 
-/** For ExportDialog's textarea - the same guard `exportString` uses,
- * but handing back the string instead of writing it to the clipboard. */
+/** For ExportDialog's textarea - the same guard `exportString`/`exportImage`
+ * use, but handing back the string instead of writing it to the clipboard. */
 function encodeCurrent(): Promise<string | undefined> {
     if (bp.isEmpty()) return Promise.resolve(undefined)
     return encode(book || bp)
@@ -203,10 +203,15 @@ function readClipboardText(): Promise<string> {
     return navigator.clipboard.readText()
 }
 
+/*
+    exportString stays a local function - it's what the `copy` listener below
+    calls directly - but is deliberately not part of `quickActions`: nothing
+    in the editor package has a one-click "copy the string" action to trigger
+    it from (see QuickActions' own doc comment in common/globals.ts).
+*/
 const quickActions: QuickActions = {
     importReplace,
     importAppend,
-    exportString,
     exportImage,
     encodeCurrent,
     readClipboardText,

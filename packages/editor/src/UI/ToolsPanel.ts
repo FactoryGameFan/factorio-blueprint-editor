@@ -88,21 +88,43 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 /*
     2 rows, filled column-major (top-to-bottom, then next column) rather than
     a single wide row. This panel sits flush against the quickbar's right edge
-    (see setPosition), close enough to the screen's right side at common
-    viewport widths (1280 and narrower) that a wide single row runs under
-    `.toasts-container`, which is `position: fixed; right: 0; width: 320px`
-    and sits above the canvas - verified by clicking a widened-panel slot
-    there and finding the click reached the toast, not the button. Wrapping
-    into a second row instead keeps the panel as narrow as the action count
-    allows.
+    (see setPosition) at common viewport widths, close enough to the screen's
+    right side that a wide single row runs under `.toasts-container`, which is
+    `position: fixed; right: 0; width: 320px` and sits above the canvas -
+    verified by clicking a widened-panel slot there and finding the click
+    reached the toast, not the button. Wrapping into a second row instead
+    keeps the panel as narrow as the action count allows. `setPosition` below
+    separately clamps the panel's x so it cannot run off the right edge of a
+    narrower viewport - the two are different problems (this one is about
+    what the toast overlay can reach, that one is about the screen's own
+    edge) and fixing one does not fix the other.
 
     Each action pairs with the wire below it - Alt/copper-wire,
-    open-Import/green-wire, open-Export/red-wire, Undo/Redo - except the
+    open-Import/red-wire, open-Export/green-wire, Undo/Redo - except the
     last column, export-image, which has no wire to pair with and doesn't
-    need one.
+    need one. The wire order itself is `WIRES`' own declared order
+    (copper, red, green) - the same left-to-right order the pre-existing
+    single-row `WiresPanel` this replaced drew them in - rather than a
+    reordering invented for this grid.
 */
 const ROWS = 2
-const CELL_COUNT = WIRES.length + 6
+
+/**
+ * An icon that failed to build costs this one slot rather than the whole
+ * panel - `F.CreateIcon`/`F.CreateUtilitySpriteIcon` throw by design for a
+ * name FD does not have (see `need()` in `core/need.ts`), and nothing above
+ * `generateSlots()` catches. Falls back to a blank square the same size as a
+ * real icon, so the slot still exists and is still clickable; only the icon
+ * itself is missing, named in a warning rather than silently swallowed.
+ */
+function safeIcon(name: string, build: () => Container): Container {
+    try {
+        return build()
+    } catch (error) {
+        G.logger({ text: `Could not build the "${name}" icon: ${String(error)}`, type: 'warning' })
+        return new Container()
+    }
+}
 
 export class ToolsPanel extends Panel {
     private slotsContainer: Container
@@ -110,7 +132,8 @@ export class ToolsPanel extends Panel {
     public static Wires = WIRES
 
     public constructor() {
-        const cols = Math.ceil(CELL_COUNT / ROWS)
+        const initialCells = ToolsPanel.buildCells()
+        const cols = Math.ceil(initialCells.cells.length / ROWS)
         super(
             24 + 38 * cols - 2,
             24 + 38 * ROWS - 2,
@@ -123,7 +146,14 @@ export class ToolsPanel extends Panel {
         this.slotsContainer.position.set(12, 12)
         this.addChild(this.slotsContainer)
 
-        this.generateSlots()
+        this.placeCells(initialCells)
+    }
+
+    public override destroy(): void {
+        if (this.altHighlightTick) {
+            G.app.ticker.remove(this.altHighlightTick)
+        }
+        super.destroy()
     }
 
     /**
@@ -149,11 +179,77 @@ export class ToolsPanel extends Panel {
      * the blueprint icon it replaced did. Alt has no icon anywhere in the
      * game's data at all, since the game spells its own key hints out as
      * text.
+     *
+     * Pure - builds and wires every cell fresh but touches nothing on `this`,
+     * so the constructor can call it once before `super()` (cells aren't
+     * `this`-dependent, only counting them for sizing is needed there) and
+     * reuse the very same result afterwards, rather than building the whole
+     * grid twice at startup. `generateSlots`, the public re-callable entry
+     * point, calls it again for its own single fresh build.
      */
-    public generateSlots(): void {
+    private static buildCells(): { cells: Container[]; altSlot: ActionSlot } {
         const altSlot = new ActionSlot(createTextIcon('ALT'), () =>
             G.BPC.overlayContainer.toggleEntityInfoVisibility()
         )
+
+        const cells: Container[] = [
+            altSlot,
+            new WireSlot(WIRES[0]),
+            new ActionSlot(
+                safeIcon('import_slot', () =>
+                    F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot)
+                ),
+                () => G.UI.toggleImportDialog()
+            ),
+            new WireSlot(WIRES[1]),
+            new ActionSlot(
+                safeIcon('export_slot', () =>
+                    F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot)
+                ),
+                () => G.UI.toggleExportDialog()
+            ),
+            new WireSlot(WIRES[2]),
+            new ActionSlot(
+                safeIcon('signal-anticlockwise-circle-arrow', () =>
+                    F.CreateIcon('signal-anticlockwise-circle-arrow')
+                ),
+                () => G.bp.history.undo()
+            ),
+            new ActionSlot(
+                safeIcon('signal-clockwise-circle-arrow', () =>
+                    F.CreateIcon('signal-clockwise-circle-arrow')
+                ),
+                () => G.bp.history.redo()
+            ),
+            new ActionSlot(
+                safeIcon('downloading', () =>
+                    F.CreateUtilitySpriteIcon(FD.utilitySprites.downloading)
+                ),
+                () => G.quickActions.exportImage()
+            ),
+        ]
+
+        return { cells, altSlot }
+    }
+
+    /**
+     * Re-callable: clears whatever `slotsContainer` currently holds (and
+     * destroys it - `removeChildren()` alone only detaches, it does not
+     * release the GPU resources a re-generated panel would otherwise leak)
+     * before placing a freshly built set, and replaces the ticker rather than
+     * accumulating a second one. Nothing calls this a second time today, but
+     * nothing should have to trust that either - `QuickbarPanel.generateSlots`
+     * is the precedent this mirrors, for row-count changes.
+     */
+    public generateSlots(): void {
+        this.placeCells(ToolsPanel.buildCells())
+    }
+
+    private placeCells({ cells, altSlot }: { cells: Container[]; altSlot: ActionSlot }): void {
+        for (const child of this.slotsContainer.removeChildren()) {
+            child.destroy()
+        }
+
         /*
             Polls rather than listening for an event, because `G.BPC` - and so
             `overlayContainer` - is a fresh instance every `loadBlueprint`
@@ -161,13 +257,6 @@ export class ToolsPanel extends Panel {
             constructed once and outlive every reload. A listener attached to
             today's overlayContainer would go silent on the next one; reading
             `G.BPC` fresh each frame can't go stale the same way.
-
-            `generateSlots` is public and re-callable in principle (the same
-            shape `QuickbarPanel.generateSlots` uses for row changes), so the
-            previous tick is removed before a new one is added rather than
-            trusting this method to run only once - otherwise a second call
-            would leave the first callback running against a slot that no
-            longer exists.
         */
         if (this.altHighlightTick) {
             G.app.ticker.remove(this.altHighlightTick)
@@ -178,28 +267,6 @@ export class ToolsPanel extends Panel {
         }
         G.app.ticker.add(this.altHighlightTick)
 
-        const cells: Container[] = [
-            altSlot,
-            new WireSlot(WIRES[0]),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot), () =>
-                G.UI.toggleImportDialog()
-            ),
-            new WireSlot(WIRES[2]),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot), () =>
-                G.UI.toggleExportDialog()
-            ),
-            new WireSlot(WIRES[1]),
-            new ActionSlot(F.CreateIcon('signal-anticlockwise-circle-arrow'), () =>
-                G.bp.history.undo()
-            ),
-            new ActionSlot(F.CreateIcon('signal-clockwise-circle-arrow'), () =>
-                G.bp.history.redo()
-            ),
-            new ActionSlot(F.CreateUtilitySpriteIcon(FD.utilitySprites.downloading), () =>
-                G.quickActions.exportImage()
-            ),
-        ]
-
         for (const [i, slot] of cells.entries()) {
             const col = Math.floor(i / ROWS)
             const row = i % ROWS
@@ -208,7 +275,17 @@ export class ToolsPanel extends Panel {
         }
     }
 
+    /**
+     * Flush against the quickbar's right edge at common viewport widths, the
+     * same way the two-row layout above assumes - but clamped to the screen's
+     * own right edge underneath that, since the unclamped position runs the
+     * panel off-screen entirely below ~866px (`screen.width / 2 + 221 +
+     * this.width > screen.width`, solved for `screen.width`). Below that
+     * width the panel overlaps the quickbar instead of vanishing, which is
+     * the same trade-off a real user can still click through.
+     */
     protected override setPosition(): void {
-        this.position.set(G.app.screen.width / 2 + 442 / 2, G.app.screen.height - this.height + 1)
+        const x = Math.min(G.app.screen.width / 2 + 442 / 2, G.app.screen.width - this.width)
+        this.position.set(x, G.app.screen.height - this.height + 1)
     }
 }

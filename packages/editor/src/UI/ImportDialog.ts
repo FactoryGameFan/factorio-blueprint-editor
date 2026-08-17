@@ -45,7 +45,10 @@ export class ImportDialog extends Dialog {
             G.app.renderer,
             WIDTH - PADDING * 2,
             '',
-            2 ** 20,
+            // No cap - a blueprint string has no honest upper bound, and the
+            // corpus's largest (2.4 MB) already exceeds a hardcoded 1 MiB
+            // this field used to carry, which silently truncated it on paste.
+            undefined,
             false,
             true,
             FIELD_HEIGHT,
