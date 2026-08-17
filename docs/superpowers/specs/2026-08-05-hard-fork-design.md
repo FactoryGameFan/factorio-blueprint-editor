@@ -155,11 +155,32 @@ Ask GitHub Support to detach the fork - convert it to a standalone repository.
 The transfer this document paired it with is already done, so the ordering note
 that used to be here is spent.
 
-Detaching keeps the URL, the 6 stars, all 15 open issues, the 166 merged pull
-requests and the entire history, and flips `fork` to false so the repo becomes
-searchable and Renovate stops depending on an app setting nobody can see from
-here. The alternative - a fresh repository - is immediate but forfeits all of
-that and breaks every existing link and the 3 downstream forks.
+Detaching flips `fork` to false, which is what makes the repo searchable and
+stops Renovate depending on an app setting nobody can see from here. The
+alternative - a fresh repository - is immediate but breaks every existing link
+and the 3 downstream forks.
+
+**This document used to assert that detaching keeps the URL, the 6 stars, the 15
+open issues and the 166 merged pull requests. GitHub's own documentation says
+otherwise, and the sentence was written without checking it.** The page at
+`/pull-requests/how-tos/work-with-forks/detaching-a-fork` carries a warning under
+"Converting a fork into a standalone repository" that the new repository "will
+not retain any of its issues, pull requests, wikis, stars, watchers, comments,
+child forks, or other metadata", keeping only git commit metadata, and that
+leaving the network is **permanent** and cannot be undone. That warning sits
+above both documented methods, so whether it describes the self-service path or
+only the clone-and-recreate one is genuinely unclear from the page. The stakes
+of guessing are 167 merged pull requests and 15 issues, so it is a question for
+Support and not an inference.
+
+**There is now a self-service route, and this repository cannot use it.** The
+same page documents a **Leave fork network** button in Settings under the Danger
+Zone, available only when the fork is public, is under 1GB and **has no child
+forks**. Measured 2026-08-17: public yes, 0.475GB yes, child forks **three**
+(`byalex33`, `olafrose`, `seesee010`). So the button is out on the third
+condition, and it is not a condition that can be cleared from here - those are
+other people's repositories. That is what makes the fork question below the
+load-bearing one rather than a courtesy.
 
 **One thing to ask Support rather than assume:** what happens to the three
 existing forks of this repository (`byalex33`, `olafrose`, `seesee010`, all still
@@ -168,9 +189,10 @@ answer.
 
 **The ticket text**, drafted 2026-08-17 and kept here because a ticket that lives
 only in a chat log gets rewritten from memory the second time. File it at
-<https://support.github.com>. Two concrete problems are named on purpose - a
-request to detach because the fork label feels wrong reads as taste, and the
-search invisibility and the wrong default PR base are neither.
+<https://support.github.com/request/fork>, which is the form the docs page links
+for forks specifically, not the generic request page. Two concrete problems are
+named on purpose - a request to detach because the fork label feels wrong reads
+as taste, and the search invisibility and the wrong default PR base are neither.
 
 > **Subject:** Detach FactoryGameFan/factorio-blueprint-editor from its fork
 > network
@@ -193,9 +215,20 @@ search invisibility and the wrong default PR base are neither.
 > requests default to the parent's base branch, which has already confused
 > contributors.
 >
-> One question before you make the change. There are three forks of my
-> repository (byalex33, olafrose, seesee010). What happens to them when it leaves
-> the network? I'd rather know in advance than discover it afterwards.
+> Two questions before you make the change, because your documentation on
+> detaching a fork warns that the standalone repository keeps only git commit
+> metadata, and I can't tell from the page whether that applies to a
+> Support-side detach or only to the clone-and-recreate method described lower
+> down.
+>
+> First, does the repository keep its issues, pull requests, stars and watchers?
+> There are 15 open issues and 167 merged pull requests, and losing them would
+> change my mind about doing this at all.
+>
+> Second, there are three forks of my repository (byalex33, olafrose,
+> seesee010). What happens to them? I ask partly because the self-service
+> "Leave fork network" button is unavailable to me for exactly that reason, so
+> I'd rather know in advance than discover it afterwards.
 >
 > Thanks,
 > Eric (wormeyman)
