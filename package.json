@@ -27,7 +27,7 @@
         "serve": "^14.2.6",
         "typed-factorio": "^3.36.0",
         "typescript": "^7.0.2",
-        "vite-plus": "0.2.8"
+        "vite-plus": "0.2.9"
     },
     "devEngines": {
         "packageManager": {
@@ -37,6 +37,6 @@
         }
     },
     "overrides": {
-        "vite": "npm:@voidzero-dev/vite-plus-core@0.2.8"
+        "vite": "npm:@voidzero-dev/vite-plus-core@0.2.9"
     }
 }
