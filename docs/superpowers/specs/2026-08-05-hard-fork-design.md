@@ -185,7 +185,7 @@ search invisibility and the wrong default PR base are neither.
 > The parent is no longer maintained. Its author said so in
 > `teoxoy/factorio-blueprint-editor#276` on 16 August 2026, declined to transfer
 > the repository, and pointed people at that thread to find maintained forks.
-> Mine is one of them. It is 428 commits ahead of the parent, has its own logo
+> Mine is one of them. It is 429 commits ahead of the parent, has its own logo
 > and issue tracker, and is where the pull requests are arriving now.
 >
 > Being modeled as a fork is causing two concrete problems: the repository
@@ -199,6 +199,14 @@ search invisibility and the wrong default PR base are neither.
 >
 > Thanks,
 > Eric (wormeyman)
+
+The commit count is the one figure in there that moves, so re-measure it against
+`teoxoy/factorio-blueprint-editor`'s `master` before filing rather than copying
+the number above. The search claim is measured, not assumed: a
+`factorio-blueprint-editor in:name` search on 2026-08-17 returns 11 repositories,
+every one of them with `fork: false`, and this one is not among them. Setting the
+five topics did not change that, which is the point - the exclusion is the fork
+flag, not the metadata.
 
 ### A distinct visual identity
 
