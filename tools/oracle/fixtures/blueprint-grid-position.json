@@ -1,0 +1,587 @@
+{
+    "probe": "probe-blueprint-grid-position.mjs",
+    "question": "Does setting a blueprint's grid position move its entities, as PR #222 assumes?",
+    "binary": "Version: 2.0.77 (build 84539, mac-arm64, full)",
+    "mods": {
+        "base": "2.0.77",
+        "elevated-rails": "2.0.77",
+        "quality": "2.0.77",
+        "space-age": "2.0.77",
+        "bp_grid_position": "0.0.1"
+    },
+    "capturedFor": "PR #222 follow-up to issue #226",
+    "controls": [
+        {
+            "name": "positive control: the comparison can see an entity shift",
+            "ok": true,
+            "detail": "baseline #1(0.5,0.5) #2(8.5,8.5) vs shifted-entities #1(-2.5,-3.5) #2(5.5,4.5)"
+        },
+        {
+            "name": "instrument: every position the game retained reads back as set",
+            "ok": true,
+            "detail": "3 retained (absolute-origin, absolute-offset, absolute-offset-large); 1 cleared by the game (relative-offset)"
+        },
+        {
+            "name": "instrument: the setters reach export_stack",
+            "ok": true,
+            "detail": "5 distinct exported key sets across 7 cases"
+        },
+        {
+            "name": "round trip: exported coordinates come back unchanged",
+            "ok": true,
+            "detail": "all 7 cases reproduce their coordinates"
+        }
+    ],
+    "premise": "setting a grid position of (px, py) moves every entity by (-px, -py) and writes no blueprint field",
+    "premiseAgreesOn": 0,
+    "premiseScoredRows": 2,
+    "entitiesMovedOn": 0,
+    "scored": [
+        {
+            "name": "absolute-offset",
+            "position": {
+                "x": 3,
+                "y": 5
+            },
+            "predicted": "#1(-2.5,-4.5) #2(5.5,3.5)",
+            "measured": "#1(0.5,0.5) #2(8.5,8.5)",
+            "agrees": false,
+            "movedAtAll": false
+        },
+        {
+            "name": "absolute-offset-large",
+            "position": {
+                "x": 10,
+                "y": -7
+            },
+            "predicted": "#1(-9.5,7.5) #2(-1.5,15.5)",
+            "measured": "#1(0.5,0.5) #2(8.5,8.5)",
+            "agrees": false,
+            "movedAtAll": false
+        }
+    ],
+    "cases": [
+        {
+            "name": "baseline",
+            "before": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedKeys": {},
+            "readback": {
+                "absolute": false
+            },
+            "roundTrip": {
+                "absolute": false,
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 8.5,
+                        "y": 8.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        },
+        {
+            "name": "shifted-entities",
+            "before": [
+                {
+                    "n": 1,
+                    "x": -2.5,
+                    "y": -3.5
+                },
+                {
+                    "n": 2,
+                    "x": 5.5,
+                    "y": 4.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": -2.5,
+                    "y": -3.5
+                },
+                {
+                    "n": 2,
+                    "x": 5.5,
+                    "y": 4.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": -2.5,
+                    "y": -3.5
+                },
+                {
+                    "n": 2,
+                    "x": 5.5,
+                    "y": 4.5
+                }
+            ],
+            "exportedKeys": {},
+            "readback": {
+                "absolute": false
+            },
+            "roundTrip": {
+                "absolute": false,
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": -2.5,
+                        "y": -3.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 5.5,
+                        "y": 4.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        },
+        {
+            "name": "grid-only",
+            "before": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedKeys": {
+                "snapToGrid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absoluteSnapping": true
+            },
+            "readback": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                },
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 8.5,
+                        "y": 8.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        },
+        {
+            "name": "absolute-origin",
+            "before": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedKeys": {
+                "snapToGrid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absoluteSnapping": true
+            },
+            "readback": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                }
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 0,
+                    "y": 0
+                },
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 8.5,
+                        "y": 8.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        },
+        {
+            "name": "absolute-offset",
+            "before": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedKeys": {
+                "snapToGrid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absoluteSnapping": true,
+                "positionRelativeToGrid": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "readback": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                }
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 3,
+                    "y": 5
+                },
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 8.5,
+                        "y": 8.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        },
+        {
+            "name": "absolute-offset-large",
+            "before": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedKeys": {
+                "snapToGrid": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absoluteSnapping": true,
+                "positionRelativeToGrid": {
+                    "x": 10,
+                    "y": -7
+                }
+            },
+            "readback": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 10,
+                    "y": -7
+                }
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": true,
+                "position": {
+                    "x": 10,
+                    "y": -7
+                },
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 8.5,
+                        "y": 8.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        },
+        {
+            "name": "relative-offset",
+            "before": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "after": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedEntities": [
+                {
+                    "n": 1,
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                {
+                    "n": 2,
+                    "x": 8.5,
+                    "y": 8.5
+                }
+            ],
+            "exportedKeys": {
+                "snapToGrid": {
+                    "x": 2,
+                    "y": 2
+                }
+            },
+            "readback": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false
+            },
+            "roundTrip": {
+                "snap": {
+                    "x": 2,
+                    "y": 2
+                },
+                "absolute": false,
+                "entities": [
+                    {
+                        "n": 1,
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    {
+                        "n": 2,
+                        "x": 8.5,
+                        "y": 8.5
+                    }
+                ]
+            },
+            "movedInModel": false
+        }
+    ]
+}

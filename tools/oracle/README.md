@@ -52,6 +52,8 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-elevated-rail-support.mjs`    | What holds an elevated rail up, and whether a tile grid can express it (#141) |
 | `probe-entity-tile-size.mjs`         | What `tile_width`/`tile_height` the game publishes for every entity (#142)    |
 | `probe-zoom-limits.mjs`              | What zoom range and what per-notch step the game uses (#206, #211)            |
+| `probe-blueprint-snapping.mjs`       | Which snapping mode carries `position-relative-to-grid` (#226, PR #222)       |
+| `probe-blueprint-grid-position.mjs`  | Whether setting a grid position moves the entities (PR #222)                  |
 
 One script here is not a probe and asks the game nothing:
 
@@ -347,6 +349,40 @@ tiles - the widest is 397, needing zoom 0.151 to fit at 1920px against a floor o
 to view whole. The game's 200-tile limit exists to stop a player seeing
 ungenerated chunks, a constraint an editor does not have. Its **map editor**
 floor, 0.1, is the number that transfers.
+
+### A blueprint's grid position does not move its entities (PR #222)
+
+`probe-blueprint-grid-position.mjs`, measured on 2.0.77, and the fourth
+measurement here to **refuse the change it was capturing evidence for**.
+
+PR #222 added a second X/Y pair to the editor's alignment dialog on the premise
+that the game's own "Grid position" writes no blueprint field and instead moves
+every entity by the negation of what is typed. Measured over grid positions of
+`{3, 5}` and `{10, -7}`: the entities do not move. Not in
+`get_blueprint_entities()`, not in the exported string, not after a round trip.
+The game writes `position-relative-to-grid` and leaves every coordinate alone.
+So the field is metadata, and #226 had already measured everything there is to
+know about it.
+
+Two things worth keeping.
+
+- **The positive control is what makes a null result mean anything.** Four of
+  the seven cases here would report "the coordinates did not change" whether the
+  probe was right or reading the same field twice. The `shifted-entities` case
+  places the same two chests three tiles left and four up through
+  `set_blueprint_entities`, touching no snapping property, and its exported
+  coordinates have to differ from the baseline. Without a control that can fail
+  while the hypothesis holds, "nothing moved" is not evidence of anything, which
+  is the #133 item 4 lesson in its null-result form.
+- **#226's setter trap runs in both directions.** That probe found that setting
+  `blueprint_position_relative_to_grid` turns `blueprint_absolute_snapping` on.
+  This one found the reverse: setting `blueprint_absolute_snapping = false`
+  **clears the position**. So a relative-mode row holds no grid position by the
+  time anything is read, and asking whether its grid position moved the entities
+  is a question about a value that is not there. Those rows are recorded and
+  excluded from the scoring rather than counted as "did not move", per #133
+  item 4. It also independently confirms #226 from the other end: relative
+  snapping cannot carry a position because the game takes it away.
 
 ## Fixture policy
 
