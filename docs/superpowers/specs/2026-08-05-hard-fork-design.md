@@ -81,8 +81,11 @@ Smaller leaks compound it, each one actively misdirecting somebody:
   `packages/website/src/index.ts:105` and `:765`.
 - The README's Discord badge points at upstream's server, whose maintainer left
   and which upstream itself stopped linking to on 2026-08-16.
-- The repository description is character-for-character upstream's, and the repo
-  has no topics at all.
+- ~~The repository description is character-for-character upstream's, and the repo
+  has no topics at all.~~ Both set on 2026-08-17: the description now names the
+  2.0 and Space Age support and says outright that this is a separate project
+  from `teoxoy/factorio-blueprint-editor`, and the topics are `factorio`,
+  `blueprint-editor`, `space-age`, `pixijs`, `typescript`.
 - The default branch is `wormeyman-space-age-support`, which names one person and
   one DLC, and needs a paragraph of explanation in both `README.md` and
   `CONTRIBUTING.md`.
@@ -163,6 +166,40 @@ existing forks of this repository (`byalex33`, `olafrose`, `seesee010`, all stil
 present on 2026-08-17) when it leaves the network. This design does not assert an
 answer.
 
+**The ticket text**, drafted 2026-08-17 and kept here because a ticket that lives
+only in a chat log gets rewritten from memory the second time. File it at
+<https://support.github.com>. Two concrete problems are named on purpose - a
+request to detach because the fork label feels wrong reads as taste, and the
+search invisibility and the wrong default PR base are neither.
+
+> **Subject:** Detach FactoryGameFan/factorio-blueprint-editor from its fork
+> network
+>
+> Hi,
+>
+> I'd like to detach https://github.com/FactoryGameFan/factorio-blueprint-editor
+> from its parent, `teoxoy/factorio-blueprint-editor`, so it becomes a standalone
+> repository. I'm an admin of the FactoryGameFan organization, and the repository
+> was transferred into it recently.
+>
+> The parent is no longer maintained. Its author said so in
+> `teoxoy/factorio-blueprint-editor#276` on 16 August 2026, declined to transfer
+> the repository, and pointed people at that thread to find maintained forks.
+> Mine is one of them. It is 428 commits ahead of the parent, has its own logo
+> and issue tracker, and is where the pull requests are arriving now.
+>
+> Being modeled as a fork is causing two concrete problems: the repository
+> doesn't appear in GitHub repository search or in topic listings, and new pull
+> requests default to the parent's base branch, which has already confused
+> contributors.
+>
+> One question before you make the change. There are three forks of my
+> repository (byalex33, olafrose, seesee010). What happens to them when it leaves
+> the network? I'd rather know in advance than discover it afterwards.
+>
+> Thanks,
+> Eric (wormeyman)
+
 ### A distinct visual identity
 
 Replace teoxoy's artwork everywhere it ships, and take the replacement from the
@@ -200,7 +237,8 @@ it has to survive 32 pixels.
 ### GitHub Discussions, and the Discord badge goes
 
 Enable Discussions on the repository; remove the Discord badge from the README.
-Discussions is still off as of 2026-08-17.
+Both done on 2026-08-17 - the badge with #237, Discussions alongside the
+description and topics.
 
 This forfeits direct reach to 968 Factorio players, which is a real cost and is
 recorded here as one. What it buys is a surface that is owned, moderated, indexed
@@ -269,17 +307,18 @@ its own reviewable PR is worth the second disruption to contributors.
 
 ## Sequence
 
-Phases 1 and 2 are done, in the wrong order and at no cost. What follows starts
-at 3.
+Phases 1 and 2 are done, in the wrong order and at no cost. Phases 4 and 5
+followed on 2026-08-17, so the only thing left in sequence is 3, which is in
+someone else's queue, and 6, which waits on nothing now.
 
 | Phase | Action                                                                                                     | State                  |
 | ----- | ---------------------------------------------------------------------------------------------------------- | ---------------------- |
 | 1     | Outreach. Superseded by #276 - upstream answered publicly and declined the transfer                        | done, answer was no    |
 | 2     | Transfer to `FactoryGameFan`. Secrets verified present, Renovate reinstalled (#236)                        | done 2026-08-17        |
-| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                 | to do, asynchronous    |
-| 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | to do                  |
-| 5     | Repository description and topics; enable Discussions                                                      | to do                  |
-| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | after phase 4 ships    |
+| 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                 | drafted, not yet filed |
+| 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | done 2026-08-17 (#237) |
+| 5     | Repository description and topics; enable Discussions                                                      | done 2026-08-17        |
+| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | unblocked, to do       |
 | later | Branch rename to `main`, its own PR                                                                        | deferred, re-confirmed |
 
 Phase 3 does not block phase 4. The detach is a ticket in someone else's queue
