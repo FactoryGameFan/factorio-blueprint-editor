@@ -348,6 +348,9 @@ stale URL is second.
 >
 > Thanks again for eight years of work on it.
 
+Posted 2026-08-17 at 22:17 UTC, with one edit: "its own (crappy) logo now". The
+whole sequence is now closed except Support's reply.
+
 ### Deferred: renaming the default branch
 
 `wormeyman-space-age-support` should become `main`, and the stale `master` branch
@@ -398,7 +401,7 @@ someone else's queue, and 6, which waits on nothing now.
 | 3     | Open the GitHub Support detach ticket, asking about the 3 downstream forks                                 | filed 2026-08-17       |
 | 4     | Identity commit: new logo assets, package metadata, LICENSE, README, CONTRIBUTING, CLAUDE.md, dead strings | done 2026-08-17 (#237) |
 | 5     | Repository description and topics; enable Discussions                                                      | done 2026-08-17        |
-| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | unblocked, to do       |
+| 6     | One comment on #276 with the new URL, humanizer pass first, posted by wormeyman                            | posted 2026-08-17      |
 | later | Branch rename to `main`, its own PR                                                                        | deferred, re-confirmed |
 
 Phase 3 does not block phase 4. The detach is a ticket in someone else's queue
