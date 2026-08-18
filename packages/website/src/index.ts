@@ -492,6 +492,7 @@ const testApi = {
     copyCursorBoxVisible: () => editor.copyCursorBoxVisible,
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
+    toolsPanelBounds: () => editor.toolsPanelBounds,
     /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but

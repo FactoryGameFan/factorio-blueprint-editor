@@ -17,7 +17,7 @@ import { colors, styles } from './style'
 class WireSlot extends Slot<string> {
     public constructor(wireName: string) {
         super(wireName)
-        this.content = F.CreateIcon(wireName)
+        this.content = safeIcon(wireName, () => F.CreateIcon(wireName))
 
         this.on('pointerdown', e => {
             if (e.button !== 0) return
@@ -87,17 +87,29 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 
 /*
     2 rows, filled column-major (top-to-bottom, then next column) rather than
-    a single wide row. This panel sits flush against the quickbar's right edge
-    (see setPosition) at common viewport widths, close enough to the screen's
-    right side that a wide single row runs under `.toasts-container`, which is
-    `position: fixed; right: 0; width: 320px` and sits above the canvas -
-    verified by clicking a widened-panel slot there and finding the click
-    reached the toast, not the button. Wrapping into a second row instead
-    keeps the panel as narrow as the action count allows. `setPosition` below
-    separately clamps the panel's x so it cannot run off the right edge of a
-    narrower viewport - the two are different problems (this one is about
-    what the toast overlay can reach, that one is about the screen's own
-    edge) and fixing one does not fix the other.
+    a single wide row, so the panel stays as narrow as the action count
+    allows - it sits flush against the quickbar's right edge (see
+    setPosition) at common viewport widths, and a wide single row would run
+    further under `.toasts-container` than a narrower two-row grid does.
+
+    That used to matter for a stronger reason than width alone: a settled
+    toast used to *intercept* clicks meant for whatever it covered, verified
+    by clicking a widened-panel slot there and finding the click reached the
+    toast instead of the button. Issue #228, merged from the base branch,
+    fixed that at the source - `.toasts-container` and the toasts it holds
+    are `pointer-events: none` now (bar `.toasts-persistent`, the
+    infinite-timeout exception that needs a click to dismiss), so a toast no
+    longer takes a click aimed at what it covers, row count or not. What
+    #228 did not change is *visibility*: a toast still paints on top of
+    whatever it overlaps for as long as it's up - measured at 1280x720, a
+    settled toast still visually covers five of the nine slots here for its
+    lifetime, a user just isn't blocked from clicking through it to reach
+    them.
+
+    `setPosition` below separately clamps the panel's x so it cannot run off
+    the right edge of a narrower viewport - a different problem (the
+    screen's own edge, not the toast overlay) that narrowing the grid here
+    does not fix on its own.
 
     Each action pairs with the wire below it - Alt/copper-wire,
     open-Import/red-wire, open-Export/green-wire, Undo/Redo - except the

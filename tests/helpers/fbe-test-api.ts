@@ -211,6 +211,11 @@ export interface FbeTestApi {
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
     /**
+     * Where ToolsPanel sits, in the same client coordinates `topDialogBounds`
+     * answers in. See tests/tools-panel.spec.ts.
+     */
+    toolsPanelBounds: () => { x: number; y: number; width: number; height: number }
+    /**
      * Whether `EntityContainer.entityInfo` is currently visible for this
      * entity - the persistent always-show label and the hover tooltip toggle
      * it opposite each other so the two never stack. See

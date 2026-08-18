@@ -296,6 +296,11 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
+    /** Where ToolsPanel sits in client coordinates. See tests/tools-panel.spec.ts. */
+    public get toolsPanelBounds(): { x: number; y: number; width: number; height: number } {
+        return G.UI.toolsPanelBounds
+    }
+
     /**
      * Opens ImportDialog, the same as clicking ToolsPanel's Import slot -
      * there is no keybind for opening it (only for the paste/append it

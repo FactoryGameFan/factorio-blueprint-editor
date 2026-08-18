@@ -87,6 +87,17 @@ export class UIContainer extends Container {
     }
 
     /**
+     * Where ToolsPanel sits, in the same client coordinates `topDialogBounds`
+     * answers in - for tests/tools-panel.spec.ts, which needs to check it
+     * stays on screen at a narrow viewport width rather than running off the
+     * right edge (ToolsPanel.setPosition's own clamp).
+     */
+    public get toolsPanelBounds(): { x: number; y: number; width: number; height: number } {
+        const at = this.toolsPanel.toGlobal({ x: 0, y: 0 })
+        return { x: at.x, y: at.y, width: this.toolsPanel.width, height: this.toolsPanel.height }
+    }
+
+    /**
      * Opens ImportDialog, or closes it if it is already open - the ToolsPanel
      * button that reaches this is a single toggle, not a spawner, so a
      * second click has to answer "close" rather than stacking a second copy
