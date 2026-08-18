@@ -6,6 +6,13 @@ import {
 } from './helpers/encode-blueprint'
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 import { suppressOverlays } from './helpers/overlays'
+import {
+    ROW_HEIGHT,
+    FIELD_WIDTH,
+    COL1_X,
+    COL2_X,
+} from '../packages/editor/src/UI/BlueprintAlignment'
+import { ALIGNMENT_X, ALIGNMENT_Y } from '../packages/editor/src/UI/BlueprintInfoEditor'
 
 /*
     BlueprintAlignment's "Grid position" field, added after a real screenshot
@@ -16,36 +23,46 @@ import { suppressOverlays } from './helpers/overlays'
 
         typing into "Grid position" writes NO blueprint field at all - not
         `snap-to-grid`, `absolute-snapping` nor `position-relative-to-grid`.
-        It moves every entity's own `position` by the NEGATION of whatever
-        was typed, baked straight into the exported entity coordinates, and
-        then resets to 0. "Absolute"'s own X/Y is the one that actually
-        round-trips as `position-relative-to-grid` (blueprint-snapping.spec.ts
-        covers that half already).
+        In the real game it moves every entity's own exported position by the
+        NEGATION of whatever was typed. "Absolute"'s own X/Y is the one that
+        actually round-trips as `position-relative-to-grid`
+        (blueprint-snapping.spec.ts covers that half already).
 
-    So this is a real, undoable model mutation - `Blueprint.translateEntities`
-    - not a form field bound to a blueprint property, and it needed
-    `Entity.forceMoveBy` to bypass `position`'s own collision/wire-reach
-    checks: those compare a moving entity against every other entity's
-    CURRENT position, which mid-shift is a mix of already-moved and
-    not-yet-moved ones, and would misfire on a pair close enough together
-    that one's target lands on the other's not-yet-vacated tile - even though
-    the final, fully-shifted layout is exactly as valid as the one it started
-    from, translation being the one move that cannot change any entity's
-    position relative to any other.
+    The first implementation of this (#222 review) modelled that as a live
+    mutation - `Blueprint.translateEntities`, moving every `Entity.position`
+    by the negated amount - and it could not work, for a reason the review
+    caught and this spec is shaped to guard against: `Blueprint.serialize()`
+    re-centres every exported position on `getCenter()`'s bounding box of the
+    *current* entities, recomputed on every call. Translating every entity by
+    (dx, dy) moves that box's centre by exactly (dx, dy) too, so subtracting
+    the shifted centre from the shifted positions always reproduces the
+    pre-translation numbers - the shift is invisible to the exported string
+    by construction, for any implementation built on moving entities. Nothing
+    in the first version of this file could have caught that: every
+    assertion read `entityPosition()`, the live model, which genuinely did
+    change - the exported string, which did not, was never checked.
+
+    The fix stores the typed amount separately (`Blueprint.
+    gridPositionOffset`, see its own doc comment) and applies it only inside
+    `serialize()`, against the already-computed centre - after the
+    recentring, not before it, which a recentre cannot undo. Live entity
+    positions - and so `PositionGrid`, rendering, and every other model-level
+    read - never move at all now. So every test below checks the *exported*
+    positions (via `encodeLoaded` + `decodeBlueprintString`), and the first
+    one explicitly pins that the live model does NOT move, which is the
+    regression guard against reintroducing the translate-based approach.
 
     BlueprintAlignment's own coordinates - packages/editor/src/UI/
-    BlueprintAlignment.ts - since there is no test hook for a control buried
-    this deep in a dialog, the same shape tests/chest-editor.spec.ts uses for
-    ChestEditor's filter grid.
+    BlueprintAlignment.ts, imported directly rather than copied, so a layout
+    change there cannot silently desync what this file clicks - since there
+    is no test hook for a control buried this deep in a dialog, the same
+    shape tests/chest-editor.spec.ts uses for ChestEditor's filter grid.
 */
 
 type Page = import('@playwright/test').Page
 
 const VERSION = version(2, 0, 55)
 
-// Two entities eight tiles apart, so a wrong per-entity-looped implementation
-// (checking collision/wire-reach against the OTHER entity's still-old
-// position mid-shift) has room to misfire without them ever truly colliding.
 const TWO_CHESTS = encode({
     item: 'blueprint',
     version: VERSION,
@@ -55,20 +72,10 @@ const TWO_CHESTS = encode({
     ],
 })
 
-// BlueprintAlignment's own layout constants.
-const ROW_HEIGHT = 32
-const FIELD_WIDTH = 44
-const CONTENT_RIGHT = 336
-const COL2_X = CONTENT_RIGHT - FIELD_WIDTH
-const COL1_X = COL2_X - FIELD_WIDTH - 62
-// BlueprintInfoEditor.ts: `alignment.position.set(12, ALIGNMENT_Y)`, ALIGNMENT_Y = 278.
-const ALIGN_X = 12
-const ALIGN_Y = 278
-
 async function openBlueprintInfo(page: Page): Promise<{ x: number; y: number }> {
     await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
     const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
-    return { x: dialog.x + ALIGN_X, y: dialog.y + ALIGN_Y }
+    return { x: dialog.x + ALIGNMENT_X, y: dialog.y + ALIGNMENT_Y }
 }
 
 /** Ticks the "Snap to grid" checkbox at BlueprintAlignment's own (0, 0). */
@@ -77,12 +84,14 @@ async function enableSnapToGrid(page: Page, align: { x: number; y: number }): Pr
 }
 
 /**
- * Types into one of "Grid position"'s two fields and commits with Tab -
- * TextInput fires `changed` on blur, same as tests/text-input.spec.ts. Left
- * on whichever field Tab lands on afterwards; `blurToCanvas` is what gets
- * focus back off the dialog's own input chain before a keybind is expected
- * to fire (Editor.ts's keydown listener ignores every key while an
- * <input>/<textarea> has focus).
+ * Types into one of "Grid position"'s two fields and commits on blur (Tab
+ * away) - BlueprintAlignment wires those fields to `'blur'` specifically,
+ * not `'changed'` (which fires per keystroke), since the commit resets both
+ * fields to '0' and would otherwise wipe out whatever was typed after the
+ * first character. Left on whichever field Tab lands on afterwards;
+ * `blurToCanvas` is what gets focus back off the dialog's own input chain
+ * before a keybind is expected to fire (Editor.ts's keydown listener ignores
+ * every key while an <input>/<textarea> has focus).
  */
 async function fillGridPositionField(
     page: Page,
@@ -120,19 +129,30 @@ async function positionsOf(
     })
 }
 
+/** The two chests' positions as `serialize()` would write them right now. */
+async function exportedPositionsOf(page: Page): Promise<{ x: number; y: number }[]> {
+    const out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    const decoded = decodeBlueprintString(out)
+    return decoded.blueprint.entities.map((e: { position: { x: number; y: number } }) => e.position)
+}
+
 test.beforeEach(async ({ page }) => {
     await suppressOverlays(page)
     await waitForEditor(page)
 })
 
-test('typing into Grid position moves every entity by the negated value and resets to 0', async ({
+test('typing into Grid position shifts the exported positions without moving the live model', async ({
     page,
 }) => {
     await loadBlueprint(page, TWO_CHESTS)
-    const before = await positionsOf(page, [1, 2])
+    const modelBefore = await positionsOf(page, [1, 2])
 
     const align = await openBlueprintInfo(page)
     await enableSnapToGrid(page, align)
+    // Enabling the checkbox alone must not move anything either - the
+    // export-side baseline is taken after it, not before, so the assertions
+    // below isolate the nudge's own effect from the checkbox's.
+    const exportedBefore = await exportedPositionsOf(page)
 
     await fillGridPositionField(page, align, 'x', '3')
     await fillGridPositionField(page, align, 'y', '4')
@@ -145,18 +165,34 @@ test('typing into Grid position moves every entity by the negated value and rese
     // Name, Width, Height, Grid position X, Grid position Y, Absolute X, Absolute Y.
     expect(inputValues.slice(3, 5)).toEqual(['0', '0'])
 
-    const after = await positionsOf(page, [1, 2])
-    // X committed alone first (Y still 0), then Y committed alone (X back to
-    // 0) - two separate nudges of (-3, 0) and (0, -4) that sum to (-3, -4),
-    // the same shape Width/Height's own two independently-committed fields
-    // already have.
-    expect(after[0]).toEqual({ x: before[0].x - 3, y: before[0].y - 4 })
-    expect(after[1]).toEqual({ x: before[1].x - 3, y: before[1].y - 4 })
+    /*
+        The regression guard: the live model - what PositionGrid, rendering
+        and every other in-editor read sees - must be exactly what it was
+        before any of this. A version built on moving entities would fail
+        here first.
+    */
+    const modelAfter = await positionsOf(page, [1, 2])
+    expect(modelAfter).toEqual(modelBefore)
+
+    /*
+        The bug this whole spec exists to catch: the EXPORTED positions must
+        actually have moved, by the negation of what was typed - matching
+        the sign measured from the real game (entering Grid position (3, 4)
+        shifted a raw exported entity from (1, 1) to (-2, -3), also a
+        decrease of exactly (3, 4)).
+    */
+    const exportedAfter = await exportedPositionsOf(page)
+    expect(exportedAfter[0]).toEqual({ x: exportedBefore[0].x - 3, y: exportedBefore[0].y - 4 })
+    expect(exportedAfter[1]).toEqual({ x: exportedBefore[1].x - 3, y: exportedBefore[1].y - 4 })
     // The two entities' offset from each other is exactly what it started as -
-    // a translation cannot change any entity's position relative to another.
-    expect({ x: after[1].x - after[0].x, y: after[1].y - after[0].y }).toEqual({
-        x: before[1].x - before[0].x,
-        y: before[1].y - before[0].y,
+    // a uniform export-time shift cannot change any entity's position
+    // relative to another.
+    expect({
+        x: exportedAfter[1].x - exportedAfter[0].x,
+        y: exportedAfter[1].y - exportedAfter[0].y,
+    }).toEqual({
+        x: exportedBefore[1].x - exportedBefore[0].x,
+        y: exportedBefore[1].y - exportedBefore[0].y,
     })
 })
 
@@ -185,12 +221,13 @@ test('Grid position does not write snap-to-grid, absolute-snapping or position-r
     expect(decoded.blueprint['position-relative-to-grid']).toBeUndefined()
 })
 
-test('undo reverts the shift entity by entity, matching the per-field commit', async ({ page }) => {
+test('undo reverts the exported shift, matching the per-field commit', async ({ page }) => {
     await loadBlueprint(page, TWO_CHESTS)
-    const before = await positionsOf(page, [1, 2])
 
     const align = await openBlueprintInfo(page)
     await enableSnapToGrid(page, align)
+    const exportedBefore = await exportedPositionsOf(page)
+
     await fillGridPositionField(page, align, 'x', '3')
     await fillGridPositionField(page, align, 'y', '4')
 
@@ -198,12 +235,12 @@ test('undo reverts the shift entity by entity, matching the per-field commit', a
     await page.keyboard.press('Escape')
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 
-    // Two separate transactions went on the undo stack (one per field commit,
-    // see the first test) - both have to unwind before the entities are back
-    // where they started.
+    // X and Y each committed their own write to `gridPositionOffset` (see
+    // the first test) - two separate transactions on the undo stack, both
+    // have to unwind before the export is back to where it started.
     await page.keyboard.press('Control+z')
     await page.keyboard.press('Control+z')
 
-    const after = await positionsOf(page, [1, 2])
-    expect(after).toEqual(before)
+    const exportedAfter = await exportedPositionsOf(page)
+    expect(exportedAfter).toEqual(exportedBefore)
 })

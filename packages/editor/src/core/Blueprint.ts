@@ -97,6 +97,7 @@ export interface BlueprintEvents {
     snapToGrid: []
     absoluteSnapping: []
     positionRelativeToGrid: []
+    gridPositionOffset: []
 }
 
 /** `IPoint`s compare by value everywhere they're read; this is the one place
@@ -142,6 +143,27 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     private readonly snapToGridStore: { snapToGrid?: IPoint } = {}
     private readonly absoluteSnappingStore: { absoluteSnapping?: boolean } = {}
     private readonly positionRelativeToGridStore: { positionRelativeToGrid?: IPoint } = {}
+    /**
+     * `BlueprintAlignment`'s "Grid position" field - measured against the
+     * game (issue #226 follow-up), it carries no field of its own in the
+     * blueprint string, unlike `absoluteSnapping`/`positionRelativeToGrid`
+     * beside it. What it actually does is shift the whole blueprint's
+     * exported coordinates by this amount, applied only inside `serialize()`
+     * against `getCenter()`'s own result - never against `entities`/`tiles`
+     * themselves. An earlier version moved every entity directly and relied
+     * on the shifted bounding box surviving into the export; it could not
+     * work, since `serialize()` re-centers on that same bounding box on
+     * every call, which any uniform translation is invisible to by
+     * construction - translating every entity by (dx, dy) moves the box's
+     * centre by exactly (dx, dy) too, so subtracting the (now-shifted)
+     * centre from the (now-shifted) positions always reproduces the
+     * pre-translation numbers. Storing the offset separately and applying it
+     * once, after the real centre is computed, is what a bounding-box
+     * recentre cannot undo - and it comes with tiles for free, since both
+     * loops in `serialize()` subtract the same adjusted centre and can no
+     * longer drift apart the way moving only entities did.
+     */
+    private readonly gridPositionOffsetStore: { gridPositionOffset?: IPoint } = {}
 
     private m_nextEntityNumber = 1
 
@@ -506,6 +528,27 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             .commit()
     }
 
+    /** See `gridPositionOffsetStore`'s own doc comment - a pure export-time
+     * shift, accumulated across every "Grid position" commit, never applied
+     * to `entities`/`tiles` themselves. */
+    public get gridPositionOffset(): IPoint {
+        return this.gridPositionOffsetStore.gridPositionOffset ?? { x: 0, y: 0 }
+    }
+
+    public set gridPositionOffset(point: IPoint) {
+        if (pointsEqual(this.gridPositionOffsetStore.gridPositionOffset, point)) return
+
+        this.history
+            .updateValue(
+                this.gridPositionOffsetStore,
+                'gridPositionOffset',
+                point,
+                'Change blueprint grid position offset'
+            )
+            .onDone(() => this.emit('gridPositionOffset'))
+            .commit()
+    }
+
     public getIcon(index: 1 | 2 | 3 | 4): string | undefined {
         return this.icons.get(index)
     }
@@ -563,25 +606,6 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.startTransaction('Remove entities')
         for (const e of entities) {
             this.removeEntity(e)
-        }
-        this.history.commitTransaction()
-    }
-
-    /**
-     * Translates every entity by the same offset, in one undo step -
-     * `BlueprintAlignment`'s "Grid position" field. Measured against the
-     * game (issue #226 follow-up): that field does not persist as blueprint
-     * data at all, unlike `absoluteSnapping`/`positionRelativeToGrid` beside
-     * it - entering a value there just moves every entity's own `position`
-     * by its negation, baked straight into the exported entity positions.
-     * See `Entity.forceMoveBy` for why the normal per-entity checks are
-     * bypassed here.
-     */
-    public translateEntities(offset: IPoint): void {
-        if (offset.x === 0 && offset.y === 0) return
-        this.history.startTransaction('Move blueprint entities')
-        for (const entity of this.entities.valuesArray()) {
-            entity.forceMoveBy(offset)
         }
         this.history.commitTransaction()
     }
@@ -1022,6 +1046,20 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 center.y += 1
             }
         }
+
+        /*
+            "Grid position"'s whole effect - see gridPositionOffsetStore's doc
+            comment for why this has to land here, after the real centre (and
+            its rail-parity nudge) are both settled, rather than as a move
+            applied to entities/tiles beforehand: a recentre on the bounding
+            box is blind to any translation of everything inside that box by
+            the same amount, so the shift can only survive by being applied
+            to the number doing the subtracting, once, after that number is
+            final.
+        */
+        const offset = this.gridPositionOffset
+        center.x -= offset.x
+        center.y -= offset.y
 
         for (const e of entityInfo) {
             e.position.x -= center.x

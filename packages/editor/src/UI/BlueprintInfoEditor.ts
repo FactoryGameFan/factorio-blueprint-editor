@@ -37,7 +37,25 @@ class BlueprintIconSlot extends Slot<undefined> {
         if (name === undefined) {
             if (this.content !== undefined) this.content = undefined
         } else {
-            this.content = F.CreateIcon(name)
+            try {
+                this.content = F.CreateIcon(name)
+            } catch (error) {
+                /*
+                    `CreateIcon` only resolves item/fluid/recipe/signal/
+                    inventory-group names - nothing in `FD` covers the
+                    `space-location` icons (planet names: vulcanus, fulgora,
+                    gleba...) Space Age blueprints and books carry, since the
+                    exporter emits no such collection at all. Uncaught, this
+                    took the whole dialog constructor down with it (five
+                    corpus files hit it). A blank slot costs one icon; the
+                    warning names which one.
+                */
+                G.logger({
+                    text: `Could not build the "${name}" blueprint icon: ${String(error)}`,
+                    type: 'warning',
+                })
+                if (this.content !== undefined) this.content = undefined
+            }
         }
         this.emit('changed')
     }
@@ -59,7 +77,11 @@ class BlueprintIconSlot extends Slot<undefined> {
     }
 }
 
-const ALIGNMENT_Y = 278
+// Exported for tests/blueprint-grid-position.spec.ts, which computes screen
+// positions for BlueprintAlignment's own controls and has no other way to
+// find where that section starts within the dialog.
+export const ALIGNMENT_X = 12
+export const ALIGNMENT_Y = 278
 
 /**
  * Editor for the blueprint's own name, icons, description, and grid
@@ -120,7 +142,7 @@ export class BlueprintInfoEditor extends Dialog {
         })
 
         const alignment = new BlueprintAlignment(blueprint)
-        alignment.position.set(12, ALIGNMENT_Y)
+        alignment.position.set(ALIGNMENT_X, ALIGNMENT_Y)
         this.addChild(alignment)
     }
 
