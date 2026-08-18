@@ -14,7 +14,9 @@ import { discoverBlueprintFiles } from './blueprint-files'
     green, and it is found whenever somebody next happens to run the browser
     suite. The browser suite gates PRs too now, so that argument is weaker than
     it was - what is left of it is cost: this answers in milliseconds inside
-    `checks`, against a separate job that needs two dev servers and five minutes.
+    `checks`, against a separate job that needs two dev servers on each of four
+    runners and three to four minutes (its slowest shard measured 213s, 225s and
+    250s over three runs, down from 774s unsharded).
 
     So the last test below calls the function bare, against the real corpus, and
     that call is what makes a committed stray file a red CI run.
