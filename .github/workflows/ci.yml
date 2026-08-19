@@ -246,7 +246,14 @@ jobs:
     # backstop against a hung suite rather than an estimate: a shard that has
     # genuinely stopped making progress should be killed, and one that is merely
     # slow should not.
-    timeout-minutes: 20
+    #
+    # 20 -> 25 because the retry around `Install browser system dependencies`
+    # below bounds that step at 12 minutes rather than the 20 it once ran to,
+    # and 12 + ~1 setup + ~4 specs does not fit under 20. This is not a way of
+    # tolerating a slower suite: the specs are measured at 96-226s and nothing
+    # here expects that to move. If a shard reaches 25 minutes, something is
+    # hung, which is the same thing the 20 meant.
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -283,9 +290,45 @@ jobs:
       # --with-deps is skipped above on a cache hit, but the OS packages it
       # installs do not survive in the cache - only the browser does. This puts
       # them back without re-downloading the browser.
+      #
+      # Wrapped in a timeout and retried because this step is bimodal, and its
+      # slow mode is slow enough to kill the job and with it the deploy.
+      # Measured over 44 runs of it across 12 CI runs: median 17s, and 32 of 42
+      # completions under 40s - then a tail of 50, 61, 106, 171, 257, 302, 377,
+      # 400, 474 and 686s, plus 2 that never finished at all and took the
+      # 20-minute job timeout with them. That is the whole of why the deploy for
+      # #244 did not run. The specs either side of it are steady at 96-226s, so
+      # the variance is entirely in this apt call and not in the suite.
+      #
+      # 240s per attempt is chosen off that distribution: it is 14x the median
+      # and clears every completion up to 171s, so a run in the fast mode is
+      # untouched and only the pathological tail is cut. Three attempts bound
+      # the worst case at 12 minutes against a 25-minute job cap, which leaves
+      # room for the ~1 minute of setup before it and the ~4 minutes of specs
+      # after. A single slow-but-progressing attempt is not what this is
+      # defending against - two of these have hung indefinitely, and no timeout
+      # value distinguishes "slow" from "hung" from the outside.
+      #
+      # Deliberately not fixing a cause: apt contending with the runner image's
+      # own background upgrade job would explain the bimodality, but that is a
+      # hypothesis and nothing here has measured it. The retry is justified by
+      # the distribution alone, whatever is behind it. If someone does measure
+      # the cause, this can probably be replaced by something cheaper.
       - name: Install browser system dependencies
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 240 npx playwright install-deps chromium; then
+              exit 0
+            fi
+            echo "::warning::install-deps attempt $attempt did not finish within 240s; retrying"
+            # A killed apt can leave dpkg mid-transaction, which would fail the
+            # next attempt for a different reason than the one being retried.
+            sudo dpkg --configure -a || true
+            sleep 10
+          done
+          echo "install-deps did not settle after 3 attempts" >&2
+          exit 1
 
       # The same script a maintainer runs locally, rather than a second copy of
       # "how to start the two servers" that can drift from it. It refuses to
