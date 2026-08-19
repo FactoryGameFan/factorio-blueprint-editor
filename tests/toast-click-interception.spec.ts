@@ -1,43 +1,53 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
+import { PERSISTENT_TOAST_CLASS } from '../packages/website/src/toasts'
 
 /*
-    Toasts swallowing clicks meant for the canvas - issue #119.
+    Toasts and clicks meant for the canvas - issues #119 and #228.
 
     `.toasts-container` is `position: fixed; bottom: 0; right: 0; width: 320px;
-    z-index: 20`, so a toast sits on top of the editor. A click in that column
-    goes to the toast `div`, pixi never sees a `pointerdown`, and the action
-    behind it never runs. Measured, the lost click's target was
+    z-index: 20`, so a toast sits on top of an editor whose canvas fills the
+    window. It used to take the click: pixi never saw a `pointerdown` and the
+    action behind it never ran. Measured then, the lost click's target was
     `DIV#toast-3.toasts-toast` rather than `CANVAS#editor`.
 
-    Loading raises **three** toasts, not one, and they expire at different times:
-    a `success` on 5s, an `info` on 10s, and - a second later, prepended above
-    both - the welcome toast on 30s. That detail is not trivia; assuming a single
-    five-second toast is what made these two tests race a timer, see
-    `settledTopToast` and the note in the second test.
+    **These tests changed direction in #228 and the first one now asserts the
+    opposite of what it used to.** Ordinary toasts are `pointer-events: none`,
+    so the click goes past them. What is left to pin is that it really does go
+    past, and that the one exception survives.
 
-    That is what made nine pointer-driven specs intermittent, at roughly one full
-    suite run in three. It presents as a paste that wrote nothing - the value is
-    simply absent - which reads as a broken setter in whatever was last changed,
-    and cost three baseline runs to prove was not a regression in #115.
+    Why the exception exists: a toast created with `timeout: Infinity` has no
+    other way to be dismissed, so it keeps `pointer-events: auto` through
+    `PERSISTENT_TOAST_CLASS`. There are two callers, both fatal - WebAssembly
+    unsupported (`index.ts:107`) and an unrecoverable startup failure
+    (`index.ts:176`) - and both `throw` immediately afterwards, so no editor
+    exists underneath for such a toast to block.
 
-    These test the mechanism, not any particular entity's position. An earlier
-    draft put a chest under the toast column and asserted the overlap directly,
-    which is a worse test than it sounds: the overlap depends on the viewport, on
-    the zoom (96px per tile as measured, not 32), on how the view centres, and on
-    how many toasts happen to be stacked - the third one is the tall one. Pinning
-    all of that would fail for reasons that have nothing to do with the bug.
+    Why the container rule is not enough on its own, which is the thing to
+    understand before touching the CSS: a toast is `position: relative` inside a
+    320px container, so a **settled** toast spans the container's full width.
+    Measured at 1280x720, container `x 960..1280, y 588..720` against toasts at
+    `y 596..661` and `y 669..715` - the uncovered area is three margin bands
+    totalling about 21px of height. `pointer-events` inherits, which is what
+    makes the single declaration on the container reach the toasts at all.
 
-    So the point under test is the toast's own centre, read at runtime. What the
-    nine wired specs then prove is the outcome; what these prove is that a toast
-    can and does take a pointer event, and stops once suppressed.
+    And a warning about measuring any of this: a toast animates in, and the same
+    toast was measured at x=1280, then 960, then 986 on the way. A probe reading
+    a point 500ms after load reports `DIV.toasts-container` where one reading
+    after the stack settles reports `DIV.toasts-toast`. **An overlay measurement
+    taken before the stack settles is measuring the animation**, which is why
+    `settledTopToast` settles on identity and geometry together rather than
+    waiting a fixed time.
 
-    Both halves matter. `elementFromPoint` says where the browser would route a
-    click, and the click-to-dismiss assertion says what actually happened to one -
-    a toast that received a click removes itself (`toasts.ts` races a click
-    listener against the timeout), so a toast still standing afterwards did not
-    get it.
+    What the second test cannot see: it injects an element carrying
+    `PERSISTENT_TOAST_CLASS` rather than driving a real `timeout: Infinity`
+    toast, because neither caller is reachable from a spec - the WebAssembly
+    branch is guarded by `typeof WebAssembly !== 'object' && ...`, which
+    short-circuits in any browser that has it. So it pins the CSS exception and
+    not the `timeout === Infinity` condition in `toasts.ts` that applies the
+    class. Importing the class name from that module is what stops the two
+    drifting: a rename reaches both or neither.
 */
 
 type Page = import('@playwright/test').Page
@@ -107,7 +117,47 @@ async function settledTopToast(page: Page): Promise<{ id: string; x: number; y: 
     return { id, x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-/** What the browser says is on top at a point - the toast, or the canvas. */
+/**
+ * Put a non-expiring toast on screen the way `toasts.ts` would, minus the
+ * timer - see the header for why the real callers cannot be reached from here.
+ *
+ * `animation: none` because `.toasts-toast` slides in, and this element's box is
+ * read immediately; the animation is not what is under test and waiting for it
+ * would only add a second settle poll.
+ */
+async function injectPersistentToast(
+    page: Page,
+    cls: string
+): Promise<{ id: string; x: number; y: number }> {
+    const id = 'persistent-under-test'
+    const box = await page.evaluate(
+        ([elementId, persistentClass]: [string, string]) => {
+            const container = document.querySelector('.toasts-container')
+            if (!container) throw new Error('no toasts container')
+            const el = document.createElement('div')
+            el.id = elementId
+            el.className = `toasts-toast toasts-error ${persistentClass}`
+            el.style.animation = 'none'
+            const text = document.createElement('span')
+            text.className = 'toasts-text'
+            text.textContent = 'unrecoverable error'
+            el.appendChild(text)
+            /*
+                `insertBefore`, not `prepend`, which is what toasts.ts itself
+                uses: the specs' tsconfig carries `node` in `types` and Node's
+                own `prepend` overload wins here, so the DOM call does not type
+                check inside a spec even though it does in the website package.
+            */
+            container.insertBefore(el, container.firstChild)
+            const r = el.getBoundingClientRect()
+            return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+        },
+        [id, cls] as [string, string]
+    )
+    return { id, ...box }
+}
+
+/** What the browser says is on top at a point - a toast, or the canvas. */
 const elementAt = (page: Page, at: { x: number; y: number }): Promise<string> =>
     page.evaluate(
         ([x, y]: [number, number]) => {
@@ -121,64 +171,63 @@ const elementAt = (page: Page, at: { x: number; y: number }): Promise<string> =>
 const stillThere = (page: Page, id: string): Promise<boolean> =>
     page.evaluate((k: string) => document.getElementById(k) !== null, id)
 
-test('a toast takes a click that was meant for the canvas', async ({ page }) => {
+test('an ordinary toast lets a click through to the canvas', async ({ page }) => {
     /*
-        The control, deliberately WITHOUT `suppressOverlays`: it asserts the problem
-        is real. Without this, the test below would pass just as happily if toasts
-        had stopped being raised, or stopped covering anything, and the suppression
-        it checks would be guarding nothing.
+        Deliberately WITHOUT `suppressOverlays`: this is the production
+        behaviour, and the whole point of #228 is that a user gets it without a
+        test helper. Before that change this same assertion read
+        `toContain('toasts-toast')`.
     */
     await load(page)
     const at = await settledTopToast(page)
 
-    expect(await elementAt(page, at)).toContain('toasts-toast')
+    expect(await elementAt(page, at)).toContain('CANVAS')
 
     /*
-        And it is not merely on top - it consumes the click. A toast that
-        receives one dismisses itself, so **that** toast going away is proof the
-        click was delivered there.
+        And the click really is passing through rather than merely being routed
+        past. A toast that receives one dismisses itself (`toasts.ts` races a
+        click listener against the timeout), so **that** toast still standing is
+        proof the click was not delivered to it.
 
         Keyed to its id rather than to the number of toasts on screen. Counting
-        made this control able to pass without the click doing anything: three
-        toasts are raised and the `success` one expires on its own five seconds
-        in, so "the count went down" was satisfied by a timer. The one measured
-        here is the welcome toast, which lives thirty seconds, so it cannot
-        disappear inside this window for any reason but the click.
+        made the old version of this able to pass without the click doing
+        anything: three toasts are raised and the `success` one expires on its
+        own five seconds in, so "the count went down" was satisfied by a timer.
+        The one measured here is the welcome toast, which lives thirty seconds,
+        so it cannot disappear inside this window for any reason but a click.
     */
     await page.mouse.click(at.x, at.y)
-    await expect.poll(() => stillThere(page, at.id), { timeout: 5000 }).toBe(false)
+    await page.waitForTimeout(1500)
+    expect(await stillThere(page, at.id), 'the toast took a click it should not have').toBe(true)
 })
 
-test('with toasts suppressed the same click reaches the canvas instead', async ({ page }) => {
+test('a non-expiring toast still takes one', async ({ page }) => {
+    /*
+        The control, and it can fail while the test above passes: dropping the
+        `.toasts-persistent` rule from index.css makes every toast
+        click-through, which satisfies the first test perfectly and leaves the
+        two fatal error messages with no way to be dismissed at all.
+    */
+    await load(page)
+    const at = await injectPersistentToast(page, PERSISTENT_TOAST_CLASS)
+
+    expect(await elementAt(page, at)).toContain(PERSISTENT_TOAST_CLASS)
+})
+
+test('suppressOverlays covers the non-expiring one too', async ({ page }) => {
+    /*
+        The helper has to name `.toasts-persistent` as well as the container,
+        because `pointer-events: auto` on a child is not overridden by any rule
+        on its parent, `!important` included. Without that a spec would start
+        losing clicks to exactly the toast that never goes away on its own -
+        which is the #119 flake back again, on the one toast with no timer to
+        end it.
+    */
     await suppressOverlays(page)
     await load(page)
-    const at = await settledTopToast(page)
+    const at = await injectPersistentToast(page, PERSISTENT_TOAST_CLASS)
 
     // Still drawn - the suppression takes the pointer away, not the notification.
     expect(await stillThere(page, at.id), 'the toast should still be rendered').toBe(true)
     expect(await elementAt(page, at)).toContain('CANVAS')
-
-    /*
-        And the click goes past it. That toast surviving is the observable half:
-        under the control above the very same click dismissed it.
-
-        Keyed to the id, and this is the half that was **intermittently failing**
-        - roughly one full suite run in six. It used to compare the total number
-        of toasts before and after, over a window it described as "shorter than
-        the five-second auto-dismiss". Two things wrong with that. The window is
-        not anchored at the load: everything the settle poll spends comes out of
-        the same budget, and under a long suite run it can spend seconds. And the
-        count includes toasts this test never touches - the `success` one expires
-        five seconds in and takes the count down with it, which fails the
-        assertion for a reason that has nothing to do with the click. Measured on
-        the timeline: three toasts up at +1.3s, down to two at +6.0s, untouched.
-
-        Asking about the one toast that was clicked removes both problems - it
-        lives thirty seconds, and no other toast's timer can speak for it.
-    */
-    await page.mouse.click(at.x, at.y)
-    await page.waitForTimeout(1500)
-    expect(await stillThere(page, at.id), 'the toast received a click it should not have').toBe(
-        true
-    )
 })

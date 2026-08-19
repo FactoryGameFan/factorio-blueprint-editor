@@ -203,6 +203,9 @@ html {
 #info-panel.active {
     display: block;
 }
+#info-panel a {
+    color: #ffe6c0;
+}
 #info-panel ul {
     position: relative;
     list-style: none;
@@ -250,6 +253,23 @@ html {
     right: 0;
     width: 320px;
     z-index: 20;
+    /*
+        Issue #228. The canvas fills the window, so this column sits on top of
+        whatever panel UI occupies the bottom right - measured at 1280x720, a
+        settled toast spans the container's full 320px and covers five of the
+        nine ToolsPanel slots. Inherited by the toasts themselves, which is the
+        point: putting it on the container alone would only clear the roughly
+        21px of margin between them.
+    */
+    pointer-events: none;
+}
+/*
+    The exception, and the only toast a click still reaches: one created with
+    `timeout: Infinity` has no other way to be dismissed. Applied by toasts.ts,
+    which owns the class name - see PERSISTENT_TOAST_CLASS.
+*/
+.toasts-persistent {
+    pointer-events: auto;
 }
 .toasts-toast {
     position: relative;
