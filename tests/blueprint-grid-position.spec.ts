@@ -103,7 +103,11 @@ async function fillGridPositionField(
     const x = align.x + colX + FIELD_WIDTH / 2
     const y = align.y + ROW_HEIGHT * 2 + 4 + 10
     await page.mouse.click(x, y)
-    await page.keyboard.press('Control+A')
+    // ControlOrMeta, not Control - see display-panel-editor.spec.ts's own
+    // note on this: Control+A is "beginning of line" on macOS, not
+    // select-all, so the typed value would land beside the old text instead
+    // of replacing it.
+    await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.type(value)
     await page.keyboard.press('Tab')
 }
