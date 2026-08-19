@@ -246,14 +246,7 @@ jobs:
     # backstop against a hung suite rather than an estimate: a shard that has
     # genuinely stopped making progress should be killed, and one that is merely
     # slow should not.
-    #
-    # 20 -> 25 because the retry around `Install browser system dependencies`
-    # below bounds that step at 12 minutes rather than the 20 it once ran to,
-    # and 12 + ~1 setup + ~4 specs does not fit under 20. This is not a way of
-    # tolerating a slower suite: the specs are measured at 96-226s and nothing
-    # here expects that to move. If a shard reaches 25 minutes, something is
-    # hung, which is the same thing the 20 meant.
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -287,44 +280,55 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # TEMPORARY EXPERIMENT - not the shape this PR intends to merge.
+      # No apt here, on purpose, and this replaces an install rather than
+      # retrying one. Measured: the ubuntu-24.04 image already carries every
+      # shared library the cached chromium needs, so `playwright install-deps`
+      # had nothing to do on a cache hit - while being by a wide margin the
+      # least reliable step in this workflow. Over 44 runs of it: median 17s,
+      # a tail to 686s, and 2 that never finished and took the job timeout and
+      # the deploy with them. The suite then passed on all four shards with it
+      # removed entirely.
       #
-      # The question this run exists to answer: is this step needed at all on a
-      # cache hit? The comment it replaces asserts that the OS packages do not
-      # survive the cache, which is true, but never checked whether the
-      # ubuntu-24.04 image already carries them. If it does, the right fix is to
-      # delete the step rather than to retry it, and an apt call leaves the
-      # critical path entirely.
+      # Why it hung, since the number alone does not say: apt stalls on the
+      # mirrorlist fetch. Wrapping it in `timeout` does not help and actively
+      # hurts - timeout kills its own child, `npx`, while the root-owned
+      # `apt-get` underneath survives holding /var/lib/apt/lists/lock, so every
+      # retry after the first dies instantly on the lock. That was measured too,
+      # on all four shards, and is why this is a deletion and not a retry.
       #
-      # So: no apt here. Ask the linker directly which of chromium's shared
-      # libraries are actually missing, which takes about a second and cannot
-      # hang. Then let the specs run regardless. Two independent readings come
-      # out of the same run - what ldd says is missing, and whether the suite
-      # passes without the install - and they should agree.
+      # What is left is an assertion, not an install: ask the linker whether
+      # anything is actually missing. About a second, and it cannot hang. If a
+      # future runner image ever drops a library, this fails here naming the
+      # binary, instead of surfacing as chromium failing to launch inside an
+      # unrelated spec.
       #
-      # Never fails the job on purpose: a missing library should present as the
-      # specs failing, which is the reading being tested, not as this step
-      # pre-empting them.
-      - name: Probe chromium shared libraries (no apt)
+      # THE BINARY COUNT IS PART OF THE ASSERTION, and is the more important
+      # half. The first draft of this check looked for `headless_shell` when the
+      # file is `chrome-headless-shell`, so it silently probed one binary rather
+      # than two and reported a clean result for a binary the specs do not run -
+      # `headless: true` in playwright.config.ts means the headless shell is
+      # what they use. A missing-library count is only meaningful next to the
+      # number of things it looked at.
+      - name: Verify chromium's shared libraries (no apt)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: |
-          missing=0
+          expected=2
           found=0
+          bad=0
           while IFS= read -r bin; do
             found=$((found + 1))
             echo "--- $bin"
-            if ldd "$bin" 2>/dev/null | grep -F 'not found' ; then
-              missing=$((missing + 1))
+            if ldd "$bin" | grep -F 'not found'; then
+              echo "::error::$bin is missing the shared libraries listed above"
+              bad=$((bad + 1))
             fi
-          done < <(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell \) 2>/dev/null)
-          echo "binaries probed: $found   with missing libraries: $missing"
-          if [ "$found" -eq 0 ]; then
-            echo "::warning::found no chromium binary to probe - the reading below is not valid"
-          elif [ "$missing" -eq 0 ]; then
-            echo "::warning::EXPERIMENT: no missing shared libraries without install-deps"
-          else
-            echo "::warning::EXPERIMENT: $missing of $found binaries have missing libraries - the step is needed"
+          done < <(find ~/.cache/ms-playwright -type f \( -name chrome -o -name chrome-headless-shell \))
+          echo "probed $found chromium binaries; $bad with missing libraries"
+          if [ "$found" -lt "$expected" ]; then
+            echo "::error::expected at least $expected chromium binaries, found $found - the browser layout changed, so this check is no longer looking at what the specs run"
+            exit 1
           fi
+          [ "$bad" -eq 0 ]
 
       # The same script a maintainer runs locally, rather than a second copy of
       # "how to start the two servers" that can drift from it. It refuses to
