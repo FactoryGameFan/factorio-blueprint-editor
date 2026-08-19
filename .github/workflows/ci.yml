@@ -287,48 +287,44 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # --with-deps is skipped above on a cache hit, but the OS packages it
-      # installs do not survive in the cache - only the browser does. This puts
-      # them back without re-downloading the browser.
+      # TEMPORARY EXPERIMENT - not the shape this PR intends to merge.
       #
-      # Wrapped in a timeout and retried because this step is bimodal, and its
-      # slow mode is slow enough to kill the job and with it the deploy.
-      # Measured over 44 runs of it across 12 CI runs: median 17s, and 32 of 42
-      # completions under 40s - then a tail of 50, 61, 106, 171, 257, 302, 377,
-      # 400, 474 and 686s, plus 2 that never finished at all and took the
-      # 20-minute job timeout with them. That is the whole of why the deploy for
-      # #244 did not run. The specs either side of it are steady at 96-226s, so
-      # the variance is entirely in this apt call and not in the suite.
+      # The question this run exists to answer: is this step needed at all on a
+      # cache hit? The comment it replaces asserts that the OS packages do not
+      # survive the cache, which is true, but never checked whether the
+      # ubuntu-24.04 image already carries them. If it does, the right fix is to
+      # delete the step rather than to retry it, and an apt call leaves the
+      # critical path entirely.
       #
-      # 240s per attempt is chosen off that distribution: it is 14x the median
-      # and clears every completion up to 171s, so a run in the fast mode is
-      # untouched and only the pathological tail is cut. Three attempts bound
-      # the worst case at 12 minutes against a 25-minute job cap, which leaves
-      # room for the ~1 minute of setup before it and the ~4 minutes of specs
-      # after. A single slow-but-progressing attempt is not what this is
-      # defending against - two of these have hung indefinitely, and no timeout
-      # value distinguishes "slow" from "hung" from the outside.
+      # So: no apt here. Ask the linker directly which of chromium's shared
+      # libraries are actually missing, which takes about a second and cannot
+      # hang. Then let the specs run regardless. Two independent readings come
+      # out of the same run - what ldd says is missing, and whether the suite
+      # passes without the install - and they should agree.
       #
-      # Deliberately not fixing a cause: apt contending with the runner image's
-      # own background upgrade job would explain the bimodality, but that is a
-      # hypothesis and nothing here has measured it. The retry is justified by
-      # the distribution alone, whatever is behind it. If someone does measure
-      # the cause, this can probably be replaced by something cheaper.
-      - name: Install browser system dependencies
+      # Never fails the job on purpose: a missing library should present as the
+      # specs failing, which is the reading being tested, not as this step
+      # pre-empting them.
+      - name: Probe chromium shared libraries (no apt)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: |
-          for attempt in 1 2 3; do
-            if timeout 240 npx playwright install-deps chromium; then
-              exit 0
+          missing=0
+          found=0
+          while IFS= read -r bin; do
+            found=$((found + 1))
+            echo "--- $bin"
+            if ldd "$bin" 2>/dev/null | grep -F 'not found' ; then
+              missing=$((missing + 1))
             fi
-            echo "::warning::install-deps attempt $attempt did not finish within 240s; retrying"
-            # A killed apt can leave dpkg mid-transaction, which would fail the
-            # next attempt for a different reason than the one being retried.
-            sudo dpkg --configure -a || true
-            sleep 10
-          done
-          echo "install-deps did not settle after 3 attempts" >&2
-          exit 1
+          done < <(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell \) 2>/dev/null)
+          echo "binaries probed: $found   with missing libraries: $missing"
+          if [ "$found" -eq 0 ]; then
+            echo "::warning::found no chromium binary to probe - the reading below is not valid"
+          elif [ "$missing" -eq 0 ]; then
+            echo "::warning::EXPERIMENT: no missing shared libraries without install-deps"
+          else
+            echo "::warning::EXPERIMENT: $missing of $found binaries have missing libraries - the step is needed"
+          fi
 
       # The same script a maintainer runs locally, rather than a second copy of
       # "how to start the two servers" that can drift from it. It refuses to
