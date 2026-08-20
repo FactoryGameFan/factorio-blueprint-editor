@@ -144,24 +144,38 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     private readonly absoluteSnappingStore: { absoluteSnapping?: boolean } = {}
     private readonly positionRelativeToGridStore: { positionRelativeToGrid?: IPoint } = {}
     /**
-     * `BlueprintAlignment`'s "Grid position" field - measured against the
-     * game (issue #226 follow-up), it carries no field of its own in the
-     * blueprint string, unlike `absoluteSnapping`/`positionRelativeToGrid`
-     * beside it. What it actually does is shift the whole blueprint's
-     * exported coordinates by this amount, applied only inside `serialize()`
-     * against `getCenter()`'s own result - never against `entities`/`tiles`
+     * `BlueprintAlignment`'s "Grid position" field - carries no field of its
+     * own in the blueprint string, unlike `absoluteSnapping`/
+     * `positionRelativeToGrid` beside it, and is not directly settable
+     * through the game's own scripting API either (confirmed against
+     * `probe-blueprint-grid-position.mjs`, which set
+     * `blueprint_position_relative_to_grid` - that is Absolute X/Y, a
+     * different field, and its own conclusion that grid position leaves
+     * entities alone does not transfer). Round-tripping a real export
+     * directly through the game showed the opposite for the field this
+     * class means: typing a target there moves every entity so that
+     * `getGridPositionDisplay()`'s formula, applied to the result, equals
+     * what was typed - see that method's own doc comment for the formula.
+     *
+     * This store holds that shift, applied only inside `serialize()` against
+     * `computeExportCenter()`'s result - never against `entities`/`tiles`
      * themselves. An earlier version moved every entity directly and relied
-     * on the shifted bounding box surviving into the export; it could not
-     * work, since `serialize()` re-centers on that same bounding box on
-     * every call, which any uniform translation is invisible to by
-     * construction - translating every entity by (dx, dy) moves the box's
-     * centre by exactly (dx, dy) too, so subtracting the (now-shifted)
+     * on the shifted bounding box surviving into the export; that cannot
+     * work in *this* codebase, since `serialize()` re-centers on that same
+     * bounding box on every call, which any uniform translation is invisible
+     * to by construction - translating every entity by (dx, dy) moves the
+     * box's centre by exactly (dx, dy) too, so subtracting the (now-shifted)
      * centre from the (now-shifted) positions always reproduces the
-     * pre-translation numbers. Storing the offset separately and applying it
-     * once, after the real centre is computed, is what a bounding-box
-     * recentre cannot undo - and it comes with tiles for free, since both
-     * loops in `serialize()` subtract the same adjusted centre and can no
-     * longer drift apart the way moving only entities did.
+     * pre-translation numbers. (The game itself evidently does not re-centre
+     * an export around its own bounding box the way this class does - a
+     * real export's entities sit nowhere near centred on their own bounding
+     * box - which is the other half of why moving entities here would not
+     * reproduce what the game does even if the recentre problem were fixed.)
+     * Storing the offset separately and applying it once, after the real
+     * centre is computed, is what a bounding-box recentre cannot undo - and
+     * it comes with tiles for free, since both loops in `serialize()`
+     * subtract the same adjusted centre and can no longer drift apart the
+     * way moving only entities did.
      */
     private readonly gridPositionOffsetStore: { gridPositionOffset?: IPoint } = {}
 
@@ -1029,12 +1043,11 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             .commit()
     }
 
-    public serialize(): IBlueprint {
-        if (!this.icons.size) {
-            this.generateIcons()
-        }
-        const entityInfo = this.entities.valuesArray().map(e => e.serialize())
-        const wires = this.wireConnections.serializeBpWires()
+    /** `getCenter()` plus the rail-parity nudge `serialize()` and
+     * `getGridPositionDisplay()` both need - split out so the display method
+     * can match what an export would actually centre on without duplicating
+     * the parity arm. */
+    private computeExportCenter(): IPoint {
         const center = this.getCenter()
         const firstRailPos = this.getFirstRailRelatedEntityPos()
 
@@ -1046,6 +1059,58 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 center.y += 1
             }
         }
+
+        return center
+    }
+
+    /**
+     * What "Grid position" should display right now - measured directly
+     * against the game rather than inferred from a screenshot (the #222
+     * mistake `probe-blueprint-grid-position.mjs`'s own header describes):
+     * typing a target into the field there moves every entity so that the
+     * floored, negated minimum corner of the blueprint's own content equals
+     * what was typed, and re-importing the result reproduces the same
+     * number. That is this formula, applied to what this model would
+     * currently export - `-floor(min x/y)` over every entity's and tile's
+     * position, offset by `gridPositionOffset` exactly the way `serialize()`
+     * offsets `computeExportCenter()`'s result, so the two stay in lockstep
+     * without duplicating that arithmetic.
+     *
+     * Deliberately does not account for entity footprint size the way
+     * `getCenter()` does - every measured case so far used 1x1 entities
+     * sitting on a half-integer centre, where centre-floor and edge-floor
+     * agree, so which one the game actually uses is untested. Revisit if a
+     * larger entity (a `curved-rail-a`, an assembling machine) ever
+     * disagrees with this.
+     */
+    public getGridPositionDisplay(): IPoint {
+        if (this.isEmpty()) return { x: 0, y: 0 }
+
+        const center = this.computeExportCenter()
+        const offset = this.gridPositionOffset
+
+        const xs = [
+            ...this.entities.valuesArray().map(e => e.position.x),
+            ...this.tiles.valuesArray().map(t => t.x),
+        ]
+        const ys = [
+            ...this.entities.valuesArray().map(e => e.position.y),
+            ...this.tiles.valuesArray().map(t => t.y),
+        ]
+
+        return {
+            x: -Math.floor(Math.min(...xs) - center.x + offset.x),
+            y: -Math.floor(Math.min(...ys) - center.y + offset.y),
+        }
+    }
+
+    public serialize(): IBlueprint {
+        if (!this.icons.size) {
+            this.generateIcons()
+        }
+        const entityInfo = this.entities.valuesArray().map(e => e.serialize())
+        const wires = this.wireConnections.serializeBpWires()
+        const center = this.computeExportCenter()
 
         /*
             "Grid position"'s whole effect - see gridPositionOffsetStore's doc

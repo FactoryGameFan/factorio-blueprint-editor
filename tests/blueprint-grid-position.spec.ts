@@ -18,39 +18,51 @@ import { ALIGNMENT_X, ALIGNMENT_Y } from '../packages/editor/src/UI/BlueprintInf
     BlueprintAlignment's "Grid position" field, added after a real screenshot
     from the game showed two X/Y pairs where the editor only ever had one -
     "Grid position" above the Absolute/Relative choice, and a second pair
-    beside "Absolute" itself. Decoding blueprint strings exported at each
-    step (not reasoning about it) settled what each one actually is:
+    beside "Absolute" itself. Round-tripping real blueprint strings through
+    the game at each step (not reasoning about it) settled what each one
+    actually is, and it took two rounds to get right:
 
-        typing into "Grid position" writes NO blueprint field at all - not
-        `snap-to-grid`, `absolute-snapping` nor `position-relative-to-grid`.
-        In the real game it moves every entity's own exported position by the
-        NEGATION of whatever was typed. "Absolute"'s own X/Y is the one that
-        actually round-trips as `position-relative-to-grid`
-        (blueprint-snapping.spec.ts covers that half already).
+        "Grid position" writes NO blueprint field of its own, and there is no
+        LuaItemStack property that sets it directly either - the game's own
+        oracle probe for this (`probe-blueprint-grid-position.mjs`) set
+        `blueprint_position_relative_to_grid` instead, which is "Absolute"'s
+        own X/Y, a different field a row below. That probe's conclusion (grid
+        position leaves entities alone) is correct for the field it actually
+        touched and does not transfer.
 
-    The first implementation of this (#222 review) modelled that as a live
-    mutation - `Blueprint.translateEntities`, moving every `Entity.position`
-    by the negated amount - and it could not work, for a reason the review
-    caught and this spec is shaped to guard against: `Blueprint.serialize()`
-    re-centres every exported position on `getCenter()`'s bounding box of the
-    *current* entities, recomputed on every call. Translating every entity by
-    (dx, dy) moves that box's centre by exactly (dx, dy) too, so subtracting
-    the shifted centre from the shifted positions always reproduces the
-    pre-translation numbers - the shift is invisible to the exported string
-    by construction, for any implementation built on moving entities. Nothing
-    in the first version of this file could have caught that: every
-    assertion read `entityPosition()`, the live model, which genuinely did
-    change - the exported string, which did not, was never checked.
+        Decoding real exports settled the actual field: it displays
+        `-floor(minX), -floor(minY)` over every entity's raw position (see
+        `Blueprint.getGridPositionDisplay()`'s own doc comment for the
+        formula and how it was measured), and typing a target into it in the
+        real game genuinely moves every entity so that formula, applied
+        afterwards, reads back exactly what was typed. So the first
+        implementation here (#222 review) - `Blueprint.translateEntities`,
+        moving every `Entity.position` by the negated typed amount - had the
+        right idea for what the game does, but could not work in *this*
+        codebase for an unrelated reason this spec is shaped to guard
+        against: `Blueprint.serialize()` re-centres every exported position
+        on `getCenter()`'s bounding box of the *current* entities, recomputed
+        on every call. Translating every entity by (dx, dy) moves that box's
+        centre by exactly (dx, dy) too, so subtracting the shifted centre
+        from the shifted positions always reproduces the pre-translation
+        numbers - the shift is invisible to the exported string by
+        construction, for any implementation built on moving entities.
+        Nothing in the first version of this file could have caught that:
+        every assertion read `entityPosition()`, the live model, which
+        genuinely did change - the exported string, which did not, was never
+        checked.
 
-    The fix stores the typed amount separately (`Blueprint.
-    gridPositionOffset`, see its own doc comment) and applies it only inside
-    `serialize()`, against the already-computed centre - after the
-    recentring, not before it, which a recentre cannot undo. Live entity
+    The fix stores the *offset needed to reach the typed target* separately
+    (`Blueprint.gridPositionOffset`, see its own doc comment) and applies it
+    only inside `serialize()`, against the already-computed centre - after
+    the recentring, not before it, which a recentre cannot undo. Live entity
     positions - and so `PositionGrid`, rendering, and every other model-level
-    read - never move at all now. So every test below checks the *exported*
+    read - never move at all. So every test below checks the *exported*
     positions (via `encodeLoaded` + `decodeBlueprintString`), and the first
     one explicitly pins that the live model does NOT move, which is the
-    regression guard against reintroducing the translate-based approach.
+    regression guard against reintroducing a translate-based approach in
+    this codebase specifically - not a claim that the real game avoids
+    moving entities, which it does not.
 
     BlueprintAlignment's own coordinates - packages/editor/src/UI/
     BlueprintAlignment.ts, imported directly rather than copied, so a layout
@@ -86,9 +98,9 @@ async function enableSnapToGrid(page: Page, align: { x: number; y: number }): Pr
 /**
  * Types into one of "Grid position"'s two fields and commits on blur (Tab
  * away) - BlueprintAlignment wires those fields to `'blur'` specifically,
- * not `'changed'` (which fires per keystroke), since the commit resets both
- * fields to '0' and would otherwise wipe out whatever was typed after the
- * first character. Left on whichever field Tab lands on afterwards;
+ * not `'changed'` (which fires per keystroke), since the commit re-renders
+ * from the blueprint and would otherwise wipe out whatever was typed after
+ * the first character. Left on whichever field Tab lands on afterwards;
  * `blurToCanvas` is what gets focus back off the dialog's own input chain
  * before a keybind is expected to fire (Editor.ts's keydown listener ignores
  * every key while an <input>/<textarea> has focus).
@@ -145,7 +157,7 @@ test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
 })
 
-test('typing into Grid position shifts the exported positions without moving the live model', async ({
+test('typing a target into Grid position moves the exported positions to match it, without moving the live model', async ({
     page,
 }) => {
     await loadBlueprint(page, TWO_CHESTS)
@@ -155,7 +167,7 @@ test('typing into Grid position shifts the exported positions without moving the
     await enableSnapToGrid(page, align)
     // Enabling the checkbox alone must not move anything either - the
     // export-side baseline is taken after it, not before, so the assertions
-    // below isolate the nudge's own effect from the checkbox's.
+    // below isolate the commit's own effect from the checkbox's.
     const exportedBefore = await exportedPositionsOf(page)
 
     await fillGridPositionField(page, align, 'x', '3')
@@ -167,27 +179,35 @@ test('typing into Grid position shifts the exported positions without moving the
             .map(el => el.value)
     )
     // Name, Width, Height, Grid position X, Grid position Y, Absolute X, Absolute Y.
-    expect(inputValues.slice(3, 5)).toEqual(['0', '0'])
+    // The field is a target, not a one-shot nudge - it keeps showing what
+    // was typed rather than resetting, the same as Width/Height and
+    // Absolute X/Y do.
+    expect(inputValues.slice(3, 5)).toEqual(['3', '4'])
 
     /*
         The regression guard: the live model - what PositionGrid, rendering
         and every other in-editor read sees - must be exactly what it was
-        before any of this. A version built on moving entities would fail
-        here first.
+        before any of this. A version built on moving entities in this
+        codebase would fail here first (see the file header for why that
+        cannot work here even though the real game does move entities).
     */
     const modelAfter = await positionsOf(page, [1, 2])
     expect(modelAfter).toEqual(modelBefore)
 
     /*
         The bug this whole spec exists to catch: the EXPORTED positions must
-        actually have moved, by the negation of what was typed - matching
-        the sign measured from the real game (entering Grid position (3, 4)
-        shifted a raw exported entity from (1, 1) to (-2, -3), also a
-        decrease of exactly (3, 4)).
+        actually have moved. What they move BY depends on where the
+        blueprint's bounding box started (there is no fixed sign/magnitude
+        the way a plain nudge would have), so the real invariant to check is
+        the one measured against the game: applying
+        `Blueprint.getGridPositionDisplay()`'s own formula to the exported
+        result reproduces exactly what was typed.
     */
     const exportedAfter = await exportedPositionsOf(page)
-    expect(exportedAfter[0]).toEqual({ x: exportedBefore[0].x - 3, y: exportedBefore[0].y - 4 })
-    expect(exportedAfter[1]).toEqual({ x: exportedBefore[1].x - 3, y: exportedBefore[1].y - 4 })
+    expect(exportedAfter).not.toEqual(exportedBefore)
+    const minExportedX = Math.min(...exportedAfter.map(p => p.x))
+    const minExportedY = Math.min(...exportedAfter.map(p => p.y))
+    expect({ x: -Math.floor(minExportedX), y: -Math.floor(minExportedY) }).toEqual({ x: 3, y: 4 })
     // The two entities' offset from each other is exactly what it started as -
     // a uniform export-time shift cannot change any entity's position
     // relative to another.

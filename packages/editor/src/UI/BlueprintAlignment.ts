@@ -95,11 +95,11 @@ function setFieldEnabled(input: TextInput, enabled: boolean): void {
  * re-renders from the blueprint afterwards (`refreshFromBlueprint`), which
  * overwrites the DOM input's own in-progress text with whatever that
  * keystroke alone parsed to. For Grid position specifically that meant the
- * field wiping itself back to '0' after the first character typed; for
- * Absolute X/Y it meant a leading '-' parsing to 0 and being immediately
- * echoed back, so a negative value could never be typed at all - same
- * mechanism, two different symptoms. Blur waits for the edit to actually
- * finish before either effect can happen.
+ * field wiping itself back to its last committed value after the first
+ * character typed; for Absolute X/Y it meant a leading '-' parsing to 0 and
+ * being immediately echoed back, so a negative value could never be typed at
+ * all - same mechanism, two different symptoms. Blur waits for the edit to
+ * actually finish before either effect can happen.
  *
  * `absoluteSnapping`/`positionRelativeToGrid` are only meaningful while
  * `snapToGrid` is set - their inputs disable together with Grid size's while
@@ -163,25 +163,41 @@ export class BlueprintAlignment extends Container {
 
         /*
             "Grid position" is not backed by any field of its own in the
-            blueprint string - measured against the game (bp string
-            round-trips, issue #226 follow-up): typing here does not touch
-            `snap-to-grid`/`absolute-snapping`/`position-relative-to-grid` at
-            all. It accumulates into `Blueprint.gridPositionOffset`, an
-            export-time-only shift applied inside `serialize()` - see that
-            store's own doc comment for why entities/tiles themselves are
-            never touched - then resets to 0 here, since the field is a
-            one-shot nudge with nothing of its own to keep displaying.
+            blueprint string, and it is not directly settable through the
+            game's scripting API either - see `gridPositionOffsetStore`'s own
+            doc comment for how that was confirmed and how it differs from
+            Absolute X/Y beside it. Round-tripping a real export through the
+            game showed it behaves like a *target*, the same as Width/Height
+            or Absolute X/Y: typing a value moves the blueprint's content so
+            `Blueprint.getGridPositionDisplay()` reads back exactly what was
+            typed, and the field keeps showing that value afterwards rather
+            than resetting - `commitGridPosition` below solves for whatever
+            `gridPositionOffset` reproduces the typed target.
         */
         this.addChild(makeLabel('Grid position', 0, ROW_HEIGHT * 2 + 8))
 
+        const gridPosition = blueprint.getGridPositionDisplay()
+
         this.addChild(makeFieldLabel('X:', COL1_X, ROW_HEIGHT * 2 + 8))
-        this.m_GridPosXInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
+        this.m_GridPosXInput = new TextInput(
+            G.app.renderer,
+            FIELD_WIDTH,
+            `${gridPosition.x}`,
+            5,
+            true
+        )
         this.m_GridPosXInput.position.set(COL1_X, ROW_HEIGHT * 2 + 4)
         this.m_GridPosXInput.restrict = /^-?\d*$/
         this.addChild(this.m_GridPosXInput)
 
         this.addChild(makeFieldLabel('Y:', COL2_X, ROW_HEIGHT * 2 + 8))
-        this.m_GridPosYInput = new TextInput(G.app.renderer, FIELD_WIDTH, '0', 5, true)
+        this.m_GridPosYInput = new TextInput(
+            G.app.renderer,
+            FIELD_WIDTH,
+            `${gridPosition.y}`,
+            5,
+            true
+        )
         this.m_GridPosYInput.position.set(COL2_X, ROW_HEIGHT * 2 + 4)
         this.m_GridPosYInput.restrict = /^-?\d*$/
         this.addChild(this.m_GridPosYInput)
@@ -241,8 +257,8 @@ export class BlueprintAlignment extends Container {
         this.m_WidthInput.on('blur', () => this.commitSize())
         this.m_HeightInput.on('blur', () => this.commitSize())
 
-        this.m_GridPosXInput.on('blur', () => this.commitGridPositionNudge())
-        this.m_GridPosYInput.on('blur', () => this.commitGridPositionNudge())
+        this.m_GridPosXInput.on('blur', () => this.commitGridPosition())
+        this.m_GridPosYInput.on('blur', () => this.commitGridPosition())
 
         // RadioButton only ever sets itself checked (see RadioButton.ts), so
         // unlike Checkbox there is no accidental "toggle off" to worry about
@@ -271,6 +287,7 @@ export class BlueprintAlignment extends Container {
         this.onBlueprintChange('snapToGrid', () => this.refreshFromBlueprint())
         this.onBlueprintChange('absoluteSnapping', () => this.refreshFromBlueprint())
         this.onBlueprintChange('positionRelativeToGrid', () => this.refreshFromBlueprint())
+        this.onBlueprintChange('gridPositionOffset', () => this.refreshFromBlueprint())
     }
 
     private commitSize(): void {
@@ -289,20 +306,28 @@ export class BlueprintAlignment extends Container {
     }
 
     /**
-     * "Grid position"'s own commit - accumulates the negated typed value
-     * into `Blueprint.gridPositionOffset` (see the field's own doc comment
-     * above and that store's) and resets the fields to 0, since there is no
-     * blueprint value for them to keep showing afterwards.
+     * "Grid position"'s own commit. The typed text is a *target* for what
+     * `Blueprint.getGridPositionDisplay()` should read back, not a delta -
+     * see that method's doc comment for the formula and the field's own
+     * comment above for how that was confirmed against the game. Solves for
+     * the `gridPositionOffset` that reproduces it: displayed = target means
+     * `offset` has to move by exactly `current - target` from whatever it is
+     * now, since increasing `offset` by 1 decreases the floored display by 1
+     * (the same relationship `serialize()` and `getGridPositionDisplay()`
+     * both encode). Untouched-field commits are naturally idempotent from
+     * this - target equals current, delta is 0, `gridPositionOffset`'s own
+     * `pointsEqual` guard turns the write into a no-op - so unlike Absolute
+     * X/Y this needs no separate dirty flag.
      */
-    private commitGridPositionNudge(): void {
-        const nudge = {
+    private commitGridPosition(): void {
+        const target = {
             x: parseGridValue(this.m_GridPosXInput.text),
             y: parseGridValue(this.m_GridPosYInput.text),
         }
-        const current = this.m_Blueprint.gridPositionOffset
-        this.m_Blueprint.gridPositionOffset = { x: current.x - nudge.x, y: current.y - nudge.y }
-        this.m_GridPosXInput.text = '0'
-        this.m_GridPosYInput.text = '0'
+        const current = this.m_Blueprint.getGridPositionDisplay()
+        const delta = { x: current.x - target.x, y: current.y - target.y }
+        const offset = this.m_Blueprint.gridPositionOffset
+        this.m_Blueprint.gridPositionOffset = { x: offset.x + delta.x, y: offset.y + delta.y }
     }
 
     private commitPosition(): void {
@@ -323,6 +348,10 @@ export class BlueprintAlignment extends Container {
         this.m_AbsoluteRadio.checked = this.m_Blueprint.absoluteSnapping
         this.m_RelativeRadio.checked = !this.m_Blueprint.absoluteSnapping
 
+        const gridPosition = this.m_Blueprint.getGridPositionDisplay()
+        this.m_GridPosXInput.text = `${gridPosition.x}`
+        this.m_GridPosYInput.text = `${gridPosition.y}`
+
         const position = this.m_Blueprint.positionRelativeToGrid ?? { x: 0, y: 0 }
         this.m_XInput.text = `${position.x}`
         this.m_YInput.text = `${position.y}`
@@ -335,9 +364,9 @@ export class BlueprintAlignment extends Container {
         setFieldEnabled(this.m_WidthInput, gridEnabled)
         setFieldEnabled(this.m_HeightInput, gridEnabled)
 
-        // Gated the same as Grid size, not by Absolute/Relative - the nudge
-        // applies to `gridPositionOffset` regardless of which snapping mode
-        // is chosen.
+        // Gated the same as Grid size, not by Absolute/Relative - measured
+        // against the game, Grid position moves entities regardless of
+        // which snapping mode is chosen.
         setFieldEnabled(this.m_GridPosXInput, gridEnabled)
         setFieldEnabled(this.m_GridPosYInput, gridEnabled)
 
