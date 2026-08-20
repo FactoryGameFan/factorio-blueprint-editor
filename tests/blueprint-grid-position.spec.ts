@@ -245,7 +245,9 @@ test('Grid position does not write snap-to-grid, absolute-snapping or position-r
     expect(decoded.blueprint['position-relative-to-grid']).toBeUndefined()
 })
 
-test('undo reverts the exported shift, matching the per-field commit', async ({ page }) => {
+test('undo reverts the exported shift one commit at a time, X and Y separately', async ({
+    page,
+}) => {
     await loadBlueprint(page, TWO_CHESTS)
 
     const align = await openBlueprintInfo(page)
@@ -259,12 +261,29 @@ test('undo reverts the exported shift, matching the per-field commit', async ({ 
     await page.keyboard.press('Escape')
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 
-    // X and Y each committed their own write to `gridPositionOffset` (see
-    // the first test) - two separate transactions on the undo stack, both
-    // have to unwind before the export is back to where it started.
+    /*
+        X and Y each committed their own write to `gridPositionOffset` (see
+        the first test) - two separate transactions on the undo stack. A
+        single combined undo of *both* would land back on exportedBefore too
+        (see below), which is why the intermediate state after exactly one
+        undo is the one that actually distinguishes "two commits" from "one
+        commit plus something else on the stack" - here specifically the
+        checkbox's own `snapToGrid` transaction, whose undo would also
+        happen to leave positions unchanged (gridPositionOffset applies in
+        serialize() regardless of snapToGrid), so a version that coalesced
+        X and Y into a single write could still pass a check that only
+        looked at the state after two undos.
+    */
     await page.keyboard.press('Control+z')
-    await page.keyboard.press('Control+z')
+    const exportedAfterOneUndo = await exportedPositionsOf(page)
+    const minX = Math.min(...exportedAfterOneUndo.map(p => p.x))
+    const minY = Math.min(...exportedAfterOneUndo.map(p => p.y))
+    // Y's commit alone is undone - X (3) still holds, Y is back to whatever
+    // it displayed before being typed into.
+    expect(-Math.floor(minX)).toBe(3)
+    expect(-Math.floor(minY)).not.toBe(4)
 
-    const exportedAfter = await exportedPositionsOf(page)
-    expect(exportedAfter).toEqual(exportedBefore)
+    await page.keyboard.press('Control+z')
+    const exportedAfterTwoUndos = await exportedPositionsOf(page)
+    expect(exportedAfterTwoUndos).toEqual(exportedBefore)
 })
