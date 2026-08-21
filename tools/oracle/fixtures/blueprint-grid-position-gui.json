@@ -1,0 +1,517 @@
+{
+    "probe": "probe-blueprint-grid-position-gui/control.lua",
+    "runner": "factorio-oracle run --probe tools/oracle/probe-blueprint-grid-position-gui/probe.json",
+    "question": "What does the blueprint GUI's \"Grid position\" field do to an exported blueprint string?",
+    "issue": "#235 (shared oracle CLI), reviewing PR #243",
+    "provenance": {
+        "capturedOn": "2026-08-21",
+        "method": "interactive: a person drove the blueprint GUI, the mod captured after each step",
+        "binary": "/Users/ericjohnson/GitHub/factorio-oracle/installs/factorio-2.0.77.app/Contents/MacOS/factorio",
+        "factorioVersion": "2.0.77",
+        "loadedMods": [
+            "base",
+            "core",
+            "elevated-rails",
+            "quality",
+            "space-age"
+        ],
+        "activeModsSeenByMod": {
+            "base": "2.0.77",
+            "bp_grid_position_gui": "0.0.1",
+            "elevated-rails": "2.0.77",
+            "quality": "2.0.77",
+            "space-age": "2.0.77"
+        },
+        "evidence": "captured",
+        "caveat": "The GUI field has no scripting API on 2.0.77 (runtime-api.json exposes only blueprint_snap_to_grid, blueprint_absolute_snapping and blueprint_position_relative_to_grid), so this cannot be re-captured headlessly."
+    },
+    "supersedes": {
+        "fixture": "blueprint-grid-position.json",
+        "why": "That capture set blueprint_position_relative_to_grid, which the game's own locale separates from this field in one line - core.cfg:274, \"Grid position and blueprint grid position coordinates need to be either all even or all odd\". Its answer is about the neighbouring field and stands; it is not an answer to this question."
+    },
+    "rivalReadings": {
+        "entityCentresAndTiles": "what packages/editor/src/core/Blueprint.ts getGridPositionDisplay() ships",
+        "entityEdgesAndTiles": "the same, reading entity edges rather than centres",
+        "entityCentresOnly": "entities only, tiles ignored",
+        "entityEdgesOnly": "entities only, edges"
+    },
+    "controls": [
+        {
+            "name": "instrument: two captures with nothing changed are identical",
+            "ok": true,
+            "detail": "exports byte-identical"
+        },
+        {
+            "name": "positive control: the comparison can see a shift at all",
+            "ok": true,
+            "detail": "baseline 10.5,20.5 20.5,20.5 20.5,26.5 vs script-shifted 7.5,16.5 17.5,16.5 17.5,22.5"
+        },
+        {
+            "name": "rival field: the neighbouring field is reachable and does serialize",
+            "ok": true,
+            "detail": "script set position_relative_to_grid={3,5}; export carries {\"x\":3,\"y\":5}, absolute-snapping=true, snap-to-grid={\"x\":4,\"y\":4}"
+        }
+    ],
+    "controlsAllPassed": true,
+    "survivingReadings": [
+        "entityEdgesAndTiles"
+    ],
+    "scoredRows": 3,
+    "stepsNotCaptured": [
+        "abs-2-6",
+        "snap-off"
+    ],
+    "movedRelativeToUntouched": [
+        {
+            "label": "snap-on",
+            "moved": true
+        },
+        {
+            "label": "gridpos-3-5",
+            "moved": true
+        },
+        {
+            "label": "gridpos-8-9",
+            "moved": true
+        },
+        {
+            "label": "gridpos-0-0",
+            "moved": true
+        },
+        {
+            "label": "gridpos-3-5-saved",
+            "moved": true
+        }
+    ],
+    "notes": [],
+    "cases": [
+        {
+            "label": "untouched",
+            "scored": false,
+            "exportedKeys": {},
+            "exportedEntityPositions": [
+                {
+                    "name": "assembling-machine-1",
+                    "x": 10.5,
+                    "y": 20.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 20.5,
+                    "y": 20.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 20.5,
+                    "y": 26.5
+                }
+            ],
+            "exportedTilePositions": [
+                {
+                    "x": 14,
+                    "y": 10
+                },
+                {
+                    "x": 15,
+                    "y": 10
+                },
+                {
+                    "x": 14,
+                    "y": 11
+                },
+                {
+                    "x": 15,
+                    "y": 11
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": -10,
+                    "y": -10
+                },
+                "entityEdgesAndTiles": {
+                    "x": -9,
+                    "y": -10
+                },
+                "entityCentresOnly": {
+                    "x": -10,
+                    "y": -20
+                },
+                "entityEdgesOnly": {
+                    "x": -9,
+                    "y": -19
+                }
+            }
+        },
+        {
+            "label": "snap-on",
+            "scored": false,
+            "exportedKeys": {
+                "snap-to-grid": {
+                    "x": 12,
+                    "y": 17
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 9,
+                    "y": 10
+                }
+            },
+            "exportedEntityPositions": [
+                {
+                    "name": "assembling-machine-1",
+                    "x": 1.5,
+                    "y": 10.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 11.5,
+                    "y": 10.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 11.5,
+                    "y": 16.5
+                }
+            ],
+            "exportedTilePositions": [
+                {
+                    "x": 5,
+                    "y": 0
+                },
+                {
+                    "x": 6,
+                    "y": 0
+                },
+                {
+                    "x": 5,
+                    "y": 1
+                },
+                {
+                    "x": 6,
+                    "y": 1
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": -1,
+                    "y": 0
+                },
+                "entityEdgesAndTiles": {
+                    "x": 0,
+                    "y": 0
+                },
+                "entityCentresOnly": {
+                    "x": -1,
+                    "y": -10
+                },
+                "entityEdgesOnly": {
+                    "x": 0,
+                    "y": -9
+                }
+            }
+        },
+        {
+            "label": "gridpos-3-5",
+            "typedGridPosition": {
+                "x": 3,
+                "y": 5
+            },
+            "scored": true,
+            "exportedKeys": {
+                "snap-to-grid": {
+                    "x": 12,
+                    "y": 17
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 9,
+                    "y": 10
+                }
+            },
+            "exportedEntityPositions": [
+                {
+                    "name": "assembling-machine-1",
+                    "x": -1.5,
+                    "y": 5.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 8.5,
+                    "y": 5.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 8.5,
+                    "y": 11.5
+                }
+            ],
+            "exportedTilePositions": [
+                {
+                    "x": 2,
+                    "y": -5
+                },
+                {
+                    "x": 3,
+                    "y": -5
+                },
+                {
+                    "x": 2,
+                    "y": -4
+                },
+                {
+                    "x": 3,
+                    "y": -4
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": 2,
+                    "y": 5
+                },
+                "entityEdgesAndTiles": {
+                    "x": 3,
+                    "y": 5
+                },
+                "entityCentresOnly": {
+                    "x": 2,
+                    "y": -5
+                },
+                "entityEdgesOnly": {
+                    "x": 3,
+                    "y": -4
+                }
+            },
+            "agrees": {
+                "entityCentresAndTiles": false,
+                "entityEdgesAndTiles": true,
+                "entityCentresOnly": false,
+                "entityEdgesOnly": false
+            }
+        },
+        {
+            "label": "gridpos-8-9",
+            "typedGridPosition": {
+                "x": 8,
+                "y": 9
+            },
+            "scored": true,
+            "exportedKeys": {
+                "snap-to-grid": {
+                    "x": 12,
+                    "y": 17
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 9,
+                    "y": 10
+                }
+            },
+            "exportedEntityPositions": [
+                {
+                    "name": "assembling-machine-1",
+                    "x": -6.5,
+                    "y": 1.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 3.5,
+                    "y": 1.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 3.5,
+                    "y": 7.5
+                }
+            ],
+            "exportedTilePositions": [
+                {
+                    "x": -3,
+                    "y": -9
+                },
+                {
+                    "x": -2,
+                    "y": -9
+                },
+                {
+                    "x": -3,
+                    "y": -8
+                },
+                {
+                    "x": -2,
+                    "y": -8
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": 7,
+                    "y": 9
+                },
+                "entityEdgesAndTiles": {
+                    "x": 8,
+                    "y": 9
+                },
+                "entityCentresOnly": {
+                    "x": 7,
+                    "y": -1
+                },
+                "entityEdgesOnly": {
+                    "x": 8,
+                    "y": 0
+                }
+            },
+            "agrees": {
+                "entityCentresAndTiles": false,
+                "entityEdgesAndTiles": true,
+                "entityCentresOnly": false,
+                "entityEdgesOnly": false
+            }
+        },
+        {
+            "label": "gridpos-0-0",
+            "typedGridPosition": {
+                "x": 0,
+                "y": 0
+            },
+            "scored": true,
+            "exportedKeys": {
+                "snap-to-grid": {
+                    "x": 12,
+                    "y": 17
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 9,
+                    "y": 10
+                }
+            },
+            "exportedEntityPositions": [
+                {
+                    "name": "assembling-machine-1",
+                    "x": 1.5,
+                    "y": 10.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 11.5,
+                    "y": 10.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 11.5,
+                    "y": 16.5
+                }
+            ],
+            "exportedTilePositions": [
+                {
+                    "x": 5,
+                    "y": 0
+                },
+                {
+                    "x": 6,
+                    "y": 0
+                },
+                {
+                    "x": 5,
+                    "y": 1
+                },
+                {
+                    "x": 6,
+                    "y": 1
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": -1,
+                    "y": 0
+                },
+                "entityEdgesAndTiles": {
+                    "x": 0,
+                    "y": 0
+                },
+                "entityCentresOnly": {
+                    "x": -1,
+                    "y": -10
+                },
+                "entityEdgesOnly": {
+                    "x": 0,
+                    "y": -9
+                }
+            },
+            "agrees": {
+                "entityCentresAndTiles": false,
+                "entityEdgesAndTiles": true,
+                "entityCentresOnly": false,
+                "entityEdgesOnly": false
+            }
+        },
+        {
+            "label": "gridpos-3-5-saved",
+            "scored": false,
+            "exportedKeys": {
+                "snap-to-grid": {
+                    "x": 12,
+                    "y": 17
+                },
+                "absolute-snapping": true,
+                "position-relative-to-grid": {
+                    "x": 9,
+                    "y": 10
+                }
+            },
+            "exportedEntityPositions": [
+                {
+                    "name": "assembling-machine-1",
+                    "x": -1.5,
+                    "y": 5.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 8.5,
+                    "y": 5.5
+                },
+                {
+                    "name": "wooden-chest",
+                    "x": 8.5,
+                    "y": 11.5
+                }
+            ],
+            "exportedTilePositions": [
+                {
+                    "x": 2,
+                    "y": -5
+                },
+                {
+                    "x": 3,
+                    "y": -5
+                },
+                {
+                    "x": 2,
+                    "y": -4
+                },
+                {
+                    "x": 3,
+                    "y": -4
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": 2,
+                    "y": 5
+                },
+                "entityEdgesAndTiles": {
+                    "x": 3,
+                    "y": 5
+                },
+                "entityCentresOnly": {
+                    "x": 2,
+                    "y": -5
+                },
+                "entityEdgesOnly": {
+                    "x": 3,
+                    "y": -4
+                }
+            }
+        }
+    ]
+}

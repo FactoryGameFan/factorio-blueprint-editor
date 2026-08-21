@@ -40,7 +40,7 @@ Checked before choosing the expensive route, per `docs/order-of-attack.md`.
 - `create_blueprint` takes no anchor parameter.
 - The game's own tooltip says how the field is set:
   `grid-position-tooltip=SHIFT + LEFT-CLICK in the preview to change the grid
-  position.`
+position.`
 
 There is no script that can set it. "No headless probe can reach it" is not
 "not worth measuring".
@@ -50,10 +50,10 @@ There is no script that can set it. "No headless probe can reach it" is not
 One capture separates three readings of "the minimum corner" at once, by
 putting each on a different axis.
 
-| Axis | Decided by | Separates |
-| --- | --- | --- |
-| x | a 3x3 assembling machine at 10.5 | entity **centres** (floor 10) against **edges** (floor 9) |
-| y | a tile at y=10, six tiles clear of everything | whether **tiles** count towards the corner at all |
+| Axis | Decided by                                    | Separates                                                 |
+| ---- | --------------------------------------------- | --------------------------------------------------------- |
+| x    | a 3x3 assembling machine at 10.5              | entity **centres** (floor 10) against **edges** (floor 9) |
+| y    | a tile at y=10, six tiles clear of everything | whether **tiles** count towards the corner at all         |
 
 The editor's formula reads centres and includes tiles. Its own doc comment
 admits the footprint half is untested, because every case measured so far used
@@ -63,6 +63,29 @@ The content deliberately does not start at the origin, and the session asks for
 a second change on top of a first, because "an absolute target" and "a relative
 nudge of `-T`" agree whenever the corner already sits at 0.
 
+## The three pairs in the panel
+
+Measured 2026-08-21, and worth knowing before driving it, because two of the
+three look alike and only one is the subject of this probe:
+
+```
+☑ Snap to grid
+  Grid size        Width 12   Height 17    <- snap-to-grid
+  Grid position        X 3    Y 5          <- THIS ONE: shifts the exported content
+  ● Absolute           X 9    Y 10         <- position-relative-to-grid
+  ○ Relative
+```
+
+Both lower pairs were on screen at once holding different values, which is what
+proves they are separate fields rather than one field read twice. The Grid
+position pair writes **no key at all** into the export - it moves the entity and
+tile coordinates instead, which is exactly the model PR #243 is built on, and is
+why no scripting API can reach it.
+
+Absolute is selected by default the moment Snap to grid is ticked, so the
+session's step 6 sets that row's own pair rather than picking the mode. Relative
+is the only side of the toggle a person has to travel to.
+
 ## Running it
 
 Name the install with `--factorio`. `--version` on its own is not enough: a bare
@@ -71,8 +94,17 @@ down to. `--factorio` puts that root at the front of the candidate list, and
 `--version` is then a guard that makes picking the wrong game impossible rather
 than merely unlikely.
 
+Run it from this repo's root. `control_lua_file` in `probe.json` is a
+repo-relative path and `read_control_lua` in the CLI reads it verbatim, so it
+resolves against the shell's working directory rather than against the probe
+file's own directory. An absolute `--probe` from elsewhere therefore fails with
+`reading control_lua_file ... No such file or directory`, which names the Lua
+file rather than the real cause. Not a CLI bug to fix: its own
+`examples/pumpjack-terminals/probe.json` uses the same convention, and
+resolving relative to the probe file would break that one.
+
 ```fish
-cargo run --quiet --manifest-path ~/GitHub/factorio-oracle/Cargo.toml -- run --probe ~/GitHub/factorio-blueprint-editor/tools/oracle/probe-blueprint-grid-position-gui/probe.json --work-dir /tmp/gridpos --factorio ~/GitHub/factorio-oracle/installs/factorio-2.0.77.app --version 2.0.77 >/tmp/gridpos-run.json
+cd ~/GitHub/factorio-blueprint-editor; and cargo run --quiet --manifest-path ~/GitHub/factorio-oracle/Cargo.toml -- run --probe tools/oracle/probe-blueprint-grid-position-gui/probe.json --work-dir /tmp/gridpos --factorio ~/GitHub/factorio-oracle/installs/factorio-2.0.77.app --version 2.0.77 >/tmp/gridpos-run.json
 ```
 
 The game opens. There is no timeout - an interactive run lasts as long as you
@@ -120,11 +152,11 @@ A control has to be able to fail while the hypothesis holds. PR #222's original
 capture had four cases that would have reported "the coordinates did not
 change" whether the probe was right or reading the same field twice.
 
-| Control | Fails when |
-| --- | --- |
-| `instrument-repeat` | export is not deterministic, which voids every "it moved" row |
-| `positive-shift` | the comparison cannot see a shift at all, which makes "nothing moved" mean nothing |
-| `rival-field` | the neighbouring field is not reachable, so the two cannot be told apart |
+| Control             | Fails when                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `instrument-repeat` | export is not deterministic, which voids every "it moved" row                      |
+| `positive-shift`    | the comparison cannot see a shift at all, which makes "nothing moved" mean nothing |
+| `rival-field`       | the neighbouring field is not reachable, so the two cannot be told apart           |
 
 `rival-field` is the one that matters most here. It sets
 `blueprint_position_relative_to_grid` on the same rig, so if the human-driven

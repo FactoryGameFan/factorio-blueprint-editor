@@ -10,8 +10,14 @@ appended the moment you run it.
 
 ## 1. Start it
 
+**Run it from this repo's root.** `probe.json` names its `control.lua` by a
+repo-relative path and the CLI reads that against the shell's working
+directory, not against the probe file - so an absolute `--probe` from anywhere
+else fails with `reading control_lua_file ... No such file or directory`. That
+is the convention the CLI's own example follows too.
+
 ```fish
-cargo run --quiet --manifest-path ~/GitHub/factorio-oracle/Cargo.toml -- run --probe ~/GitHub/factorio-blueprint-editor/tools/oracle/probe-blueprint-grid-position-gui/probe.json --work-dir /tmp/gridpos --factorio ~/GitHub/factorio-oracle/installs/factorio-2.0.77.app --version 2.0.77 >/tmp/gridpos-run.json
+cd ~/GitHub/factorio-blueprint-editor; and cargo run --quiet --manifest-path ~/GitHub/factorio-oracle/Cargo.toml -- run --probe tools/oracle/probe-blueprint-grid-position-gui/probe.json --work-dir /tmp/gridpos --factorio ~/GitHub/factorio-oracle/installs/factorio-2.0.77.app --version 2.0.77 >/tmp/gridpos-run.json
 ```
 
 The game opens. There is no timeout - it lasts as long as you play.
@@ -46,22 +52,28 @@ Do the thing, close the GUI, then type the command. Order matters.
 
       /gp-cap gridpos-3-5
 
-- [ ] **Grid position 8, 9.** Set **Grid position** X=8 Y=9. Close.
+- [ ] **Grid position 8, 9.** Set **Grid position** X=8 Y=9. Close. Do not skip
+      this one - a second value on top of the first is the only thing that
+      tells an absolute target from a relative nudge.
 
       /gp-cap gridpos-8-9
-
-      This is the one that matters most. Setting a second value on top of the
-      first is the only thing that tells an absolute target from a relative
-      nudge. Do not skip it.
 
 - [ ] **Grid position 0, 0.** Set **Grid position** back to X=0 Y=0. Close.
 
       /gp-cap gridpos-0-0
 
-- [ ] **Absolute 2, 6.** Pick **Absolute**. Set its **own** X=2 Y=6 - the pair
-      on the Absolute row, not the Grid position pair above it. Close.
+- [ ] **Absolute 2, 6.** Leave **Grid position** at 0, 0. On the **Absolute**
+      row - the third pair down, not the Grid position one - set X=2 Y=6.
+      Close. Absolute is already selected; it is the default as soon as Snap
+      to grid is ticked. See the README for the panel's three pairs.
 
       /gp-cap abs-2-6
+
+- [ ] **Relative.** Switch the toggle to **Relative**. Close. Unscored, and
+      worth having anyway: PR #222 measured that the game drops the position
+      key under relative snapping.
+
+      /gp-cap relative
 
 - [ ] **Snap off.** Untick **Snap to grid**. Close.
 
@@ -83,13 +95,13 @@ than a finding.
 `survivingReadings` is the answer. It lists the rules that match **every**
 scored row.
 
-| Result | Means |
-| --- | --- |
-| `["entityCentresAndTiles"]` | PR #243's formula is right as shipped |
-| `["entityEdgesAndTiles"]` | right shape, wrong corner - it reads edges, not centres |
-| `["entityCentresOnly"]` or `["entityEdgesOnly"]` | tiles do not count towards the corner |
-| `[]` | all four candidates are wrong, and the real rule is not written down yet |
-| `unmeasured ...` | no scored step was captured - check step 1 |
+| Result                                           | Means                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| `["entityCentresAndTiles"]`                      | PR #243's formula is right as shipped                                    |
+| `["entityEdgesAndTiles"]`                        | right shape, wrong corner - it reads edges, not centres                  |
+| `["entityCentresOnly"]` or `["entityEdgesOnly"]` | tiles do not count towards the corner                                    |
+| `[]`                                             | all four candidates are wrong, and the real rule is not written down yet |
+| `unmeasured ...`                                 | no scored step was captured - check step 1                               |
 
 ---
 
@@ -104,7 +116,7 @@ refusal. Its locale carries three relevant strings:
 - `__1__ is an invalid grid position value.`
 - `Grid position value for this blueprint has to be multiple of __1__.`
 - `Grid position and blueprint grid position coordinates need to be either all
-  even or all odd.`
+even or all odd.`
 
 If X=3 Y=5 or X=8 Y=9 is refused for parity or multiples, **note it and use the
 nearest value the game accepts**, then note what you actually used. A refusal is
@@ -120,8 +132,8 @@ analysis scores against what you record, not against what the step asked for.
 
 ## Other commands
 
-| Command | Does |
-| --- | --- |
-| `/gp-note <text>` | record a note in the capture stream |
-| `/gp-help` | reprint the steps in game |
-| `/gp-reset` | rebuild the layout and re-run the controls, start over |
+| Command           | Does                                                   |
+| ----------------- | ------------------------------------------------------ |
+| `/gp-note <text>` | record a note in the capture stream                    |
+| `/gp-help`        | reprint the steps in game                              |
+| `/gp-reset`       | rebuild the layout and re-run the controls, start over |

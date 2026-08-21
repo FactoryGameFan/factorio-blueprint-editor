@@ -1,10 +1,10 @@
 {
-  "mode": "interactive",
-  "mod": {
-    "name": "bp_grid_position_gui",
-    "version": "0.0.1",
-    "dependencies": ["base"],
-    "control_lua_file": "tools/oracle/probe-blueprint-grid-position-gui/control.lua"
-  },
-  "capture_active_mods": true
+    "mode": "interactive",
+    "mod": {
+        "name": "bp_grid_position_gui",
+        "version": "0.0.1",
+        "dependencies": ["base"],
+        "control_lua_file": "tools/oracle/probe-blueprint-grid-position-gui/control.lua"
+    },
+    "capture_active_mods": true
 }

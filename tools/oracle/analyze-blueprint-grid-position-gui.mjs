@@ -284,6 +284,15 @@ function main() {
             }))
     })()
 
+    // Which steps the session never reached. An interactive probe ends when the
+    // person stops playing, so a fixture that simply omits them reads as "these
+    // steps do not exist" rather than "these steps were not run" - the silent
+    // cap docs/method.md warns about. Named here so a reader can tell a gap
+    // from a finding.
+    const stepsNotCaptured = Object.keys(EXPECTED).filter(
+        label => !cases.some(c => c.label === label)
+    )
+
     const fixture = {
         probe: 'probe-blueprint-grid-position-gui/control.lua',
         runner: 'factorio-oracle run --probe tools/oracle/probe-blueprint-grid-position-gui/probe.json',
@@ -327,6 +336,7 @@ function main() {
         controlsAllPassed: controls.every(c => c.ok),
         survivingReadings: survivors ?? 'unmeasured - no scored step was captured',
         scoredRows: scoredCases.length,
+        stepsNotCaptured,
         movedRelativeToUntouched,
         notes,
         cases,
