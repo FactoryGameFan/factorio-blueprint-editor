@@ -205,6 +205,25 @@ const EXPECTED = {
     'snap-off': { gridPosition: undefined },
 }
 
+/**
+ * What a step was asked to set, for the label given.
+ *
+ * Any `gridpos-<x>-<y>` label is read from its own numbers rather than looked
+ * up, because **the game refuses some values and the session says to
+ * substitute**: the parity rule ("Grid position and blueprint grid position
+ * coordinates need to be either all even or all odd") rejected 3,5 outright on
+ * run 2's layout, having accepted it on run 1's. SESSION.md already told the
+ * operator to use the nearest accepted value and record it, and until now the
+ * analysis could not read anything but the three labels it happened to know -
+ * so following that instruction produced an unscored row and a session that
+ * measured nothing. Negative values are allowed: `gridpos--3-5` is x=-3, y=5.
+ */
+function expectedFor(label) {
+    const m = /^gridpos-(-?\d+)-(-?\d+)$/.exec(label)
+    if (m) return { gridPosition: { x: Number(m[1]), y: Number(m[2]) } }
+    return EXPECTED[label]
+}
+
 function pointsEqual(a, b) {
     if (a === undefined || b === undefined) return a === b
     return a.x === b.x && a.y === b.y
@@ -307,7 +326,7 @@ function main() {
             const entities = asArray(decoded.entities)
             const tiles = asArray(decoded.tiles)
             const readings = corners(entities, tiles)
-            const expected = EXPECTED[row.label]
+            const expected = expectedFor(row.label)
 
             const scored = expected?.gridPosition !== undefined
             const agrees = scored
@@ -373,9 +392,17 @@ function main() {
     // steps do not exist" rather than "these steps were not run" - the silent
     // cap docs/method.md warns about. Named here so a reader can tell a gap
     // from a finding.
-    const stepsNotCaptured = Object.keys(EXPECTED).filter(
-        label => !cases.some(c => c.label === label)
+    const substituted = cases.some(
+        c => c.label.startsWith('gridpos-') && EXPECTED[c.label] === undefined
     )
+    const stepsNotCaptured = Object.keys(EXPECTED).filter(label => {
+        if (cases.some(c => c.label === label)) return false
+        // A refused value means the operator captured `gridpos-4-6` in place of
+        // `gridpos-3-5`. Reporting the asked-for label as "not captured" would
+        // read as a skipped step rather than a substituted one.
+        if (substituted && label.startsWith('gridpos-')) return false
+        return true
+    })
 
     // Pushed here rather than inside scoreControls(), because GEOMETRY coverage is
     // only known once corners() has walked every capture, and that happens
