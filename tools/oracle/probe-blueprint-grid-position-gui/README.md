@@ -47,17 +47,42 @@ There is no script that can set it. "No headless probe can reach it" is not
 
 ## What the layout is for
 
-One capture separates three readings of "the minimum corner" at once, by
-putting each on a different axis.
+Each axis answers one question, because each axis's corner is set by exactly
+one thing. Run 1 needed two questions. Run 2 needs three, so one axis carries
+two of them.
+
+**Run 1** (the committed fixture's `layout`):
 
 | Axis | Decided by                                    | Separates                                                 |
 | ---- | --------------------------------------------- | --------------------------------------------------------- |
 | x    | a 3x3 assembling machine at 10.5              | entity **centres** (floor 10) against **edges** (floor 9) |
 | y    | a tile at y=10, six tiles clear of everything | whether **tiles** count towards the corner at all         |
 
-The editor's formula reads centres and includes tiles. Its own doc comment
-admits the footprint half is untested, because every case measured so far used
-1x1 entities where centre-floor and edge-floor agree. This is that case.
+Both were answered: the corner reads edges, and tiles do count. What run 1
+could not say is **which** edge - a tile footprint edge or a `collision_box`
+edge - because for every entity it placed the two floor to the same integer.
+`assembling-machine-1` is 9.0 against 9.3.
+
+**Run 2** replaces the assembling machine with a `half-diagonal-rail`, which is
+close to the only entity that can settle it:
+
+| Axis | Decided by                     | Separates                                                  |
+| ---- | ------------------------------ | ---------------------------------------------------------- |
+| y    | a `half-diagonal-rail` at y=20 | centre **20**, footprint edge **19**, box edge **17.764**  |
+| x    | stone-path tiles at x=2        | whether tiles count, against the nearest entity reading, 9 |
+
+The editor derives a footprint by _ceiling_ the collision box
+(`factorioData.ts:617`), so a box cannot escape its own footprint unless a
+declared `tile_width`/`tile_height` overrides it. Five of the 155 entities in
+`data.json` manage that, and this is the only one splitting all three readings
+apart on one axis. `offshore-pump` is the near miss: it separates the two edges
+on both axes but not centre from footprint edge, being 1x1.
+
+**The rail is this layout's risk, and a known one.** `data.json` carries one box
+orientation, and half-diagonal rails exist only at diagonal orientations, so a
+rail stored at a rotated direction makes the numbers above wrong. That surfaces
+as y readings matching none of the three predictions, which the recorded
+`layout` and per-case `minCornerReadings` make visible. It is not silent.
 
 The content deliberately does not start at the origin, and the session asks for
 a second change on top of a first, because "an absolute target" and "a relative
@@ -118,7 +143,7 @@ Press `~` for the console. The steps, which the game will also print:
 3. Set **Grid position** to X=3 Y=5, close. `/gp-cap gridpos-3-5`
 4. Set **Grid position** to X=8 Y=9, close. `/gp-cap gridpos-8-9`
 5. Set **Grid position** back to X=0 Y=0, close. `/gp-cap gridpos-0-0`
-6. Pick **Absolute**, set its own X=2 Y=6, close. `/gp-cap abs-2-6`
+6. On the **Absolute** row set X=2 Y=6 (it is already picked), close. `/gp-cap abs-2-6`
 7. Untick **Snap to grid**, close. `/gp-cap snap-off`
 
 Step 4 is the one that separates a target from a nudge. Do not skip it.

@@ -31,17 +31,46 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE = join(HERE, 'fixtures', 'blueprint-grid-position-gui.json')
 
 /**
- * The three entities this probe's layout uses, and their tile footprints.
+ * The entities this probe's layout uses, and their tile footprints.
+ *
  * Hardcoded rather than read from `data.json`, because the layout is owned by
  * the probe next door rather than discovered: these are the sizes it placed,
  * and a `data.json` that disagreed would mean the exporter had drifted, not
- * that the measurement should change. Cross-checked below when data.json is
- * present, and reported rather than silently trusted.
+ * that the measurement should change.
+ *
+ * A name reaching `corners()` without an entry here used to default to 1x1
+ * silently, which is the worst possible failure for this file: a 1x1 default
+ * puts the edge half a tile from the centre, so `entityEdges*` collapses
+ * towards `entityCentres*` and the discrimination the whole probe exists for
+ * quietly stops working, with `controlsAllPassed: true` and nothing said.
+ * `unsizedEntities` below turns that into a failed control instead. Found by
+ * review on PR #249, and it is not hypothetical - `half-diagonal-rail` was
+ * added to this table and to the layout in the same change, and had it been
+ * missed the run would have reported a clean answer to the wrong question.
+ *
+ * `box` is the prototype's `collision_box`, carried so the *third* candidate
+ * corner can be computed. Run 1 established the corner is read from an edge
+ * rather than a centre, and could not say which edge, because for every entity
+ * it placed the footprint edge and the collision edge floor to the same
+ * integer - `assembling-machine-1` is 9.0 against 9.3.
+ *
+ * `half-diagonal-rail` is what settles it, and it is close to unique. The
+ * editor derives a footprint by *ceiling* the collision box
+ * (`factorioData.ts:617`), so a box cannot escape its own footprint unless a
+ * declared `tile_width`/`tile_height` overrides that. Five of the 155 entities
+ * in `data.json` manage it, and this is the only one that splits all three
+ * readings apart on a single axis: at a centre of y=20 it gives centre 20,
+ * footprint edge 19, collision edge 17.764. `offshore-pump` separates the two
+ * edges but not centre from footprint edge, being 1x1.
  */
-const SIZES = {
-    'assembling-machine-1': { w: 3, h: 3 },
-    'wooden-chest': { w: 1, h: 1 },
+const GEOMETRY = {
+    'assembling-machine-1': { w: 3, h: 3, box: [-1.2, -1.2] },
+    'wooden-chest': { w: 1, h: 1, box: [-0.35, -0.35] },
+    'half-diagonal-rail': { w: 2, h: 2, box: [-0.75, -2.236] },
 }
+
+/** Names seen in a capture that `GEOMETRY` has no entry for. */
+const unsizedEntities = new Set()
 
 function decodeBlueprintString(str) {
     return JSON.parse(inflateSync(Buffer.from(str.slice(1), 'base64')).toString('utf8'))
@@ -66,6 +95,17 @@ function readRunReport(path) {
 }
 
 function readStream(workDir, run) {
+    // The usage guard accepts --work-dir OR --run, so a run report that carries
+    // no `scriptOutput` leaves nothing to join against. Without this, join()
+    // throws ERR_INVALID_ARG_TYPE on undefined and buries the real problem -
+    // a partial or malformed run report - under a stack trace about paths.
+    if (run?.scriptOutput === undefined && workDir === undefined) {
+        throw new Error(
+            'No script-output directory: the run report carries no scriptOutput, ' +
+                'and no --work-dir was given to fall back on. The run probably did ' +
+                'not get far enough to write one.'
+        )
+    }
     const path =
         run?.scriptOutput !== undefined
             ? join(run.scriptOutput, 'grid-position-gui.jsonl')
@@ -92,12 +132,20 @@ function asArray(value) {
     return Array.isArray(value) ? value : []
 }
 
-/** The four readings of "the minimum corner" this probe exists to separate. */
+/** The five readings of "the minimum corner" this probe exists to separate. */
 function corners(entities, tiles) {
     const eCentreX = entities.map(e => e.position.x)
     const eCentreY = entities.map(e => e.position.y)
-    const eEdgeX = entities.map(e => e.position.x - (SIZES[e.name]?.w ?? 1) / 2)
-    const eEdgeY = entities.map(e => e.position.y - (SIZES[e.name]?.h ?? 1) / 2)
+    for (const e of entities) {
+        if (GEOMETRY[e.name] === undefined) unsizedEntities.add(e.name)
+    }
+    const eEdgeX = entities.map(e => e.position.x - (GEOMETRY[e.name]?.w ?? 1) / 2)
+    const eEdgeY = entities.map(e => e.position.y - (GEOMETRY[e.name]?.h ?? 1) / 2)
+    // The collision box's own minimum, which for most entities sits inside the
+    // footprint and floors to the same integer. Where it does not, this is the
+    // reading that tells the two apart.
+    const eBoxX = entities.map(e => e.position.x + (GEOMETRY[e.name]?.box[0] ?? -0.5))
+    const eBoxY = entities.map(e => e.position.y + (GEOMETRY[e.name]?.box[1] ?? -0.5))
     const tX = tiles.map(t => t.position.x)
     const tY = tiles.map(t => t.position.y)
 
@@ -113,6 +161,10 @@ function corners(entities, tiles) {
         entityEdgesAndTiles: {
             x: neg(min([...eEdgeX, ...tX])),
             y: neg(min([...eEdgeY, ...tY])),
+        },
+        entityCollisionEdgesAndTiles: {
+            x: neg(min([...eBoxX, ...tX])),
+            y: neg(min([...eBoxY, ...tY])),
         },
         entityCentresOnly: { x: neg(min(eCentreX)), y: neg(min(eCentreY)) },
         entityEdgesOnly: { x: neg(min(eEdgeX)), y: neg(min(eEdgeY)) },
@@ -162,9 +214,23 @@ function scoreControls(rows) {
     let movedOk = false
     let movedDetail = 'missing the shift control'
     if (base && shifted) {
-        const a = asArray(base.entities).map(e => `${e.position.x},${e.position.y}`)
-        const b = asArray(shifted.entities).map(e => `${e.position.x},${e.position.y}`)
-        movedOk = a.join('|') !== b.join('|')
+        // Read through the *decoded export*, not through `capture()`'s
+        // `entities` field. Those are two different instruments -
+        // `get_blueprint_entities()` and `export_stack()` - and every scored
+        // row below is read from the export. Checking the other one proved the
+        // wrong instrument could see a shift: a stale or unresponsive
+        // `export_stack()` would leave this control passing, `instrument-repeat`
+        // trivially passing on two identical stale exports, and the probe
+        // reporting a confident `survivingReadings: []` with nothing flagged.
+        // The `rival-field` control below already read the export, so this file
+        // disagreed with itself. Found by review on PR #249.
+        const positions = row =>
+            asArray(decodeBlueprintString(row.export).blueprint?.entities).map(
+                e => `${e.position.x},${e.position.y}`
+            )
+        const a = positions(base)
+        const b = positions(shifted)
+        movedOk = a.length > 0 && b.length > 0 && a.join('|') !== b.join('|')
         movedDetail = `baseline ${a.join(' ')} vs script-shifted ${b.join(' ')}`
     }
     out.push({
@@ -293,8 +359,26 @@ function main() {
         label => !cases.some(c => c.label === label)
     )
 
+    // Pushed here rather than inside scoreControls(), because GEOMETRY coverage is
+    // only known once corners() has walked every capture, and that happens
+    // while building `cases` above.
+    controls.push({
+        name: 'every entity in a capture has a known footprint',
+        ok: unsizedEntities.size === 0,
+        detail:
+            unsizedEntities.size === 0
+                ? `all entity names matched GEOMETRY (${Object.keys(GEOMETRY).join(', ')})`
+                : `no footprint for ${[...unsizedEntities].join(', ')} - the edge readings ` +
+                  `for these defaulted to 1x1 and collapsed towards the centre readings, ` +
+                  `so the numbers below cannot separate edges from centres`,
+    })
+
     const fixture = {
         probe: 'probe-blueprint-grid-position-gui/control.lua',
+        // What was on the ground, read from the run's own setup emit rather
+        // than from the probe's current LAYOUT constant. A fixture measured
+        // against one layout must not read as though it described a later one.
+        layout: setup?.layout,
         runner: 'factorio-oracle run --probe tools/oracle/probe-blueprint-grid-position-gui/probe.json',
         question:
             'What does the blueprint GUI\'s "Grid position" field do to an exported blueprint string?',
@@ -328,9 +412,15 @@ function main() {
         rivalReadings: {
             entityCentresAndTiles:
                 'what packages/editor/src/core/Blueprint.ts getGridPositionDisplay() ships',
-            entityEdgesAndTiles: 'the same, reading entity edges rather than centres',
+            entityEdgesAndTiles:
+                "the same, reading the edge of an entity's tile footprint rather than its centre",
+            entityCollisionEdgesAndTiles:
+                "the same again, reading the edge of the entity's collision_box. " +
+                'Indistinguishable from entityEdgesAndTiles unless the layout holds an ' +
+                'entity whose box escapes its own footprint, which is why run 1 could ' +
+                'not separate them and left both standing',
             entityCentresOnly: 'entities only, tiles ignored',
-            entityEdgesOnly: 'entities only, edges',
+            entityEdgesOnly: 'entities only, footprint edges',
         },
         controls,
         controlsAllPassed: controls.every(c => c.ok),

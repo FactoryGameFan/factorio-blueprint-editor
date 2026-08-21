@@ -98,10 +98,16 @@ scored row.
 | Result                                           | Means                                                                    |
 | ------------------------------------------------ | ------------------------------------------------------------------------ |
 | `["entityCentresAndTiles"]`                      | PR #243's formula is right as shipped                                    |
-| `["entityEdgesAndTiles"]`                        | right shape, wrong corner - it reads edges, not centres                  |
+| `["entityEdgesAndTiles"]`                        | it reads the edge of the **tile footprint**, not the centre              |
+| `["entityCollisionEdgesAndTiles"]`               | it reads the edge of the **collision box**                               |
+| both of those two                                | what run 1 gave: an edge, but the layout could not say which             |
 | `["entityCentresOnly"]` or `["entityEdgesOnly"]` | tiles do not count towards the corner                                    |
-| `[]`                                             | all four candidates are wrong, and the real rule is not written down yet |
+| `[]`                                             | all five candidates are wrong, and the real rule is not written down yet |
 | `unmeasured ...`                                 | no scored step was captured - check step 1                               |
+
+Run 2 exists to turn that "both" row into one of the two above it. If it comes
+back `[]`, suspect the rail's orientation before suspecting the rule - see the
+README's note on it.
 
 ---
 

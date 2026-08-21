@@ -48,33 +48,59 @@ local function emit(row)
 end
 
 --[[
-One capture separates three readings of "the minimum corner" at once, by
-putting each question on a different axis:
-
-  x-min is decided by the 3x3 assembling machine. Its centre sits at 10.5 and
-        its left edge at 9.0, which floor to different integers, so a formula
-        reading centres and one reading edges cannot agree. The editor's
-        getGridPositionDisplay() reads centres and says so in its own comment,
-        noting that every case measured so far used 1x1 entities where the two
-        coincide. This is that untested case.
-  y-min is decided by a tile at y=10, six tiles above anything else, so
-        whether tiles count towards the corner at all is visible rather than
-        assumed. The editor's formula includes them.
-
 docs/method.md: a probe entity is part of the question, not a neutral
-instrument.
+instrument. This layout is the second one, and what changed and why is the
+whole of the comment below.
+
+Run 1's layout put a 3x3 assembling machine on x (centre 10.5 against footprint
+edge 9.0, so centres and edges could not agree) and a lone tile on y (so
+whether tiles count at all was visible rather than assumed). Both questions
+were answered: the corner reads edges, and tiles do count.
+
+Run 2's layout. Run 1 settled that the corner is read from an entity **edge**
+rather than its centre, and could not say *which* edge - and the fix to
+`getGridPositionDisplay()` depends on that: for `assembling-machine-1` the tile
+footprint edge is 9.0 and the collision-box edge 9.3, which floor to the same
+integer, so both candidate rules agreed on every row of run 1.
+
+`half-diagonal-rail` is what separates them, and it is close to unique. The
+editor derives a footprint by *ceiling* the collision box
+(`factorioData.ts:617`), so a box cannot escape its own footprint unless a
+declared `tile_width`/`tile_height` overrides that. Five of the 155 entities in
+`data.json` manage it, and this is the only one that splits **all three**
+readings apart on a single axis. `offshore-pump`, the obvious alternative,
+splits the two edges but not centre from footprint edge, being 1x1 - centre
+4.5 and footprint edge 4.0 both floor to 4.
+
+Three questions, two axes, so one axis has to carry two of them:
+
+  y: half-diagonal-rail at 20   centre 20, footprint edge 19, box edge 17.764
+  x: stone-path tiles at 2      against the nearest entity reading of 9
+
+That is why the tiles moved to the left and everything else moved down. The
+rail must own the y minimum under all three readings, and the tiles must own x
+under all three while owning y under none - otherwise an axis answers nothing.
+
+The rail is the risk in this layout, and it is a known one. `data.json` carries
+one box orientation and half-diagonal rails only exist at diagonal
+orientations, so if the game stores this one at a direction whose box is
+rotated, the numbers above are wrong. That shows up as a run whose y readings
+do not match any of the three predictions, which the recorded `layout` and the
+per-case `minCornerReadings` make visible rather than mysterious. It is not a
+silent failure mode.
 ]]
 local LAYOUT = {
     entities = {
-        { name = 'assembling-machine-1', position = { x = 10.5, y = 20.5 } },
-        { name = 'wooden-chest', position = { x = 20.5, y = 20.5 } },
-        { name = 'wooden-chest', position = { x = 20.5, y = 26.5 } },
+        { name = 'half-diagonal-rail', position = { x = 20, y = 20 } },
+        { name = 'assembling-machine-1', position = { x = 10.5, y = 30.5 } },
+        { name = 'wooden-chest', position = { x = 20.5, y = 30.5 } },
+        { name = 'wooden-chest', position = { x = 20.5, y = 36.5 } },
     },
     tiles = {
-        { x = 14, y = 10 },
-        { x = 15, y = 10 },
-        { x = 14, y = 11 },
-        { x = 15, y = 11 },
+        { x = 2, y = 30 },
+        { x = 3, y = 30 },
+        { x = 2, y = 31 },
+        { x = 3, y = 31 },
     },
     tile_name = 'stone-path',
 }
@@ -98,11 +124,24 @@ local function build_layout(player)
     surface.set_tiles(tiles)
 
     for _, e in pairs(LAYOUT.entities) do
-        surface.create_entity {
+        local built = surface.create_entity {
             name = e.name,
             position = e.position,
             force = player.force,
         }
+        --[[
+        Say so rather than carrying on. `create_entity` ignores buildability,
+        but it still returns nil when it cannot place a thing at all, and a
+        dropped `half-diagonal-rail` would take the entire edge question with
+        it while every other row still looked healthy. The analysis cannot see
+        an entity that was never placed - it only ever sees what the export
+        carries - so the complaint has to happen here, at the only point that
+        knows what was asked for.
+        ]]
+        if not built then
+            player.print('[grid-probe] FAILED to create ' .. e.name .. ' - do not trust this run')
+            emit { kind = 'note', text = 'create_entity returned nil for ' .. e.name }
+        end
     end
 end
 
@@ -243,7 +282,8 @@ local INSTRUCTIONS = {
     '  4. Set Grid position to X=8 Y=9. Close.                 /gp-cap gridpos-8-9',
     '     (This is the step that separates an absolute target from a nudge.)',
     '  5. Set Grid position back to X=0 Y=0. Close.            /gp-cap gridpos-0-0',
-    '  6. Pick "Absolute". Set its own X/Y to X=2 Y=6. Close.  /gp-cap abs-2-6',
+    '  6. On the "Absolute" ROW (the third X/Y pair, not Grid position)',
+    '     set X=2 Y=6. Absolute is already picked. Close.     /gp-cap abs-2-6',
     '  7. Untick "Snap to grid". Close.                        /gp-cap snap-off',
     '',
     'Use /gp-note <text> if anything surprises you - a value the game refused,',
@@ -262,6 +302,27 @@ local function setup(player)
     build_layout(player)
 
     local inv = player.get_main_inventory()
+
+    --[[
+    Clear every set-up blueprint already in the inventory before making a new
+    one. Without this, `/gp-reset` silently corrupts the whole rest of the
+    session: this function takes the first blueprint that is *not* set up,
+    while `find_bp()` takes the first that *is*, by slot order. So the old
+    blueprint keeps a lower slot index and every later `/gp-cap` captures the
+    previous session's layout while printing `captured: <label>` as though it
+    worked - straight into the committed fixture. Found by review on PR #249.
+    ]]
+    for i = 1, #inv do
+        local s = inv[i]
+        if s.valid_for_read and s.is_blueprint and s.is_blueprint_setup() then
+            s.clear()
+        end
+    end
+    local cursor = player.cursor_stack
+    if cursor and cursor.valid_for_read and cursor.is_blueprint and cursor.is_blueprint_setup() then
+        cursor.clear()
+    end
+
     inv.insert { name = 'blueprint', count = 1 }
     local bp = nil
     for i = 1, #inv do

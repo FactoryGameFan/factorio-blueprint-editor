@@ -1,5 +1,49 @@
 {
     "probe": "probe-blueprint-grid-position-gui/control.lua",
+    "layout": {
+        "entities": [
+            {
+                "name": "assembling-machine-1",
+                "position": {
+                    "x": 10.5,
+                    "y": 20.5
+                }
+            },
+            {
+                "name": "wooden-chest",
+                "position": {
+                    "x": 20.5,
+                    "y": 20.5
+                }
+            },
+            {
+                "name": "wooden-chest",
+                "position": {
+                    "x": 20.5,
+                    "y": 26.5
+                }
+            }
+        ],
+        "tiles": [
+            {
+                "x": 14,
+                "y": 10
+            },
+            {
+                "x": 15,
+                "y": 10
+            },
+            {
+                "x": 14,
+                "y": 11
+            },
+            {
+                "x": 15,
+                "y": 11
+            }
+        ],
+        "tile_name": "stone-path"
+    },
     "runner": "factorio-oracle run --probe tools/oracle/probe-blueprint-grid-position-gui/probe.json",
     "question": "What does the blueprint GUI's \"Grid position\" field do to an exported blueprint string?",
     "issue": "#235 (shared oracle CLI), reviewing PR #243",
@@ -31,9 +75,10 @@
     },
     "rivalReadings": {
         "entityCentresAndTiles": "what packages/editor/src/core/Blueprint.ts getGridPositionDisplay() ships",
-        "entityEdgesAndTiles": "the same, reading entity edges rather than centres",
+        "entityEdgesAndTiles": "the same, reading the edge of an entity's tile footprint rather than its centre",
+        "entityCollisionEdgesAndTiles": "the same again, reading the edge of the entity's collision_box. Indistinguishable from entityEdgesAndTiles unless the layout holds an entity whose box escapes its own footprint, which is why run 1 could not separate them and left both standing",
         "entityCentresOnly": "entities only, tiles ignored",
-        "entityEdgesOnly": "entities only, edges"
+        "entityEdgesOnly": "entities only, footprint edges"
     },
     "controls": [
         {
@@ -50,11 +95,17 @@
             "name": "rival field: the neighbouring field is reachable and does serialize",
             "ok": true,
             "detail": "script set position_relative_to_grid={3,5}; export carries {\"x\":3,\"y\":5}, absolute-snapping=true, snap-to-grid={\"x\":4,\"y\":4}"
+        },
+        {
+            "name": "every entity in a capture has a known footprint",
+            "ok": true,
+            "detail": "all entity names matched GEOMETRY (assembling-machine-1, wooden-chest, half-diagonal-rail)"
         }
     ],
     "controlsAllPassed": true,
     "survivingReadings": [
-        "entityEdgesAndTiles"
+        "entityEdgesAndTiles",
+        "entityCollisionEdgesAndTiles"
     ],
     "scoredRows": 3,
     "stepsNotCaptured": [
@@ -133,6 +184,10 @@
                     "x": -9,
                     "y": -10
                 },
+                "entityCollisionEdgesAndTiles": {
+                    "x": -9,
+                    "y": -10
+                },
                 "entityCentresOnly": {
                     "x": -10,
                     "y": -20
@@ -198,6 +253,10 @@
                     "y": 0
                 },
                 "entityEdgesAndTiles": {
+                    "x": 0,
+                    "y": 0
+                },
+                "entityCollisionEdgesAndTiles": {
                     "x": 0,
                     "y": 0
                 },
@@ -273,6 +332,10 @@
                     "x": 3,
                     "y": 5
                 },
+                "entityCollisionEdgesAndTiles": {
+                    "x": 3,
+                    "y": 5
+                },
                 "entityCentresOnly": {
                     "x": 2,
                     "y": -5
@@ -285,6 +348,7 @@
             "agrees": {
                 "entityCentresAndTiles": false,
                 "entityEdgesAndTiles": true,
+                "entityCollisionEdgesAndTiles": true,
                 "entityCentresOnly": false,
                 "entityEdgesOnly": false
             }
@@ -351,6 +415,10 @@
                     "x": 8,
                     "y": 9
                 },
+                "entityCollisionEdgesAndTiles": {
+                    "x": 8,
+                    "y": 9
+                },
                 "entityCentresOnly": {
                     "x": 7,
                     "y": -1
@@ -363,6 +431,7 @@
             "agrees": {
                 "entityCentresAndTiles": false,
                 "entityEdgesAndTiles": true,
+                "entityCollisionEdgesAndTiles": true,
                 "entityCentresOnly": false,
                 "entityEdgesOnly": false
             }
@@ -429,6 +498,10 @@
                     "x": 0,
                     "y": 0
                 },
+                "entityCollisionEdgesAndTiles": {
+                    "x": 0,
+                    "y": 0
+                },
                 "entityCentresOnly": {
                     "x": -1,
                     "y": -10
@@ -441,6 +514,7 @@
             "agrees": {
                 "entityCentresAndTiles": false,
                 "entityEdgesAndTiles": true,
+                "entityCollisionEdgesAndTiles": true,
                 "entityCentresOnly": false,
                 "entityEdgesOnly": false
             }
@@ -500,6 +574,10 @@
                     "y": 5
                 },
                 "entityEdgesAndTiles": {
+                    "x": 3,
+                    "y": 5
+                },
+                "entityCollisionEdgesAndTiles": {
                     "x": 3,
                     "y": 5
                 },
