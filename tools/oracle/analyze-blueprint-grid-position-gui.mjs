@@ -90,6 +90,19 @@ function decodeBlueprintString(str) {
  */
 function readRunReport(path) {
     if (path === undefined) return undefined
+    // A missing report is the ordinary mistake, not a corrupt one: running the
+    // analysis before the probe, or after a run that never reached the game.
+    // Without this it surfaces as a raw ENOENT stack trace out of node:fs,
+    // which names the path and nothing about what to do. Measured: it happened
+    // the first time run 2 was attempted.
+    if (!existsSync(path)) {
+        throw new Error(
+            `No run report at ${path}.\n` +
+                `That file is written by \`factorio-oracle run\`, so this usually means ` +
+                `the probe has not been run yet - the analysis is step 3 of SESSION.md, ` +
+                `not step 1.`
+        )
+    }
     const report = JSON.parse(readFileSync(path, 'utf8'))
     return {
         scriptOutput: report.scriptOutput,
