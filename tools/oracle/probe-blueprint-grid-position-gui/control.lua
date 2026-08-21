@@ -74,24 +74,30 @@ splits the two edges but not centre from footprint edge, being 1x1 - centre
 
 Three questions, two axes, so one axis has to carry two of them:
 
-  y: half-diagonal-rail at 20   centre 20, footprint edge 19, box edge 17.764
+  y: half-diagonal-rail at 21   centre 21, footprint edge 20, box edge 19.102
   x: stone-path tiles at 2      against the nearest entity reading of 9
 
 That is why the tiles moved to the left and everything else moved down. The
 rail must own the y minimum under all three readings, and the tiles must own x
 under all three while owning y under none - otherwise an axis answers nothing.
 
-The rail is the risk in this layout, and it is a known one. `data.json` carries
-one box orientation and half-diagonal rails only exist at diagonal
-orientations, so if the game stores this one at a direction whose box is
-rotated, the numbers above are wrong. That shows up as a run whose y readings
-do not match any of the three predictions, which the recorded `layout` and the
-per-case `minCornerReadings` make visible rather than mysterious. It is not a
-silent failure mode.
+The rail was the risk in this layout, and it has been measured rather than
+worried about - `probe-rail-box-orientation`, a headless create run, because
+none of it needs a player. It found three things, and all three would have
+corrupted this layout silently:
+
+  - The box does **not** rotate. All 16 directions give one box, folding to
+    stored directions 0/2/4/6. The orientation fear was unfounded.
+  - The rail **snaps**: asking for (20, 20) places it at (21, 21). Hence 21
+    here, and every predicted number above is for that centre.
+  - `data.json` and the runtime **disagree** about this box, 2.236 against
+    1.8984375. Of 155 entities, 139 agree to within one 1/256 step, which is
+    just Factorio's position quantum, and all 16 that do not are rails. So the
+    analyzer's geometry table carries the game's number for this one.
 ]]
 local LAYOUT = {
     entities = {
-        { name = 'half-diagonal-rail', position = { x = 20, y = 20 } },
+        { name = 'half-diagonal-rail', position = { x = 21, y = 21 } },
         { name = 'assembling-machine-1', position = { x = 10.5, y = 30.5 } },
         { name = 'wooden-chest', position = { x = 20.5, y = 30.5 } },
         { name = 'wooden-chest', position = { x = 20.5, y = 36.5 } },

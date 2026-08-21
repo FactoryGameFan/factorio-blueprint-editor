@@ -59,14 +59,19 @@ const FIXTURE = join(HERE, 'fixtures', 'blueprint-grid-position-gui.json')
  * (`factorioData.ts:617`), so a box cannot escape its own footprint unless a
  * declared `tile_width`/`tile_height` overrides that. Five of the 155 entities
  * in `data.json` manage it, and this is the only one that splits all three
- * readings apart on a single axis: at a centre of y=20 it gives centre 20,
- * footprint edge 19, collision edge 17.764. `offshore-pump` separates the two
+ * readings apart on a single axis: at its snapped centre of y=21 it gives
+ * centre 21, footprint edge 20, collision edge 19.102. `offshore-pump` separates the two
  * edges but not centre from footprint edge, being 1x1.
  */
 const GEOMETRY = {
     'assembling-machine-1': { w: 3, h: 3, box: [-1.2, -1.2] },
     'wooden-chest': { w: 1, h: 1, box: [-0.35, -0.35] },
-    'half-diagonal-rail': { w: 2, h: 2, box: [-0.75, -2.236] },
+    // Measured, not read from data.json. `rail-box-orientation.json` found
+    // that data.json and the 2.0.77 runtime disagree about this box - 2.236
+    // against 1.8984375 - and that all 16 such disagreements across 155
+    // entities are rails. The game is what this probe compares against, so
+    // the game's number is the one that belongs here.
+    'half-diagonal-rail': { w: 2, h: 2, box: [-0.75, -1.8984375] },
 }
 
 /** Names seen in a capture that `GEOMETRY` has no entry for. */

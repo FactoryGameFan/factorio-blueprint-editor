@@ -1,0 +1,337 @@
+{
+    "question": "Does a half-diagonal-rail's collision box rotate with direction, and does data.json agree with the running game about collision boxes?",
+    "probe": "probe-rail-box-orientation/control.lua",
+    "runner": "factorio-oracle run --probe tools/oracle/probe-rail-box-orientation/probe.json",
+    "issue": "de-risking run 2 of probe-blueprint-grid-position-gui; bears on PR #243 finding 15",
+    "provenance": {
+        "capturedOn": "2026-08-21",
+        "method": "headless create run; no player needed, so no interactive session",
+        "factorioVersion": "2.0.77",
+        "activeModsSeenByMod": {
+            "base": "2.0.77",
+            "elevated-rails": "2.0.77",
+            "quality": "2.0.77",
+            "rail_box_orientation": "0.0.1",
+            "space-age": "2.0.77"
+        }
+    },
+    "controls": [
+        {
+            "name": "every direction produced a placement",
+            "ok": true,
+            "detail": "16 of 16 directions created an entity"
+        },
+        {
+            "name": "the sweep covered more than one stored direction",
+            "ok": true,
+            "detail": "stored directions seen: 0, 2, 4, 6"
+        },
+        {
+            "name": "the probe recorded no Lua errors",
+            "ok": true,
+            "detail": "0 errors"
+        }
+    ],
+    "controlsAllPassed": true,
+    "findings": {
+        "boxRotatesWithDirection": false,
+        "distinctBoxesAcrossAllDirections": 1,
+        "snapsAwayFromTheRequestedPosition": true,
+        "requestedPosition": {
+            "x": 20,
+            "y": 20
+        },
+        "actualPosition": {
+            "x": 21,
+            "y": 21
+        },
+        "storedDirections": [
+            0,
+            2,
+            4,
+            6
+        ],
+        "runtimeCollisionBox": [
+            20.25,
+            19.1015625,
+            21.75,
+            22.8984375
+        ],
+        "prototypeCollisionBox": {
+            "left_top": {
+                "y": -1.8984375,
+                "x": -0.75
+            },
+            "right_bottom": {
+                "y": 1.8984375,
+                "x": 0.75
+            }
+        }
+    },
+    "dataJsonVersusRuntime": {
+        "entitiesCompared": 155,
+        "agreeWithinOneQuantum": 139,
+        "quantum": 0.00390625,
+        "worstQuantisedDeviation": 0.00374999999999992,
+        "disagreeBeyondQuantisation": 16,
+        "allDisagreementsAreRails": true,
+        "disagreements": [
+            {
+                "name": "legacy-curved-rail",
+                "deviation": 1.453125,
+                "dataJson": [
+                    -2,
+                    -2,
+                    2,
+                    2
+                ],
+                "runtime": [
+                    -0.75,
+                    -0.546875,
+                    0.75,
+                    1.59765625
+                ]
+            },
+            {
+                "name": "half-diagonal-rail",
+                "deviation": 0.3375625000000002,
+                "dataJson": [
+                    -0.75,
+                    -2.236,
+                    0.75,
+                    2.236
+                ],
+                "runtime": [
+                    -0.75,
+                    -1.8984375,
+                    0.75,
+                    1.8984375
+                ]
+            },
+            {
+                "name": "dummy-elevated-half-diagonal-rail",
+                "deviation": 0.3375625000000002,
+                "dataJson": [
+                    -0.75,
+                    -2.236,
+                    0.75,
+                    2.236
+                ],
+                "runtime": [
+                    -0.75,
+                    -1.8984375,
+                    0.75,
+                    1.8984375
+                ]
+            },
+            {
+                "name": "elevated-half-diagonal-rail",
+                "deviation": 0.3375625000000002,
+                "dataJson": [
+                    -0.75,
+                    -2.236,
+                    0.75,
+                    2.236
+                ],
+                "runtime": [
+                    -0.75,
+                    -1.8984375,
+                    0.75,
+                    1.8984375
+                ]
+            },
+            {
+                "name": "legacy-straight-rail",
+                "deviation": 0.30078125,
+                "dataJson": [
+                    -1,
+                    -1,
+                    1,
+                    1
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -0.98828125,
+                    0.69921875,
+                    0.98828125
+                ]
+            },
+            {
+                "name": "straight-rail",
+                "deviation": 0.30078125,
+                "dataJson": [
+                    -1,
+                    -1,
+                    1,
+                    1
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -0.98828125,
+                    0.69921875,
+                    0.98828125
+                ]
+            },
+            {
+                "name": "dummy-elevated-straight-rail",
+                "deviation": 0.30078125,
+                "dataJson": [
+                    -1,
+                    -1,
+                    1,
+                    1
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -0.98828125,
+                    0.69921875,
+                    0.98828125
+                ]
+            },
+            {
+                "name": "elevated-straight-rail",
+                "deviation": 0.30078125,
+                "dataJson": [
+                    -1,
+                    -1,
+                    1,
+                    1
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -0.98828125,
+                    0.69921875,
+                    0.98828125
+                ]
+            },
+            {
+                "name": "dummy-rail-ramp",
+                "deviation": 0.20234375000000004,
+                "dataJson": [
+                    -1.8,
+                    -7.8,
+                    1.8,
+                    7.8
+                ],
+                "runtime": [
+                    -1.59765625,
+                    -7.59765625,
+                    1.59765625,
+                    7.59765625
+                ]
+            },
+            {
+                "name": "rail-ramp",
+                "deviation": 0.20234375000000004,
+                "dataJson": [
+                    -1.8,
+                    -7.8,
+                    1.8,
+                    7.8
+                ],
+                "runtime": [
+                    -1.59765625,
+                    -7.59765625,
+                    1.59765625,
+                    7.59765625
+                ]
+            },
+            {
+                "name": "curved-rail-a",
+                "deviation": 0.05078125,
+                "dataJson": [
+                    -0.75,
+                    -2.516,
+                    0.75,
+                    2.516
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -2.515625,
+                    0.69921875,
+                    2.515625
+                ]
+            },
+            {
+                "name": "dummy-elevated-curved-rail-a",
+                "deviation": 0.05078125,
+                "dataJson": [
+                    -0.75,
+                    -2.516,
+                    0.75,
+                    2.516
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -2.515625,
+                    0.69921875,
+                    2.515625
+                ]
+            },
+            {
+                "name": "elevated-curved-rail-a",
+                "deviation": 0.05078125,
+                "dataJson": [
+                    -0.75,
+                    -2.516,
+                    0.75,
+                    2.516
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -2.515625,
+                    0.69921875,
+                    2.515625
+                ]
+            },
+            {
+                "name": "curved-rail-b",
+                "deviation": 0.05078125,
+                "dataJson": [
+                    -0.75,
+                    -2.441,
+                    0.75,
+                    2.441
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -2.4375,
+                    0.69921875,
+                    2.4375
+                ]
+            },
+            {
+                "name": "dummy-elevated-curved-rail-b",
+                "deviation": 0.05078125,
+                "dataJson": [
+                    -0.75,
+                    -2.441,
+                    0.75,
+                    2.441
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -2.4375,
+                    0.69921875,
+                    2.4375
+                ]
+            },
+            {
+                "name": "elevated-curved-rail-b",
+                "deviation": 0.05078125,
+                "dataJson": [
+                    -0.75,
+                    -2.441,
+                    0.75,
+                    2.441
+                ],
+                "runtime": [
+                    -0.69921875,
+                    -2.4375,
+                    0.69921875,
+                    2.4375
+                ]
+            }
+        ]
+    }
+}
