@@ -65,14 +65,14 @@ nudge of `-T`" agree whenever the corner already sits at 0.
 
 ## Running it
 
+Name the install with `--factorio`. `--version` on its own is not enough: a bare
+discovery finds only the Steam 2.1.14, so there is no 2.0.77 for it to filter
+down to. `--factorio` puts that root at the front of the candidate list, and
+`--version` is then a guard that makes picking the wrong game impossible rather
+than merely unlikely.
+
 ```fish
-# From the factorio-blueprint-editor repo root. Name the install: a bare
-# discovery finds only the Steam 2.1.14, and this targets 2.0.77.
-cd /Users/ericjohnson/GitHub/factorio-oracle
-cargo run -- run \
-    --probe /Users/ericjohnson/GitHub/factorio-blueprint-editor/tools/oracle/probe-blueprint-grid-position-gui/probe.json \
-    --work-dir /tmp/gridpos \
-    --version 2.0.77 > /tmp/gridpos-run.json
+cargo run --quiet --manifest-path ~/GitHub/factorio-oracle/Cargo.toml -- run --probe ~/GitHub/factorio-blueprint-editor/tools/oracle/probe-blueprint-grid-position-gui/probe.json --work-dir /tmp/gridpos --factorio ~/GitHub/factorio-oracle/installs/factorio-2.0.77.app --version 2.0.77 >/tmp/gridpos-run.json
 ```
 
 The game opens. There is no timeout - an interactive run lasts as long as you
@@ -103,9 +103,7 @@ capture as it happens.
 ## Reading the result
 
 ```fish
-cd /Users/ericjohnson/GitHub/factorio-blueprint-editor
-node tools/oracle/analyze-blueprint-grid-position-gui.mjs \
-    --run /tmp/gridpos-run.json --write-fixture
+node ~/GitHub/factorio-blueprint-editor/tools/oracle/analyze-blueprint-grid-position-gui.mjs --run /tmp/gridpos-run.json --write-fixture
 ```
 
 It exits non-zero if a control failed, in which case the numbers are void
