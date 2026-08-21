@@ -501,6 +501,75 @@ JS template literal, so **a backtick in a Lua comment closes the template**. A
 matched pair on one line closes it and reopens it, which a scan for odd backtick
 counts cannot see. Cost a debugging round; there is a comment at that spot now.
 
+And what the blueprint GUI's **"Grid position"** field does (reviewing PR #243,
+`tools/oracle/fixtures/blueprint-grid-position-gui.json`), measured on
+**2.0.77** and the first probe here to need a person at the keyboard since the
+zoom one. The rule is `-floor(min corner) = T`, the corner taken over entity
+**edges** and tiles, and it is an **absolute target rather than a relative
+nudge** - setting 8,9 on top of 3,5 moved the corner to -8,-9 and not to
+-11,-14, which is the only thing that separates the two.
+
+**The headline is that this field is not the one above it, and reading the
+paragraph above as though it were is what cost a session.** The panel carries
+**three** X/Y pairs, not two:
+
+```
+☑ Snap to grid
+  Grid size        Width 12   Height 17    <- snap-to-grid
+  Grid position        X 3    Y 5          <- shifts the exported content
+  ● Absolute           X 9    Y 10         <- position-relative-to-grid
+  ○ Relative
+```
+
+Grid position writes **no key at all** into the export; it translates the entity
+and tile coordinates instead, which is why nothing in `runtime-api.json` reaches
+it and why the probe had to be interactive. `blueprint-snapping.json` above
+measured the **Absolute** row. Both fixtures are right and they answer different
+questions - the second carries a `supersedes` block saying so.
+
+Four things came out of it, and the first is the one to remember.
+
+- **When two measurements contradict, look for a name collision before believing
+  either.** The shipped `getGridPositionDisplay()` said grid position moves
+  entities; `blueprint-grid-position.json` scored that premise 0 of 2 on the
+  same 2.0.77. Neither was wrong. **Name the attribute, not the concept**,
+  wherever the game ships a label using the same words -
+  `factorio-oracle/docs/method.md` has this as its own section now, because its
+  PR #222 entry was true of the attribute and read as a refutation of the field.
+- **Decode the export; do not read one API attribute and stop.**
+  `blueprint_position_relative_to_grid` sat unchanged at 9,10 across every
+  capture while the exported entity coordinates moved on each one. Reading only
+  the attribute said "nothing is happening" for four rows running, which looked
+  exactly like a field the GUI was refusing to write.
+- **`getGridPositionDisplay()` reads centres where the game reads edges**, so it
+  is off by `floor(size/2)` on whichever axis a multi-tile entity sets the
+  minimum. A belt-edged blueprint agrees and an assembler-edged one is a tile
+  out. **The editor stays self-consistent, which is what hides it**:
+  `commitGridPosition` solves for the offset using the same formula it reads
+  back with, so the box always shows what was typed and no round-trip inside the
+  editor can expose it. Only a comparison against the game can.
+- **That last measurement cannot separate the two candidate edges**, and which
+  one it is decides the fix. For `assembling-machine-1` the tile-footprint edge
+  (9.0) and the collision-box edge (about 9.1) floor to the same integer. It
+  needs an entity whose collision box is inset by more than the fractional part.
+  Note `tile_width` is not the field to reach for - #142 established it is a
+  centring parity rather than a size.
+
+Two notes about running it rather than about the game. `control_lua_file` in a
+`probe.json` is **repo-relative and read against the shell's cwd**, not against
+the probe file, so an absolute `--probe` from elsewhere fails naming the Lua
+file rather than the cause; the `SESSION.md` command carries the `cd`. And an
+interactive probe **ends when the person stops playing**, so the analyzer emits
+`stepsNotCaptured` - a fixture that simply omits a step reads as "this step does
+not exist" rather than "it was not run", which is the silent cap the method
+warns about.
+
+`tools/oracle/fixtures` is exempt from oxfmt in `vite.config.ts` because of this
+probe: the generator writes `JSON.stringify(x, null, 4)` and oxfmt collapses
+short arrays, so whichever ran last won and the other reported a failure.
+**"Never hand-edit a fixture to make something pass" applies to a formatter as
+much as to a person.**
+
 ## Cloudflare Deployment
 
 The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom
