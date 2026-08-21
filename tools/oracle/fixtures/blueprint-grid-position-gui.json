@@ -3,43 +3,50 @@
     "layout": {
         "entities": [
             {
+                "name": "half-diagonal-rail",
+                "position": {
+                    "x": 21,
+                    "y": 21
+                }
+            },
+            {
                 "name": "assembling-machine-1",
                 "position": {
                     "x": 10.5,
-                    "y": 20.5
+                    "y": 30.5
                 }
             },
             {
                 "name": "wooden-chest",
                 "position": {
                     "x": 20.5,
-                    "y": 20.5
+                    "y": 30.5
                 }
             },
             {
                 "name": "wooden-chest",
                 "position": {
                     "x": 20.5,
-                    "y": 26.5
+                    "y": 36.5
                 }
             }
         ],
         "tiles": [
             {
-                "x": 14,
-                "y": 10
+                "x": 2,
+                "y": 30
             },
             {
-                "x": 15,
-                "y": 10
+                "x": 3,
+                "y": 30
             },
             {
-                "x": 14,
-                "y": 11
+                "x": 2,
+                "y": 31
             },
             {
-                "x": 15,
-                "y": 11
+                "x": 3,
+                "y": 31
             }
         ],
         "tile_name": "stone-path"
@@ -89,7 +96,7 @@
         {
             "name": "positive control: the comparison can see a shift at all",
             "ok": true,
-            "detail": "baseline 10.5,20.5 20.5,20.5 20.5,26.5 vs script-shifted 7.5,16.5 17.5,16.5 17.5,22.5"
+            "detail": "baseline 21,21 10.5,30.5 20.5,30.5 20.5,36.5 vs script-shifted 19,17 7.5,26.5 17.5,26.5 17.5,32.5"
         },
         {
             "name": "rival field: the neighbouring field is reachable and does serialize",
@@ -104,491 +111,269 @@
     ],
     "controlsAllPassed": true,
     "survivingReadings": [
-        "entityEdgesAndTiles",
-        "entityCollisionEdgesAndTiles"
+        "entityEdgesAndTiles"
     ],
-    "scoredRows": 3,
+    "scoredRows": 2,
     "stepsNotCaptured": [
+        "untouched",
         "abs-2-6",
         "snap-off"
     ],
-    "movedRelativeToUntouched": [
-        {
-            "label": "snap-on",
-            "moved": true
-        },
-        {
-            "label": "gridpos-3-5",
-            "moved": true
-        },
-        {
-            "label": "gridpos-8-9",
-            "moved": true
-        },
-        {
-            "label": "gridpos-0-0",
-            "moved": true
-        },
-        {
-            "label": "gridpos-3-5-saved",
-            "moved": true
-        }
+    "notes": [
+        "game refused Grid position 3,5 on run 2 layout: parity rule, all even or all odd. Run 1 accepted 3,5."
     ],
-    "notes": [],
     "cases": [
-        {
-            "label": "untouched",
-            "scored": false,
-            "exportedKeys": {},
-            "exportedEntityPositions": [
-                {
-                    "name": "assembling-machine-1",
-                    "x": 10.5,
-                    "y": 20.5
-                },
-                {
-                    "name": "wooden-chest",
-                    "x": 20.5,
-                    "y": 20.5
-                },
-                {
-                    "name": "wooden-chest",
-                    "x": 20.5,
-                    "y": 26.5
-                }
-            ],
-            "exportedTilePositions": [
-                {
-                    "x": 14,
-                    "y": 10
-                },
-                {
-                    "x": 15,
-                    "y": 10
-                },
-                {
-                    "x": 14,
-                    "y": 11
-                },
-                {
-                    "x": 15,
-                    "y": 11
-                }
-            ],
-            "minCornerReadings": {
-                "entityCentresAndTiles": {
-                    "x": -10,
-                    "y": -10
-                },
-                "entityEdgesAndTiles": {
-                    "x": -9,
-                    "y": -10
-                },
-                "entityCollisionEdgesAndTiles": {
-                    "x": -9,
-                    "y": -10
-                },
-                "entityCentresOnly": {
-                    "x": -10,
-                    "y": -20
-                },
-                "entityEdgesOnly": {
-                    "x": -9,
-                    "y": -19
-                }
-            }
-        },
         {
             "label": "snap-on",
             "scored": false,
             "exportedKeys": {
                 "snap-to-grid": {
-                    "x": 12,
-                    "y": 17
+                    "x": 20,
+                    "y": 18
                 },
                 "absolute-snapping": true,
                 "position-relative-to-grid": {
-                    "x": 9,
-                    "y": 10
+                    "x": 2,
+                    "y": 2
                 }
             },
             "exportedEntityPositions": [
                 {
+                    "name": "half-diagonal-rail",
+                    "x": 19,
+                    "y": 1
+                },
+                {
                     "name": "assembling-machine-1",
-                    "x": 1.5,
+                    "x": 8.5,
                     "y": 10.5
                 },
                 {
                     "name": "wooden-chest",
-                    "x": 11.5,
+                    "x": 18.5,
                     "y": 10.5
                 },
                 {
                     "name": "wooden-chest",
-                    "x": 11.5,
+                    "x": 18.5,
                     "y": 16.5
                 }
             ],
             "exportedTilePositions": [
                 {
-                    "x": 5,
-                    "y": 0
+                    "x": 0,
+                    "y": 10
                 },
                 {
-                    "x": 6,
-                    "y": 0
+                    "x": 1,
+                    "y": 10
                 },
                 {
-                    "x": 5,
+                    "x": 0,
+                    "y": 11
+                },
+                {
+                    "x": 1,
+                    "y": 11
+                }
+            ],
+            "minCornerReadings": {
+                "entityCentresAndTiles": {
+                    "x": 0,
+                    "y": -1
+                },
+                "entityEdgesAndTiles": {
+                    "x": 0,
+                    "y": 0
+                },
+                "entityCollisionEdgesAndTiles": {
+                    "x": 0,
                     "y": 1
                 },
-                {
-                    "x": 6,
-                    "y": 1
-                }
-            ],
-            "minCornerReadings": {
-                "entityCentresAndTiles": {
-                    "x": -1,
-                    "y": 0
-                },
-                "entityEdgesAndTiles": {
-                    "x": 0,
-                    "y": 0
-                },
-                "entityCollisionEdgesAndTiles": {
-                    "x": 0,
-                    "y": 0
-                },
                 "entityCentresOnly": {
-                    "x": -1,
-                    "y": -10
-                },
-                "entityEdgesOnly": {
-                    "x": 0,
-                    "y": -9
-                }
-            }
-        },
-        {
-            "label": "gridpos-3-5",
-            "typedGridPosition": {
-                "x": 3,
-                "y": 5
-            },
-            "scored": true,
-            "exportedKeys": {
-                "snap-to-grid": {
-                    "x": 12,
-                    "y": 17
-                },
-                "absolute-snapping": true,
-                "position-relative-to-grid": {
-                    "x": 9,
-                    "y": 10
-                }
-            },
-            "exportedEntityPositions": [
-                {
-                    "name": "assembling-machine-1",
-                    "x": -1.5,
-                    "y": 5.5
-                },
-                {
-                    "name": "wooden-chest",
-                    "x": 8.5,
-                    "y": 5.5
-                },
-                {
-                    "name": "wooden-chest",
-                    "x": 8.5,
-                    "y": 11.5
-                }
-            ],
-            "exportedTilePositions": [
-                {
-                    "x": 2,
-                    "y": -5
-                },
-                {
-                    "x": 3,
-                    "y": -5
-                },
-                {
-                    "x": 2,
-                    "y": -4
-                },
-                {
-                    "x": 3,
-                    "y": -4
-                }
-            ],
-            "minCornerReadings": {
-                "entityCentresAndTiles": {
-                    "x": 2,
-                    "y": 5
-                },
-                "entityEdgesAndTiles": {
-                    "x": 3,
-                    "y": 5
-                },
-                "entityCollisionEdgesAndTiles": {
-                    "x": 3,
-                    "y": 5
-                },
-                "entityCentresOnly": {
-                    "x": 2,
-                    "y": -5
-                },
-                "entityEdgesOnly": {
-                    "x": 3,
-                    "y": -4
-                }
-            },
-            "agrees": {
-                "entityCentresAndTiles": false,
-                "entityEdgesAndTiles": true,
-                "entityCollisionEdgesAndTiles": true,
-                "entityCentresOnly": false,
-                "entityEdgesOnly": false
-            }
-        },
-        {
-            "label": "gridpos-8-9",
-            "typedGridPosition": {
-                "x": 8,
-                "y": 9
-            },
-            "scored": true,
-            "exportedKeys": {
-                "snap-to-grid": {
-                    "x": 12,
-                    "y": 17
-                },
-                "absolute-snapping": true,
-                "position-relative-to-grid": {
-                    "x": 9,
-                    "y": 10
-                }
-            },
-            "exportedEntityPositions": [
-                {
-                    "name": "assembling-machine-1",
-                    "x": -6.5,
-                    "y": 1.5
-                },
-                {
-                    "name": "wooden-chest",
-                    "x": 3.5,
-                    "y": 1.5
-                },
-                {
-                    "name": "wooden-chest",
-                    "x": 3.5,
-                    "y": 7.5
-                }
-            ],
-            "exportedTilePositions": [
-                {
-                    "x": -3,
-                    "y": -9
-                },
-                {
-                    "x": -2,
-                    "y": -9
-                },
-                {
-                    "x": -3,
-                    "y": -8
-                },
-                {
-                    "x": -2,
-                    "y": -8
-                }
-            ],
-            "minCornerReadings": {
-                "entityCentresAndTiles": {
-                    "x": 7,
-                    "y": 9
-                },
-                "entityEdgesAndTiles": {
-                    "x": 8,
-                    "y": 9
-                },
-                "entityCollisionEdgesAndTiles": {
-                    "x": 8,
-                    "y": 9
-                },
-                "entityCentresOnly": {
-                    "x": 7,
+                    "x": -8,
                     "y": -1
                 },
                 "entityEdgesOnly": {
-                    "x": 8,
+                    "x": -7,
                     "y": 0
                 }
-            },
-            "agrees": {
-                "entityCentresAndTiles": false,
-                "entityEdgesAndTiles": true,
-                "entityCollisionEdgesAndTiles": true,
-                "entityCentresOnly": false,
-                "entityEdgesOnly": false
             }
         },
         {
-            "label": "gridpos-0-0",
+            "label": "gridpos-2-6",
             "typedGridPosition": {
-                "x": 0,
-                "y": 0
+                "x": 2,
+                "y": 6
             },
             "scored": true,
             "exportedKeys": {
                 "snap-to-grid": {
-                    "x": 12,
-                    "y": 17
+                    "x": 20,
+                    "y": 18
                 },
                 "absolute-snapping": true,
                 "position-relative-to-grid": {
-                    "x": 9,
-                    "y": 10
+                    "x": 2,
+                    "y": 2
                 }
             },
             "exportedEntityPositions": [
                 {
+                    "name": "half-diagonal-rail",
+                    "x": 17,
+                    "y": -5
+                },
+                {
                     "name": "assembling-machine-1",
-                    "x": 1.5,
-                    "y": 10.5
+                    "x": 6.5,
+                    "y": 4.5
                 },
                 {
                     "name": "wooden-chest",
-                    "x": 11.5,
-                    "y": 10.5
+                    "x": 16.5,
+                    "y": 4.5
                 },
                 {
                     "name": "wooden-chest",
-                    "x": 11.5,
-                    "y": 16.5
+                    "x": 16.5,
+                    "y": 10.5
                 }
             ],
             "exportedTilePositions": [
                 {
-                    "x": 5,
-                    "y": 0
+                    "x": -2,
+                    "y": 4
                 },
                 {
-                    "x": 6,
-                    "y": 0
+                    "x": -1,
+                    "y": 4
                 },
                 {
-                    "x": 5,
-                    "y": 1
+                    "x": -2,
+                    "y": 5
                 },
                 {
-                    "x": 6,
-                    "y": 1
+                    "x": -1,
+                    "y": 5
                 }
             ],
             "minCornerReadings": {
                 "entityCentresAndTiles": {
-                    "x": -1,
-                    "y": 0
+                    "x": 2,
+                    "y": 5
                 },
                 "entityEdgesAndTiles": {
-                    "x": 0,
-                    "y": 0
+                    "x": 2,
+                    "y": 6
                 },
                 "entityCollisionEdgesAndTiles": {
-                    "x": 0,
-                    "y": 0
+                    "x": 2,
+                    "y": 7
                 },
                 "entityCentresOnly": {
-                    "x": -1,
-                    "y": -10
+                    "x": -6,
+                    "y": 5
                 },
                 "entityEdgesOnly": {
-                    "x": 0,
-                    "y": -9
+                    "x": -5,
+                    "y": 6
                 }
             },
             "agrees": {
                 "entityCentresAndTiles": false,
                 "entityEdgesAndTiles": true,
-                "entityCollisionEdgesAndTiles": true,
+                "entityCollisionEdgesAndTiles": false,
                 "entityCentresOnly": false,
                 "entityEdgesOnly": false
             }
         },
         {
-            "label": "gridpos-3-5-saved",
-            "scored": false,
+            "label": "gridpos-8-10",
+            "typedGridPosition": {
+                "x": 8,
+                "y": 10
+            },
+            "scored": true,
             "exportedKeys": {
                 "snap-to-grid": {
-                    "x": 12,
-                    "y": 17
+                    "x": 20,
+                    "y": 18
                 },
                 "absolute-snapping": true,
                 "position-relative-to-grid": {
-                    "x": 9,
-                    "y": 10
+                    "x": 2,
+                    "y": 2
                 }
             },
             "exportedEntityPositions": [
                 {
+                    "name": "half-diagonal-rail",
+                    "x": 11,
+                    "y": -9
+                },
+                {
                     "name": "assembling-machine-1",
-                    "x": -1.5,
-                    "y": 5.5
+                    "x": 0.5,
+                    "y": 0.5
                 },
                 {
                     "name": "wooden-chest",
-                    "x": 8.5,
-                    "y": 5.5
+                    "x": 10.5,
+                    "y": 0.5
                 },
                 {
                     "name": "wooden-chest",
-                    "x": 8.5,
-                    "y": 11.5
+                    "x": 10.5,
+                    "y": 6.5
                 }
             ],
             "exportedTilePositions": [
                 {
-                    "x": 2,
-                    "y": -5
+                    "x": -8,
+                    "y": 0
                 },
                 {
-                    "x": 3,
-                    "y": -5
+                    "x": -7,
+                    "y": 0
                 },
                 {
-                    "x": 2,
-                    "y": -4
+                    "x": -8,
+                    "y": 1
                 },
                 {
-                    "x": 3,
-                    "y": -4
+                    "x": -7,
+                    "y": 1
                 }
             ],
             "minCornerReadings": {
                 "entityCentresAndTiles": {
-                    "x": 2,
-                    "y": 5
+                    "x": 8,
+                    "y": 9
                 },
                 "entityEdgesAndTiles": {
-                    "x": 3,
-                    "y": 5
+                    "x": 8,
+                    "y": 10
                 },
                 "entityCollisionEdgesAndTiles": {
-                    "x": 3,
-                    "y": 5
+                    "x": 8,
+                    "y": 11
                 },
                 "entityCentresOnly": {
-                    "x": 2,
-                    "y": -5
+                    "x": 0,
+                    "y": 9
                 },
                 "entityEdgesOnly": {
-                    "x": 3,
-                    "y": -4
+                    "x": 1,
+                    "y": 10
                 }
+            },
+            "agrees": {
+                "entityCentresAndTiles": false,
+                "entityEdgesAndTiles": true,
+                "entityCollisionEdgesAndTiles": false,
+                "entityCentresOnly": false,
+                "entityEdgesOnly": false
             }
         }
     ]
