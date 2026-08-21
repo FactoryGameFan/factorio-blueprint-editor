@@ -501,6 +501,113 @@ JS template literal, so **a backtick in a Lua comment closes the template**. A
 matched pair on one line closes it and reopens it, which a scan for odd backtick
 counts cannot see. Cost a debugging round; there is a comment at that spot now.
 
+And what the blueprint GUI's **"Grid position"** field does (reviewing PR #243,
+`tools/oracle/fixtures/blueprint-grid-position-gui.json`), measured on
+**2.0.77** and the first probe here to need a person at the keyboard since the
+zoom one. The rule is `-floor(min corner) = T`, the corner taken over entity
+**edges** and tiles, and it is an **absolute target rather than a relative
+nudge** - setting 8,9 on top of 3,5 moved the corner to -8,-9 and not to
+-11,-14, which is the only thing that separates the two.
+
+**The headline is that this field is not the one above it, and reading the
+paragraph above as though it were is what cost a session.** The panel carries
+**three** X/Y pairs, not two:
+
+```
+☑ Snap to grid
+  Grid size        Width 12   Height 17    <- snap-to-grid
+  Grid position        X 3    Y 5          <- shifts the exported content
+  ● Absolute           X 9    Y 10         <- position-relative-to-grid
+  ○ Relative
+```
+
+Grid position writes **no key at all** into the export; it translates the entity
+and tile coordinates instead, which is why nothing in `runtime-api.json` reaches
+it and why the probe had to be interactive. `blueprint-snapping.json` above
+measured the **Absolute** row. Both fixtures are right and they answer different
+questions - the second carries a `supersedes` block saying so.
+
+Four things came out of it, and the first is the one to remember.
+
+- **When two measurements contradict, look for a name collision before believing
+  either.** The shipped `getGridPositionDisplay()` said grid position moves
+  entities; `blueprint-grid-position.json` scored that premise 0 of 2 on the
+  same 2.0.77. Neither was wrong. **Name the attribute, not the concept**,
+  wherever the game ships a label using the same words -
+  `factorio-oracle/docs/method.md` has this as its own section now, because its
+  PR #222 entry was true of the attribute and read as a refutation of the field.
+- **Decode the export; do not read one API attribute and stop.**
+  `blueprint_position_relative_to_grid` sat unchanged at 9,10 across every
+  capture while the exported entity coordinates moved on each one. Reading only
+  the attribute said "nothing is happening" for four rows running, which looked
+  exactly like a field the GUI was refusing to write.
+- **`getGridPositionDisplay()` reads centres where the game reads the tile
+  footprint edge**, so it is off by `floor(size/2)` on whichever axis a
+  multi-tile entity sets the minimum. A belt-edged blueprint agrees and an
+  assembler-edged one is a tile out. **The editor stays self-consistent, which
+  is what hides it**: `commitGridPosition` solves for the offset using the same
+  formula it reads back with, so the box always shows what was typed and no
+  round-trip inside the editor can expose it. Only a comparison against the
+  game can.
+- **Which edge took a second run, and the first one could not have answered
+  it.** Run 1 left two readings standing, footprint edge and collision-box
+  edge, because for every entity it placed the two floor to the same integer -
+  `assembling-machine-1` is 9.0 against 9.3. Separating them needs an entity
+  whose box escapes its own footprint, and almost none can: the editor derives
+  a footprint by _ceiling_ the box (`factorioData.ts:617`), so only a declared
+  `tile_width`/`tile_height` overrides that. Five of 155 entities manage it and
+  `half-diagonal-rail` is the only one splitting all three readings on one
+  axis. Run 2 scored two rows and each wrong reading missed by exactly one tile
+  on y in opposite directions: **the footprint edge wins**, and `getEntitySize`
+  already returns it. Note `tile_width` is not the field to reach for directly
+    - #142 established it is a centring parity rather than a size.
+- **A four-way analysis that leaves one survivor can still be wrong, and the
+  fix is to add the reading rather than to re-run.** Run 1 reported a single
+  surviving rule and it was overstated: the candidate that would have tied with
+  it had never been written down, so "one survivor" meant "one of the rules I
+  thought of". Adding the fifth reading made the _same_ data report two, which
+  is the honest answer. **The rival list is part of the instrument.**
+
+And a **fourth** thing, which is not about this field at all and is filed as
+#251: `data.json` disagrees with the running game about collision boxes for
+**every rail prototype and nothing else**. Of 155 entities, 139 agree to within
+one 1/256 step - Factorio's position quantum, not a finding - and all 16 that
+exceed it are rails, including each `dummy-` and `elevated-` variant, worst
+case 1.45 tiles on `legacy-curved-rail`, whose runtime box is not even
+symmetric where `data.json` says it is. Measured by
+`tools/oracle/probe-rail-box-orientation/`, a headless run written only to
+check one number a different probe hardcoded. **A control that asks "does the
+number I hardcoded match the game" is worth writing even when you expect it to
+pass.** That same probe also found the rail's box does _not_ rotate with
+direction and that a rail requested at (20,20) is placed at (21,21).
+
+The game also **validates this field three ways and the editor validates it
+none** (#252): it refused Grid position 3,5 on run 2's layout having accepted
+the same 3,5 on run 1's, so the parity rule depends on the blueprint's own
+content. Unmeasured on purpose - that the rules exist and are unimplemented is
+the finding.
+
+Three notes about running it rather than about the game. `control_lua_file` in a
+`probe.json` is **repo-relative and read against the shell's cwd**, not against
+the probe file, so an absolute `--probe` from elsewhere fails naming the Lua
+file rather than the cause; the `SESSION.md` command carries the `cd`. An
+interactive probe **ends when the person stops playing**, so the analyzer emits
+`stepsNotCaptured` - a fixture that simply omits a step reads as "this step does
+not exist" rather than "it was not run", which is the silent cap the method
+warns about. And **a `]]` inside a `--[[` Lua comment closes it**: a probe
+header explaining a collision box in Lua table notation silently turned the
+rest of the file into code, so the mod never registered its `on_init` and the
+run reported "no oracle-dump.json was written" - the same message a
+`factorio_version` mismatch gives. What located it was running the CLI's own
+example probe as a **control**, and the tell in the log is a line that is
+_absent_: a working run prints `Checksum for script __<mod>__/control.lua`.
+
+`tools/oracle/fixtures` is exempt from oxfmt in `vite.config.ts` because of this
+probe: the generator writes `JSON.stringify(x, null, 4)` and oxfmt collapses
+short arrays, so whichever ran last won and the other reported a failure.
+**"Never hand-edit a fixture to make something pass" applies to a formatter as
+much as to a person.**
+
 ## Cloudflare Deployment
 
 The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom
