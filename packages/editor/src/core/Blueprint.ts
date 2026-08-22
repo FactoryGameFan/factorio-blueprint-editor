@@ -490,10 +490,27 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     public set snapToGrid(point: IPoint | undefined) {
         if (pointsEqual(this.snapToGridStore.snapToGrid, point)) return
 
+        this.history.startTransaction('Change blueprint grid size')
         this.history
             .updateValue(this.snapToGridStore, 'snapToGrid', point, 'Change blueprint grid size')
             .onDone(() => this.emit('snapToGrid'))
             .commit()
+
+        /*
+            `gridPositionOffset` applies inside `serialize()` unconditionally
+            (see that store's own doc comment) - it has no field of its own
+            to omit the way `snap-to-grid`/`absolute-snapping`/`position-
+            relative-to-grid` do, so turning the grid off left it in place
+            with no field left enabled to zero it: every export stayed
+            shifted for the rest of the session, undo being the only way
+            back (#243 review). Bundled into the same transaction as the
+            write above, so switching the grid off and on again the same way
+            is one undo step, not two.
+        */
+        if (point === undefined) {
+            this.gridPositionOffset = { x: 0, y: 0 }
+        }
+        this.history.commitTransaction()
     }
 
     /**
@@ -732,24 +749,40 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         return this.entities.isEmpty() && this.tiles.isEmpty()
     }
 
-    private getCenter(): IPoint {
-        if (this.isEmpty()) return { x: 0, y: 0 }
-
-        const data = [
+    /** Every entity's and tile's own footprint, `w`/`h` being the full tile
+     * size rather than a half-extent - shared by `getCenter()` and
+     * `getGridPositionDisplay()` so the two can't independently drift on
+     * what "this blueprint's content" means. */
+    private footprintData(): { x: number; y: number; w: number; h: number }[] {
+        return [
             ...this.entities
                 .valuesArray()
                 .map(e => ({ x: e.position.x, y: e.position.y, w: e.size.x, h: e.size.y })),
             ...this.tiles.valuesArray().map(t => ({ x: t.x, y: t.y, w: 1, h: 1 })),
         ]
+    }
 
-        const minX = data.reduce((min, d) => Math.min(min, d.x - d.w / 2), Infinity)
-        const minY = data.reduce((min, d) => Math.min(min, d.y - d.h / 2), Infinity)
+    /** The minimum corner of a `footprintData()` set - each entry's own edge,
+     * not its centre. Empty input answers `Infinity` on both axes; every
+     * caller here already guards on `isEmpty()` first. */
+    private minCorner(data: { x: number; y: number; w: number; h: number }[]): IPoint {
+        return {
+            x: data.reduce((min, d) => Math.min(min, d.x - d.w / 2), Infinity),
+            y: data.reduce((min, d) => Math.min(min, d.y - d.h / 2), Infinity),
+        }
+    }
+
+    private getCenter(): IPoint {
+        if (this.isEmpty()) return { x: 0, y: 0 }
+
+        const data = this.footprintData()
+        const min = this.minCorner(data)
         const maxX = data.reduce((max, d) => Math.max(max, d.x + d.w / 2), -Infinity)
         const maxY = data.reduce((max, d) => Math.max(max, d.y + d.h / 2), -Infinity)
 
         return {
-            x: Math.round((minX + maxX) / 2),
-            y: Math.round((minY + maxY) / 2),
+            x: Math.round((min.x + maxX) / 2),
+            y: Math.round((min.y + maxY) / 2),
         }
     }
 
@@ -933,7 +966,28 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     /** behaves like in Factorio 0.17.14 */
+    /**
+     * Called from `serialize()` whenever `icons.size === 0` - including the
+     * "back to auto" case `setIcon`'s own doc comment describes, where
+     * clearing every slot by hand is a deliberate return to this. Used to
+     * write straight into `this.icons` (a plain Map, no History involved),
+     * so the auto-generated icon could never be undone and nothing emitted
+     * `'icon'` for a slot control drawn while this ran to redraw itself by -
+     * both fixed by routing through `setIcon` instead (#243 review).
+     *
+     * Guarded on `isEmpty()` before opening a transaction rather than after,
+     * the same way every other write in this class is: `commitTransaction()`
+     * returns `false` without clearing `activeTransaction` when the
+     * transaction it closes turns out empty (`History.ts`'s own comment on
+     * that method), which an unconditional start/commit pair here would hit
+     * on every empty blueprint's export and leave the next transaction
+     * anywhere in the app opening into a stale, already-closed one.
+     */
     private generateIcons(): void {
+        if (this.isEmpty()) return
+
+        this.history.startTransaction('Generate blueprint icons')
+
         /** returns [iconName, count][] */
         const getIconPairs = (
             tilesOrEntities: (Tile | Entity)[],
@@ -959,21 +1013,23 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 (a, b) => getItemScore(b) - getItemScore(a)
             )
 
-            this.icons.set(1, iconPairs[0][0])
+            this.setIcon(1, iconPairs[0][0])
             if (
                 iconPairs[1] &&
                 getSize(iconPairs[1][0]) > 1 &&
                 getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
             ) {
-                this.icons.set(2, iconPairs[1][0])
+                this.setIcon(2, iconPairs[1][0])
             }
         } else if (!this.tiles.isEmpty()) {
             const iconPairs = getIconPairs(this.tiles.valuesArray(), Tile.getItemName).sort(
                 (a, b) => b[1] - a[1]
             )
 
-            this.icons.set(1, iconPairs[0][0])
+            this.setIcon(1, iconPairs[0][0])
         }
+
+        this.history.commitTransaction()
     }
 
     /**
@@ -1076,31 +1132,38 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
      * offsets `computeExportCenter()`'s result, so the two stay in lockstep
      * without duplicating that arithmetic.
      *
-     * Deliberately does not account for entity footprint size the way
-     * `getCenter()` does - every measured case so far used 1x1 entities
-     * sitting on a half-integer centre, where centre-floor and edge-floor
-     * agree, so which one the game actually uses is untested. Revisit if a
-     * larger entity (a `curved-rail-a`, an assembling machine) ever
-     * disagrees with this.
+     * Reads the minimum corner through `minCorner(footprintData())` - the
+     * same footprint-edge reading `getCenter()` uses - rather than each
+     * entity's own centre. The two used to disagree without anything here
+     * being able to tell: every case measured so far used 1x1 entities on a
+     * half-integer centre, where centre-floor and edge-floor land on the
+     * same tile by construction. `tools/oracle/fixtures/blueprint-grid-
+     * position-gui.json` (`entityEdgesAndTiles` the sole surviving reading
+     * of five tried) settles which one the game actually reads, and a
+     * single multi-tile entity - `assembling-machine-1`, a 3x3, at
+     * (10.5, 10.5) - is what separates them: edge-based gives 2, a
+     * centre-based reading gives 1 (#243 review).
+     *
+     * No longer special-cases an empty blueprint to `{0, 0}` outright - the
+     * formula already answers correctly there once `min`/`center` both fall
+     * back to `{0, 0}` rather than being skipped, since `-floor(0 - 0 +
+     * offset.x)` reproduces whatever was typed into an empty blueprint
+     * exactly the way a non-empty one does. The old early return ignored
+     * `gridPositionOffset` entirely, so typing a target on an empty
+     * blueprint committed the offset correctly and then immediately
+     * displayed `{0, 0}` back at the user on the very refresh that commit
+     * triggers - the value they just typed visibly reset in front of them,
+     * with every entity placed afterwards still exporting shifted by it and
+     * nothing on screen saying why (#243 review).
      */
     public getGridPositionDisplay(): IPoint {
-        if (this.isEmpty()) return { x: 0, y: 0 }
-
-        const center = this.computeExportCenter()
+        const center = this.isEmpty() ? { x: 0, y: 0 } : this.computeExportCenter()
         const offset = this.gridPositionOffset
-
-        const xs = [
-            ...this.entities.valuesArray().map(e => e.position.x),
-            ...this.tiles.valuesArray().map(t => t.x),
-        ]
-        const ys = [
-            ...this.entities.valuesArray().map(e => e.position.y),
-            ...this.tiles.valuesArray().map(t => t.y),
-        ]
+        const min = this.isEmpty() ? { x: 0, y: 0 } : this.minCorner(this.footprintData())
 
         return {
-            x: -Math.floor(Math.min(...xs) - center.x + offset.x),
-            y: -Math.floor(Math.min(...ys) - center.y + offset.y),
+            x: -Math.floor(min.x - center.x + offset.x),
+            y: -Math.floor(min.y - center.y + offset.y),
         }
     }
 

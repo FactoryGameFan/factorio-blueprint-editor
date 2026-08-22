@@ -91,8 +91,13 @@ export const ALIGNMENT_Y = 278
  * so it extends Dialog directly rather than Editor, which requires an
  * Entity for its preview thumbnail.
  *
- * `Editor.loadBlueprint` calls `Dialog.closeAll()` before swapping `G.bp`, so
- * this never needs to guard against outliving the blueprint it was opened for.
+ * `Editor.loadBlueprint` swaps `G.bp` first and calls `Dialog.closeAll()`
+ * last (Editor.ts:328-332) - the reverse of what this used to say - but both
+ * happen synchronously with nothing awaited between them, so no render can
+ * land in between and show this dialog bound to a blueprint `G.bp` has
+ * already moved on from. `closeAll()` destroys this one unconditionally a
+ * few lines later regardless, so it never needs to guard against outliving
+ * the blueprint it was opened for.
  */
 export class BlueprintInfoEditor extends Dialog {
     private readonly m_Blueprint: Blueprint
@@ -107,7 +112,14 @@ export class BlueprintInfoEditor extends Dialog {
         nameInput.position.set(12, 65)
         this.addChild(nameInput)
 
-        nameInput.on('changed', () => {
+        /*
+            'blur', not 'changed' - 'changed' fires per keystroke (the DOM
+            'input' event), so a 20-character name used to commit 20
+            separate "Change blueprint name" transactions, and undoing the
+            rename took 20 presses. BlueprintAlignment.ts's own doc comment
+            documents exactly this trade for its own fields (#243 review).
+        */
+        nameInput.on('blur', () => {
             this.m_Blueprint.name = nameInput.text
         })
         this.onBlueprintChange('name', () => {
@@ -134,7 +146,8 @@ export class BlueprintInfoEditor extends Dialog {
         descriptionInput.position.set(12, 188)
         this.addChild(descriptionInput)
 
-        descriptionInput.on('changed', () => {
+        // Same reason as Name's own 'blur' above.
+        descriptionInput.on('blur', () => {
             this.m_Blueprint.description = descriptionInput.text || undefined
         })
         this.onBlueprintChange('description', () => {

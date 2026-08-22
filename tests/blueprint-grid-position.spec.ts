@@ -84,6 +84,14 @@ const TWO_CHESTS = encode({
     ],
 })
 
+const ONE_ASSEMBLER = encode({
+    item: 'blueprint',
+    version: VERSION,
+    entities: [{ entity_number: 1, name: 'assembling-machine-1', position: { x: 10.5, y: 10.5 } }],
+})
+
+const EMPTY_BLUEPRINT = encode({ item: 'blueprint', version: VERSION })
+
 async function openBlueprintInfo(page: Page): Promise<{ x: number; y: number }> {
     await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
     const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
@@ -152,6 +160,29 @@ async function exportedPositionsOf(page: Page): Promise<{ x: number; y: number }
     return decoded.blueprint.entities.map((e: { position: { x: number; y: number } }) => e.position)
 }
 
+/** All DOM input values currently on the page, in the order BlueprintInfoEditor
+ * draws them: Name, Width, Height, Grid position X, Grid position Y, Absolute
+ * X, Absolute Y. */
+async function fieldValues(page: Page): Promise<string[]> {
+    return page.evaluate(() =>
+        [...document.querySelectorAll('input')]
+            .filter(el => el.style.cssText !== '')
+            .map(el => el.value)
+    )
+}
+
+async function gridPositionFields(page: Page): Promise<{ x: string; y: string }> {
+    const fields = await fieldValues(page)
+    return { x: fields[3], y: fields[4] }
+}
+
+/** Where an entity of the loaded blueprint currently is, in client coordinates. */
+async function screenOf(page: Page, entityNumber: number): Promise<{ x: number; y: number }> {
+    const at = await page.evaluate(n => window.__fbe_test.entityScreenPosition(n), entityNumber)
+    if (!at) throw new Error(`no entity ${entityNumber} in the loaded blueprint`)
+    return at
+}
+
 test.beforeEach(async ({ page }) => {
     await suppressOverlays(page)
     await waitForEditor(page)
@@ -173,16 +204,10 @@ test('typing a target into Grid position moves the exported positions to match i
     await fillGridPositionField(page, align, 'x', '3')
     await fillGridPositionField(page, align, 'y', '4')
 
-    const inputValues = await page.evaluate(() =>
-        [...document.querySelectorAll('input')]
-            .filter(el => el.style.cssText !== '')
-            .map(el => el.value)
-    )
-    // Name, Width, Height, Grid position X, Grid position Y, Absolute X, Absolute Y.
     // The field is a target, not a one-shot nudge - it keeps showing what
     // was typed rather than resetting, the same as Width/Height and
     // Absolute X/Y do.
-    expect(inputValues.slice(3, 5)).toEqual(['3', '4'])
+    expect(await gridPositionFields(page)).toEqual({ x: '3', y: '4' })
 
     /*
         The regression guard: the live model - what PositionGrid, rendering
@@ -286,4 +311,120 @@ test('undo reverts the exported shift one commit at a time, X and Y separately',
     await page.keyboard.press('Control+z')
     const exportedAfterTwoUndos = await exportedPositionsOf(page)
     expect(exportedAfterTwoUndos).toEqual(exportedBefore)
+})
+
+test('Grid position reads a multi-tile entity by its footprint edge, not its centre', async ({
+    page,
+}) => {
+    /*
+        #243 review: getGridPositionDisplay() read e.position.x directly -
+        the entity's own centre - rather than the edge of its tile
+        footprint. Every blueprint this spec used before was 1x1 entities on
+        a half-integer centre, where centre-floor and edge-floor land on the
+        same tile and so agree by construction; a single 3x3
+        assembling-machine-1 is what separates them. At (10.5, 10.5), the
+        edge sits at 9 (10.5 - 3/2) and the centre at 10.5 - measured
+        against the game (`tools/oracle/fixtures/blueprint-grid-position-gui.json`,
+        `entityEdgesAndTiles` is the only surviving reading), the edge is
+        the one the game reads. getCenter() rounds this single entity's own
+        3x3 bounding box (9..12) to a centre of 11, so the two formulas
+        predict different displayed values - edge-based gives 2, a
+        centre-based reading would give 1.
+    */
+    await loadBlueprint(page, ONE_ASSEMBLER)
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+
+    expect(await gridPositionFields(page)).toEqual({ x: '2', y: '2' })
+})
+
+test('Grid position clears when Snap to grid is turned off, rather than silently shifting every future export', async ({
+    page,
+}) => {
+    /*
+        serialize() applies gridPositionOffset unconditionally - it has no
+        field of its own to omit the way snap-to-grid/absolute-snapping/
+        position-relative-to-grid do. Tick Snap to grid, type a target,
+        untick Snap to grid: all three snapping keys used to leave the
+        export while gridPositionOffset stayed in Blueprint.set snapToGrid's
+        store, still shifting every export for the rest of the session with
+        no field left enabled to zero it (#243 review).
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const exportedBefore = await exportedPositionsOf(page)
+
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+    await fillGridPositionField(page, align, 'x', '3')
+    await fillGridPositionField(page, align, 'y', '4')
+    expect(await exportedPositionsOf(page)).not.toEqual(exportedBefore)
+
+    // Unticks the checkbox - same control as enableSnapToGrid, since Checkbox
+    // only ever toggles.
+    await enableSnapToGrid(page, align)
+
+    const out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    const decoded = decodeBlueprintString(out)
+    expect(decoded.blueprint['snap-to-grid']).toBeUndefined()
+    expect(await exportedPositionsOf(page)).toEqual(exportedBefore)
+})
+
+test('Grid position keeps showing what was typed on an empty blueprint, instead of visibly resetting to 0', async ({
+    page,
+}) => {
+    /*
+        getGridPositionDisplay() used to early-return {0, 0} for an empty
+        blueprint regardless of gridPositionOffset. Tick Snap to grid on an
+        empty blueprint, type 5 into Grid position X: the offset became
+        {x: -5, y: 0}, but the very refresh that commit triggers read the
+        still-empty blueprint's display as {0, 0} again and reset the box in
+        front of the user - who watched the value they just typed vanish,
+        with every entity placed afterwards exporting shifted by -5 and
+        nothing on screen saying why (#243 review).
+    */
+    await loadBlueprint(page, EMPTY_BLUEPRINT)
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+
+    await fillGridPositionField(page, align, 'x', '5')
+    expect(await gridPositionFields(page)).toEqual({ x: '5', y: '0' })
+})
+
+test("placing or deleting an entity while the dialog is open keeps Grid position's display honest", async ({
+    page,
+}) => {
+    /*
+        getGridPositionDisplay() derives from every entity's and tile's own
+        position, not from any of the four blueprint-level events the
+        dialog originally subscribed to (snapToGrid, absoluteSnapping,
+        positionRelativeToGrid, gridPositionOffset). Deleting the entity
+        that sets the blueprint's minimum corner while the dialog stays open
+        used to leave the box showing its old, now-stale value - and
+        blurring it afterwards would have committed that stale reading as a
+        fresh target (#243 review).
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+    const before = await gridPositionFields(page)
+
+    // Ctrl + right-drag over entity 1 (0.5, 0.5), the one setting the
+    // blueprint's minimum corner - DELETE mode, the same gesture
+    // tests/editor-mode-input.spec.ts uses. The dialog does not block the
+    // canvas (ExportDialog's own #243 finding says the same of its field).
+    // The 1px move after mouse-down is load-bearing: entering DELETE mode
+    // only *defines* the selection-area callback, a later pointermove is
+    // what actually calls it and populates the entities under it, so a
+    // plain down/up with no move in between selects and deletes nothing.
+    const at = await screenOf(page, 1)
+    await page.mouse.move(at.x, at.y)
+    await page.keyboard.down('Control')
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.move(at.x + 1, at.y)
+    await page.mouse.up({ button: 'right' })
+    await page.keyboard.up('Control')
+
+    expect(await page.evaluate(() => window.__fbe_test.entityPosition(1))).toBeUndefined()
+    const after = await gridPositionFields(page)
+    expect(after).not.toEqual(before)
 })

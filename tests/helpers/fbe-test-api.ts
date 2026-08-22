@@ -48,6 +48,16 @@ export interface FbeTestApi {
     /** Opens BlueprintInfoEditor. See tests/blueprint-grid-position.spec.ts. */
     openBlueprintInfoEditor: () => void
     /**
+     * `Blueprint.getIcon(1..4)`, read directly rather than through a
+     * serialize() call - `encodeLoaded()` would work too, but `serialize()`
+     * regenerates empty icon slots on every call (by design, see
+     * `Blueprint.setIcon`'s own doc comment), which makes it unable to tell
+     * "undo removed the regenerated icon" from "nothing happened and
+     * serialize() regenerated it again anyway" - both look identical
+     * through a re-serialize. See tests/blueprint-info-editor.spec.ts.
+     */
+    blueprintIcons: () => (string | undefined)[]
+    /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that
      * blueprint's containers - see tests/entity-container-mappings.spec.ts.

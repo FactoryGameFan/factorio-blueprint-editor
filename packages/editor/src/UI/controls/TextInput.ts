@@ -185,6 +185,20 @@ class OriginalTextInput extends Container {
 
     public set text(text: string) {
         this._dom_input.value = text
+        /*
+            `_restrict_value` used to be written only inside
+            `_applyRestriction`, on a real keystroke - a programmatic
+            assignment (every constructor, and every commit-then-redisplay
+            in the dialogs above this) fires no `input` event, so it left
+            `_restrict_value` at its constructor default of `''` regardless
+            of what `.text` had just been set to. The first *rejected*
+            keystroke afterwards then rolled the field back to that stale
+            `''` rather than to what was actually showing (#243 review) -
+            reachable the moment anything committed on blur and let a bad
+            character reach `_applyRestriction` before the field had ever
+            legitimately changed by typing.
+        */
+        this._restrict_value = text
     }
 
     public get htmlInput(): HTMLInputElement | HTMLTextAreaElement {

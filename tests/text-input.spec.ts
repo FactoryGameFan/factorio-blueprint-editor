@@ -275,8 +275,10 @@ test('a dialog opened on top hides the DOM fields of the one underneath', async 
     await page.goto('/')
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
 
-    // The corner button that opens it - 36x36 at (152, 6), see BlueprintInfoButton.
-    await page.mouse.click(170, 24)
+    // Through the test hook rather than clicking the corner button's own
+    // hardcoded (152, 6) - a second hand-copy of BlueprintInfoButton's
+    // position, which this PR already moved once (#243 review).
+    await page.evaluate(() => (window as any).__fbe_test.openBlueprintInfoEditor())
     await nextFrame(page)
     const opened = await textInputVisibility(page)
     // Name, description, and BlueprintAlignment's grid width/height, grid

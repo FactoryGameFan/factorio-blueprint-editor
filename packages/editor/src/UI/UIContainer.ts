@@ -99,10 +99,26 @@ export class UIContainer extends Container {
         return inv
     }
 
-    /** Opens BlueprintInfoEditor for `blueprint`, or closes it if already open - the corner button's click handler. */
+    /**
+     * Opens BlueprintInfoEditor for `blueprint`, or closes it if already
+     * open - the corner button's click handler.
+     *
+     * The button itself is drawn outside `dialogsContainer` and stays
+     * clickable at its own fixed corner regardless of what dialog is on
+     * top, so a second click used to close `blueprintInfoEditor`
+     * unconditionally even with something stacked above it - opening
+     * Blueprint Info, then its icon picker, then clicking the corner button
+     * destroyed the info dialog out from under the still-open picker and
+     * orphaned it (#243 review). Only acts while the info editor is
+     * actually the topmost dialog; otherwise this is a no-op rather than
+     * reaching past whatever is stacked on it.
+     */
     public toggleBlueprintInfoEditor(blueprint: Blueprint): void {
         if (this.blueprintInfoEditor !== undefined) {
-            this.blueprintInfoEditor.close()
+            const dialogs = this.dialogsContainer.children
+            if (dialogs[dialogs.length - 1] === this.blueprintInfoEditor) {
+                this.blueprintInfoEditor.close()
+            }
             return
         }
 

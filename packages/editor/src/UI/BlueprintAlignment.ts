@@ -123,8 +123,13 @@ export class BlueprintAlignment extends Container {
     private readonly m_YInput: TextInput
     /**
      * Set on the first keystroke in either Absolute field since the last
-     * commit or refresh, cleared after `commitPosition` runs. Blur fires
-     * whenever focus leaves the field, typed-in-or-not - tabbing through
+     * commit or refresh, cleared by `commitPosition` and by
+     * `refreshFromBlueprint` alike - the latter rewrites both fields from
+     * the blueprint's own current state, which makes anything typed since
+     * moot, and skipping that clear there is what let a stale flag survive
+     * into a later blur and commit a value nobody typed (#243 review, see
+     * `refreshFromBlueprint`'s own comment). Blur fires whenever focus
+     * leaves the field, typed-in-or-not - tabbing through
      * Absolute X/Y without touching either still blurs the second one, and
      * `commitPosition` unguarded would write `positionRelativeToGrid`
      * regardless, turning "never set" into an explicit `{0, 0}`. Those two
@@ -238,10 +243,26 @@ export class BlueprintAlignment extends Container {
         this.refreshEnabled()
 
         this.m_SnapCheckbox.on('changed', () => {
+            // One transaction for both writes below, so ticking the
+            // checkbox (or unticking it) is one undo step rather than two -
+            // each setter ends in its own history.updateValue(...).commit(),
+            // which otherwise left one undo re-enabling the grid with
+            // absolute-snapping back to false, a state the user never chose
+            // (#243 review).
+            this.m_Blueprint.history.startTransaction('Toggle snap to grid')
             if (this.m_SnapCheckbox.checked) {
                 this.m_Blueprint.snapToGrid = {
-                    x: parseGridValue(this.m_WidthInput.text),
-                    y: parseGridValue(this.m_HeightInput.text),
+                    // parseGridSize, not parseGridValue - Width/Height show
+                    // '1'/'1' while disabled (refreshFromBlueprint's own
+                    // fallback), but an emptied box still parses to 0
+                    // through parseGridValue, and writing that straight
+                    // through is the exact `snap-to-grid: {"x":0,"y":4}` the
+                    // game will not accept back that parseGridSize exists to
+                    // prevent - commitSize uses it for the same reason, and
+                    // this handler was the one writer left that could still
+                    // produce the unrecoverable shape (#243 review).
+                    x: parseGridSize(this.m_WidthInput.text),
+                    y: parseGridSize(this.m_HeightInput.text),
                 }
                 // The game's own default the moment snapping turns on -
                 // confirmed by decoding a freshly-enabled-and-exported
@@ -249,8 +270,12 @@ export class BlueprintAlignment extends Container {
                 // true` rather than omitting it.
                 this.m_Blueprint.absoluteSnapping = true
             } else {
+                // Blueprint.set snapToGrid itself clears gridPositionOffset
+                // when point is undefined, in the same transaction as this
+                // one - see that setter's own doc comment.
                 this.m_Blueprint.snapToGrid = undefined
             }
+            this.m_Blueprint.history.commitTransaction()
             this.refreshFromBlueprint()
         })
 
@@ -288,6 +313,20 @@ export class BlueprintAlignment extends Container {
         this.onBlueprintChange('absoluteSnapping', () => this.refreshFromBlueprint())
         this.onBlueprintChange('positionRelativeToGrid', () => this.refreshFromBlueprint())
         this.onBlueprintChange('gridPositionOffset', () => this.refreshFromBlueprint())
+        /*
+            `getGridPositionDisplay()` derives from every entity's and
+            tile's own position, not from any of the four events above -
+            placing or deleting one that moves the blueprint's minimum
+            corner while this dialog is open left the box showing its old
+            value, and blurring it afterwards committed that stale reading
+            as a fresh target (#243 review). `'create-tile'` has no
+            `'remove-tile'` counterpart to hook - nothing in `Blueprint`
+            emits one - so a tile deletion can still go unnoticed here; entity
+            creation and removal are what the review measured.
+        */
+        this.onBlueprintChange('create-entity', () => this.refreshFromBlueprint())
+        this.onBlueprintChange('remove-entity', () => this.refreshFromBlueprint())
+        this.onBlueprintChange('create-tile', () => this.refreshFromBlueprint())
     }
 
     private commitSize(): void {
@@ -355,6 +394,20 @@ export class BlueprintAlignment extends Container {
         const position = this.m_Blueprint.positionRelativeToGrid ?? { x: 0, y: 0 }
         this.m_XInput.text = `${position.x}`
         this.m_YInput.text = `${position.y}`
+        /*
+            Clears the same flag commitPosition itself clears, since this
+            just overwrote both fields from the blueprint's own current
+            state and there is nothing left mid-edit for a later blur to
+            commit. Without this, pixi's pointerdown on the Relative radio
+            (which calls refreshFromBlueprint, below) fires *before* the DOM
+            blur a click away from a focused text field also triggers - type
+            into Absolute X, click Relative, and the radio handler rewrites
+            X to '0' here while leaving the flag set from typing; blur then
+            fires and commitPosition() commits that freshly-rewritten '0' as
+            though it were still the user's own edit, giving the blueprint
+            an explicit origin position where it had none (#243 review).
+        */
+        this.m_PositionDirty = false
 
         this.refreshEnabled()
     }
