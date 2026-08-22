@@ -103,7 +103,16 @@ const fixture = {
         requestedPosition: dump.requested_position,
         actualPosition: placed[0]?.position,
         storedDirections: [...new Set(placed.map(d => d.stored_direction))].sort((a, b) => a - b),
-        runtimeCollisionBox: box(dump.directions.find(d => d.created).bounding_box),
+        // Guarded, because the empty case is exactly the one the controls above
+        // exist to report: no direction placed anything, or the Lua pcall raised
+        // before `created` was ever set. Reading `.bounding_box` off the
+        // `undefined` that `find` answers throws here, and `controlsAllPassed`
+        // is not consulted until after this whole literal is built - so the
+        // total-failure case exited with a TypeError naming neither the probe
+        // nor the failed control. `actualPosition` two lines up already guarded
+        // the same emptiness; this was the one read that did not. Found by
+        // review on PR #249, posted after the merge.
+        runtimeCollisionBox: placed[0] !== undefined ? box(placed[0].bounding_box) : null,
         prototypeCollisionBox: dump.prototype_collision_box,
     },
     dataJsonVersusRuntime: {

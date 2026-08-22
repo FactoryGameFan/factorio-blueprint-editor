@@ -594,7 +594,17 @@ file rather than the cause; the `SESSION.md` command carries the `cd`. An
 interactive probe **ends when the person stops playing**, so the analyzer emits
 `stepsNotCaptured` - a fixture that simply omits a step reads as "this step does
 not exist" rather than "it was not run", which is the silent cap the method
-warns about. And **a `]]` inside a `--[[` Lua comment closes it**: a probe
+warns about. **That field then re-created the silent cap it was written to
+prevent**, which is the part worth remembering. The game refuses some grid
+positions, so the session says to substitute the nearest accepted value, and the
+analyzer suppressed the asked-for label so a substitution would not read as a
+skipped step. It did that with one boolean covering the whole `gridpos-` class,
+so two substitutions excused **three** missing steps and `gridpos-0-0` - the row
+that establishes the non-default check, and genuinely skipped - vanished from a
+list whose only job is to name what was skipped. A suppression rule needs to be
+as narrow as the thing it excuses: one substitution now excuses one missing step,
+counted rather than assumed. Found by review on PR #249, and only after the
+merge, so it shipped. And **a `]]` inside a `--[[` Lua comment closes it**: a probe
 header explaining a collision box in Lua table notation silently turned the
 rest of the file into code, so the mod never registered its `on_init` and the
 run reported "no oracle-dump.json was written" - the same message a

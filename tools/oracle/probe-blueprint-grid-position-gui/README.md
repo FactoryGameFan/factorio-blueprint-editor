@@ -63,13 +63,28 @@ could not say is **which** edge - a tile footprint edge or a `collision_box`
 edge - because for every entity it placed the two floor to the same integer.
 `assembling-machine-1` is 9.0 against 9.3.
 
-**Run 2** replaces the assembling machine with a `half-diagonal-rail`, which is
-close to the only entity that can settle it:
+**Run 2** adds a `half-diagonal-rail` alongside the assembling machine, which
+moves out of the way rather than leaving. The rail is close to the only entity
+that can settle it:
 
 | Axis | Decided by                     | Separates                                                  |
 | ---- | ------------------------------ | ---------------------------------------------------------- |
-| y    | a `half-diagonal-rail` at y=20 | centre **20**, footprint edge **19**, box edge **17.764**  |
+| y    | a `half-diagonal-rail` at y=21 | centre **21**, footprint edge **20**, box edge **19.102**  |
 | x    | stone-path tiles at x=2        | whether tiles count, against the nearest entity reading, 9 |
+
+This table read `y=20` and a box edge of `17.764` until review caught it, and
+it was wrong for two compounding reasons - both of them things
+`probe-rail-box-orientation` measured and this file had not caught up with.
+The rail sits at **21**, not the 20 it is asked for, because a rail requested
+at (20, 20) is placed at (21, 21). And its box edge comes from the **runtime**
+box, `-1.8984375`, giving `21 - 1.8984375 = 19.102`; `data.json` says `-2.236`,
+which the game disagrees with, rails being the only entities the two disagree
+about at all (issue #251). The old figure took the wrong box from the wrong
+position: `20 - 2.236`.
+
+Getting either wrong matters here, because this README is what an operator
+reads while the run is in front of them, and the note below says a bad
+prediction "is not silent". It is not - but it looks identical to a bad run.
 
 The editor derives a footprint by _ceiling_ the collision box
 (`factorioData.ts:617`), so a box cannot escape its own footprint unless a

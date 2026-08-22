@@ -218,8 +218,16 @@ const EXPECTED = {
  * so following that instruction produced an unscored row and a session that
  * measured nothing. Negative values are allowed: `gridpos--3-5` is x=-3, y=5.
  */
+/**
+ * The one place a `gridpos-` label is recognised. Named rather than repeated,
+ * because `stepsNotCaptured` below has to agree with `expectedFor` about what
+ * counts as one, and a rule written down twice is a rule that drifts - the
+ * looser copy silently wins. Its first casualty is in the note there.
+ */
+const GRIDPOS_LABEL = /^gridpos-(-?\d+)-(-?\d+)$/
+
 function expectedFor(label) {
-    const m = /^gridpos-(-?\d+)-(-?\d+)$/.exec(label)
+    const m = GRIDPOS_LABEL.exec(label)
     if (m) return { gridPosition: { x: Number(m[1]), y: Number(m[2]) } }
     return EXPECTED[label]
 }
@@ -392,15 +400,29 @@ function main() {
     // steps do not exist" rather than "these steps were not run" - the silent
     // cap docs/method.md warns about. Named here so a reader can tell a gap
     // from a finding.
-    const substituted = cases.some(
-        c => c.label.startsWith('gridpos-') && EXPECTED[c.label] === undefined
-    )
+    // A refused value means the operator captured `gridpos-4-6` in place of
+    // `gridpos-3-5`. Reporting the asked-for label as "not captured" would read
+    // as a skipped step rather than a substituted one.
+    //
+    // Nothing records *which* asked-for step a substitution replaced, so this
+    // counts instead: each substitution excuses exactly one missing `gridpos-`
+    // step, spent in `EXPECTED` key order, which is the order SESSION.md walks
+    // them. It was a bare boolean suppressing the whole `gridpos-` class, and
+    // that hid a real gap in this probe's own fixture - two substitutions
+    // (2,6 and 8,10) excused all three missing steps, so `gridpos-0-0`, the one
+    // genuinely skipped and the one that establishes the non-default check,
+    // vanished from `stepsNotCaptured` rather than being named. Exactly the
+    // silent cap the note below warns about, in the code written to prevent it.
+    // Found by review on PR #249, posted after the merge.
+    let substitutionCredits = cases.filter(
+        c => GRIDPOS_LABEL.test(c.label) && EXPECTED[c.label] === undefined
+    ).length
     const stepsNotCaptured = Object.keys(EXPECTED).filter(label => {
         if (cases.some(c => c.label === label)) return false
-        // A refused value means the operator captured `gridpos-4-6` in place of
-        // `gridpos-3-5`. Reporting the asked-for label as "not captured" would
-        // read as a skipped step rather than a substituted one.
-        if (substituted && label.startsWith('gridpos-')) return false
+        if (GRIDPOS_LABEL.test(label) && substitutionCredits > 0) {
+            substitutionCredits -= 1
+            return false
+        }
         return true
     })
 
