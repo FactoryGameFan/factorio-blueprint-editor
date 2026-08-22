@@ -116,6 +116,7 @@
     "scoredRows": 2,
     "stepsNotCaptured": [
         "untouched",
+        "gridpos-0-0",
         "abs-2-6",
         "snap-off"
     ],
