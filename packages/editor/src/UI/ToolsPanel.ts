@@ -73,13 +73,27 @@ const ALT_ACTIVE_COLOR = 0xf1be64
  * rather than the momentary hover/press one `Button` already draws. Used for
  * Alt, so the button shows whether entity info is visible even when the
  * state last changed through the `AltLeft` keybind rather than a click here.
- * Inserted just below the slot's own content (added last, so it's the final
- * child) so the icon/text stays legible on top of it.
+ *
+ * Inserted just above the slot's own background - `Button`'s constructor
+ * adds `[background, active, hover]` in that order and `content`'s setter
+ * appends last, so a fully built slot's children are
+ * `[background, active, hover, content]`. `addChildAt(highlight,
+ * children.length - 1)` used to insert at the *content's own* index, which
+ * pushes content up rather than landing below it - the highlight ended up
+ * above `active`/`hover` too, not just below content, so while Alt was on,
+ * the button drew no hover/press feedback at all, the one slot that most
+ * needs to keep looking pressable since it is the only toggle in the panel.
+ * `Math.min(1, ...)` both fixes that (index 1, right after background) and
+ * survives a slot with zero children - `children.length - 1` was `-1` on
+ * one, which `addChildAt` throws on - though nothing here constructs one.
+ *
+ * Sized off the slot's own drawn bounds rather than a third hardcoded copy
+ * of `Slot`'s 36x36 default.
  */
 function addToggleHighlight(slot: Container, color: number): Graphics {
-    const highlight = new Graphics().rect(0, 0, 36, 36).fill(color)
+    const highlight = new Graphics().rect(0, 0, slot.width, slot.height).fill(color)
     highlight.visible = false
-    slot.addChildAt(highlight, slot.children.length - 1)
+    slot.addChildAt(highlight, Math.min(1, slot.children.length))
     return highlight
 }
 

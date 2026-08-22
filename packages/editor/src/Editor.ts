@@ -30,8 +30,47 @@ import { IPoint } from './types'
  * parameter would.
  */
 export interface EditorInitOptions {
-    quickActions: QuickActions
+    quickActions?: QuickActions
     logger?: Logger
+}
+
+/**
+ * What `G.quickActions` falls back to when `init` is called without one - a
+ * partial options object, or any JS-side caller, previously left it
+ * `undefined` with nothing guarding a single read site, so the first click
+ * on ToolsPanel's export-image slot threw `Cannot read properties of
+ * undefined (reading 'exportImage')`, naming neither `quickActions` nor
+ * that it was ever optional to begin with (#242 review). `@fbe/editor` is
+ * workspace-internal with one consumer today (`packages/website`, which
+ * always supplies the real one), so this is about failure *shape* for a
+ * future or partial caller rather than a broken published API - every
+ * member here reports the same clear reason through `G.logger` instead of
+ * crashing, so a read-only or otherwise clipboard/file-less embed degrades
+ * instead of throwing from deep inside a click handler.
+ */
+const missingQuickActionsMessage =
+    'This embed has no import/export/clipboard actions configured (EditorInitOptions.quickActions was not supplied).'
+const noopQuickActions: QuickActions = {
+    importReplace: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(false)
+    },
+    importAppend: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(false)
+    },
+    exportImage: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return false
+    },
+    encodeCurrent: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(undefined)
+    },
+    readClipboardText: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.reject(new Error(missingQuickActionsMessage))
+    },
 }
 
 export class Editor {
@@ -45,7 +84,7 @@ export class Editor {
             G.logger = options.logger
         }
 
-        G.quickActions = options.quickActions
+        G.quickActions = options.quickActions ?? noopQuickActions
 
         const app = new Application()
 
@@ -309,6 +348,11 @@ export class Editor {
      */
     public openImportDialog(): void {
         G.UI.toggleImportDialog()
+    }
+
+    /** Same as `openImportDialog`, for ExportDialog. See tests/quick-actions.spec.ts. */
+    public openExportDialog(): void {
+        G.UI.toggleExportDialog()
     }
 
     public get debug(): boolean {

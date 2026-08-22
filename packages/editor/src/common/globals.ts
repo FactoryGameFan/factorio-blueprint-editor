@@ -29,13 +29,19 @@ export type Logger = (msg: ILogMessage) => void
  * member here that nothing in this package ever calls is a dead one.
  */
 export interface QuickActions {
-    /** Reads the OS clipboard when `source` is omitted - a key press or a
+    /**
+     * Reads the OS clipboard when `source` is omitted - a key press or a
      * ToolsPanel button - or uses `source` directly, which is what
      * ImportDialog's textarea passes instead of going through the
-     * clipboard at all. */
-    importReplace: (source?: string) => void
-    /** Same as `importReplace` re: `source`. */
-    importAppend: (source?: string) => void
+     * clipboard at all. Resolves `true` on a successful load and `false`
+     * after a failure the website's own implementation has already reported
+     * (a toast) - `ImportDialog`'s Replace/Append read this to decide
+     * whether to close, rather than closing unconditionally before the
+     * async load can even fail (#242 review).
+     */
+    importReplace: (source?: string) => Promise<boolean>
+    /** Same as `importReplace` re: `source` and its resolved value. */
+    importAppend: (source?: string) => Promise<boolean>
     /** False, and a no-op, when the loaded blueprint is empty - the same
      * guard `encodeCurrent` uses. Nothing currently reads the return value;
      * it is typed here because the website implementation reports it. */

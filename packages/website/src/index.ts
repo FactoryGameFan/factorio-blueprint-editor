@@ -145,24 +145,34 @@ let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
  * when ImportDialog's textarea calls them, which never touches the
  * clipboard at all.
  */
-function importReplace(source?: string): void {
+/**
+ * Resolves `true` once the loaded blueprint has actually changed, `false`
+ * after a failure this already reported through `createBPImportError` - see
+ * `QuickActions.importReplace`'s own doc comment for who reads that and why.
+ */
+function importReplace(source?: string): Promise<boolean> {
     loadingScreen.show()
 
-    ;(source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
+    return (source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
         .then(getBlueprintOrBookFromSource)
         .then(loadBp)
+        .then(() => true)
         .catch(error => {
             loadingScreen.hide()
             createBPImportError(error)
+            return false
         })
 }
 
-function importAppend(source?: string): void {
-    ;(source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
+/** Same as `importReplace` re: the resolved value. */
+function importAppend(source?: string): Promise<boolean> {
+    return (source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
         .then(getBlueprintOrBookFromSource)
         .then(bp => editor.appendBlueprint(bp instanceof Book ? bp.selectBlueprint(0) : bp))
+        .then(() => true)
         .catch(error => {
             createBPImportError(error)
+            return false
         })
 }
 
@@ -302,7 +312,10 @@ document.addEventListener('copy', (e: ClipboardEvent) => {
 document.addEventListener('paste', (e: ClipboardEvent) => {
     if (document.activeElement !== CANVAS) return
     e.preventDefault()
-    importReplace()
+    // Fire-and-forget, same as before importReplace reported success/failure
+    // to its callers - this one has nothing to do with the resolved value,
+    // unlike ImportDialog's Replace button.
+    void importReplace()
 })
 
 /*
@@ -328,15 +341,22 @@ const testApi = {
      * to reach it by. See tests/quick-actions.spec.ts.
      */
     openImportDialog: () => editor.openImportDialog(),
+    /** Opens ExportDialog. See tests/quick-actions.spec.ts. */
+    openExportDialog: () => editor.openExportDialog(),
     /**
-     * `exportString`/`exportImage`'s own guard result - false, with no
-     * clipboard write or file save attempted, whenever the loaded blueprint
-     * is empty. The only part of the two that is safe to call from a spec:
-     * a non-empty blueprint would reach `navigator.clipboard`/`FileSaver`,
-     * neither of which a headless run can assert on. See
-     * tests/quick-actions.spec.ts.
+     * `exportString`/`exportImage`'s own guard result, without running
+     * either - `!bp.isEmpty()` is the exact condition both functions open
+     * with, before either touches `navigator.clipboard`/`FileSaver`. This
+     * used to call `exportString()`/`exportImage()` themselves and report
+     * whatever they returned, which mirrors the guard only for an *empty*
+     * blueprint; for a loaded one it silently performs the real action -
+     * an actual clipboard write and an actual PNG download - every time it
+     * is called. That is reachable from more than a future spec that loads
+     * a blueprint first: `__fbe_test` is assigned unconditionally above, so
+     * this sits on `window` at fbe.factorygamefan.com for any script on the
+     * page to call. See tests/quick-actions.spec.ts.
      */
-    exportGuardResult: () => ({ exportString: exportString(), exportImage: exportImage() }),
+    exportGuardResult: () => ({ exportString: !bp.isEmpty(), exportImage: !bp.isEmpty() }),
     /**
      * `encodeCurrent`'s own empty-blueprint guard - undefined rather than a
      * string, the same condition `exportGuardResult` pins for the other two
@@ -715,7 +735,8 @@ function registerActions(): void {
         modifiers: { shift: true, control: true },
         callbacks: {
             onPress: () => {
-                importAppend()
+                // Fire-and-forget, same reason as the `paste` listener above.
+                void importAppend()
                 return true
             },
         },

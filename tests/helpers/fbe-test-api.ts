@@ -47,6 +47,8 @@ export interface FbeTestApi {
     loadBp: (bp: unknown) => Promise<void>
     /** Opens ImportDialog. See tests/quick-actions.spec.ts. */
     openImportDialog: () => void
+    /** Opens ExportDialog. See tests/quick-actions.spec.ts. */
+    openExportDialog: () => void
     /**
      * `exportString`/`exportImage`'s own empty-blueprint guard result - the
      * only part of either that is safe to call from a spec, since a

@@ -6,27 +6,42 @@ import {
 } from './helpers/encode-blueprint'
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 import { suppressOverlays } from './helpers/overlays'
+import { importTextarea, exportTextarea } from './helpers/dialog-textareas'
+import { PADDING, REPLACE_Y, APPEND_Y } from '../packages/editor/src/UI/ImportDialog'
+import {
+    ROW_BUTTON_WIDTH,
+    ROW_BUTTON_HEIGHT,
+} from '../packages/editor/src/UI/controls/DescribedButton'
 
 /*
     First coverage of `QuickActions` (packages/editor/src/common/globals.ts) -
     the bridge ToolsPanel's quick-action buttons and ImportDialog/ExportDialog
-    use to reach website-level clipboard/file logic (PR #221 review). Nothing
-    under tests/ named ImportDialog, importReplace/importAppend, or
-    exportString/exportImage before this.
+    use to reach website-level clipboard/file logic (PR #221 review, then
+    #242's re-review of the recreated PR). Nothing under tests/ named
+    ImportDialog, importReplace/importAppend, or exportString/exportImage
+    before this.
 
-    Two of its six members stay out of reach here on purpose: Paste and both
-    export actions read `navigator.clipboard`/write through `FileSaver` once a
-    blueprint is loaded, and a headless run has no OS clipboard to assert
-    against and no safe way to let a real file-save attempt run. What IS safe
-    and is covered:
+    Paste's own real clipboard *read* stays out of reach here - a headless
+    run has no OS clipboard content to read back, and there is no safe way to
+    seed one. What IS covered, including on a *loaded* (non-empty) blueprint,
+    which used to be the one case nothing here reached:
 
     - importReplace/importAppend, driven through ImportDialog's real Replace/
       Append buttons with an explicit textarea value - the same route
       ImportDialog itself uses to bypass `navigator.clipboard` for a
-      hand-edited or typed string.
+      hand-edited or typed string. Covers the empty-field guard and the
+      close-only-on-success behaviour a bad string needs (#242 review).
     - The empty-blueprint guard exportString/exportImage/encodeCurrent all
-      share, which is safe to call in any state: false/undefined with no
-      clipboard or file attempt, never exercised past that guard here.
+      share, on both an empty and a loaded blueprint - `exportGuardResult`'s
+      own test below proves the loaded case reaches neither
+      `navigator.clipboard.writeText` nor a real file download, which is
+      the other #242 finding: the guard used to run the real actions rather
+      than only reporting them.
+    - ExportDialog's own textarea - read-only, pre-selected once it actually
+      renders (not before, which was the first #242 blocking issue) - reads
+      the loaded blueprint's real string without going through
+      `navigator.clipboard` on the read side, the same reason ExportDialog
+      exists as a fallback for a browser that blocks it.
 */
 
 type Page = import('@playwright/test').Page
@@ -45,31 +60,22 @@ const ONE_ASSEMBLER = encode({
     entities: [{ entity_number: 1, name: 'assembling-machine-1', position: { x: 0.5, y: 0.5 } }],
 })
 
-// ImportDialog's own layout - packages/editor/src/UI/ImportDialog.ts.
-const PADDING = 12
-const FIELD_Y = 40
-const FIELD_HEIGHT = 90
-const ROW_Y = FIELD_Y + FIELD_HEIGHT + PADDING
-const ROW_HEIGHT = 38
-const GROUP_GAP = 14
-const REPLACE_Y = ROW_Y + ROW_HEIGHT + GROUP_GAP
-const APPEND_Y = REPLACE_Y + ROW_HEIGHT
-// DescribedButton.ts: ROW_BUTTON_WIDTH x ROW_BUTTON_HEIGHT, at the row's own (x, y).
-const BUTTON_CENTRE_X = PADDING + 40
-const BUTTON_CENTRE_Y = 14
-
 async function openImportDialog(page: Page): Promise<void> {
     await page.evaluate(() => window.__fbe_test.openImportDialog())
 }
 
-/** Fills ImportDialog's textarea - the one TextInput on the page with `multiline`. */
+/** Fills ImportDialog's textarea - disambiguated from ExportDialog's
+ * identically styled one by placeholder, see helpers/dialog-textareas.ts. */
 async function fillImportField(page: Page, source: string): Promise<void> {
-    await page.locator('textarea').fill(source)
+    await importTextarea(page).fill(source)
 }
 
 async function clickImportRow(page: Page, rowY: number): Promise<void> {
     const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
-    await page.mouse.click(dialog.x + BUTTON_CENTRE_X, dialog.y + rowY + BUTTON_CENTRE_Y)
+    await page.mouse.click(
+        dialog.x + PADDING + ROW_BUTTON_WIDTH / 2,
+        dialog.y + rowY + ROW_BUTTON_HEIGHT / 2
+    )
 }
 
 test.beforeEach(async ({ page }) => {
@@ -117,7 +123,9 @@ test("ImportDialog's Replace button calls importReplace and swaps the loaded blu
     await fillImportField(page, ONE_ASSEMBLER)
     await clickImportRow(page, REPLACE_Y)
 
-    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+    // Closes only once the async import actually succeeds (#242 review), not
+    // synchronously on click - waited for rather than asserted immediately.
+    await page.waitForFunction(() => window.__fbe_test.openDialogCount() === 0)
 
     const out = await page.evaluate(() => window.__fbe_test.encodeCurrentResult())
     expect(decodeBlueprintString(out as string).blueprint.entities[0].name).toBe(
@@ -140,7 +148,201 @@ test("ImportDialog's Append button calls importAppend and enters PAINT with the 
     await fillImportField(page, ONE_ASSEMBLER)
     await clickImportRow(page, APPEND_Y)
 
-    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+    // Same as Replace above - closes only once importAppend resolves true.
+    await page.waitForFunction(() => window.__fbe_test.openDialogCount() === 0)
     expect(await page.evaluate(() => window.__fbe_test.editorMode())).toBe('PAINT')
     expect(await page.evaluate(() => window.__fbe_test.paintContainerVisible())).toBe(true)
+})
+
+test('Replace/Append do nothing and leave the dialog open when the field is empty', async ({
+    page,
+}) => {
+    /*
+        Used to call importReplace(''), which falls past bpString.ts's
+        `DATA[0] === '0'` branch into `new URL('https://')` and throws -
+        reported as "Invalid URL" rather than anything naming the actual
+        problem (#242 review). Guarded up front now, before `action` is ever
+        called, so nothing reaches that throw and the dialog stays open with
+        the loaded blueprint untouched, the same as if nothing had been
+        clicked at all.
+    */
+    const pageErrors: string[] = []
+    page.on('pageerror', err => pageErrors.push(err.message))
+
+    await loadBlueprint(page, ONE_CHEST)
+    await openImportDialog(page)
+
+    await clickImportRow(page, REPLACE_Y)
+    await clickImportRow(page, APPEND_Y)
+
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    expect(pageErrors).toEqual([])
+
+    const out = await page.evaluate(() => window.__fbe_test.encodeCurrentResult())
+    expect(decodeBlueprintString(out as string).blueprint.entities[0].name).toBe('wooden-chest')
+})
+
+test('a bad blueprint string leaves the field intact and the dialog open, rather than closing on click', async ({
+    page,
+}) => {
+    /*
+        `close()` used to run synchronously right after the click, before the
+        async import chain it started could even fail - so a hand-edited
+        string that turned out to be bad was gone along with the dialog, and
+        had to be retyped from scratch (#242 review). Now the promise
+        `runImport` gets back has to resolve `true` before `close()` runs.
+    */
+    const pageErrors: string[] = []
+    page.on('pageerror', err => pageErrors.push(err.message))
+
+    await loadBlueprint(page, ONE_CHEST)
+    await openImportDialog(page)
+    await fillImportField(page, 'not a blueprint string')
+    await clickImportRow(page, REPLACE_Y)
+
+    // No waitForFunction here on purpose - the point is that nothing ever
+    // makes this true, so this is read once rather than polled for it.
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    expect(await importTextarea(page).inputValue()).toBe('not a blueprint string')
+    expect(pageErrors).toEqual([])
+
+    // The loaded blueprint is untouched too, not left half-imported.
+    const out = await page.evaluate(() => window.__fbe_test.encodeCurrentResult())
+    expect(decodeBlueprintString(out as string).blueprint.entities[0].name).toBe('wooden-chest')
+})
+
+test('Escape closes ImportDialog and ExportDialog even while the textarea has focus', async ({
+    page,
+}) => {
+    /*
+        Editor.ts's own keydown listener drops every key while an
+        <input>/<textarea> is the event target (`e.target instanceof
+        HTMLTextAreaElement`), so the app-level `closeWindow` action never
+        ran and neither dialog had any way to close via keyboard once its
+        field was focused - clicking the ToolsPanel slot again, or clicking
+        the canvas first to blur, were the only exits (#242 review).
+    */
+    await openImportDialog(page)
+    await importTextarea(page).click()
+    await page.keyboard.press('Escape')
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await exportTextarea(page).click()
+    await page.keyboard.press('Escape')
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+})
+
+test('ImportDialog and ExportDialog can be open at once, and each helper still finds its own textarea', async ({
+    page,
+}) => {
+    /*
+        Nothing stops both being open together - `toggleImportDialog`/
+        `toggleExportDialog` (UIContainer.ts) each track their own dialog
+        independently. `cssText !== ''` used to be how both this spec and
+        tools-panel.spec.ts told the two textareas apart, and it matched
+        every TextInput equally (TextInput's constructor sets several inline
+        styles on all of them), so with two on the page a bare `.find()`
+        silently picked whichever the DOM happened to list first (#242
+        review). `importTextarea`/`exportTextarea` key on each dialog's own
+        placeholder instead, which this proves actually disambiguates them
+        rather than coincidentally working with only one dialog open.
+    */
+    await loadBlueprint(page, ONE_CHEST)
+
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openImportDialog(page)
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(2)
+
+    await fillImportField(page, ONE_ASSEMBLER)
+
+    // The Import field holds what was just typed into it; the Export field
+    // holds the loaded blueprint's own string - neither is the other's.
+    expect(await importTextarea(page).inputValue()).toBe(ONE_ASSEMBLER)
+    const exportValue = await exportTextarea(page).inputValue()
+    expect(exportValue).not.toBe(ONE_ASSEMBLER)
+    expect(decodeBlueprintString(exportValue).blueprint.entities[0].name).toBe('wooden-chest')
+})
+
+test("ExportDialog's field is read-only and pre-selected once the textarea actually renders", async ({
+    page,
+}) => {
+    /*
+        The blocking half of the #242 review: `select()` used to run inside
+        the same microtask as `encodeCurrent()`'s resolution, before any
+        render tick had shown the textarea (`TextInput._onAdded` sets
+        `display: none`, and nothing sets it back to `block` until
+        `_updateDOMInput` runs). `focus()`/`select()` on a `display: none`
+        element are no-ops, so `document.activeElement` stayed the canvas and
+        a plain Ctrl/Cmd+C fell through to `navigator.clipboard.writeText`
+        instead of a hand-select - defeating the one thing this dialog exists
+        to offer a clipboard-blocked browser. Now deferred to a tick after
+        the render that shows the field, at UTILITY priority, below
+        Application's own render step.
+    */
+    await loadBlueprint(page, ONE_CHEST)
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+
+    const textarea = exportTextarea(page)
+    await expect(textarea).toBeFocused()
+    expect(await textarea.evaluate((el: HTMLTextAreaElement) => el.readOnly)).toBe(true)
+
+    const selection = await textarea.evaluate((el: HTMLTextAreaElement) => ({
+        start: el.selectionStart,
+        end: el.selectionEnd,
+        length: el.value.length,
+    }))
+    expect(selection.length).toBeGreaterThan(0)
+    expect(selection).toMatchObject({ start: 0, end: selection.length })
+})
+
+test('exportGuardResult reports the guard without writing to the clipboard or starting a file save', async ({
+    page,
+}) => {
+    /*
+        Used to call the real exportString()/exportImage() and report
+        whatever they returned - which mirrors the guard only for an empty
+        blueprint; for a loaded one it silently performed the real action,
+        a real clipboard write and a real PNG download, every time it was
+        called (#242 review, the other blocking issue). Reachable from more
+        than a spec: `__fbe_test` is assigned unconditionally, so this sits
+        on `window` in production for any script on the page to call.
+
+        The clipboard write is caught by wrapping `navigator.clipboard.
+        writeText` before the app's own scripts run - has to happen before
+        the shared beforeEach's first `page.goto`, so this reloads through
+        waitForEditor again once the wrapper is registered. The file save is
+        caught with Playwright's own `download` event, which needs no wrapper.
+    */
+    await page.addInitScript(() => {
+        ;(window as unknown as { __clipboardWrites: string[] }).__clipboardWrites = []
+        if (navigator.clipboard?.writeText) {
+            const original = navigator.clipboard.writeText.bind(navigator.clipboard)
+            navigator.clipboard.writeText = (text: string) => {
+                ;(window as unknown as { __clipboardWrites: string[] }).__clipboardWrites.push(text)
+                return original(text)
+            }
+        }
+    })
+    await waitForEditor(page)
+
+    let downloadFired = false
+    page.on('download', () => {
+        downloadFired = true
+    })
+
+    await loadBlueprint(page, ONE_CHEST)
+
+    const result = await page.evaluate(() => window.__fbe_test.exportGuardResult())
+    expect(result).toEqual({ exportString: true, exportImage: true })
+
+    // Proving a negative needs a bounded wait rather than a condition to
+    // poll for - there is no event a correct implementation ever fires here.
+    await page.waitForTimeout(250)
+
+    const clipboardWrites = await page.evaluate(
+        () => (window as unknown as { __clipboardWrites: string[] }).__clipboardWrites
+    )
+    expect(clipboardWrites).toEqual([])
+    expect(downloadFired).toBe(false)
 })
