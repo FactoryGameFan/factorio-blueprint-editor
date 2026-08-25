@@ -102,13 +102,13 @@ const TEXT_EDIT_KEYS = ['A', 'C', 'V', 'X', 'Z'] as const
  */
 const CHORD = new RegExp(
     `\\.press\\(\\s*['"\`]((?:Control|Meta)\\+(?:Key)?(?:${TEXT_EDIT_KEYS.join('|')}))['"\`]`,
-    'g'
+    'gi'
 )
 
 interface AllowedChord {
     /** File name relative to tests/, e.g. `chest-filters.spec.ts`. */
     file: string
-    /** The exact matched text, e.g. `Control+KeyZ`. */
+    /** The matched chord, e.g. `Control+KeyZ`; compared case-insensitively. */
     chord: string
     /** Why this one is right as written. Required: it is the whole mechanism. */
     reason: string
@@ -137,6 +137,8 @@ interface Found {
     text: string
 }
 
+const sameChord = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase()
+
 function specFiles(): string[] {
     return fs
         .readdirSync(SPEC_DIR)
@@ -158,7 +160,7 @@ function findChords(): Found[] {
 }
 
 const isAllowed = (f: Found): boolean =>
-    ALLOWLIST.some(a => a.file === f.file && a.chord === f.chord)
+    ALLOWLIST.some(a => a.file === f.file && sameChord(a.chord, f.chord))
 
 describe('platform-specific modifier chords in Playwright specs', () => {
     it('finds spec files to read, so a silent zero is not a pass', () => {
@@ -203,7 +205,7 @@ describe('platform-specific modifier chords in Playwright specs', () => {
         */
         const found = findChords()
         const stale = ALLOWLIST.filter(
-            a => !found.some(f => f.file === a.file && f.chord === a.chord)
+            a => !found.some(f => f.file === a.file && sameChord(f.chord, a.chord))
         )
 
         expect(
@@ -213,7 +215,7 @@ describe('platform-specific modifier chords in Playwright specs', () => {
         ).toEqual([])
     })
 
-    it('does not flag ControlOrMeta, which is the correct form', () => {
+    it('matches platform-specific press chords case-insensitively', () => {
         /*
             A control for the regex itself. If `ControlOrMeta+A` ever started
             matching, every corrected call site would turn red and the obvious
@@ -222,6 +224,8 @@ describe('platform-specific modifier chords in Playwright specs', () => {
         expect('await page.keyboard.press("ControlOrMeta+A")'.match(CHORD)).toBeNull()
         expect('await page.keyboard.press("Control+A")'.match(CHORD)).not.toBeNull()
         expect('await page.keyboard.press("Control+KeyA")'.match(CHORD)).not.toBeNull()
+        expect('await page.keyboard.press("Control+z")'.match(CHORD)).not.toBeNull()
         expect('await page.keyboard.down("Control")'.match(CHORD)).toBeNull()
+        expect(sameChord('Control+KeyZ', 'control+keyz')).toBe(true)
     })
 })
