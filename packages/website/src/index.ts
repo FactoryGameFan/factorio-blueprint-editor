@@ -6,8 +6,6 @@ import EDITOR, {
     Editor,
     Blueprint,
     Book,
-    TrainBlueprintError,
-    ModdedBlueprintError,
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
     encode,
@@ -768,29 +766,8 @@ function createErrorMessage(text: string, error: unknown, timeout = 10000): void
     })
 }
 function createBPImportError(
-    error:
-        | Error
-        | TrainBlueprintError
-        | ModdedBlueprintError
-        | CorruptedBlueprintStringError
-        | BookWithNoBlueprintsError
+    error: Error | CorruptedBlueprintStringError | BookWithNoBlueprintsError
 ): void {
-    if (error instanceof TrainBlueprintError) {
-        createErrorMessage(
-            'Blueprint with train entities not supported yet. If you think this is a mistake:',
-            error.errors
-        )
-        return
-    }
-
-    if (error instanceof ModdedBlueprintError) {
-        createErrorMessage(
-            'Blueprint with modded items not supported yet. If you think this is a mistake:',
-            error.errors
-        )
-        return
-    }
-
     if (error instanceof CorruptedBlueprintStringError) {
         createErrorMessage(
             'Blueprint string might be corrupted. If you think this is a mistake:',
