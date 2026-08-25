@@ -193,50 +193,48 @@ export class PaintBlueprintContainer extends PaintContainer {
             ([entity, container]) => [entity, container, container.planPlacement()] as const
         )
 
-        this.bpc.bp.history.startTransaction('Create Entities')
-
-        const oldEntIDToNewEntID = new Map<number, number>()
-        for (const [entity, container, placement] of placements) {
-            const e = container.placeEntityContainer(placement)
-            if (e) {
-                oldEntIDToNewEntID.set(entity.entityNumber, e.entityNumber)
+        this.bpc.bp.history.transaction('Create Entities', () => {
+            const oldEntIDToNewEntID = new Map<number, number>()
+            for (const [entity, container, placement] of placements) {
+                const e = container.placeEntityContainer(placement)
+                if (e) {
+                    oldEntIDToNewEntID.set(entity.entityNumber, e.entityNumber)
+                }
             }
-        }
 
-        // Create wire connections
-        if (oldEntIDToNewEntID.size !== 0) {
-            for (const [oldID] of oldEntIDToNewEntID) {
-                this.bp.wireConnections
-                    .getEntityConnections(oldID)
-                    .flatMap<IConnection>(connection => {
-                        const en0 = oldEntIDToNewEntID.get(connection.cps[0].entityNumber)
-                        const en1 = oldEntIDToNewEntID.get(connection.cps[1].entityNumber)
-                        // only copy a wire when both of its ends were pasted
-                        if (en0 === undefined || en1 === undefined) return []
-                        return [
-                            {
-                                ...connection,
-                                cps: [
-                                    { ...connection.cps[0], entityNumber: en0 },
-                                    { ...connection.cps[1], entityNumber: en1 },
-                                ],
-                            },
-                        ]
-                    })
-                    .forEach(conn => this.bpc.bp.wireConnections.create(conn))
+            // Create wire connections
+            if (oldEntIDToNewEntID.size !== 0) {
+                for (const [oldID] of oldEntIDToNewEntID) {
+                    this.bp.wireConnections
+                        .getEntityConnections(oldID)
+                        .flatMap<IConnection>(connection => {
+                            const en0 = oldEntIDToNewEntID.get(connection.cps[0].entityNumber)
+                            const en1 = oldEntIDToNewEntID.get(connection.cps[1].entityNumber)
+                            // only copy a wire when both of its ends were pasted
+                            if (en0 === undefined || en1 === undefined) return []
+                            return [
+                                {
+                                    ...connection,
+                                    cps: [
+                                        { ...connection.cps[0], entityNumber: en0 },
+                                        { ...connection.cps[1], entityNumber: en1 },
+                                    ],
+                                },
+                            ]
+                        })
+                        .forEach(conn => this.bpc.bp.wireConnections.create(conn))
+                }
             }
-        }
-
-        this.bpc.bp.history.commitTransaction()
+        })
     }
 
     public override removeContainerUnder(): void {
         if (!this.visible) return
 
-        this.bpc.bp.history.startTransaction('Remove Entities')
-        for (const [, c] of this.entities) {
-            c.removeContainerUnder()
-        }
-        this.bpc.bp.history.commitTransaction()
+        this.bpc.bp.history.transaction('Remove Entities', () => {
+            for (const [, c] of this.entities) {
+                c.removeContainerUnder()
+            }
+        })
     }
 }

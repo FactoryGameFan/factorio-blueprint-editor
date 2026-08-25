@@ -207,7 +207,7 @@ test('ticking Snap to grid on is one undo step, not two (#243 finding 6)', async
     let out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
     expect(decodeBlueprintString(out).blueprint['snap-to-grid']).toEqual({ x: 1, y: 1 })
 
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+KeyZ')
 
     out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
     const decoded = decodeBlueprintString(out)
@@ -278,7 +278,7 @@ test('Name and Description commit once on blur, not once per keystroke (#243 fin
     expect((await exportedLabel(page)).label).toBe('Renamed Blueprint')
 
     // One commit, one undo step.
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+KeyZ')
     expect((await exportedLabel(page)).label).toBe(before.label)
 })
 
@@ -309,7 +309,7 @@ test('the icon regenerated at export time is undoable, not a bypass of History (
     const generated = await page.evaluate(() => window.__fbe_test.blueprintIcons())
     expect(generated.some(i => i !== undefined)).toBe(true)
 
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+KeyZ')
     expect(await page.evaluate(() => window.__fbe_test.blueprintIcons())).toEqual([
         undefined,
         undefined,

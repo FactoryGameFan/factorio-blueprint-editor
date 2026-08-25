@@ -7,6 +7,7 @@ import {
     InventoryPosition,
     IPoint,
     ISchedule,
+    ISignal,
     ScheduleData,
     LogisticFilter,
     LogisticSection,
@@ -33,6 +34,35 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
     BEACONS: boolean
     MIN_AFFECTED_ENTITIES: number
     BEACON_MODULE: string
+}
+
+/**
+ * The signal type for a name the editor picked itself, in `generateIcons`.
+ *
+ * Only for that case. An icon that came from a blueprint keeps the type it
+ * arrived with, because this cannot reproduce it: `wooden-chest` is an item, a
+ * recipe and an entity at once, and nothing in the name says which was meant.
+ *
+ * The order is measured rather than chosen (issue #264). Scored against what
+ * Factorio itself wrote for the 152 distinct icon names in `test-blueprints/`,
+ * checking `FD.items` first is right for 148 of them where the previous order -
+ * recipes before entities, and `FD.items` never consulted at all - was right for
+ * 55.
+ *
+ * The 4 it still misses are planets, and they are deliberately not handled here.
+ * `generateIcons` only ever passes an item name (`minable.result`) or an entity
+ * prototype name, and no planet is either - checked against `data.json`, which
+ * exports no planet in any of its eleven collections. A planet icon therefore
+ * only ever arrives by being parsed, where its type is preserved rather than
+ * derived. A `space-location` arm here would be unreachable.
+ */
+function deriveSignalType(name: string): SignalType {
+    if (FD.items[name]) return 'item'
+    if (FD.signals[name]) return 'virtual'
+    if (FD.fluids[name]) return 'fluid'
+    if (FD.recipes[name]) return 'recipe'
+    if (FD.entities[name]) return 'entity'
+    return 'item'
 }
 
 const oilOutpostSettings: IOilOutpostSettings = {
@@ -116,7 +146,15 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     // `this` directly does not type check.
     private readonly nameStore: { name: string } = { name: 'Blueprint' }
     private readonly descriptionStore: { description?: string } = {}
-    private readonly icons = new Map<1 | 2 | 3 | 4, string>()
+    /*
+        The whole signal, not just the name. An icon's type is a choice the
+        blueprint made, and a name cannot be relied on to reproduce it: most
+        placeable things are an item, a recipe and an entity at once, and the
+        planets are none of the three. Keeping only the name meant re-deriving
+        the type on the way out, which rewrote it for 37.6% of the corpus's
+        icons - see `deriveSignalType` and issue #264.
+    */
+    private readonly icons = new Map<1 | 2 | 3 | 4, ISignal>()
     public readonly wireConnections = new WireConnections(this)
     public readonly entityPositionGrid = new PositionGrid(this)
     public readonly entities = new OurMap<number, Entity>()
@@ -192,7 +230,10 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             if (data.icons) {
                 for (const icon of data.icons) {
                     if (!icon.signal.name) continue
-                    this.icons.set(icon.index, icon.signal.name)
+                    // Copied rather than aliased: `data` outlives this call for
+                    // a paste, and a shared signal object would let two
+                    // blueprints edit one icon.
+                    this.icons.set(icon.index, { ...icon.signal })
                 }
             }
 
@@ -580,8 +621,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             .commit()
     }
 
+    /** The icon's name only - `icons` itself stores the whole `ISignal`
+     * (name and type both, see that field's own comment), but every
+     * caller here only ever wants the name back: `F.CreateIcon` resolves
+     * the type itself from FD, and `setIcon` below is the only writer. */
     public getIcon(index: 1 | 2 | 3 | 4): string | undefined {
-        return this.icons.get(index)
+        return this.icons.get(index)?.name
     }
 
     /**
@@ -589,12 +634,23 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
      * so clearing every slot by hand (all four `undefined`) is a real choice
      * rather than a no-op - it puts the blueprint back into "auto" the same way
      * it started, rather than locking in an all-empty icon set.
+     *
+     * Takes a bare name, not a signal - every caller (the icon picker) only
+     * ever has a name to offer, so this derives the type the same way
+     * `generateIcons`'s own local `setIcon` does. That is a real guess and
+     * not the "trust what was parsed" case issue #264 fixed - there is
+     * nothing parsed to trust for an icon the user is choosing fresh.
      */
     public setIcon(index: 1 | 2 | 3 | 4, name: string | undefined): void {
-        if (this.icons.get(index) === name) return
+        if (this.icons.get(index)?.name === name) return
 
         this.history
-            .updateMap(this.icons, index, name, 'Change blueprint icon')
+            .updateMap(
+                this.icons,
+                index,
+                name === undefined ? undefined : { name, type: deriveSignalType(name) },
+                'Change blueprint icon'
+            )
             .onDone(() => this.emit('icon', index))
             .commit()
     }
@@ -621,24 +677,22 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     public removeEntity(entity: Entity): void {
-        this.history.startTransaction('Remove entity')
+        this.history.transaction('Remove entity', () => {
+            this.wireConnections.removeEntityConnections(entity.entityNumber)
 
-        this.wireConnections.removeEntityConnections(entity.entityNumber)
-
-        this.history
-            .updateMap(this.entities, entity.entityNumber, undefined, 'Remove entity')
-            .onDone(this.onCreateOrRemoveEntity.bind(this))
-            .commit()
-
-        this.history.commitTransaction()
+            this.history
+                .updateMap(this.entities, entity.entityNumber, undefined, 'Remove entity')
+                .onDone(this.onCreateOrRemoveEntity.bind(this))
+                .commit()
+        })
     }
 
     public removeEntities(entities: Entity[]): void {
-        this.history.startTransaction('Remove entities')
-        for (const e of entities) {
-            this.removeEntity(e)
-        }
-        this.history.commitTransaction()
+        this.history.transaction('Remove entities', () => {
+            for (const e of entities) {
+                this.removeEntity(e)
+            }
+        })
     }
 
     public fastReplaceEntity(name: string, direction: number, position: IPoint): boolean {
@@ -646,24 +700,22 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         if (!entity) return false
 
-        this.history.startTransaction('Fast replace entity')
+        this.history.transaction('Fast replace entity', () => {
+            const connections = this.wireConnections.getEntityConnections(entity.entityNumber)
 
-        const connections = this.wireConnections.getEntityConnections(entity.entityNumber)
+            this.removeEntity(entity)
 
-        this.removeEntity(entity)
+            this.createEntity({
+                name,
+                direction,
+                position: entity.position,
+                entity_number: entity.entityNumber,
+            }).pasteSettings(entity)
 
-        this.createEntity({
-            name,
-            direction,
-            position: entity.position,
-            entity_number: entity.entityNumber,
-        }).pasteSettings(entity)
-
-        for (const conn of connections) {
-            this.wireConnections.create(conn)
-        }
-
-        this.history.commitTransaction()
+            for (const conn of connections) {
+                this.wireConnections.create(conn)
+            }
+        })
 
         return true
     }
@@ -683,33 +735,29 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     public createTiles(name: string, positions: IPoint[]): void {
-        this.history.startTransaction('Create tiles')
-
-        for (const p of positions) {
-            const tile = new Tile(name, p.x, p.y)
-            this.history
-                .updateMap(this.tiles, tile.hash, tile, 'Create tile')
-                .onDone(this.onCreateOrRemoveTile.bind(this))
-                .commit()
-        }
-
-        this.history.commitTransaction()
+        this.history.transaction('Create tiles', () => {
+            for (const p of positions) {
+                const tile = new Tile(name, p.x, p.y)
+                this.history
+                    .updateMap(this.tiles, tile.hash, tile, 'Create tile')
+                    .onDone(this.onCreateOrRemoveTile.bind(this))
+                    .commit()
+            }
+        })
     }
 
     public removeTiles(positions: IPoint[]): void {
-        this.history.startTransaction('Remove tiles')
-
-        positions
-            .map(p => this.tiles.get(`${p.x},${p.y}`))
-            .filter(tile => !!tile)
-            .forEach(tile => {
-                this.history
-                    .updateMap(this.tiles, tile.hash, undefined, 'Remove tile')
-                    .onDone(this.onCreateOrRemoveTile.bind(this))
-                    .commit()
-            })
-
-        this.history.commitTransaction()
+        this.history.transaction('Remove tiles', () => {
+            positions
+                .map(p => this.tiles.get(`${p.x},${p.y}`))
+                .filter(tile => !!tile)
+                .forEach(tile => {
+                    this.history
+                        .updateMap(this.tiles, tile.hash, undefined, 'Remove tile')
+                        .onDone(this.onCreateOrRemoveTile.bind(this))
+                        .commit()
+                })
+        })
     }
 
     private onCreateOrRemoveTile(newValue: Tile | undefined, oldValue: Tile | undefined): void {
@@ -876,58 +924,59 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         // Apply Changes
         this.history.logging = false
-        this.history.startTransaction('Generate Oil Outpost')
+        try {
+            this.history.transaction('Generate Oil Outpost', () => {
+                for (const pipe of GP.pipes) {
+                    this.createEntity(pipe)
+                }
+                const e = FD.entities['beacon']
+                const inventory = getModuleInventoryIndex(e)
+                if (inventory === null) {
+                    throw new Error('beacon has no module inventory')
+                }
+                const beacon_module_slots = (hasModuleFunctionality(e) && e.module_slots) || 0
+                const items: BlueprintInsertPlan[] = []
+                const in_inventory: InventoryPosition[] = []
+                for (let i = 0; i < beacon_module_slots; i++) {
+                    in_inventory.push({
+                        inventory,
+                        stack: i,
+                    })
+                }
+                items.push({
+                    id: { name: BEACON_MODULE },
+                    items: { in_inventory },
+                })
+                for (const beacon of beacons) {
+                    this.createEntity({
+                        ...beacon,
+                        items,
+                    })
+                }
+                for (const pole of GPO.poles) {
+                    this.createEntity(pole)
+                }
 
-        for (const pipe of GP.pipes) {
-            this.createEntity(pipe)
-        }
-        const e = FD.entities['beacon']
-        const inventory = getModuleInventoryIndex(e)
-        if (inventory === null) {
-            throw new Error('beacon has no module inventory')
-        }
-        const beacon_module_slots = (hasModuleFunctionality(e) && e.module_slots) || 0
-        const items: BlueprintInsertPlan[] = []
-        const in_inventory: InventoryPosition[] = []
-        for (let i = 0; i < beacon_module_slots; i++) {
-            in_inventory.push({
-                inventory,
-                stack: i,
+                this.wireConnections.generatePowerPoleWires()
+
+                for (const p of GP.pumpjacksToRotate) {
+                    // Created by this same method a few lines up, so its absence would
+                    // mean the generator returned a number we never placed.
+                    const entity = this.entities.get(p.entity_number)
+                    if (entity === undefined) {
+                        throw new Error(`generator returned unknown entity ${p.entity_number}`)
+                    }
+                    entity.direction = p.direction
+                    if (PUMPJACK_MODULE !== 'none') {
+                        entity.modules = Array.from<string>({ length: entity.moduleSlots }).fill(
+                            PUMPJACK_MODULE
+                        )
+                    }
+                }
             })
+        } finally {
+            this.history.logging = true
         }
-        items.push({
-            id: { name: BEACON_MODULE },
-            items: { in_inventory },
-        })
-        for (const beacon of beacons) {
-            this.createEntity({
-                ...beacon,
-                items,
-            })
-        }
-        for (const pole of GPO.poles) {
-            this.createEntity(pole)
-        }
-
-        this.wireConnections.generatePowerPoleWires()
-
-        for (const p of GP.pumpjacksToRotate) {
-            // Created by this same method a few lines up, so its absence would
-            // mean the generator returned a number we never placed.
-            const entity = this.entities.get(p.entity_number)
-            if (entity === undefined) {
-                throw new Error(`generator returned unknown entity ${p.entity_number}`)
-            }
-            entity.direction = p.direction
-            if (PUMPJACK_MODULE !== 'none') {
-                entity.modules = Array.from<string>({ length: entity.moduleSlots }).fill(
-                    PUMPJACK_MODULE
-                )
-            }
-        }
-
-        this.history.commitTransaction()
-        this.history.logging = true
 
         // Create visualizations
         if (!DEBUG) return
@@ -988,6 +1037,15 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         this.history.startTransaction('Generate blueprint icons')
 
+        /*
+            No local `setIcon` shadow here - the class's own `setIcon` above
+            already derives `{name, type: deriveSignalType(name)}` for a
+            fresh name (issue #264) and routes through History, so it does
+            everything the old private helper did plus the undo/`'icon'`
+            wiring this method exists to add (#243 review). Both fixes
+            compose through the one method.
+        */
+
         /** returns [iconName, count][] */
         const getIconPairs = (
             tilesOrEntities: (Tile | Entity)[],
@@ -1013,20 +1071,32 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 (a, b) => getItemScore(b) - getItemScore(a)
             )
 
-            this.setIcon(1, iconPairs[0][0])
-            if (
-                iconPairs[1] &&
-                getSize(iconPairs[1][0]) > 1 &&
-                getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
-            ) {
-                this.setIcon(2, iconPairs[1][0])
+            if (iconPairs.length === 0) {
+                // No entity here can be mined into an item - name the icon
+                // after the first entity anyway rather than leaving the
+                // blueprint iconless. Not a bare `return`: that would skip
+                // `commitTransaction()` below and leave the transaction open.
+                this.setIcon(1, this.entities.valuesArray()[0].name)
+            } else {
+                this.setIcon(1, iconPairs[0][0])
+                if (
+                    iconPairs[1] &&
+                    getSize(iconPairs[1][0]) > 1 &&
+                    getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
+                ) {
+                    this.setIcon(2, iconPairs[1][0])
+                }
             }
         } else if (!this.tiles.isEmpty()) {
             const iconPairs = getIconPairs(this.tiles.valuesArray(), Tile.getItemName).sort(
                 (a, b) => b[1] - a[1]
             )
 
-            this.setIcon(1, iconPairs[0][0])
+            // Defensive only: every current tile has an item, and Factorio has
+            // no tile signal type to use as a schema-valid fallback.
+            if (iconPairs.length > 0) {
+                this.setIcon(1, iconPairs[0][0])
+            }
         }
 
         this.history.commitTransaction()
@@ -1200,20 +1270,13 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             },
             name: tile.name,
         }))
-        const iconData = [...this.icons.entries()].map(([index, icon]) => {
-            const getItemTypeForBp = (name: string): SignalType => {
-                if (FD.signals[name]) return 'virtual'
-                if (FD.fluids[name]) return 'fluid'
-                if (FD.recipes[name]) return 'recipe'
-                if (FD.entities[name]) return 'entity'
-                return 'item'
-            }
-
-            return {
-                signal: { type: getItemTypeForBp(icon), name: icon },
-                index,
-            }
-        })
+        // The stored signal goes out as it came in. Nothing is re-derived here:
+        // a generated icon got its type at `generateIcons`, and a parsed one
+        // has carried the blueprint's own choice since the constructor.
+        const iconData = [...this.icons.entries()].map(([index, signal]) => ({
+            signal: { ...signal },
+            index,
+        }))
         /*
             Measured against Factorio 2.0.77 (issue #226, tools/oracle/probe-
             blueprint-snapping.mjs), not reasoned about - the first version of

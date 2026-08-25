@@ -1,4 +1,4 @@
-import Ajv, { ErrorObject, KeywordDefinition } from 'ajv'
+import Ajv, { KeywordDefinition } from 'ajv'
 import * as pako from 'pako'
 import { IBlueprint, IBlueprintBook, IBlueprintBookEntry } from '../types'
 import G from '../common/globals'
@@ -60,20 +60,6 @@ class CorruptedBlueprintStringError {
 
 class BookWithNoBlueprintsError {
     public error = 'Blueprint book contains no blueprints!'
-}
-
-class ModdedBlueprintError {
-    public errors: ErrorObject[]
-    public constructor(errors: ErrorObject[]) {
-        this.errors = errors
-    }
-}
-
-class TrainBlueprintError {
-    public errors: ErrorObject[]
-    public constructor(errors: ErrorObject[]) {
-        this.errors = errors
-    }
 }
 
 const keywords: KeywordDefinition[] = [
@@ -344,8 +330,6 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
 }
 
 export {
-    ModdedBlueprintError,
-    TrainBlueprintError,
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
     encode,

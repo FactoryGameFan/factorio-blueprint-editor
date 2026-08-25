@@ -103,7 +103,29 @@ cd packages/website && npm run build:analyze
 
 ## Vite+ Toolchain
 
-`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.8 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
+`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH:
+
+```fish
+curl -fsSL https://vite.plus -o vp-install.sh; and env VP_HOME=$HOME/.vite-plus VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh; and rm vp-install.sh
+```
+
+Then add `~/.vite-plus/bin` to PATH.
+
+**The variables have to come before `bash`, not before `curl`.** This line used
+to read `VP_VERSION=0.2.8 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus |
+bash`, and that form does not set the version at all: an assignment ahead of a
+command applies to that command alone, so `curl` got it and the `bash` on the
+far side of the pipe read an empty string. Measured with a stub script, which
+printed `VP_VERSION=[]`. So the documented command installed whatever the
+bootstrap defaults to instead of the pinned release - the same "green, and
+wrong" split described under Version Constraints, where your local `vp` is a
+different toolchain from the one the lockfile and CI use, and nothing says so.
+
+`VP_HOME` is set for the reason `setup-vp/action.yml` sets it: from 0.3.0 the
+installer writes to XDG paths instead, which leaves `~/.vite-plus/bin` empty and
+`vp` off PATH. The installer defaults to `latest` whenever the variable does not
+reach it - `VP_VERSION="${VP_VERSION:-latest}"`, read off the script itself - and
+`latest` is 0.3.0 as of 2026-08-25, so the old line lands in exactly that trap.
 
 ## Git and PR Conventions
 
@@ -682,11 +704,16 @@ justifies a hold expires without anyone editing this file.
 
 ### Coupled - these move together or not at all
 
-- **`vite-plus` 0.2.8 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
+- **`vite-plus` 0.2.9 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
   and Vitest are **not independently upgradable** - there is no `vite` package in
   the tree at all, the root `overrides` aliases it
-  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.8"`). So "bump vitest" has no
-  answer except "bump vite-plus". 0.2.8 is `latest`, measured 2026-08-11.
+  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.9"`). So "bump vitest" has no
+  answer except "bump vite-plus". 0.2.9 is **not** `latest`: 0.3.0 shipped
+  2026-08-24 and `npm view vite-plus dist-tags` gave it on 2026-08-25. A gap of
+  a day or two is what the cooldown below is for, so read it as the hold
+  working. **This entry has now gone stale twice** - it said 0.2.6 while 0.2.8
+  shipped, then said 0.2.8 while the repo moved to 0.2.9 - which is the whole
+  argument for re-measuring instead of reading the number here.
   **Renovate tracks it now, on a 24-hour cooldown** - it did not until
   2026-08-11, and the thirteen days it did not are the reason this entry is
   worth reading. `renovate.json5` had it `enabled: false`, so the pin sat at
@@ -710,11 +737,17 @@ justifies a hold expires without anyone editing this file.
   website `package.json`; the root `overrides`; and
   `.github/actions/setup-vp/action.yml`, which carries both `VP_VERSION`, a cache
   key, **and a sha256 of the installer script** - the part people forget.
-  Measured across 0.2.6 -> 0.2.8, the installer checksum did **not** move: it
-  pins the mutable bootstrap script at `https://vite.plus`, which is versioned
-  independently of the toolchain, so a bump usually touches `VP_VERSION` and the
-  cache key and leaves the hash alone. Re-fetch and re-hash anyway rather than
-  assuming - the whole point of the pin is that the script can change silently.
+  Measured across 0.2.6 -> 0.2.8, the installer checksum did **not** move, and
+  that reassurance is what made the next one expensive. The hash pins the
+  mutable bootstrap script at `https://vite.plus`, which is versioned
+  independently of the toolchain - so on 2026-08-24 the script rotated on its
+  own, `VP_VERSION` untouched, and **every job on every branch** failed at
+  `Set up Vite+` with `sha256sum: WARNING: 1 computed checksum did NOT match`.
+  That is the pin doing its job, not breaking; #260 re-took the hash and pinned
+  the install layout with `VP_HOME` at the same time. So the rule runs both
+  ways: a bump often leaves the hash alone, **and the hash can move with no bump
+  at all**. Re-fetch and re-hash rather than assuming - the whole point of the
+  pin is that the script can change silently.
 - **`@playwright/test`** needs `npx playwright install` in the same commit as any
   bump, or every spec fails on a missing `chrome-headless-shell` and reads as a
   suite-wide regression.
@@ -831,9 +864,10 @@ one per package that has earned it.
   which swapped the lzma backend from `xz2` to `liblzma` and so looked exactly
   like the case this note was written for.
 - `ajv` is ~100 kB minified and **nothing branches on its result** - the load
-  proceeds identically either way, and `ModdedBlueprintError` /
-  `TrainBlueprintError` are declared, exported, handled, and never thrown. Decide
-  what blueprint validation is _for_ before optimising it.
+  proceeds identically whether validation passes or fails. It used to carry
+  `ModdedBlueprintError` and `TrainBlueprintError` too, both declared, exported,
+  handled and never thrown; #262 deleted them, so the ~100 kB is all that is
+  left. Decide what blueprint validation is _for_ before optimising it.
 
 ## Playwright Blueprint Diagnostics
 
@@ -951,7 +985,7 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 
 - Train entity sprites use 256-direction spritesheets mapped to 4 cardinal directions - orientation is approximate
 - Complex visualizations (crane arms, plasma effects, thruster flames) show only static base sprites
-- Blueprint book icons using planet names show no icon
+- **A planet icon name resolves to nothing, and on a path with no `try` above it that is a throw rather than a missing icon.** `F.CreateIcon` looks a name up in `FD.items`, `FD.fluids`, `FD.recipes`, `FD.signals` and `FD.inventoryLayout`, then ends in a bare `throw` when it is in none of them. `data.json` exports no planet prototype at all - `vulcanus`, `fulgora`, `gleba` and `nauvis` appear across those five collections a combined **zero** times - so every planet icon reaches that throw. 19 icon references in the corpus use those four names, 17 of them at blueprint level, across 5 of the 12 files. This line used to say only that such an icon does not draw, which is true of the callers that already catch and not of the ones that do not. Tracked as issue #231. Issue #264 fixed the **serialized** half and not this one: a planet icon used to be written back out as `{"type":"item"}`, naming an item that does not exist, and now keeps `space-location` - but it still cannot be drawn, because what is missing is the prototype rather than the type
 - Some entity types may have missing or incorrectly mapped textures
 - **`strict: true` is on and every package is clean** - editor, website and worker all type-check at 0, and `vp check` enforces it in CI (issues #22 and #77, both closed). The last flag was `strictPropertyInitialization` at 24 errors across 13 files; two of them were live bugs rather than annotations, and are worth knowing about because the same shape recurs. `Checkbox` and `Slider` had guarded setters their constructors called (`if (this.m_Checked !== checked)`) that ran **only** because the field started undefined, so simply adding an initialiser stopped `new Checkbox(false)` drawing anything at all; and `EntitySprite.__zIndex` was left unset for every splitter, underground-belt and loader sprite that was not the main belt, so `compareFn` computed `undefined - undefined` and sorted them on NaN. Use `need(e, 'field')` in the sprite builder rather than reading an optional prototype field directly
 - `util.getDirName` throws for non-cardinal directions, so any `draw_*` that calls it fails for an entity placed diagonally and renders a placeholder box. `railgun-turret` hits this: the test corpus places it at directions 2 and 14. Pinned as current behaviour in `tests/__fixtures__/sprite-data.json`
@@ -959,3 +993,4 @@ Mobile devices get a read-only viewer with touch gestures (single-finger pan, pi
 - Mobile is view-only - no editing, inventory, or keyboard shortcuts
 - Buffer and requester chests show **30** filter slots, three rows of the game's own `logistic_slots_per_row`. Neither declares `max_logistic_slots` and a 2.0 logistic section has no fixed count, so there is no number to read: only the _width_ comes from the data, and the three rows are a chosen default (issue #93, closed). `filterSlots` is a **floor**, raised by `Math.max` to whatever the blueprint arrived holding, so it is not constant for a given entity - anything caching it must clamp, which is what `Filters.m_SlotCount` is for. What an entity can actually hold is `maxFilters`, and that is what every writer reads
 - `IFilter` carries `quality`/`comparator`/`max_count` as of issue #88, so those survive read -> model -> write including paste. There is still **no way to set a quality** - nothing in the UI offers a picker - so the editor round-trips what a blueprint arrived with and no more. Note absent is not the same as `normal`: Factorio reads a filter with no quality as accepting any quality. `set logisticChestFilters` layers the incoming filter over the one the slot already held, so a caller that knows a field sets it and one that does not leaves it alone; that preservation is what lets a partial write exist at all
+- **The editor round-trips a blueprint's icons and cannot set one.** Nothing in the UI offers an icon picker, so what comes out is what arrived, or the one `generateIcons` invents for a blueprint that carried none. As of issue #264 a parsed icon keeps the exact signal it arrived with, an omitted `type` included - Factorio omits it for an item, and 383 of the corpus's 1034 icons do. Only a **generated** icon has a type derived, by `deriveSignalType`, whose order is measured rather than chosen: scored against what the game itself wrote for the 152 distinct icon names in `test-blueprints/`, checking `FD.items` first is right for 148 where the old order was right for 55. It deliberately has no `space-location` arm, because `generateIcons` only ever passes an item name or an entity prototype name and no planet is either, so such an arm would be unreachable

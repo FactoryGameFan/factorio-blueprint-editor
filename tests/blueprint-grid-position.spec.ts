@@ -299,7 +299,7 @@ test('undo reverts the exported shift one commit at a time, X and Y separately',
         X and Y into a single write could still pass a check that only
         looked at the state after two undos.
     */
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+KeyZ')
     const exportedAfterOneUndo = await exportedPositionsOf(page)
     const minX = Math.min(...exportedAfterOneUndo.map(p => p.x))
     const minY = Math.min(...exportedAfterOneUndo.map(p => p.y))
@@ -308,7 +308,7 @@ test('undo reverts the exported shift one commit at a time, X and Y separately',
     expect(-Math.floor(minX)).toBe(3)
     expect(-Math.floor(minY)).not.toBe(4)
 
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+KeyZ')
     const exportedAfterTwoUndos = await exportedPositionsOf(page)
     expect(exportedAfterTwoUndos).toEqual(exportedBefore)
 })

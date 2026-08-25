@@ -102,13 +102,13 @@ const TEXT_EDIT_KEYS = ['A', 'C', 'V', 'X', 'Z'] as const
  */
 const CHORD = new RegExp(
     `\\.press\\(\\s*['"\`]((?:Control|Meta)\\+(?:Key)?(?:${TEXT_EDIT_KEYS.join('|')}))['"\`]`,
-    'g'
+    'gi'
 )
 
 interface AllowedChord {
     /** File name relative to tests/, e.g. `chest-filters.spec.ts`. */
     file: string
-    /** The exact matched text, e.g. `Control+KeyZ`. */
+    /** The matched chord, e.g. `Control+KeyZ`; compared case-insensitively. */
     chord: string
     /** Why this one is right as written. Required: it is the whole mechanism. */
     reason: string
@@ -128,6 +128,23 @@ const ALLOWLIST: AllowedChord[] = [
             'ModifierKey is Control | Shift | Alt and there is no Meta binding. No ' +
             'DOM input has focus at that point in the spec.',
     },
+    {
+        file: 'blueprint-grid-position.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. Both presses follow blurToCanvas() " +
+            'and closing the dialog with Escape, so no DOM input has focus by then.',
+    },
+    {
+        file: 'blueprint-info-editor.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. Each press follows either a " +
+            'checkbox click, a click on the dialog title bar away from any field, ' +
+            'or no dialog interaction at all, so no DOM input has focus by then.',
+    },
 ]
 
 interface Found {
@@ -136,6 +153,8 @@ interface Found {
     chord: string
     text: string
 }
+
+const sameChord = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase()
 
 function specFiles(): string[] {
     return fs
@@ -158,7 +177,7 @@ function findChords(): Found[] {
 }
 
 const isAllowed = (f: Found): boolean =>
-    ALLOWLIST.some(a => a.file === f.file && a.chord === f.chord)
+    ALLOWLIST.some(a => a.file === f.file && sameChord(a.chord, f.chord))
 
 describe('platform-specific modifier chords in Playwright specs', () => {
     it('finds spec files to read, so a silent zero is not a pass', () => {
@@ -203,7 +222,7 @@ describe('platform-specific modifier chords in Playwright specs', () => {
         */
         const found = findChords()
         const stale = ALLOWLIST.filter(
-            a => !found.some(f => f.file === a.file && f.chord === a.chord)
+            a => !found.some(f => f.file === a.file && sameChord(f.chord, a.chord))
         )
 
         expect(
@@ -213,7 +232,7 @@ describe('platform-specific modifier chords in Playwright specs', () => {
         ).toEqual([])
     })
 
-    it('does not flag ControlOrMeta, which is the correct form', () => {
+    it('matches platform-specific press chords case-insensitively', () => {
         /*
             A control for the regex itself. If `ControlOrMeta+A` ever started
             matching, every corrected call site would turn red and the obvious
@@ -222,6 +241,8 @@ describe('platform-specific modifier chords in Playwright specs', () => {
         expect('await page.keyboard.press("ControlOrMeta+A")'.match(CHORD)).toBeNull()
         expect('await page.keyboard.press("Control+A")'.match(CHORD)).not.toBeNull()
         expect('await page.keyboard.press("Control+KeyA")'.match(CHORD)).not.toBeNull()
+        expect('await page.keyboard.press("Control+z")'.match(CHORD)).not.toBeNull()
         expect('await page.keyboard.down("Control")'.match(CHORD)).toBeNull()
+        expect(sameChord('Control+KeyZ', 'control+keyz')).toBe(true)
     })
 })
