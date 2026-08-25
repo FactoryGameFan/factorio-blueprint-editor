@@ -17,7 +17,6 @@ export default defineConfig({
             // wrangler-generated worker-configuration.d.ts that is absent on a
             // fresh checkout (e.g. CI), which oxlint reports as an invalid tsconfig.
             'packages/worker',
-            'functions/corsproxy.js',
         ],
         rules: {
             'constructor-super': 'error',
