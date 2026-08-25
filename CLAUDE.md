@@ -2,7 +2,11 @@
 
 ## Project Overview
 
-Web-based Factorio blueprint viewer/editor using PixiJS. Fork adding Space Age DLC support on branch `wormeyman-space-age-support`. Upstream repo: `teoxoy/factorio-blueprint-editor`, tracking issue #268.
+Web-based Factorio blueprint viewer/editor using PixiJS, adding Factorio 2.0 and Space Age DLC support. Development happens on branch `wormeyman-space-age-support`.
+
+**This is its own project now, not a fork that tracks upstream.** It grew out of `teoxoy/factorio-blueprint-editor`, whose author stepped away in August 2026 (upstream issue #276) and asked forks to make their identity clear - naming the logo specifically. So the artwork, the loading screen, the corner-panel mark and the favicon are this project's own, and nothing here should reintroduce upstream's. GitHub still models the repo as a fork; detaching it is a Support ticket, tracked in `docs/superpowers/specs/2026-08-05-hard-fork-design.md`. Upstream's tracking issue #268 for Space Age is historical - nobody is reading it. The one thing that stays is attribution: the MIT notice keeps teoxoy's copyright line, and the README keeps crediting him.
+
+The identity assets are **generated** by `tools/logo/generate-logo.py` and regenerated rather than hand-edited: the wordmark is outlined from the Titillium Web the site already ships, because an SVG loaded through `<img>` cannot use the page's fonts, so those paths are machine output. Nothing under `tests/` reads any of them, so a broken asset is green everywhere and only shows on screen.
 
 ## Monorepo Structure
 
@@ -497,6 +501,123 @@ JS template literal, so **a backtick in a Lua comment closes the template**. A
 matched pair on one line closes it and reopens it, which a scan for odd backtick
 counts cannot see. Cost a debugging round; there is a comment at that spot now.
 
+And what the blueprint GUI's **"Grid position"** field does (reviewing PR #243,
+`tools/oracle/fixtures/blueprint-grid-position-gui.json`), measured on
+**2.0.77** and the first probe here to need a person at the keyboard since the
+zoom one. The rule is `-floor(min corner) = T`, the corner taken over entity
+**edges** and tiles, and it is an **absolute target rather than a relative
+nudge** - setting 8,9 on top of 3,5 moved the corner to -8,-9 and not to
+-11,-14, which is the only thing that separates the two.
+
+**The headline is that this field is not the one above it, and reading the
+paragraph above as though it were is what cost a session.** The panel carries
+**three** X/Y pairs, not two:
+
+```
+☑ Snap to grid
+  Grid size        Width 12   Height 17    <- snap-to-grid
+  Grid position        X 3    Y 5          <- shifts the exported content
+  ● Absolute           X 9    Y 10         <- position-relative-to-grid
+  ○ Relative
+```
+
+Grid position writes **no key at all** into the export; it translates the entity
+and tile coordinates instead, which is why nothing in `runtime-api.json` reaches
+it and why the probe had to be interactive. `blueprint-snapping.json` above
+measured the **Absolute** row. Both fixtures are right and they answer different
+questions - the second carries a `supersedes` block saying so.
+
+Four things came out of it, and the first is the one to remember.
+
+- **When two measurements contradict, look for a name collision before believing
+  either.** The shipped `getGridPositionDisplay()` said grid position moves
+  entities; `blueprint-grid-position.json` scored that premise 0 of 2 on the
+  same 2.0.77. Neither was wrong. **Name the attribute, not the concept**,
+  wherever the game ships a label using the same words -
+  `factorio-oracle/docs/method.md` has this as its own section now, because its
+  PR #222 entry was true of the attribute and read as a refutation of the field.
+- **Decode the export; do not read one API attribute and stop.**
+  `blueprint_position_relative_to_grid` sat unchanged at 9,10 across every
+  capture while the exported entity coordinates moved on each one. Reading only
+  the attribute said "nothing is happening" for four rows running, which looked
+  exactly like a field the GUI was refusing to write.
+- **`getGridPositionDisplay()` reads centres where the game reads the tile
+  footprint edge**, so it is off by `floor(size/2)` on whichever axis a
+  multi-tile entity sets the minimum. A belt-edged blueprint agrees and an
+  assembler-edged one is a tile out. **The editor stays self-consistent, which
+  is what hides it**: `commitGridPosition` solves for the offset using the same
+  formula it reads back with, so the box always shows what was typed and no
+  round-trip inside the editor can expose it. Only a comparison against the
+  game can.
+- **Which edge took a second run, and the first one could not have answered
+  it.** Run 1 left two readings standing, footprint edge and collision-box
+  edge, because for every entity it placed the two floor to the same integer -
+  `assembling-machine-1` is 9.0 against 9.3. Separating them needs an entity
+  whose box escapes its own footprint, and almost none can: the editor derives
+  a footprint by _ceiling_ the box (`factorioData.ts:617`), so only a declared
+  `tile_width`/`tile_height` overrides that. Five of 155 entities manage it and
+  `half-diagonal-rail` is the only one splitting all three readings on one
+  axis. Run 2 scored two rows and each wrong reading missed by exactly one tile
+  on y in opposite directions: **the footprint edge wins**, and `getEntitySize`
+  already returns it. Note `tile_width` is not the field to reach for directly
+    - #142 established it is a centring parity rather than a size.
+- **A four-way analysis that leaves one survivor can still be wrong, and the
+  fix is to add the reading rather than to re-run.** Run 1 reported a single
+  surviving rule and it was overstated: the candidate that would have tied with
+  it had never been written down, so "one survivor" meant "one of the rules I
+  thought of". Adding the fifth reading made the _same_ data report two, which
+  is the honest answer. **The rival list is part of the instrument.**
+
+And a **fourth** thing, which is not about this field at all and is filed as
+#251: `data.json` disagrees with the running game about collision boxes for
+**every rail prototype and nothing else**. Of 155 entities, 139 agree to within
+one 1/256 step - Factorio's position quantum, not a finding - and all 16 that
+exceed it are rails, including each `dummy-` and `elevated-` variant, worst
+case 1.45 tiles on `legacy-curved-rail`, whose runtime box is not even
+symmetric where `data.json` says it is. Measured by
+`tools/oracle/probe-rail-box-orientation/`, a headless run written only to
+check one number a different probe hardcoded. **A control that asks "does the
+number I hardcoded match the game" is worth writing even when you expect it to
+pass.** That same probe also found the rail's box does _not_ rotate with
+direction and that a rail requested at (20,20) is placed at (21,21).
+
+The game also **validates this field three ways and the editor validates it
+none** (#252): it refused Grid position 3,5 on run 2's layout having accepted
+the same 3,5 on run 1's, so the parity rule depends on the blueprint's own
+content. Unmeasured on purpose - that the rules exist and are unimplemented is
+the finding.
+
+Three notes about running it rather than about the game. `control_lua_file` in a
+`probe.json` is **repo-relative and read against the shell's cwd**, not against
+the probe file, so an absolute `--probe` from elsewhere fails naming the Lua
+file rather than the cause; the `SESSION.md` command carries the `cd`. An
+interactive probe **ends when the person stops playing**, so the analyzer emits
+`stepsNotCaptured` - a fixture that simply omits a step reads as "this step does
+not exist" rather than "it was not run", which is the silent cap the method
+warns about. **That field then re-created the silent cap it was written to
+prevent**, which is the part worth remembering. The game refuses some grid
+positions, so the session says to substitute the nearest accepted value, and the
+analyzer suppressed the asked-for label so a substitution would not read as a
+skipped step. It did that with one boolean covering the whole `gridpos-` class,
+so two substitutions excused **three** missing steps and `gridpos-0-0` - the row
+that establishes the non-default check, and genuinely skipped - vanished from a
+list whose only job is to name what was skipped. A suppression rule needs to be
+as narrow as the thing it excuses: one substitution now excuses one missing step,
+counted rather than assumed. Found by review on PR #249, and only after the
+merge, so it shipped. And **a `]]` inside a `--[[` Lua comment closes it**: a probe
+header explaining a collision box in Lua table notation silently turned the
+rest of the file into code, so the mod never registered its `on_init` and the
+run reported "no oracle-dump.json was written" - the same message a
+`factorio_version` mismatch gives. What located it was running the CLI's own
+example probe as a **control**, and the tell in the log is a line that is
+_absent_: a working run prints `Checksum for script __<mod>__/control.lua`.
+
+`tools/oracle/fixtures` is exempt from oxfmt in `vite.config.ts` because of this
+probe: the generator writes `JSON.stringify(x, null, 4)` and oxfmt collapses
+short arrays, so whichever ran last won and the other reported a failure.
+**"Never hand-edit a fixture to make something pass" applies to a formatter as
+much as to a person.**
+
 ## Cloudflare Deployment
 
 The editor is deployed to Cloudflare Workers at https://fbe.factorygamefan.com (custom
@@ -759,6 +880,7 @@ Automated tests that load blueprint `.txt` files from `test-blueprints/` against
 - `tests/paste-cross-type-settings.spec.ts` - The cross-type half of #94, and the only coverage of `canPasteSettings` accepting a pair at all. `CROSS_TYPE_PASTE` in `Entity.ts` lists the pairs Factorio's own copy carries, each one probed rather than assumed (`tools/oracle/fixtures/copy-settings-cross-type.json`). **The request-amount formula recorded in #94 is wrong**: it says `min(amount, ceil(amount * speed / energy))` and the game does `floor(30 * amount * speed / energy)` - thirty seconds of production - which disagree on every case measured. Three details the probe settled and the spec pins: it floors (4.5 -> 4), modules count (a machine with two speed modules asks for **62** where the arithmetic says 63, float error the JS reproduces), and fluid ingredients are omitted rather than requested at zero. Note the cursor-box test, which exists because adding a type to `CROSS_TYPE_PASTE` that does no work passes every other test here - the copy cursor box is the only thing `canPasteSettings` shows a user, and it is drawn **only while the modifier is held**, so a check after releasing shift answers false for every pair. Its `hoverEntity` steps the pointer off the target before moving onto it: the editor recomputes the hover on a grid update, so moving to coordinates the pointer already occupies changes nothing, which bites when a second blueprint is loaded into the same page and puts an entity in the same place
 - `tests/toast-click-interception.spec.ts` - That a toast can take a click meant for the canvas, and that `tests/helpers/overlays.ts` stops it (issue #119). `.toasts-container` is `position: fixed; bottom: 0; right: 0; width: 320px; z-index: 20`, so every toast sits **on top of the editor**, and loading a blueprint raises one that lives five seconds - a click in that column goes to the toast `div`, pixi never sees a `pointerdown`, and the action behind it never fires. That made **nine** pointer-driven specs intermittent at roughly one full run in three, presenting as a paste that wrote nothing, which reads as a broken setter in whatever was last changed. Every spec that calls `page.mouse` now calls `suppressOverlays(page)` **before** `page.goto`. Two things worth knowing: the first test is a **control** that deliberately does _not_ suppress, because a test that only checked the suppressed case would pass just as happily if toasts stopped covering anything - mutation-checked, making the app's own container non-interactive fails that control; and neither test depends on an entity's position, since an earlier draft that put a chest under the toast column was measuring the viewport, the 96px-per-tile zoom and how many toasts happened to be stacked rather than the bug. A third thing, found by soaking the suite after #144: loading raises **three** toasts on **three different timers** - a `success` on 5s, an `info` on 10s and, a second later and prepended above both, the welcome toast on 30s - and both tests originally asserted on the **total count**. That made the suppressed half fail roughly one full run in six for a reason unrelated to the click, since the `success` toast expires on its own and takes the count down with it, and it made the control able to pass **without the click doing anything**, since the same expiry satisfies "the count went down". Both are now keyed to the **id** of the toast actually measured and clicked. The same fix closed a second latent race: `.first()` is a locator that re-resolves on every call, so a settle poll built on it can compare one toast's box against another's while the welcome toast arrives, and settle on a centre belonging to neither - hence settling on identity and geometry together
 - `tests/test-hook-readiness.spec.ts` - That `window.__fbe_test` appearing means the editor is _ready_, which every other spec assumes and nothing checked (issue #109). The hook used to be assigned synchronously while `editor.init()` - which fetches `data.json` and calls `loadData` - was still in flight, so a spec could win the race and run against an empty `FD`. That is what full runs failing two to five **random** specs was, each passing in isolation: `book-serialize`, `chest-editor`, `chest-filters`, `tiles`, `unknown-operator`, `paste-wires`, all with `Cannot read properties of undefined` from wherever they first touched the data. Warm, the window is 0ms wide and nothing fails, so this spec holds `data.json` back 1.5s with `page.route` rather than waiting for a slow day. Note it covers only the ordering; the other route to an empty `FD` in #109 - editing `factorioData.ts` with the dev server live, where HMR re-evaluates the module without re-running `loadData` - needs a file edit mid-run and is a separate mechanism with the same symptom
+- `tests/spec-modifier-keys.test.ts` - A text scan over the specs for `Control+A` and its four siblings (issue #208), and the only guard here whose bug **no runner can catch**. On macOS `Control+A` is the emacs "beginning of line" binding, not select-all. So nothing is selected, the typed text lands beside the old text, and the assertion reads `"New textOld text"`. It **passes on Linux**, and every runner this project has is `ubuntu-latest` - `vp test` and all four `e2e` shards - so the browser suite will go green on it forever. That is why this reads source instead of driving a browser. The rule is not "never write Control". A chord reaching the **app** through `actions.ts` stays `Control`, since `ModifierKey` there is `Control | Shift | Alt` and there is no Meta binding; a chord reaching a focused DOM `<input>` wants `ControlOrMeta`, because that binding differs by platform. A regex cannot tell the two apart, so it flags both and the `ALLOWLIST` carries the distinction in writing - one entry today, `chest-filters.spec.ts`'s undo. Three things it was shaped by. It matches the `.press(` **call form** rather than the bare text, because the first draft flagged the five-line comment at `display-panel-editor.spec.ts:160` that explains this exact trap, and a guard that fails on its own explanation gets the explanation deleted. The allowlist is checked in **both** directions, since an entry matching nothing is a justification for code that is gone. And a `Meta+` chord is flagged too, though nothing uses one today - it is the same mistake facing the other way. Note what makes the class worth a guard rather than a comment: the comment at the scene of the last occurrence did not reach the next contributor, who wrote `Control+A` in a different file (PR #222, `blueprint-grid-position.spec.ts:97`), which this catches at that exact line
 - `tests/helpers/encode-blueprint.ts` - `encodeBlueprint`/`encodeBlueprintBook`/`packVersion`, for the specs whose case cannot come from the corpus: a version other than the 2.0.32+ every file declares, a name deliberately absent from FD, or a book whose nesting the spec picked. `decodeBlueprintString` is the inverse, for asserting on what the editor encoded rather than on a reload - the difference matters for anything, like `active_index`, that a reload cannot see
 - `tests/helpers/fbe-test-api.ts` - The single `declare global` for `window.__fbe_test`, plus `waitForEditor`/`loadBlueprint`. TypeScript rejects two `declare global` blocks typing the same property differently, so a new hook goes here rather than in the spec that wants it
 - `tests/helpers/blueprint-files.ts` - Discovers `.txt` files from `test-blueprints/{collection}/`, in sorted order - `blueprint-round-trip.spec.ts` folds the corpus into one hash in iteration order, so readdir order would make that fixture machine-specific

@@ -2,17 +2,18 @@
 
 First of all, thanks for your interest in helping out! 😃
 
-**About this fork.** This is `wormeyman/factorio-blueprint-editor`, a fork of
-[`teoxoy/factorio-blueprint-editor`](https://github.com/teoxoy/factorio-blueprint-editor)
-adding Factorio 2.0 and Space Age support. Two things follow from that and are
-easy to get wrong:
+**Where you are.** This is `FactoryGameFan/factorio-blueprint-editor`, deployed at
+<https://fbe.factorygamefan.com>. It grew out of
+[`teoxoy/factorio-blueprint-editor`](https://github.com/teoxoy/factorio-blueprint-editor),
+which its author
+[stopped maintaining in August 2026](https://github.com/teoxoy/factorio-blueprint-editor/issues/276),
+and it adds Factorio 2.0 and Space Age support. Two things follow from that and
+are easy to get wrong:
 
 - The default branch is `wormeyman-space-age-support`, not `master`. Branch from
   it and target it with your pull request. CI only runs on that branch.
-- Issues and pull requests go to the fork. Upstream links in the README point at
-  Teoxoy's repo and deployment.
-
-The fork is deployed at <https://fbe.factorygamefan.com>.
+- Issues and pull requests belong here, not upstream. Nobody is reading them
+  there.
 
 ## Submitting an Issue
 
@@ -25,7 +26,7 @@ allows us to quickly confirm a bug (or point out a coding problem) as well as co
 that we are fixing the right problem.
 
 You can file new issues by selecting from our
-[new issue templates](https://github.com/wormeyman/factorio-blueprint-editor/issues/new/choose)
+[new issue templates](https://github.com/FactoryGameFan/factorio-blueprint-editor/issues/new/choose)
 and filling out the issue template.
 
 ## Submitting a Pull Request

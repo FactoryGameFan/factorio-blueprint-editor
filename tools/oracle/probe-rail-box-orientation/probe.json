@@ -1,0 +1,12 @@
+{
+    "mode": "create",
+    "mod": {
+        "name": "rail_box_orientation",
+        "version": "0.0.1",
+        "dependencies": ["base"],
+        "control_lua_file": "tools/oracle/probe-rail-box-orientation/control.lua"
+    },
+    "seed": 1,
+    "timeout_seconds": 180,
+    "capture_active_mods": true
+}

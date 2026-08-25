@@ -78,18 +78,29 @@
 // workflow trigger has to move with it or every bot PR arrives with no checks.
 {
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-    extends: [
-        'config:recommended',
-        // Pin every GitHub Action to a commit SHA rather than a moving tag, and keep
-        // the trailing `# vX.Y.Z` comment beside it updated. This repo currently uses
-        // moving tags in four places (actions/checkout@v7, actions/cache@v6 twice in
-        // .github/actions/setup-vp, cloudflare/wrangler-action@v4), so the first run
-        // after enabling opens one PR that re-pins all of them - expected, not a bug.
-        // It matches the posture already in setup-vp/action.yml, which pins the vp
-        // installer script by sha256 by hand for exactly this reason: a mutable
-        // reference can be re-pointed at new code with nothing in the repo changing.
-        'helpers:pinGitHubActionDigests',
-    ],
+    // The org preset supplies what used to be spelled out here: config:recommended,
+    // helpers:pinGitHubActionDigests, the America/Los_Angeles timezone, the
+    // 'before 6am on monday' batch, automerge:false, prConcurrentLimit/prHourlyLimit,
+    // dependencyDashboard, osvVulnerabilityAlerts, the rule that security fixes skip
+    // the weekly window, and a 'github actions' grouping.
+    // Source: https://github.com/FactoryGameFan/.github/blob/main/renovate-config.json
+    //
+    // Renovate cannot read a preset it has no access to, so FactoryGameFan/.github
+    // must stay ticked in the app installation alongside this repo. A preset that
+    // fails to resolve reads as 'no updates available' rather than as an error.
+    //
+    // ON THE ACTION SHA PINNING THE PRESET SUPPLIES, since the detail is local: this
+    // repo used moving tags in four places (actions/checkout@v7, actions/cache@v6
+    // twice in .github/actions/setup-vp, cloudflare/wrangler-action@v4), so the
+    // first run after enabling opened one PR re-pinning all of them - expected, not
+    // a bug. It matches the posture already in setup-vp/action.yml, which pins the
+    // vp installer script by sha256 by hand for exactly this reason: a mutable
+    // reference can be re-pointed at new code with nothing in the repo changing.
+    //
+    // NEW SIDE EFFECT OF THE PRESET: action bumps are now GROUPED into one PR
+    // instead of arriving one per action. Nothing here automerges, so this only
+    // changes how many PRs there are to read.
+    extends: ['local>FactoryGameFan/.github:renovate-config'],
 
     // A judgement call, not a constraint inherited from the package manager (see
     // the npm-not-pnpm note above). Three days is enough for a compromised or
@@ -97,7 +108,10 @@
     // that the weekly batch is not usually waiting on it.
     minimumReleaseAge: '3 days',
 
-    // NOTHING MERGES UNREAD. No exceptions, including GitHub Action digest re-pins.
+    // NOTHING MERGES UNREAD. `automerge: false` now comes from the org preset, but
+    // the reasoning stays here because it is stronger than the org default and the
+    // prerequisites for ever carving an exception are specific to this repo. No
+    // exceptions below, including GitHub Action digest re-pins.
     //
     // The local reason is specific and stronger than the usual one: CI runs
     // `vp check` (oxfmt + oxlint + tsc), `vp test` (vitest units + the type-check
@@ -134,25 +148,6 @@
     //      polling and merging the PR itself - the weaker path, because GitHub is
     //      no longer the thing gating the merge. This was found by watching a real
     //      Renovate PR sit unmerged with "Automerge: Enabled" in its body.
-    automerge: false,
-
-    dependencyDashboard: true,
-
-    // Without this the schedule below is UTC, so "before 6am on monday" fires
-    // around midnight Sunday local and reads as a bot running at random times.
-    timezone: 'America/Los_Angeles',
-
-    // One weekly batch instead of a trickle. To pull a run forward without editing
-    // this file, tick the "Check this box to trigger a request for Renovate to run
-    // again" checkbox on the dependency dashboard issue.
-    schedule: ['before 6am on monday'],
-
-    // The first run after enabling the app sees every pending update at once;
-    // without caps that is a dozen PRs in one morning, each triggering a CI run
-    // (measured at ~31s, so the cost is queue noise and review attention rather
-    // than minutes).
-    prConcurrentLimit: 3,
-    prHourlyLimit: 2,
 
     // `lockFileMaintenance` is an automated whole-lockfile re-resolve - effectively
     // `npm update` across every transitive package at once, with no manifest change
@@ -162,8 +157,12 @@
     // that installing the same target versions directly did not.
     lockFileMaintenance: { enabled: false },
 
-    // Security fixes must not wait for the weekly window. Without this block a CVE
-    // fix could sit ~10 days: up to 3 for the age floor, then up to 7 for Monday.
+    // The preset already clears the weekly window for security PRs, so a CVE fix
+    // cannot sit up to 7 days waiting for Monday. What stays here is the age floor.
+    //
+    // (`vulnerabilityAlerts` is a mergeable option, so setting `minimumReleaseAge`
+    // here keeps the preset's schedule override rather than replacing the block -
+    // verified against renovate's own config/utils.js, which the docs do not cover.)
     //
     // 25 hours rather than zero. Not zero because a malicious publish dressed as a
     // security fix wants a chance to be yanked before a bot proposes it; the wait
@@ -178,14 +177,12 @@
     // constraint - which means it can be lowered on its merits if a CVE ever makes
     // the extra hour matter.
     vulnerabilityAlerts: {
-        schedule: [],
         minimumReleaseAge: '25 hours',
     },
 
-    // GitHub's own advisories miss ecosystem-only reports; OSV catches more. This
-    // matters more than usual for the Rust side, which has no CI at all - see the
-    // cargo rule below.
-    osvVulnerabilityAlerts: true,
+    // (`osvVulnerabilityAlerts` comes from the preset. It matters more than usual
+    // here than the org default implies, because the Rust side has no CI at all -
+    // see the cargo rule below.)
 
     packageRules: [
         {

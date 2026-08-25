@@ -207,6 +207,14 @@ export default defineConfig({
             '.superpowers',
             '**/*.yml',
             '**/*.yaml',
+            // Oracle fixtures are machine output, and the two writers disagree
+            // on their canonical form: a generator emits JSON.stringify's
+            // 4-space expansion while oxfmt collapses short arrays onto one
+            // line, so whichever ran last wins and the other reports a
+            // failure. The generator owns these files - "never hand-edit a
+            // fixture to make something pass" applies to a formatter as much
+            // as to a person, since a reformat is a diff no probe produced.
+            'tools/oracle/fixtures',
         ],
     },
     test: {
