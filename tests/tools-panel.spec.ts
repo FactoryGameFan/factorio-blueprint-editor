@@ -151,3 +151,20 @@ test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) =
     expect(bounds.x).toBeGreaterThanOrEqual(0)
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(800)
 })
+
+test('ToolsPanel does not run off the left edge below its own width (#242 review)', async ({
+    page,
+}) => {
+    /*
+        `setPosition`'s `Math.min` alone only ever clamps the *right* edge -
+        below ~212px (the panel's own width, `24 + 38*5 - 2` for its 5
+        columns) `screen.width - this.width` goes negative, and nothing
+        stopped that from reaching `position.set`, pushing the panel off the
+        *left* edge instead of merely overlapping the quickbar the way the
+        800px case above does. 150px is inside that range.
+    */
+    await page.setViewportSize({ width: 150, height: 720 })
+
+    const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
+    expect(bounds.x).toBe(0)
+})

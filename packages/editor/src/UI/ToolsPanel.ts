@@ -139,9 +139,11 @@ const ROWS = 2
  * An icon that failed to build costs this one slot rather than the whole
  * panel - `F.CreateIcon`/`F.CreateUtilitySpriteIcon` throw by design for a
  * name FD does not have (see `need()` in `core/need.ts`), and nothing above
- * `generateSlots()` catches. Falls back to a blank square the same size as a
- * real icon, so the slot still exists and is still clickable; only the icon
- * itself is missing, named in a warning rather than silently swallowed.
+ * `generateSlots()` catches. Falls back to an empty, childless `Container` -
+ * not a drawn blank square, which this doc comment used to claim (#242
+ * review): it has no graphic of its own at all, so the slot still exists and
+ * is still clickable, but nothing is visible where the icon would have been.
+ * Named in a warning rather than silently swallowed either way.
  */
 function safeIcon(name: string, build: () => Container): Container {
     try {
@@ -259,13 +261,19 @@ export class ToolsPanel extends Panel {
     }
 
     /**
-     * Re-callable: clears whatever `slotsContainer` currently holds (and
-     * destroys it - `removeChildren()` alone only detaches, it does not
-     * release the GPU resources a re-generated panel would otherwise leak)
-     * before placing a freshly built set, and replaces the ticker rather than
-     * accumulating a second one. Nothing calls this a second time today, but
-     * nothing should have to trust that either - `QuickbarPanel.generateSlots`
-     * is the precedent this mirrors, for row-count changes.
+     * Re-callable: clears whatever `slotsContainer` currently holds - and
+     * calls `destroy()` on each removed child, since `removeChildren()`
+     * alone only detaches - before placing a freshly built set, and replaces
+     * the ticker rather than accumulating a second one. Bare `destroy()`
+     * with no options does not cascade to a child's own children, only to
+     * the immediate container (pixi's own `Container.destroy` doc comment,
+     * `{children: true, texture: true, textureSource: true}` is what
+     * reaches further) - a claim this used to make and got wrong (#242
+     * review) - so each slot's own icon `Sprite`/texture is not released
+     * here; only the slot container itself is. Nothing calls this a second
+     * time today, but nothing should have to trust that either -
+     * `QuickbarPanel.generateSlots` is the precedent this mirrors, for
+     * row-count changes.
      */
     public generateSlots(): void {
         this.placeCells(ToolsPanel.buildCells())
@@ -308,10 +316,20 @@ export class ToolsPanel extends Panel {
      * panel off-screen entirely below ~866px (`screen.width / 2 + 221 +
      * this.width > screen.width`, solved for `screen.width`). Below that
      * width the panel overlaps the quickbar instead of vanishing, which is
-     * the same trade-off a real user can still click through.
+     * the same trade-off a real user can still click through. Also clamped
+     * at 0: `screen.width - this.width` goes negative once the screen is
+     * narrower than the panel itself (below ~212px, `this.width` being
+     * `24 + 38*cols - 2` for `cols = ceil(9/2) = 5`), which without the
+     * lower bound pushed the panel off the *left* edge instead - worse than
+     * the overlap this comment already accepts, since a clamp to 0 is still
+     * fully on-screen and clickable where a negative one is not (#242
+     * review).
      */
     protected override setPosition(): void {
-        const x = Math.min(G.app.screen.width / 2 + 442 / 2, G.app.screen.width - this.width)
+        const x = Math.max(
+            0,
+            Math.min(G.app.screen.width / 2 + 442 / 2, G.app.screen.width - this.width)
+        )
         this.position.set(x, G.app.screen.height - this.height + 1)
     }
 }

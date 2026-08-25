@@ -397,13 +397,22 @@ function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = tru
     const size = typeof data.size === 'number' ? data.size : undefined
     const width = data.width ?? size
     const height = data.height ?? size
-    if (width === undefined || height === undefined) {
+    // `!width`/`!height` rather than `=== undefined` (#242 review): a
+    // literal 0 passed the old check (0 !== undefined) and reached
+    // `maxSize / width` below as a division by zero, an invalid scale no
+    // real sprite entry should produce - treated the same as missing.
+    if (!width || !height) {
         throw new Error(`No width/height/size for ${filename}`)
     }
 
     const texture = G.getTexture(filename, data.x ?? 0, data.y ?? 0, width, height)
     const sprite = new Sprite(texture)
-    sprite.scale.set(maxSize / width)
+    // By the larger of the two, not `width` alone (#242 review) - a
+    // non-square mip icon (this is the one caller that declares distinct
+    // width/height) scaled only against its width could still overflow
+    // `maxSize` on its taller axis; fitting both inside the box is what a
+    // caller passing `maxSize` as an icon slot's size actually wants.
+    sprite.scale.set(maxSize / Math.max(width, height))
     if (setAnchor) {
         sprite.anchor.set(0.5)
     }
