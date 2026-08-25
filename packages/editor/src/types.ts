@@ -14,7 +14,21 @@ export type NamedDirection8Way =
     | 'northwest'
 
 /** Interfaces and types for blueprint string JSON structure */
-export type SignalType = 'item' | 'virtual' | 'fluid' | 'recipe' | 'entity'
+/*
+    The full set `blueprintSchema.json` accepts. The last three arrived with
+    Space Age and were missing here, which was only a type error rather than a
+    runtime one - the values come from `JSON.parse`, so a `space-location`
+    signal decoded and rendered while this type said it could not exist.
+*/
+export type SignalType =
+    | 'item'
+    | 'virtual'
+    | 'fluid'
+    | 'recipe'
+    | 'entity'
+    | 'space-location'
+    | 'asteroid-chunk'
+    | 'quality'
 
 export type WireColor = 'copper' | 'red' | 'green'
 

@@ -182,12 +182,25 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
  * position checksums and every count held across that move, which is the
  * signature of names changing under identical geometry.
  *
- * Then from -883773190 to 825830683 here, when the corpus itself was swapped
+ * Then from -883773190 to 825830683, when the corpus itself was swapped
  * for test-blueprints/ (issue #186). That move is not a signature of
  * anything targeted - blueprints, entities, tiles, wires and icons all moved
  * with it, because a different set of blueprints is a different set of
  * blueprints. The hash changing is exactly what serializing different JSON
  * should do.
+ *
+ * Then from 825830683 to -1735753444 here, when icon signal types stopped
+ * being re-derived on the way out (issue #264). This one has the #40
+ * signature rather than the #186 one, and that is the argument for accepting
+ * it: every count held, `icons` included at 956, and both position checksums
+ * held, so no blueprint gained, lost or moved anything. Only the serialized
+ * JSON differs, in the one field that was being rewritten. Measured
+ * separately over the same corpus, 359 of those 956 icons used to change
+ * type across a round trip - 334 `item` to `recipe`, 17 `space-location` to
+ * `item`, 8 `item` to `fluid` - and after the fix 0 of 956 do. 383 of the
+ * corpus's 1034 icons omit `type` entirely, which Factorio does for items, so
+ * the absence had to survive too and the output now carries no type where the
+ * input carried none.
  */
 const EXPECTED = {
     blueprints: 367,
@@ -198,5 +211,5 @@ const EXPECTED = {
     threw: 0,
     positionChecksum: -44031602,
     modelPositionChecksum: -63968586,
-    serializedHash: 825830683,
+    serializedHash: -1735753444,
 }

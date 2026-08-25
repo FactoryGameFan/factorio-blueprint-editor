@@ -7,6 +7,7 @@ import {
     InventoryPosition,
     IPoint,
     ISchedule,
+    ISignal,
     ScheduleData,
     LogisticFilter,
     LogisticSection,
@@ -33,6 +34,35 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
     BEACONS: boolean
     MIN_AFFECTED_ENTITIES: number
     BEACON_MODULE: string
+}
+
+/**
+ * The signal type for a name the editor picked itself, in `generateIcons`.
+ *
+ * Only for that case. An icon that came from a blueprint keeps the type it
+ * arrived with, because this cannot reproduce it: `wooden-chest` is an item, a
+ * recipe and an entity at once, and nothing in the name says which was meant.
+ *
+ * The order is measured rather than chosen (issue #264). Scored against what
+ * Factorio itself wrote for the 152 distinct icon names in `test-blueprints/`,
+ * checking `FD.items` first is right for 148 of them where the previous order -
+ * recipes before entities, and `FD.items` never consulted at all - was right for
+ * 55.
+ *
+ * The 4 it still misses are planets, and they are deliberately not handled here.
+ * `generateIcons` only ever passes an item name (`minable.result`) or an entity
+ * prototype name, and no planet is either - checked against `data.json`, which
+ * exports no planet in any of its eleven collections. A planet icon therefore
+ * only ever arrives by being parsed, where its type is preserved rather than
+ * derived. A `space-location` arm here would be unreachable.
+ */
+function deriveSignalType(name: string): SignalType {
+    if (FD.items[name]) return 'item'
+    if (FD.signals[name]) return 'virtual'
+    if (FD.fluids[name]) return 'fluid'
+    if (FD.recipes[name]) return 'recipe'
+    if (FD.entities[name]) return 'entity'
+    return 'item'
 }
 
 const oilOutpostSettings: IOilOutpostSettings = {
@@ -96,7 +126,15 @@ export interface BlueprintEvents {
 /** Blueprint base class */
 class Blueprint extends EventEmitter<BlueprintEvents> {
     public name = 'Blueprint'
-    private readonly icons = new Map<1 | 2 | 3 | 4, string>()
+    /*
+        The whole signal, not just the name. An icon's type is a choice the
+        blueprint made, and a name cannot be relied on to reproduce it: most
+        placeable things are an item, a recipe and an entity at once, and the
+        planets are none of the three. Keeping only the name meant re-deriving
+        the type on the way out, which rewrote it for 37.6% of the corpus's
+        icons - see `deriveSignalType` and issue #264.
+    */
+    private readonly icons = new Map<1 | 2 | 3 | 4, ISignal>()
     public readonly wireConnections = new WireConnections(this)
     public readonly entityPositionGrid = new PositionGrid(this)
     public readonly entities = new OurMap<number, Entity>()
@@ -135,7 +173,10 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             if (data.icons) {
                 for (const icon of data.icons) {
                     if (!icon.signal.name) continue
-                    this.icons.set(icon.index, icon.signal.name)
+                    // Copied rather than aliased: `data` outlives this call for
+                    // a paste, and a shared signal object would let two
+                    // blueprints edit one icon.
+                    this.icons.set(icon.index, { ...icon.signal })
                 }
             }
 
@@ -737,6 +778,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
     /** behaves like in Factorio 0.17.14 */
     private generateIcons(): void {
+        // Only for an icon this method invents. A parsed one keeps the type it
+        // arrived with, which is the half no derivation can get right.
+        const setIcon = (index: 1 | 2, name: string): void => {
+            this.icons.set(index, { name, type: deriveSignalType(name) })
+        }
+
         /** returns [iconName, count][] */
         const getIconPairs = (
             tilesOrEntities: (Tile | Entity)[],
@@ -763,16 +810,16 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             )
 
             if (iconPairs.length === 0) {
-                this.icons.set(1, this.entities.valuesArray()[0].name)
+                setIcon(1, this.entities.valuesArray()[0].name)
                 return
             }
-            this.icons.set(1, iconPairs[0][0])
+            setIcon(1, iconPairs[0][0])
             if (
                 iconPairs[1] &&
                 getSize(iconPairs[1][0]) > 1 &&
                 getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
             ) {
-                this.icons.set(2, iconPairs[1][0])
+                setIcon(2, iconPairs[1][0])
             }
         } else if (!this.tiles.isEmpty()) {
             const iconPairs = getIconPairs(this.tiles.valuesArray(), Tile.getItemName).sort(
@@ -782,7 +829,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             // Defensive only: every current tile has an item, and Factorio has
             // no tile signal type to use as a schema-valid fallback.
             if (iconPairs.length === 0) return
-            this.icons.set(1, iconPairs[0][0])
+            setIcon(1, iconPairs[0][0])
         }
     }
 
@@ -882,20 +929,13 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             },
             name: tile.name,
         }))
-        const iconData = [...this.icons.entries()].map(([index, icon]) => {
-            const getItemTypeForBp = (name: string): SignalType => {
-                if (FD.signals[name]) return 'virtual'
-                if (FD.fluids[name]) return 'fluid'
-                if (FD.recipes[name]) return 'recipe'
-                if (FD.entities[name]) return 'entity'
-                return 'item'
-            }
-
-            return {
-                signal: { type: getItemTypeForBp(icon), name: icon },
-                index,
-            }
-        })
+        // The stored signal goes out as it came in. Nothing is re-derived here:
+        // a generated icon got its type at `generateIcons`, and a parsed one
+        // has carried the blueprint's own choice since the constructor.
+        const iconData = [...this.icons.entries()].map(([index, signal]) => ({
+            signal: { ...signal },
+            index,
+        }))
         return {
             icons: iconData,
             entities: this.entities.isEmpty() ? undefined : entityInfo,
