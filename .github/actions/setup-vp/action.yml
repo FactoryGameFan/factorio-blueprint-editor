@@ -26,11 +26,20 @@ runs:
       run: |
         # Pin + verify the installer instead of curl | bash. The vp binary and
         # vite-plus package are already version-pinned (VP_VERSION) and immutable
-        # via the npm registry; this also pins the mutable bootstrap script. Bump
-        # the VP_VERSION (here + the cache key above) and the checksum together
-        # when intentionally upgrading the toolchain.
+        # via the npm registry; this also pins the mutable bootstrap script.
+        #
+        # The two move independently, and this hash has now been bumped for each
+        # reason in turn. A toolchain upgrade bumps VP_VERSION (here + the cache
+        # key above) and usually leaves the hash alone - measured across
+        # 0.2.6 -> 0.2.8, where the script did not change at all. The other
+        # direction is what happened on 2026-08-25: the script rotated on its own
+        # with VP_VERSION untouched, so every job on every branch failed at this
+        # step until the hash was re-taken. That is the pin working, not breaking
+        # - a mismatch fails the step rather than running a script nobody read -
+        # but it does mean a red `Set up Vite+` is not necessarily the fault of
+        # the branch it appears on. Re-fetch, read the diff, then re-hash.
         curl -fsSL https://vite.plus -o vp-install.sh
-        echo "58bb052c6a007e662e99667d65686251b16d6b39aa21155487da6d51280b3d54  vp-install.sh" | sha256sum -c -
+        echo "3dd88cedb6d9b2665c305eda5413971417c8f183a819386148131b66a2cc6b2e  vp-install.sh" | sha256sum -c -
         VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh
