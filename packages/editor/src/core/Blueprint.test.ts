@@ -1,8 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
 import { Blueprint } from './Blueprint'
+import { encode, getAndClearLoadWarnings, getBlueprintOrBookFromSource } from './bpString'
 import { loadData } from './factorioData'
 
 beforeAll(() => {
+    // loadData permanently replaces FD's accessors. Vitest's per-file module
+    // isolation keeps this synthetic dataset from leaking into other test files.
     loadData(
         JSON.stringify({
             items: {},
@@ -30,7 +33,7 @@ beforeAll(() => {
 })
 
 describe('Blueprint icon generation', () => {
-    it('serializes without icons when every entity is non-minable', () => {
+    it('round-trips with an entity icon when every entity is non-minable', async () => {
         const blueprint = new Blueprint({
             entities: [
                 {
@@ -41,6 +44,17 @@ describe('Blueprint icon generation', () => {
             ],
         })
 
-        expect(blueprint.serialize().icons).toEqual([])
+        const icons = [
+            {
+                index: 1,
+                signal: { type: 'entity' as const, name: 'space-platform-hub' },
+            },
+        ]
+        expect(blueprint.serialize().icons).toEqual(icons)
+
+        const roundTripped = await getBlueprintOrBookFromSource(await encode(blueprint))
+
+        expect(getAndClearLoadWarnings()).toEqual([])
+        expect(roundTripped.serialize().icons).toEqual(icons)
     })
 })

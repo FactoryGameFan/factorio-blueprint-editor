@@ -762,7 +762,10 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 (a, b) => getItemScore(b) - getItemScore(a)
             )
 
-            if (iconPairs.length === 0) return
+            if (iconPairs.length === 0) {
+                this.icons.set(1, this.entities.valuesArray()[0].name)
+                return
+            }
             this.icons.set(1, iconPairs[0][0])
             if (
                 iconPairs[1] &&
@@ -776,6 +779,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 (a, b) => b[1] - a[1]
             )
 
+            // Defensive only: every current tile has an item, and Factorio has
+            // no tile signal type to use as a schema-valid fallback.
             if (iconPairs.length === 0) return
             this.icons.set(1, iconPairs[0][0])
         }
