@@ -38,8 +38,29 @@ runs:
         # - a mismatch fails the step rather than running a script nobody read -
         # but it does mean a red `Set up Vite+` is not necessarily the fault of
         # the branch it appears on. Re-fetch, read the diff, then re-hash.
+        #
+        # VP_HOME pins the monolithic ~/.vite-plus layout, which the two lines
+        # below hardcode (the PATH entry, and the cache `path:` above). It is a
+        # no-op at 0.2.9 - that is already where the installer puts things - and
+        # it is here for 0.3.0, which moves a default install to XDG paths
+        # (~/.local/share/vite-plus/bin). Measured: with VP_VERSION=0.3.0 and no
+        # VP_HOME, a sandboxed-HOME install lands in XDG and both lines below are
+        # wrong, so every job fails with `vp: command not found` - which reads as
+        # a broken toolchain rather than a wrong path.
+        #
+        # The installer does have a compatibility shim for this, and it does not
+        # cover us: it only fires when GITHUB_ACTION_REPOSITORY is
+        # voidzero-dev/setup-vp, and this is a hand-rolled composite action. What
+        # protects us today is only that a 0.2.9 payload cannot answer
+        # VP_DUMP_DIRS, so the installer falls back to the legacy layout. A 0.3.0
+        # payload can answer, so it will not fall back. And the vite-plus cache
+        # key carries the version with no restore-keys, so a bump is a guaranteed
+        # cache miss with no existing install to reuse - the break would be
+        # certain, not intermittent.
+        #
+        # So this line has to be here BEFORE VP_VERSION moves, not with it.
         curl -fsSL https://vite.plus -o vp-install.sh
         echo "3dd88cedb6d9b2665c305eda5413971417c8f183a819386148131b66a2cc6b2e  vp-install.sh" | sha256sum -c -
-        VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh
+        VP_HOME="$HOME/.vite-plus" VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh
