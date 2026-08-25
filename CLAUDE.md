@@ -103,7 +103,29 @@ cd packages/website && npm run build:analyze
 
 ## Vite+ Toolchain
 
-`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH - install with `VP_VERSION=0.2.8 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash` and add `~/.vite-plus/bin` to PATH.
+`vp` is the unified CLI for this project (check, lint, format, test, build). Configuration lives in the root `vite.config.ts` (`lint`, `fmt`, and `test` blocks); `lint.options.typeCheck` is true, which is what makes `vp check` a type check as well as a lint. The commands `npm run lint` and `npm run format` delegate to `vp` and require it on PATH:
+
+```fish
+curl -fsSL https://vite.plus -o vp-install.sh; and env VP_HOME=$HOME/.vite-plus VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh; and rm vp-install.sh
+```
+
+Then add `~/.vite-plus/bin` to PATH.
+
+**The variables have to come before `bash`, not before `curl`.** This line used
+to read `VP_VERSION=0.2.8 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus |
+bash`, and that form does not set the version at all: an assignment ahead of a
+command applies to that command alone, so `curl` got it and the `bash` on the
+far side of the pipe read an empty string. Measured with a stub script, which
+printed `VP_VERSION=[]`. So the documented command installed whatever the
+bootstrap defaults to instead of the pinned release - the same "green, and
+wrong" split described under Version Constraints, where your local `vp` is a
+different toolchain from the one the lockfile and CI use, and nothing says so.
+
+`VP_HOME` is set for the reason `setup-vp/action.yml` sets it: from 0.3.0 the
+installer writes to XDG paths instead, which leaves `~/.vite-plus/bin` empty and
+`vp` off PATH. The installer defaults to `latest` whenever the variable does not
+reach it - `VP_VERSION="${VP_VERSION:-latest}"`, read off the script itself - and
+`latest` is 0.3.0 as of 2026-08-25, so the old line lands in exactly that trap.
 
 ## Git and PR Conventions
 
@@ -682,11 +704,16 @@ justifies a hold expires without anyone editing this file.
 
 ### Coupled - these move together or not at all
 
-- **`vite-plus` 0.2.8 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
+- **`vite-plus` 0.2.9 pins the whole toolchain.** Vite, Rolldown, oxlint, oxfmt
   and Vitest are **not independently upgradable** - there is no `vite` package in
   the tree at all, the root `overrides` aliases it
-  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.8"`). So "bump vitest" has no
-  answer except "bump vite-plus". 0.2.8 is `latest`, measured 2026-08-11.
+  (`"vite": "npm:@voidzero-dev/vite-plus-core@0.2.9"`). So "bump vitest" has no
+  answer except "bump vite-plus". 0.2.9 is **not** `latest`: 0.3.0 shipped
+  2026-08-24 and `npm view vite-plus dist-tags` gave it on 2026-08-25. A gap of
+  a day or two is what the cooldown below is for, so read it as the hold
+  working. **This entry has now gone stale twice** - it said 0.2.6 while 0.2.8
+  shipped, then said 0.2.8 while the repo moved to 0.2.9 - which is the whole
+  argument for re-measuring instead of reading the number here.
   **Renovate tracks it now, on a 24-hour cooldown** - it did not until
   2026-08-11, and the thirteen days it did not are the reason this entry is
   worth reading. `renovate.json5` had it `enabled: false`, so the pin sat at
@@ -710,11 +737,17 @@ justifies a hold expires without anyone editing this file.
   website `package.json`; the root `overrides`; and
   `.github/actions/setup-vp/action.yml`, which carries both `VP_VERSION`, a cache
   key, **and a sha256 of the installer script** - the part people forget.
-  Measured across 0.2.6 -> 0.2.8, the installer checksum did **not** move: it
-  pins the mutable bootstrap script at `https://vite.plus`, which is versioned
-  independently of the toolchain, so a bump usually touches `VP_VERSION` and the
-  cache key and leaves the hash alone. Re-fetch and re-hash anyway rather than
-  assuming - the whole point of the pin is that the script can change silently.
+  Measured across 0.2.6 -> 0.2.8, the installer checksum did **not** move, and
+  that reassurance is what made the next one expensive. The hash pins the
+  mutable bootstrap script at `https://vite.plus`, which is versioned
+  independently of the toolchain - so on 2026-08-24 the script rotated on its
+  own, `VP_VERSION` untouched, and **every job on every branch** failed at
+  `Set up Vite+` with `sha256sum: WARNING: 1 computed checksum did NOT match`.
+  That is the pin doing its job, not breaking; #260 re-took the hash and pinned
+  the install layout with `VP_HOME` at the same time. So the rule runs both
+  ways: a bump often leaves the hash alone, **and the hash can move with no bump
+  at all**. Re-fetch and re-hash rather than assuming - the whole point of the
+  pin is that the script can change silently.
 - **`@playwright/test`** needs `npx playwright install` in the same commit as any
   bump, or every spec fails on a missing `chrome-headless-shell` and reads as a
   suite-wide regression.
