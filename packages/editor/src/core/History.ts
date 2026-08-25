@@ -199,6 +199,23 @@ export class History {
     private activeTransaction: Transaction | undefined
     private transactionHistory: Transaction[] = []
 
+    /**
+     * Changes by exactly ±1 on every `commitTransaction`, `undo` and `redo` -
+     * a cheap "did anything happen" signal for a caller that wants to react
+     * to edits without diffing the blueprint itself (`ExportDialog`'s own
+     * re-encode, see its doc comment). Not an identity for "which state is
+     * this": undo followed by a *different* commit truncates the redo tail
+     * and can land back on a number this already returned for the earlier,
+     * now-discarded state. That only matters to a caller polling coarsely
+     * enough to miss the intermediate value - one checking every rendered
+     * frame, as `ExportDialog` does, cannot land two history operations in
+     * the same frame under real input, so the collision is not reachable
+     * there in practice.
+     */
+    public get revision(): number {
+        return this.historyIndex
+    }
+
     /** Removes all history entries */
     public reset(): void {
         this.historyIndex = 0

@@ -130,6 +130,12 @@ export class UIContainer extends Container {
         this.dialogsContainer.addChild(this.exportDialog)
     }
 
+    /** `ExportDialog.encodeCount` for the currently open one, or undefined
+     * when none is open - see that getter's own doc comment. */
+    public get exportEncodeCount(): number | undefined {
+        return this.exportDialog?.encodeCount
+    }
+
     public createInventory(
         title: string | undefined,
         itemsFilter: string[] | undefined,

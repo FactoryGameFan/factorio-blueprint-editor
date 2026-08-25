@@ -50,6 +50,16 @@ export interface FbeTestApi {
     /** Opens ExportDialog. See tests/quick-actions.spec.ts. */
     openExportDialog: () => void
     /**
+     * How many times the open ExportDialog has actually re-encoded, or
+     * undefined when none is open - `ExportDialog.encodeCount`'s own doc
+     * comment explains why this exists: a re-encode of unchanged content is
+     * textually identical to no re-encode at all, so nothing about the
+     * field's own text can show whether the change-detection in the
+     * constructor is skipping needless work while idle. See
+     * tests/quick-actions.spec.ts.
+     */
+    exportEncodeCount: () => number | undefined
+    /**
      * `exportString`/`exportImage`'s own empty-blueprint guard result - the
      * only part of either that is safe to call from a spec, since a
      * non-empty blueprint would reach the OS clipboard or a file save. See

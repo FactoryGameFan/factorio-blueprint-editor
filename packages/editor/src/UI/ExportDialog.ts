@@ -13,10 +13,17 @@ const HEIGHT = FIELD_Y + FIELD_HEIGHT + PADDING
  * other dialog. */
 export const PLACEHOLDER = 'The current blueprint is empty.'
 
-// How long a re-encode is trusted before another one runs while the dialog
-// stays open - see the field's own re-encoding comment below for why this
-// exists at all, and why it isn't every tick.
-const REENCODE_INTERVAL_MS = 500
+/*
+    How long to wait after the blueprint stops changing before re-encoding -
+    see the field's own re-encoding comment below for why this exists at
+    all. Reused from the interval this replaced (#242 review): a full
+    serialize + deflate of the largest corpus blueprint measured at a 300-329
+    ms median, so firing on every single history transaction during a burst
+    of edits (a drag, a multi-entity delete) would each re-run that cost:
+    debouncing collapses a burst to one re-encode after it settles, the same
+    way a keystroke-driven text field would.
+*/
+const REENCODE_DEBOUNCE_MS = 500
 
 /**
  * Shows the loaded blueprint's string in a real textarea - readable and
@@ -27,7 +34,20 @@ const REENCODE_INTERVAL_MS = 500
  */
 export class ExportDialog extends Dialog {
     private readonly m_TextInput: TextInput
-    private m_LastEncodeAt = 0
+    private m_LastSeenRevision = -1
+    private m_DebounceTimer: ReturnType<typeof setTimeout> | undefined
+    private m_EncodeCount = 0
+
+    /** How many times `refreshText` has actually run a `serialize` +
+     * `deflate` this dialog's lifetime - the one thing that proves the
+     * change-detection in the constructor is doing its job rather than
+     * quietly falling back to encoding on every frame, which no assertion on
+     * the field's own text could show (a re-encode of unchanged content is
+     * textually identical to not encoding at all). See
+     * tests/quick-actions.spec.ts. */
+    public get encodeCount(): number {
+        return this.m_EncodeCount
+    }
 
     public constructor() {
         super(WIDTH, HEIGHT, 'Export')
@@ -65,32 +85,54 @@ export class ExportDialog extends Dialog {
         })
 
         this.refreshText({ select: true })
+        this.m_LastSeenRevision = G.bp.history.revision
 
         /*
             The field is encoded once at open and never touched again unless
             something reopens it - so a blueprint edited *behind* this dialog
             (it doesn't block the canvas) leaves a stale string on screen with
-            nothing indicating it. Re-encoding on every render tick would
-            re-run a full serialize + deflate of a multi-megabyte blueprint
-            up to 60 times a second for no visible benefit, so this instead
-            re-encodes on a plain interval while the dialog is open, which is
-            enough to keep the field honest without the per-frame cost -
-            cleared on destroy so it can't fire against a closed dialog. Never
-            re-selects: the field is read-only but still click-selectable, and
-            re-selecting the whole text every interval would fight a user
-            mid-way through selecting part of it by hand.
+            nothing indicating it. This used to re-encode on a plain 500 ms
+            interval regardless of whether anything had changed, which cost a
+            full serialize + deflate of the largest corpus blueprint (median
+            310 ms, ~62% of the main thread, 19 dropped frames) every cycle
+            the dialog sat open, purely idle, being read - measured in the
+            #242 review's follow-up pass. `History.revision` answers "did
+            anything happen" for the price of an integer compare, so this
+            polls that every frame instead (cheap enough to not need its own
+            interval) and only starts a re-encode once it actually moves.
+            Debounced rather than fired on the first change seen, because a
+            burst of history transactions (a drag, a multi-entity delete)
+            would otherwise re-run the same expensive encode once per
+            transaction in the burst; each further change during the debounce
+            window restarts it, so only the settled state after the burst
+            gets encoded. Both the frame listener and any pending debounce are
+            cleared on destroy so neither can fire against a closed dialog.
+            Never re-selects on this path: the field is read-only but still
+            click-selectable, and re-selecting the whole text out from under
+            a user mid-way through selecting part of it by hand would fight
+            them - see `select: true` only ever being passed on the initial
+            open above.
         */
-        const reencodeTick = (): void => {
-            const now = performance.now()
-            if (now - this.m_LastEncodeAt < REENCODE_INTERVAL_MS) return
-            this.refreshText({ select: false })
+        const changeTick = (): void => {
+            const revision = G.bp.history.revision
+            if (revision === this.m_LastSeenRevision) return
+            this.m_LastSeenRevision = revision
+
+            if (this.m_DebounceTimer !== undefined) clearTimeout(this.m_DebounceTimer)
+            this.m_DebounceTimer = setTimeout(() => {
+                this.m_DebounceTimer = undefined
+                this.refreshText({ select: false })
+            }, REENCODE_DEBOUNCE_MS)
         }
-        G.app.ticker.add(reencodeTick)
-        this.once('destroyed', () => G.app.ticker.remove(reencodeTick))
+        G.app.ticker.add(changeTick)
+        this.once('destroyed', () => {
+            G.app.ticker.remove(changeTick)
+            if (this.m_DebounceTimer !== undefined) clearTimeout(this.m_DebounceTimer)
+        })
     }
 
     private refreshText({ select }: { select: boolean }): void {
-        this.m_LastEncodeAt = performance.now()
+        this.m_EncodeCount += 1
         G.quickActions
             .encodeCurrent()
             .then(source => {

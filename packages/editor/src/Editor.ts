@@ -355,6 +355,11 @@ export class Editor {
         G.UI.toggleExportDialog()
     }
 
+    /** `UIContainer.exportEncodeCount`. See tests/quick-actions.spec.ts. */
+    public get exportEncodeCount(): number | undefined {
+        return G.UI.exportEncodeCount
+    }
+
     public get debug(): boolean {
         return G.debug
     }

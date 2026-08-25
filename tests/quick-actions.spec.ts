@@ -60,6 +60,15 @@ const ONE_ASSEMBLER = encode({
     entities: [{ entity_number: 1, name: 'assembling-machine-1', position: { x: 0.5, y: 0.5 } }],
 })
 
+const TWO_CHESTS = encode({
+    item: 'blueprint',
+    version: VERSION,
+    entities: [
+        { entity_number: 1, name: 'wooden-chest', position: { x: 0.5, y: 0.5 } },
+        { entity_number: 2, name: 'wooden-chest', position: { x: 8.5, y: 8.5 } },
+    ],
+})
+
 async function openImportDialog(page: Page): Promise<void> {
     await page.evaluate(() => window.__fbe_test.openImportDialog())
 }
@@ -345,4 +354,65 @@ test('exportGuardResult reports the guard without writing to the clipboard or st
     )
     expect(clipboardWrites).toEqual([])
     expect(downloadFired).toBe(false)
+})
+
+test('the export field re-encodes only when the blueprint actually changes, not on a blind interval (#242 review follow-up)', async ({
+    page,
+}) => {
+    /*
+        This used to re-encode on a plain 500 ms interval regardless of
+        whether anything had changed - measured at a 310 ms median re-encode
+        on the largest corpus blueprint, ~62% of the main thread and 19
+        dropped frames every cycle the dialog sat open, purely idle, being
+        read. `ExportDialog` now polls `History.revision` every frame (an
+        integer compare) and only starts a debounced re-encode once that
+        actually moves - see both doc comments.
+
+        Nothing about the field's own text can prove the idle half of this:
+        a re-encode of unchanged content is textually identical to no
+        re-encode at all, which is exactly why `encodeCount` exists - see
+        its own doc comment.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+
+    // The initial open-time encode.
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+
+    // Idle for well over two of the old 500 ms interval's cycles - nothing
+    // in the blueprint changed, so the count must not move.
+    await page.waitForTimeout(1300)
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+
+    const textBefore = await exportTextarea(page).inputValue()
+
+    /*
+        Delete entity 1 behind the still-open dialog - Ctrl + right-drag,
+        the same gesture tests/editor-mode-input.spec.ts documents.
+        ExportDialog does not block the canvas (its own doc comment), which
+        is the whole reason a stale field was reachable in the first place.
+        The 1px move after mouse-down is load-bearing: DELETE mode only
+        *defines* the selection-area callback on entry, a later pointermove
+        is what actually populates the entities under it, so a plain
+        down/up with no move in between selects and deletes nothing.
+    */
+    const at = await page.evaluate(() => window.__fbe_test.entityScreenPosition(1))
+    if (!at) throw new Error('entity 1 not found in the loaded blueprint')
+    await page.mouse.move(at.x, at.y)
+    await page.keyboard.down('Control')
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.move(at.x + 1, at.y)
+    await page.mouse.up({ button: 'right' })
+    await page.keyboard.up('Control')
+
+    // One history transaction, debounced to exactly one re-encode - not
+    // fired instantly (this is a wait for the debounce delay to elapse, not
+    // a race against it).
+    await expect
+        .poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount()), { timeout: 2000 })
+        .toBe(2)
+
+    const textAfter = await exportTextarea(page).inputValue()
+    expect(textAfter).not.toBe(textBefore)
+    expect(decodeBlueprintString(textAfter).blueprint.entities).toHaveLength(1)
 })

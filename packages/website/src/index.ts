@@ -343,6 +343,8 @@ const testApi = {
     openImportDialog: () => editor.openImportDialog(),
     /** Opens ExportDialog. See tests/quick-actions.spec.ts. */
     openExportDialog: () => editor.openExportDialog(),
+    /** `Editor.exportEncodeCount`. See tests/quick-actions.spec.ts. */
+    exportEncodeCount: () => editor.exportEncodeCount,
     /**
      * `exportString`/`exportImage`'s own guard result, without running
      * either - `!bp.isEmpty()` is the exact condition both functions open
