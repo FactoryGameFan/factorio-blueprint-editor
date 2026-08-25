@@ -831,9 +831,10 @@ one per package that has earned it.
   which swapped the lzma backend from `xz2` to `liblzma` and so looked exactly
   like the case this note was written for.
 - `ajv` is ~100 kB minified and **nothing branches on its result** - the load
-  proceeds identically either way, and `ModdedBlueprintError` /
-  `TrainBlueprintError` are declared, exported, handled, and never thrown. Decide
-  what blueprint validation is _for_ before optimising it.
+  proceeds identically whether validation passes or fails. It used to carry
+  `ModdedBlueprintError` and `TrainBlueprintError` too, both declared, exported,
+  handled and never thrown; #262 deleted them, so the ~100 kB is all that is
+  left. Decide what blueprint validation is _for_ before optimising it.
 
 ## Playwright Blueprint Diagnostics
 
