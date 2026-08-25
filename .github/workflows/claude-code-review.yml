@@ -12,11 +12,19 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip pull requests opened from a fork. GitHub withholds repository secrets
+    # from a `pull_request` event raised by a fork, so `CLAUDE_CODE_OAUTH_TOKEN`
+    # below resolves to an empty string and the action fails every time. That is
+    # not a misconfiguration this workflow can fix - it is what the event is for.
+    # Without this guard every fork PR opens with a red X that blocks nothing,
+    # which is how a real failure gets missed. Skipped shows grey instead.
+    #
+    # The alternative is `pull_request_target`, which would hand base-repo
+    # secrets to a fork's code. Do not reach for it here: every outside
+    # contribution to this repo arrives from a fork.
+    #
+    # In-repo branches, Renovate's included, still run.
+    if: github.event.pull_request.head.repo.full_name == github.repository
 
     runs-on: ubuntu-latest
     permissions:
