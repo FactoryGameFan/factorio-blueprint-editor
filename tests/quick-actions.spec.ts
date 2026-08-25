@@ -449,6 +449,21 @@ test('a burst of edits inside one debounce window collapses to a single re-encod
         with no drag-targeting of its own, which is what makes the second
         operation reliable to land inside the window rather than depending
         on a second precisely-timed pointer gesture.
+
+        No intermediate "still 1" check between the two operations - there
+        used to be one, reading `exportEncodeCount()` right after a 200 ms
+        wait and asserting it had not yet moved. That raced the same 500 ms
+        debounce it was trying to observe: `page.waitForTimeout` is a wall-
+        clock wait with no floor on how much *more* than 200 ms elapses
+        before the following `page.evaluate` round-trip actually runs, and
+        under enough system load (measured reproducibly as part of a full,
+        54-test shard, never in isolation) that slack alone was enough to
+        cross 500 ms - the debounce had genuinely already fired, and the
+        "bug" the assertion reported was the shard's own CPU contention.
+        The check added nothing a mutation the checks below cannot already
+        catch: with the debounce deleted entirely, the delete's own
+        re-encode already lands before the undo is even pressed, so the
+        final poll below is chasing 3 and never sees 2.
     */
     await loadBlueprint(page, TWO_CHESTS)
     await page.evaluate(() => window.__fbe_test.openExportDialog())
@@ -456,16 +471,15 @@ test('a burst of edits inside one debounce window collapses to a single re-encod
 
     await deleteEntity(page, 1)
 
-    // Well inside the 500 ms window - the delete's debounce timer must
-    // still be pending, not yet fired.
+    // Well inside the 500 ms window, so the delete's debounce timer is
+    // still pending when the undo below lands and restarts it.
     await page.waitForTimeout(200)
-    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
     // The delete's own mousedown already blurred ExportDialog's read-only
     // field (focused since open), so this reaches the undo keybind rather
     // than being swallowed by Editor.ts's "ignore keys while an input has
     // focus" guard.
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+KeyZ')
 
     await expect
         .poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount()), { timeout: 2000 })
