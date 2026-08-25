@@ -17,7 +17,6 @@ export default defineConfig({
             // wrangler-generated worker-configuration.d.ts that is absent on a
             // fresh checkout (e.g. CI), which oxlint reports as an invalid tsconfig.
             'packages/worker',
-            'functions/corsproxy.js',
         ],
         rules: {
             'constructor-super': 'error',
@@ -221,15 +220,6 @@ export default defineConfig({
         projects: [
             // editor unit tests: uses packages/editor/vitest.config.ts as-is
             './packages/editor',
-            {
-                // type-check-gate tests (outside any workspace package)
-                test: {
-                    name: 'gate',
-                    environment: 'node',
-                    include: ['scripts/**/*.test.mjs'],
-                    exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
-                },
-            },
             {
                 /*
                     The tests under tests/ that need no browser. Two reasons they

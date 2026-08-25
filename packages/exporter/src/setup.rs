@@ -226,6 +226,69 @@ async fn generate_locale(factorio_data: &Path) -> Result<String, Box<dyn Error>>
     Ok(format!("return {{{}}}", content))
 }
 
+async fn compress_sprites(
+    output_dir: &Path,
+    factorio_data: &Path,
+    content: &str,
+) -> Result<(), Box<dyn Error>> {
+    let metadata_path = output_dir.join("metadata.json");
+    let old_metadata: HashMap<String, (u64, u64)> =
+        match tokio::fs::read_to_string(&metadata_path).await {
+            Ok(buffer) => serde_json::from_str(&buffer)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => HashMap::new(),
+            Err(e) => return Err(Box::new(e)),
+        };
+    let new_metadata = Arc::new(Mutex::new(HashMap::new()));
+
+    lazy_static! {
+        static ref IMG_REGEX: Regex = Regex::new(r#""([^"]+?\.png)""#).unwrap();
+    }
+    let file_paths = IMG_REGEX
+        .captures_iter(content)
+        .map(|cap| cap[1].to_string())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .map(|path| {
+            let resolved =
+                MOD_PREFIX_REGEX.replace(&path, |caps: &regex::Captures| format!("{}/", &caps[1]));
+            (
+                factorio_data.join(resolved.as_ref()),
+                output_dir.join(path.replace(".png", ".basis")),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let progress = ProgressBar::new(file_paths.len() as u64);
+    progress.set_style(
+        ProgressStyle::default_bar()
+            .template("{wide_bar} {pos}/{len} ({elapsed})")
+            .unwrap(),
+    );
+
+    let file_paths = Arc::new(Mutex::new(file_paths));
+    let tmp_dir = std::env::temp_dir().join("__FBE__");
+    tokio::fs::create_dir_all(&tmp_dir).await?;
+    let available_parallelism =
+        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+
+    futures::future::try_join_all((0..available_parallelism).map(|_| {
+        compress_next_img(
+            file_paths.clone(),
+            &tmp_dir,
+            progress.clone(),
+            &old_metadata,
+            new_metadata.clone(),
+        )
+    }))
+    .await?;
+
+    let new_metadata = serde_json::to_vec(&*new_metadata.lock().unwrap())?;
+    tokio::fs::write(metadata_path, new_metadata).await?;
+    progress.finish();
+    tokio::fs::remove_dir_all(&tmp_dir).await?;
+    Ok(())
+}
+
 pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), Box<dyn Error>> {
     let factorio_data = base_factorio_dir.join("data");
     let mod_dir = base_factorio_dir.join("mods/export-data");
@@ -257,74 +320,7 @@ pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), 
     tokio::fs::create_dir_all(&output_dir).await?;
     tokio::fs::write(output_dir.join("data.json"), &content).await?;
 
-    let metadata_path = output_dir.join("metadata.json");
-
-    let res = tokio::fs::read_to_string(&metadata_path).await;
-    let old_metadata: HashMap<String, (u64, u64)> = match res {
-        Ok(buffer) => serde_json::from_str(&buffer)?,
-        Err(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => HashMap::new(),
-            _ => return Err(Box::new(e)),
-        },
-    };
-    let new_metadata = Arc::new(Mutex::new(HashMap::new()));
-
-    lazy_static! {
-        static ref IMG_REGEX: Regex = Regex::new(r#""([^"]+?\.png)""#).unwrap();
-    }
-    let file_paths: HashSet<String> = IMG_REGEX
-        .captures_iter(&content)
-        .map(|cap| cap[1].to_string())
-        .collect();
-
-    let file_paths = file_paths
-        .into_iter()
-        .map(|s| {
-            // Replace __modname__/ prefix with the mod's directory under factorio_data.
-            // e.g. __space-age__/graphics/foo.png -> {factorio_data}/space-age/graphics/foo.png
-            let resolved =
-                MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| format!("{}/", &caps[1]));
-            let in_path = factorio_data.join(resolved.as_ref());
-            let out_path = output_dir.join(s.replace(".png", ".basis").as_str());
-            (in_path, out_path)
-        })
-        .collect::<Vec<(PathBuf, PathBuf)>>();
-
-    let progress = ProgressBar::new(file_paths.len() as u64);
-    progress.set_style(
-        ProgressStyle::default_bar()
-            .template("{wide_bar} {pos}/{len} ({elapsed})")
-            .unwrap(),
-    );
-
-    let file_paths = Arc::new(Mutex::new(file_paths));
-
-    let tmp_dir = std::env::temp_dir().join("__FBE__");
-    tokio::fs::create_dir_all(&tmp_dir).await?;
-
-    let available_parallelism =
-        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
-
-    futures::future::try_join_all((0..available_parallelism).map(|_| {
-        compress_next_img(
-            file_paths.clone(),
-            &tmp_dir,
-            progress.clone(),
-            &old_metadata,
-            new_metadata.clone(),
-        )
-    }))
-    .await?;
-
-    let new_metadata = {
-        let new_metadata = new_metadata.lock().unwrap();
-        serde_json::to_vec(&*new_metadata)?
-    };
-    tokio::fs::write(metadata_path, new_metadata).await?;
-
-    progress.finish();
-
-    tokio::fs::remove_dir_all(&tmp_dir).await?;
+    compress_sprites(output_dir, &factorio_data, &content).await?;
     println!("DONE!");
 
     Ok(())
@@ -373,71 +369,7 @@ pub async fn extract_local(output_dir: &Path, factorio_dir: &Path) -> Result<(),
     tokio::fs::create_dir_all(&output_dir).await?;
     tokio::fs::write(output_dir.join("data.json"), &content).await?;
 
-    // Process sprites using game data dir from local install
-    let metadata_path = output_dir.join("metadata.json");
-    let res = tokio::fs::read_to_string(&metadata_path).await;
-    let old_metadata: HashMap<String, (u64, u64)> = match res {
-        Ok(buffer) => serde_json::from_str(&buffer)?,
-        Err(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => HashMap::new(),
-            _ => return Err(Box::new(e)),
-        },
-    };
-    let new_metadata = Arc::new(Mutex::new(HashMap::new()));
-
-    lazy_static! {
-        static ref IMG_REGEX_LOCAL: Regex = Regex::new(r#""([^"]+?\.png)""#).unwrap();
-    }
-
-    let file_paths: HashSet<String> = IMG_REGEX_LOCAL
-        .captures_iter(&content)
-        .map(|cap| cap[1].to_string())
-        .collect();
-
-    let file_paths = file_paths
-        .into_iter()
-        .map(|s| {
-            let resolved =
-                MOD_PREFIX_REGEX.replace(&s, |caps: &regex::Captures| format!("{}/", &caps[1]));
-            let in_path = factorio_data.join(resolved.as_ref());
-            let out_path = output_dir.join(s.replace(".png", ".basis").as_str());
-            (in_path, out_path)
-        })
-        .collect::<Vec<(PathBuf, PathBuf)>>();
-
-    let progress = ProgressBar::new(file_paths.len() as u64);
-    progress.set_style(
-        ProgressStyle::default_bar()
-            .template("{wide_bar} {pos}/{len} ({elapsed})")
-            .unwrap(),
-    );
-
-    let file_paths = Arc::new(Mutex::new(file_paths));
-    let tmp_dir = std::env::temp_dir().join("__FBE__");
-    tokio::fs::create_dir_all(&tmp_dir).await?;
-
-    let available_parallelism =
-        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
-
-    futures::future::try_join_all((0..available_parallelism).map(|_| {
-        compress_next_img(
-            file_paths.clone(),
-            &tmp_dir,
-            progress.clone(),
-            &old_metadata,
-            new_metadata.clone(),
-        )
-    }))
-    .await?;
-
-    let new_metadata = {
-        let new_metadata = new_metadata.lock().unwrap();
-        serde_json::to_vec(&*new_metadata)?
-    };
-    tokio::fs::write(metadata_path, new_metadata).await?;
-
-    progress.finish();
-    tokio::fs::remove_dir_all(&tmp_dir).await?;
+    compress_sprites(output_dir, &factorio_data, &content).await?;
 
     // Clean up export-data mod and scenario from user data dir
     if let Err(e) = tokio::fs::remove_dir_all(&mod_dir).await {

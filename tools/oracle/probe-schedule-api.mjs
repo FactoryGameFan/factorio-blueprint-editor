@@ -14,36 +14,23 @@
 
     Usage: node tools/oracle/probe-schedule-api.mjs
 */
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { writeFileSync, readFileSync } from 'node:fs'
+import { factorioBin, prepareProbe, runProbe } from './factorio-probe.mjs'
 import { join } from 'node:path'
-import { spawnSync } from 'node:child_process'
 
-const BIN =
-    process.env.FACTORIO_BIN ??
-    `${process.env.HOME}/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio`
+const BIN = factorioBin
 
 const MOD = 'bp_schedule_api'
 const DUMP = 'schedule-api-dump.json'
 
-const work = mkdtempSync(join(tmpdir(), 'fbe-oracle-'))
-const writeData = join(work, 'write-data')
-const modDir = join(work, 'mods')
-const modPath = join(modDir, `${MOD}_0.0.1`)
-mkdirSync(writeData, { recursive: true })
-mkdirSync(modPath, { recursive: true })
-
-writeFileSync(
-    join(modPath, 'info.json'),
-    JSON.stringify({
-        name: MOD,
-        version: '0.0.1',
-        title: 'What the schedule API is called',
-        author: 'oracle',
-        factorio_version: '2.1',
-        dependencies: ['base'],
-    })
-)
+const { work, writeData, modDir, modPath } = prepareProbe({
+    name: MOD,
+    version: '0.0.1',
+    title: 'What the schedule API is called',
+    author: 'oracle',
+    factorio_version: '2.1',
+    dependencies: ['base'],
+})
 
 writeFileSync(
     join(modPath, 'control.lua'),
@@ -102,31 +89,7 @@ end)
 `
 )
 
-writeFileSync(
-    join(work, 'config.ini'),
-    `[path]\nread-data=__PATH__executable__/../data\nwrite-data=${writeData}\n[general]\n[other]\n`
-)
-
-const res = spawnSync(
-    BIN,
-    [
-        '--create',
-        join(work, 'p.zip'),
-        '--mod-directory',
-        modDir,
-        '--config',
-        join(work, 'config.ini'),
-    ],
-    { encoding: 'utf8' }
-)
-
-const dumpPath = join(writeData, 'script-output', DUMP)
-if (!existsSync(dumpPath)) {
-    console.error(
-        'No dump. Factorio tail:\n' + ((res.stdout ?? '') + (res.stderr ?? '')).slice(-4000)
-    )
-    process.exit(1)
-}
+const { dumpPath } = runProbe({ bin: BIN, work, writeData, modDir, dump: DUMP })
 
 const d = JSON.parse(readFileSync(dumpPath, 'utf8'))
 for (const e of Object.values(d.errors ?? {})) console.log(`! ${e}`)

@@ -1,7 +1,6 @@
 import './index.css'
 
 import { isMobile } from 'pixi.js'
-import FileSaver from 'file-saver'
 import EDITOR, {
     Editor,
     Blueprint,
@@ -87,6 +86,14 @@ console.log(
 )
 
 const createToast = initToasts()
+
+function saveBlob(blob: Blob, filename: string): void {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(link.href))
+}
 
 if (isMobile.any) {
     createToast({
@@ -697,7 +704,7 @@ function registerActions(): void {
                 editor
                     .getPicture()
                     .then(blob => {
-                        FileSaver.saveAs(blob, `${bp.name}.png`)
+                        saveBlob(blob, `${bp.name}.png`)
                         createToast({
                             text: 'Blueprint image successfully generated',
                             type: 'success',

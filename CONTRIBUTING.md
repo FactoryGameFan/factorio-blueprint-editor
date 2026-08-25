@@ -35,7 +35,7 @@ and filling out the issue template.
 
 - [git](https://git-scm.com/)
 - [node](https://nodejs.org/en/). The root `package.json` declares
-  `devEngines.packageManager: npm ^11` with `onFail: download`, so an npm new
+  `devEngines.packageManager: npm ^12` with `onFail: download`, so an npm new
   enough to read that field will fetch a matching one; an older npm ignores it
   and runs anyway, which is the version to watch out for.
 - [Vite+](https://vite.plus) - the `vp` CLI this repo builds, lints, formats and
@@ -43,7 +43,9 @@ and filling out the issue template.
   `.github/actions/setup-vp`:
 
     ```shell
-    VP_VERSION=0.2.6 VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash
+    curl -fsSL https://vite.plus -o vp-install.sh
+    VP_HOME="$HOME/.vite-plus" VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh
+    rm vp-install.sh
     ```
 
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
@@ -114,13 +116,12 @@ failing rather than as a port clash.
 
 ### Checks
 
-| Command                   | What it does                                                                      |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| `vp check`                | format + lint + type check, every package. This is the one to run before pushing. |
-| `vp check --fix`          | the same, applying the format and lint fixes it can                               |
-| `vp test`                 | unit tests (the editor's, plus the repo scripts')                                 |
-| `npm run type-check:gate` | fails if the type error count rises above the committed baseline                  |
-| `npx playwright test`     | browser tests - needs `npm run localpreview` running first                        |
+| Command               | What it does                                                                      |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `vp check`            | format + lint + type check, every package. This is the one to run before pushing. |
+| `vp check --fix`      | the same, applying the format and lint fixes it can                               |
+| `vp test`             | editor unit tests                                                                 |
+| `npx playwright test` | browser tests - needs `npm run localpreview` running first                        |
 
 Two things about the Playwright suite. Run `npx playwright install` after any
 `@playwright/test` bump, or every spec fails on a missing browser executable.
