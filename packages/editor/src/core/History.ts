@@ -47,10 +47,13 @@ class Action<V> {
      * This allows for emits to be set up first
      */
     public commit(): this {
-        if (this.applyImmediate) {
-            this.apply()
+        try {
+            if (this.applyImmediate) {
+                this.apply()
+            }
+        } finally {
+            this.history.commitTransaction()
         }
-        this.history.commitTransaction()
 
         return this
     }
@@ -177,10 +180,10 @@ class Transaction {
  *
  * // Transaction of 2 actions and naming of transaction
  * const o = { firstName: 'test first name', lastName: 'test last name'}
- * history.startTransaction('Update 2 values')
- * history.updateValue(o, ['firstName'], 'update first name').commit()
- * history.updateValue(o, ['lastName'], 'update last name').commit()
- * history.commitTransaction()
+ * history.transaction('Update 2 values', () => {
+ *     history.updateValue(o, ['firstName'], 'update first name').commit()
+ *     history.updateValue(o, ['lastName'], 'update last name').commit()
+ * })
  *
  * // Emit function after action execution
  * const o = { name: 'test name'}
@@ -321,6 +324,16 @@ export class History {
         }
     }
 
+    /** Runs a transaction and closes it even when the callback throws. */
+    public transaction<T>(text: string | undefined, fn: () => T): T {
+        this.startTransaction(text)
+        try {
+            return fn()
+        } finally {
+            this.commitTransaction()
+        }
+    }
+
     /**
      * Commits the active transaction and pushes it into the history
      * @returns `false` if `transactionCount` is not 0 or transaction is empty
@@ -329,29 +342,40 @@ export class History {
         this.transactionCount -= 1
 
         if (this.transactionCount === 0) {
-            if (this.openTransaction.empty()) return false
-            while (this.transactionHistory.length > this.historyIndex) {
-                this.transactionHistory.pop()
+            const transaction = this.openTransaction
+            if (transaction.empty()) {
+                this.activeTransaction = undefined
+                return false
             }
 
-            this.openTransaction.apply()
-            this.transactionHistory.push(this.openTransaction)
-            if (this.logging) {
-                if (this.historyIndex !== 0 && this.historyIndex % 20 === 0) {
-                    console.clear()
+            try {
+                while (this.transactionHistory.length > this.historyIndex) {
+                    this.transactionHistory.pop()
                 }
-                this.openTransaction.log()
+
+                transaction.apply()
+                this.transactionHistory.push(transaction)
+                if (this.logging) {
+                    if (this.historyIndex !== 0 && this.historyIndex % 20 === 0) {
+                        console.clear()
+                    }
+                    transaction.log()
+                }
+
+                if (this.historyIndex > this.MAX_HISTORY_LENGTH) {
+                    this.transactionHistory.splice(
+                        0,
+                        this.MAX_HISTORY_LENGTH - this.MIN_HISTORY_LENGTH
+                    )
+                    this.historyIndex = this.transactionHistory.length
+                }
+
+                this.historyIndex += 1
+
+                return true
+            } finally {
+                this.activeTransaction = undefined
             }
-            this.activeTransaction = undefined
-
-            if (this.historyIndex > this.MAX_HISTORY_LENGTH) {
-                this.transactionHistory.splice(0, this.MAX_HISTORY_LENGTH - this.MIN_HISTORY_LENGTH)
-                this.historyIndex = this.transactionHistory.length
-            }
-
-            this.historyIndex += 1
-
-            return true
         }
 
         return false
