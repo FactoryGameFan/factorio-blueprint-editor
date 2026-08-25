@@ -769,6 +769,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 (a, b) => getItemScore(b) - getItemScore(a)
             )
 
+            if (iconPairs.length === 0) return
             this.icons.set(1, iconPairs[0][0])
             if (
                 iconPairs[1] &&
@@ -782,6 +783,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 (a, b) => b[1] - a[1]
             )
 
+            if (iconPairs.length === 0) return
             this.icons.set(1, iconPairs[0][0])
         }
     }
