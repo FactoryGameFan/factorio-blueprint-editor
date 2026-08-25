@@ -30,6 +30,24 @@ jobs:
         with:
           fetch-depth: 1
 
+      # A review that cannot run anything can only reason about the diff. That
+      # is a real limit and it showed: reviewing PR #265 the run said outright
+      # that it had no `vp` and no `node_modules`, so it accepted a moved
+      # `blueprint-round-trip.spec.ts` fixed point on the strength of the
+      # argument rather than by re-running the corpus. These two steps are what
+      # the `checks` job in ci.yml does, and they cost it about 1m20s with both
+      # caches warm.
+      #
+      # Deliberately not the Playwright half. That needs browsers and both dev
+      # servers, and would put the e2e job's 3-4 minutes on every review
+      # including the automatic one on every push. `vp check` and `vp test`
+      # cover what a reviewer most often wants to confirm.
+      - name: Set up Vite+
+        uses: ./.github/actions/setup-vp
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
