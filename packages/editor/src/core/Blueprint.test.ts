@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
 import { Blueprint } from './Blueprint'
+import { ISignal } from '../types'
 import { encode, getAndClearLoadWarnings, getBlueprintOrBookFromSource } from './bpString'
 import { loadData } from './factorioData'
 
@@ -94,11 +95,11 @@ describe('Blueprint icon signal types', () => {
         Re-deriving one from the name alone cannot be right in general, so a
         parsed icon keeps the type it arrived with (issue #264).
     */
-    const withIcon = (signal: { type?: string; name: string }): Blueprint =>
+    const withIcon = (signal: ISignal): Blueprint =>
         new Blueprint({
             icons: [{ index: 1, signal }],
             entities: [{ entity_number: 1, name: 'wooden-chest', position: { x: 0, y: 0 } }],
-        } as never)
+        })
 
     it('keeps an incoming `item` type on a name that is also a recipe', () => {
         expect(withIcon({ type: 'item', name: 'wooden-chest' }).serialize().icons).toEqual([
