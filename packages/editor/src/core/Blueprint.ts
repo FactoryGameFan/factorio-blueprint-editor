@@ -621,24 +621,22 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     public removeEntity(entity: Entity): void {
-        this.history.startTransaction('Remove entity')
+        this.history.transaction('Remove entity', () => {
+            this.wireConnections.removeEntityConnections(entity.entityNumber)
 
-        this.wireConnections.removeEntityConnections(entity.entityNumber)
-
-        this.history
-            .updateMap(this.entities, entity.entityNumber, undefined, 'Remove entity')
-            .onDone(this.onCreateOrRemoveEntity.bind(this))
-            .commit()
-
-        this.history.commitTransaction()
+            this.history
+                .updateMap(this.entities, entity.entityNumber, undefined, 'Remove entity')
+                .onDone(this.onCreateOrRemoveEntity.bind(this))
+                .commit()
+        })
     }
 
     public removeEntities(entities: Entity[]): void {
-        this.history.startTransaction('Remove entities')
-        for (const e of entities) {
-            this.removeEntity(e)
-        }
-        this.history.commitTransaction()
+        this.history.transaction('Remove entities', () => {
+            for (const e of entities) {
+                this.removeEntity(e)
+            }
+        })
     }
 
     public fastReplaceEntity(name: string, direction: number, position: IPoint): boolean {
@@ -646,24 +644,22 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         if (!entity) return false
 
-        this.history.startTransaction('Fast replace entity')
+        this.history.transaction('Fast replace entity', () => {
+            const connections = this.wireConnections.getEntityConnections(entity.entityNumber)
 
-        const connections = this.wireConnections.getEntityConnections(entity.entityNumber)
+            this.removeEntity(entity)
 
-        this.removeEntity(entity)
+            this.createEntity({
+                name,
+                direction,
+                position: entity.position,
+                entity_number: entity.entityNumber,
+            }).pasteSettings(entity)
 
-        this.createEntity({
-            name,
-            direction,
-            position: entity.position,
-            entity_number: entity.entityNumber,
-        }).pasteSettings(entity)
-
-        for (const conn of connections) {
-            this.wireConnections.create(conn)
-        }
-
-        this.history.commitTransaction()
+            for (const conn of connections) {
+                this.wireConnections.create(conn)
+            }
+        })
 
         return true
     }
@@ -683,33 +679,29 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     public createTiles(name: string, positions: IPoint[]): void {
-        this.history.startTransaction('Create tiles')
-
-        for (const p of positions) {
-            const tile = new Tile(name, p.x, p.y)
-            this.history
-                .updateMap(this.tiles, tile.hash, tile, 'Create tile')
-                .onDone(this.onCreateOrRemoveTile.bind(this))
-                .commit()
-        }
-
-        this.history.commitTransaction()
+        this.history.transaction('Create tiles', () => {
+            for (const p of positions) {
+                const tile = new Tile(name, p.x, p.y)
+                this.history
+                    .updateMap(this.tiles, tile.hash, tile, 'Create tile')
+                    .onDone(this.onCreateOrRemoveTile.bind(this))
+                    .commit()
+            }
+        })
     }
 
     public removeTiles(positions: IPoint[]): void {
-        this.history.startTransaction('Remove tiles')
-
-        positions
-            .map(p => this.tiles.get(`${p.x},${p.y}`))
-            .filter(tile => !!tile)
-            .forEach(tile => {
-                this.history
-                    .updateMap(this.tiles, tile.hash, undefined, 'Remove tile')
-                    .onDone(this.onCreateOrRemoveTile.bind(this))
-                    .commit()
-            })
-
-        this.history.commitTransaction()
+        this.history.transaction('Remove tiles', () => {
+            positions
+                .map(p => this.tiles.get(`${p.x},${p.y}`))
+                .filter(tile => !!tile)
+                .forEach(tile => {
+                    this.history
+                        .updateMap(this.tiles, tile.hash, undefined, 'Remove tile')
+                        .onDone(this.onCreateOrRemoveTile.bind(this))
+                        .commit()
+                })
+        })
     }
 
     private onCreateOrRemoveTile(newValue: Tile | undefined, oldValue: Tile | undefined): void {
@@ -876,58 +868,59 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         // Apply Changes
         this.history.logging = false
-        this.history.startTransaction('Generate Oil Outpost')
+        try {
+            this.history.transaction('Generate Oil Outpost', () => {
+                for (const pipe of GP.pipes) {
+                    this.createEntity(pipe)
+                }
+                const e = FD.entities['beacon']
+                const inventory = getModuleInventoryIndex(e)
+                if (inventory === null) {
+                    throw new Error('beacon has no module inventory')
+                }
+                const beacon_module_slots = (hasModuleFunctionality(e) && e.module_slots) || 0
+                const items: BlueprintInsertPlan[] = []
+                const in_inventory: InventoryPosition[] = []
+                for (let i = 0; i < beacon_module_slots; i++) {
+                    in_inventory.push({
+                        inventory,
+                        stack: i,
+                    })
+                }
+                items.push({
+                    id: { name: BEACON_MODULE },
+                    items: { in_inventory },
+                })
+                for (const beacon of beacons) {
+                    this.createEntity({
+                        ...beacon,
+                        items,
+                    })
+                }
+                for (const pole of GPO.poles) {
+                    this.createEntity(pole)
+                }
 
-        for (const pipe of GP.pipes) {
-            this.createEntity(pipe)
-        }
-        const e = FD.entities['beacon']
-        const inventory = getModuleInventoryIndex(e)
-        if (inventory === null) {
-            throw new Error('beacon has no module inventory')
-        }
-        const beacon_module_slots = (hasModuleFunctionality(e) && e.module_slots) || 0
-        const items: BlueprintInsertPlan[] = []
-        const in_inventory: InventoryPosition[] = []
-        for (let i = 0; i < beacon_module_slots; i++) {
-            in_inventory.push({
-                inventory,
-                stack: i,
+                this.wireConnections.generatePowerPoleWires()
+
+                for (const p of GP.pumpjacksToRotate) {
+                    // Created by this same method a few lines up, so its absence would
+                    // mean the generator returned a number we never placed.
+                    const entity = this.entities.get(p.entity_number)
+                    if (entity === undefined) {
+                        throw new Error(`generator returned unknown entity ${p.entity_number}`)
+                    }
+                    entity.direction = p.direction
+                    if (PUMPJACK_MODULE !== 'none') {
+                        entity.modules = Array.from<string>({ length: entity.moduleSlots }).fill(
+                            PUMPJACK_MODULE
+                        )
+                    }
+                }
             })
+        } finally {
+            this.history.logging = true
         }
-        items.push({
-            id: { name: BEACON_MODULE },
-            items: { in_inventory },
-        })
-        for (const beacon of beacons) {
-            this.createEntity({
-                ...beacon,
-                items,
-            })
-        }
-        for (const pole of GPO.poles) {
-            this.createEntity(pole)
-        }
-
-        this.wireConnections.generatePowerPoleWires()
-
-        for (const p of GP.pumpjacksToRotate) {
-            // Created by this same method a few lines up, so its absence would
-            // mean the generator returned a number we never placed.
-            const entity = this.entities.get(p.entity_number)
-            if (entity === undefined) {
-                throw new Error(`generator returned unknown entity ${p.entity_number}`)
-            }
-            entity.direction = p.direction
-            if (PUMPJACK_MODULE !== 'none') {
-                entity.modules = Array.from<string>({ length: entity.moduleSlots }).fill(
-                    PUMPJACK_MODULE
-                )
-            }
-        }
-
-        this.history.commitTransaction()
-        this.history.logging = true
 
         // Create visualizations
         if (!DEBUG) return
