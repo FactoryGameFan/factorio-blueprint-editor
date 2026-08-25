@@ -2,7 +2,7 @@
     "question": "Does a half-diagonal-rail's collision box rotate with direction, and does data.json agree with the running game about collision boxes?",
     "probe": "probe-rail-box-orientation/control.lua",
     "runner": "factorio-oracle run --probe tools/oracle/probe-rail-box-orientation/probe.json",
-    "issue": "de-risking run 2 of probe-blueprint-grid-position-gui; bears on PR #243 finding 15",
+    "issue": "#251; originally captured while de-risking run 2 of probe-blueprint-grid-position-gui",
     "provenance": {
         "capturedOn": "2026-08-21",
         "method": "headless create run; no player needed, so no interactive session",
@@ -333,5 +333,49 @@
                 ]
             }
         ]
+    },
+    "proposedChangeAgainstMeasuredOccupancy": {
+        "note": "Computed from fixtures/rail-occupancy.json against the wooden-chest reference. Runtime boxes reduce false positives but increase occupied tiles the editor would not key, so replacing data.json is not an improvement.",
+        "orientations": 38,
+        "reference": "wooden-chest",
+        "controls": [
+            {
+                "name": "every measured orientation was scored",
+                "ok": true,
+                "detail": "38 of 38"
+            },
+            {
+                "name": "the coordinate systems align on cardinal straight rails",
+                "ok": true,
+                "detail": "0 missed and 0 empty in both arms"
+            }
+        ],
+        "controlsAllPassed": true,
+        "collisionBoxDisagreements": 16,
+        "footprintChanges": [
+            {
+                "name": "legacy-curved-rail",
+                "today": {
+                    "x": 4,
+                    "y": 4
+                },
+                "runtime": {
+                    "x": 2,
+                    "y": 3
+                }
+            }
+        ],
+        "changedMeasuredOrientations": 8,
+        "arms": {
+            "today": {
+                "missed": 180,
+                "empty": 96
+            },
+            "runtimeBoxes": {
+                "missed": 220,
+                "empty": 56
+            }
+        },
+        "adoptingRuntimeBoxesIsImprovement": false
     }
 }

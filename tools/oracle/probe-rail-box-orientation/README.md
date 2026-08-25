@@ -63,6 +63,25 @@ the place where the editor's geometry is wrong in both directions (#133, #142);
 this says the editor's own **data** disagrees with the game there too, and
 nowhere else.
 
+## Should `data.json` adopt the runtime boxes?
+
+No. Running both sets of boxes through `getEntitySize` changes only
+`legacy-curved-rail`, from 4x4 to 2x3; the other 15 differences round to the
+same footprint or are masked by a declared dimension. Against the 38
+orientations in `fixtures/rail-occupancy.json`, the runtime boxes trade one
+error for another rather than improving the result:
+
+| boxes       | occupied but not keyed | keyed but empty |
+| ----------- | ---------------------- | --------------- |
+| `data.json` | 180                    | 96              |
+| runtime     | 220                    | 56              |
+
+The committed fixture can recompute this comparison without rerunning Factorio:
+
+```fish
+node tools/oracle/analyze-rail-box-orientation.mjs tools/oracle/fixtures/rail-box-orientation.json
+```
+
 ## Controls
 
 A control has to be able to fail while the hypothesis holds.
