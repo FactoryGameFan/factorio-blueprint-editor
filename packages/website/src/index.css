@@ -203,6 +203,9 @@ html {
 #info-panel.active {
     display: block;
 }
+#info-panel a {
+    color: #ffe6c0;
+}
 #info-panel ul {
     position: relative;
     list-style: none;

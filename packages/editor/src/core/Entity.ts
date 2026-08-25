@@ -369,24 +369,22 @@ export class Entity extends EventEmitter<EntityEvents> {
     public set recipe(recipe: string | undefined) {
         if (this.m_rawEntity.recipe === recipe) return
 
-        this.m_BP.history.startTransaction()
+        this.m_BP.history.transaction(undefined, () => {
+            this.m_BP.history
+                .updateValue(this.m_rawEntity, 'recipe', recipe, 'Change recipe')
+                .onDone(r => this.emit('recipe', r))
+                .commit()
 
-        this.m_BP.history
-            .updateValue(this.m_rawEntity, 'recipe', recipe, 'Change recipe')
-            .onDone(r => this.emit('recipe', r))
-            .commit()
-
-        // Some modules on the entity may not be compatible with the new selected recipe, filter those out
-        if (recipe !== undefined) {
-            this.modules = this.modules.map(m => {
-                if (!m) return
-                const module = getModule(m)
-                if (!recipeSupportsModule(recipe, module)) return
-                return m
-            })
-        }
-
-        this.m_BP.history.commitTransaction()
+            // Some modules on the entity may not be compatible with the new selected recipe, filter those out
+            if (recipe !== undefined) {
+                this.modules = this.modules.map(m => {
+                    if (!m) return
+                    const module = getModule(m)
+                    if (!recipeSupportsModule(recipe, module)) return
+                    return m
+                })
+            }
+        })
     }
 
     /** Recipes this entity can accept */
@@ -669,23 +667,21 @@ export class Entity extends EventEmitter<EntityEvents> {
     public set splitterOutputPriority(priority: FilterPriority | undefined) {
         if (this.m_rawEntity.output_priority === priority) return
 
-        this.m_BP.history.startTransaction()
+        this.m_BP.history.transaction(undefined, () => {
+            this.m_BP.history
+                .updateValue(
+                    this.m_rawEntity,
+                    'output_priority',
+                    priority,
+                    'Change splitter output priority'
+                )
+                .onDone(() => this.emit('splitterOutputPriority', this.splitterOutputPriority))
+                .commit()
 
-        this.m_BP.history
-            .updateValue(
-                this.m_rawEntity,
-                'output_priority',
-                priority,
-                'Change splitter output priority'
-            )
-            .onDone(() => this.emit('splitterOutputPriority', this.splitterOutputPriority))
-            .commit()
-
-        if (priority === undefined) {
-            this.filters = undefined
-        }
-
-        this.m_BP.history.commitTransaction()
+            if (priority === undefined) {
+                this.filters = undefined
+            }
+        })
     }
 
     /** Splitter filter */
@@ -703,25 +699,23 @@ export class Entity extends EventEmitter<EntityEvents> {
         const filter = filters?.[0]?.name
         if (this.m_rawEntity.filter === filter) return
 
-        this.m_BP.history.startTransaction()
+        this.m_BP.history.transaction(undefined, () => {
+            // used to write { name: undefined } when clearing, which serialized as an
+            // empty filter object rather than as no filter at all
+            const f = filter === undefined ? undefined : { name: filter }
 
-        // used to write { name: undefined } when clearing, which serialized as an
-        // empty filter object rather than as no filter at all
-        const f = filter === undefined ? undefined : { name: filter }
+            this.m_BP.history
+                .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
+                .onDone(() => this.emit('splitterFilter'))
+                .onDone(() => this.emit('filters'))
+                .commit()
 
-        this.m_BP.history
-            .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
-            .onDone(() => this.emit('splitterFilter'))
-            .onDone(() => this.emit('filters'))
-            .commit()
-
-        if (filter !== undefined) {
-            if (this.splitterOutputPriority === undefined) {
-                this.splitterOutputPriority = 'left'
+            if (filter !== undefined) {
+                if (this.splitterOutputPriority === undefined) {
+                    this.splitterOutputPriority = 'left'
+                }
             }
-        }
-
-        this.m_BP.history.commitTransaction()
+        })
     }
 
     public get filterMode(): FilterMode {
@@ -1310,32 +1304,32 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         if (newDir === this.direction) return
 
-        this.m_BP.history.startTransaction('Rotate entity')
-
-        if (this.type === 'underground-belt' || this.type === 'loader') {
-            if (rotateOpposingUB) {
-                const opposingEntityNumber = this.m_BP.entityPositionGrid.getOpposingEntity(
-                    this.name,
-                    this.direction,
-                    this.position,
-                    this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
-                    isUndergroundBelt(this.entityData) ? this.entityData.max_distance : undefined
-                )
-                const otherEntity =
-                    opposingEntityNumber === undefined
-                        ? undefined
-                        : this.m_BP.entities.get(opposingEntityNumber)
-                if (otherEntity) {
-                    otherEntity.rotate()
+        this.m_BP.history.transaction('Rotate entity', () => {
+            if (this.type === 'underground-belt' || this.type === 'loader') {
+                if (rotateOpposingUB) {
+                    const opposingEntityNumber = this.m_BP.entityPositionGrid.getOpposingEntity(
+                        this.name,
+                        this.direction,
+                        this.position,
+                        this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
+                        isUndergroundBelt(this.entityData)
+                            ? this.entityData.max_distance
+                            : undefined
+                    )
+                    const otherEntity =
+                        opposingEntityNumber === undefined
+                            ? undefined
+                            : this.m_BP.entities.get(opposingEntityNumber)
+                    if (otherEntity) {
+                        otherEntity.rotate()
+                    }
                 }
+
+                this.directionType = this.directionType === 'input' ? 'output' : 'input'
             }
 
-            this.directionType = this.directionType === 'input' ? 'output' : 'input'
-        }
-
-        this.direction = newDir
-
-        this.m_BP.history.commitTransaction()
+            this.direction = newDir
+        })
     }
 
     public canPasteSettings(sourceEntity: Entity): boolean {
@@ -1402,34 +1396,33 @@ export class Entity extends EventEmitter<EntityEvents> {
     public pasteSettings(sourceEntity: Entity): void {
         if (!this.canPasteSettings(sourceEntity)) return
 
-        this.m_BP.history.startTransaction('Paste settings to entity')
+        this.m_BP.history.transaction('Paste settings to entity', () => {
+            // PASTE RECIPE
+            let tRecipe = this.recipe
+            const aR = this.acceptedRecipes
+            if (aR.length > 0 && sourceEntity.acceptedRecipes) {
+                tRecipe =
+                    sourceEntity.recipe !== undefined && aR.includes(sourceEntity.recipe)
+                        ? sourceEntity.recipe
+                        : undefined
+                this.recipe = tRecipe
+            }
 
-        // PASTE RECIPE
-        let tRecipe = this.recipe
-        const aR = this.acceptedRecipes
-        if (aR.length > 0 && sourceEntity.acceptedRecipes) {
-            tRecipe =
-                sourceEntity.recipe !== undefined && aR.includes(sourceEntity.recipe)
-                    ? sourceEntity.recipe
-                    : undefined
-            this.recipe = tRecipe
-        }
+            // PASTE DIRECTION (only for type assembling_machine)
+            if (
+                this.type === 'assembling-machine' &&
+                this.name !== 'assembling-machine' &&
+                tRecipe &&
+                FD.recipes[tRecipe].category === 'crafting-with-fluid'
+            ) {
+                this.direction = sourceEntity.direction
+            }
 
-        // PASTE DIRECTION (only for type assembling_machine)
-        if (
-            this.type === 'assembling-machine' &&
-            this.name !== 'assembling-machine' &&
-            tRecipe &&
-            FD.recipes[tRecipe].category === 'crafting-with-fluid'
-        ) {
-            this.direction = sourceEntity.direction
-        }
-
-        // PASTE MODULES
-        const aM = this.acceptedModules
-        if (aM.length > 0 && sourceEntity.acceptedModules) {
-            if (sourceEntity.modules && sourceEntity.modules.length > 0) {
-                /*
+            // PASTE MODULES
+            const aM = this.acceptedModules
+            if (aM.length > 0 && sourceEntity.acceptedModules) {
+                if (sourceEntity.modules && sourceEntity.modules.length > 0) {
+                    /*
                     map, not filter. `modules` is positional - one entry per
                     slot, undefined for an empty one - so dropping the entries
                     rather than blanking them slid every module behind a gap
@@ -1438,44 +1431,44 @@ export class Entity extends EventEmitter<EntityEvents> {
                     target will not accept still goes, it just leaves its slot
                     empty instead of closing it.
                 */
-                this.modules = sourceEntity.modules
-                    .map(m => (m !== undefined && aM.includes(m) ? m : undefined))
-                    .slice(0, this.moduleSlots)
-            } else {
-                this.modules = []
+                    this.modules = sourceEntity.modules
+                        .map(m => (m !== undefined && aM.includes(m) ? m : undefined))
+                        .slice(0, this.moduleSlots)
+                } else {
+                    this.modules = []
+                }
             }
-        }
 
-        // PASTE SPLITTER SETTINGS (Has to be before filters as otherwise business logic will overwrite)
-        if (this.type === 'splitter' && sourceEntity.type === 'splitter') {
-            this.splitterInputPriority = sourceEntity.splitterInputPriority
-            this.splitterOutputPriority = sourceEntity.splitterOutputPriority
-        }
+            // PASTE SPLITTER SETTINGS (Has to be before filters as otherwise business logic will overwrite)
+            if (this.type === 'splitter' && sourceEntity.type === 'splitter') {
+                this.splitterInputPriority = sourceEntity.splitterInputPriority
+                this.splitterOutputPriority = sourceEntity.splitterOutputPriority
+            }
 
-        // PASTE FILTERS
-        const aF = this.acceptedFilters
-        if (aF.length > 0 && sourceEntity.acceptedFilters) {
-            if (sourceEntity.filters && sourceEntity.filters.length > 0) {
-                /*
+            // PASTE FILTERS
+            const aF = this.acceptedFilters
+            if (aF.length > 0 && sourceEntity.acceptedFilters) {
+                if (sourceEntity.filters && sourceEntity.filters.length > 0) {
+                    /*
                     Capped by what the target can hold, not by what its dialog
                     draws. This read `filterSlots`, so a requester or buffer
                     chest silently dropped everything past the 30th filter -
                     a UI layout constant deciding how much data survived a copy.
                 */
-                this.filters = sourceEntity.filters
-                    .filter(f => aF.includes(f.name))
-                    .slice(0, this.maxFilters)
-            } else {
-                this.filters = []
+                    this.filters = sourceEntity.filters
+                        .filter(f => aF.includes(f.name))
+                        .slice(0, this.maxFilters)
+                } else {
+                    this.filters = []
+                }
             }
-        }
 
-        // PASTE REQUESTER CHEST SETTINGS
-        if (this.name === 'requester-chest' && sourceEntity.name === 'requester-chest') {
-            this.requestFromBufferChest = sourceEntity.requestFromBufferChest
-        }
+            // PASTE REQUESTER CHEST SETTINGS
+            if (this.name === 'requester-chest' && sourceEntity.name === 'requester-chest') {
+                this.requestFromBufferChest = sourceEntity.requestFromBufferChest
+            }
 
-        /*
+            /*
             The rest of the same-type pairs from #94's TODO. What each one
             carries was measured against the game rather than taken from the
             list: a source and a blank target placed headless, `copy_settings`
@@ -1491,17 +1484,17 @@ export class Entity extends EventEmitter<EntityEvents> {
             the cross-type half of #94 will have to relax.
         */
 
-        // PASTE TRAIN STOP SETTINGS
-        if (this.type === 'train-stop' && sourceEntity.type === 'train-stop') {
-            this.station = sourceEntity.station
-            this.color = sourceEntity.color
-            this.manualTrainsLimit = sourceEntity.manualTrainsLimit
-        }
+            // PASTE TRAIN STOP SETTINGS
+            if (this.type === 'train-stop' && sourceEntity.type === 'train-stop') {
+                this.station = sourceEntity.station
+                this.color = sourceEntity.color
+                this.manualTrainsLimit = sourceEntity.manualTrainsLimit
+            }
 
-        // PASTE LOCOMOTIVE SETTINGS
-        if (this.type === 'locomotive' && sourceEntity.type === 'locomotive') {
-            this.color = sourceEntity.color
-            /*
+            // PASTE LOCOMOTIVE SETTINGS
+            if (this.type === 'locomotive' && sourceEntity.type === 'locomotive') {
+                this.color = sourceEntity.color
+                /*
                 Schedule included, which is issue #115 and the last item of the
                 2019 TODO #94 worked through. Measured rather than assumed: the
                 game's own copy carries records, interrupts and the schedule
@@ -1511,33 +1504,36 @@ export class Entity extends EventEmitter<EntityEvents> {
                 source having one. See
                 `tools/oracle/fixtures/copy-settings-schedule.json`.
             */
-            this.schedule = sourceEntity.schedule
-        }
+                this.schedule = sourceEntity.schedule
+            }
 
-        // PASTE CARGO WAGON SETTINGS
-        if (this.type === 'cargo-wagon' && sourceEntity.type === 'cargo-wagon') {
-            // bar and filters together, since a wagon nests them in one field
-            this.wagonInventory = sourceEntity.wagonInventory
-        }
+            // PASTE CARGO WAGON SETTINGS
+            if (this.type === 'cargo-wagon' && sourceEntity.type === 'cargo-wagon') {
+                // bar and filters together, since a wagon nests them in one field
+                this.wagonInventory = sourceEntity.wagonInventory
+            }
 
-        // PASTE CONTAINER INVENTORY LIMIT
-        if (CONTAINER_TYPES.has(this.type) && CONTAINER_TYPES.has(sourceEntity.type)) {
-            this.inventoryBar = sourceEntity.inventoryBar
-        }
+            // PASTE CONTAINER INVENTORY LIMIT
+            if (CONTAINER_TYPES.has(this.type) && CONTAINER_TYPES.has(sourceEntity.type)) {
+                this.inventoryBar = sourceEntity.inventoryBar
+            }
 
-        // PASTE PROGRAMMABLE SPEAKER SETTINGS
-        if (this.type === 'programmable-speaker' && sourceEntity.type === 'programmable-speaker') {
-            this.speakerParameters = sourceEntity.speakerParameters
-            this.speakerAlertParameters = sourceEntity.speakerAlertParameters
-        }
+            // PASTE PROGRAMMABLE SPEAKER SETTINGS
+            if (
+                this.type === 'programmable-speaker' &&
+                sourceEntity.type === 'programmable-speaker'
+            ) {
+                this.speakerParameters = sourceEntity.speakerParameters
+                this.speakerAlertParameters = sourceEntity.speakerAlertParameters
+            }
 
-        // PASTE ROCKET SILO SETTINGS
-        if (this.type === 'rocket-silo' && sourceEntity.type === 'rocket-silo') {
-            this.launchToOrbitAutomatically = sourceEntity.launchToOrbitAutomatically
-            this.useTransitionalRequests = sourceEntity.useTransitionalRequests
-        }
+            // PASTE ROCKET SILO SETTINGS
+            if (this.type === 'rocket-silo' && sourceEntity.type === 'rocket-silo') {
+                this.launchToOrbitAutomatically = sourceEntity.launchToOrbitAutomatically
+                this.useTransitionalRequests = sourceEntity.useTransitionalRequests
+            }
 
-        /*
+            /*
             The cross-type pairs, which `canPasteSettings` refused outright until
             now. Each one was measured against the game rather than taken from
             #94's TODO - see `CROSS_TYPE_PASTE` and
@@ -1550,43 +1546,42 @@ export class Entity extends EventEmitter<EntityEvents> {
             its work rather than special-cased here.
         */
 
-        // PASTE A MACHINE'S INGREDIENTS ONTO A LOGISTIC CHEST AS REQUESTS
-        if (sourceEntity.type === 'assembling-machine' && this.type === 'logistic-container') {
-            const requests = sourceEntity.recipeIngredientRequests
-            if (requests.length > 0) {
-                this.filters = requests.slice(0, this.maxFilters)
+            // PASTE A MACHINE'S INGREDIENTS ONTO A LOGISTIC CHEST AS REQUESTS
+            if (sourceEntity.type === 'assembling-machine' && this.type === 'logistic-container') {
+                const requests = sourceEntity.recipeIngredientRequests
+                if (requests.length > 0) {
+                    this.filters = requests.slice(0, this.maxFilters)
+                }
             }
-        }
 
-        // PASTE A MACHINE'S INGREDIENTS ONTO AN INSERTER AS FILTERS
-        if (sourceEntity.type === 'assembling-machine' && this.type === 'inserter') {
-            const ingredients = sourceEntity.recipeIngredientRequests
-            if (ingredients.length > 0) {
-                /*
+            // PASTE A MACHINE'S INGREDIENTS ONTO AN INSERTER AS FILTERS
+            if (sourceEntity.type === 'assembling-machine' && this.type === 'inserter') {
+                const ingredients = sourceEntity.recipeIngredientRequests
+                if (ingredients.length > 0) {
+                    /*
                     Names only. The game writes an inserter's filters without
                     counts - the thirty-seconds arithmetic is a chest's business,
                     and an inserter filter has nowhere to put a number.
                 */
-                this.filters = ingredients
-                    .map(({ index, name }) => ({ index, name }))
-                    .slice(0, this.maxFilters)
+                    this.filters = ingredients
+                        .map(({ index, name }) => ({ index, name }))
+                        .slice(0, this.maxFilters)
+                }
             }
-        }
 
-        // PASTE COLOUR BETWEEN A TRAIN STOP AND A LOCOMOTIVE
-        if (
-            (sourceEntity.type === 'train-stop' && this.type === 'locomotive') ||
-            (sourceEntity.type === 'locomotive' && this.type === 'train-stop')
-        ) {
-            /*
+            // PASTE COLOUR BETWEEN A TRAIN STOP AND A LOCOMOTIVE
+            if (
+                (sourceEntity.type === 'train-stop' && this.type === 'locomotive') ||
+                (sourceEntity.type === 'locomotive' && this.type === 'train-stop')
+            ) {
+                /*
                 Colour only, in both directions. A stop's name stays its own -
                 measured: a locomotive copied onto a train stop left the stop's
                 `station` untouched.
             */
-            this.color = sourceEntity.color
-        }
-
-        this.m_BP.history.commitTransaction()
+                this.color = sourceEntity.color
+            }
+        })
 
         /*
             TODO:

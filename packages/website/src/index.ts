@@ -6,8 +6,6 @@ import EDITOR, {
     Editor,
     Blueprint,
     Book,
-    TrainBlueprintError,
-    ModdedBlueprintError,
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
     encode,
@@ -85,7 +83,7 @@ const loadingScreen = {
 }
 
 console.log(
-    '\n%cLooking for the source?\nhttps://github.com/wormeyman/factorio-blueprint-editor/tree/wormeyman-space-age-support\n',
+    '\n%cLooking for the source?\nhttps://github.com/FactoryGameFan/factorio-blueprint-editor\n',
     'color: #1f79aa; font-weight: bold'
 )
 
@@ -103,7 +101,7 @@ if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'funct
     createToast({
         text:
             "Current browser doesn't support WebAssembly.<br>" +
-            'If you think this is a mistake, feel free to report this bug on github or using the feedback button.',
+            'If you think this is a mistake, feel free to report this bug on github.',
         type: 'error',
         timeout: Infinity,
     })
@@ -843,35 +841,14 @@ function createErrorMessage(text: string, error: unknown, timeout = 10000): void
         text:
             `${text}<br>` +
             'Please check out the console (F12) for an error message and ' +
-            'report this bug on github or using the feedback button.',
+            'report this bug on github.',
         type: 'error',
         timeout,
     })
 }
 function createBPImportError(
-    error:
-        | Error
-        | TrainBlueprintError
-        | ModdedBlueprintError
-        | CorruptedBlueprintStringError
-        | BookWithNoBlueprintsError
+    error: Error | CorruptedBlueprintStringError | BookWithNoBlueprintsError
 ): void {
-    if (error instanceof TrainBlueprintError) {
-        createErrorMessage(
-            'Blueprint with train entities not supported yet. If you think this is a mistake:',
-            error.errors
-        )
-        return
-    }
-
-    if (error instanceof ModdedBlueprintError) {
-        createErrorMessage(
-            'Blueprint with modded items not supported yet. If you think this is a mistake:',
-            error.errors
-        )
-        return
-    }
-
     if (error instanceof CorruptedBlueprintStringError) {
         createErrorMessage(
             'Blueprint string might be corrupted. If you think this is a mistake:',

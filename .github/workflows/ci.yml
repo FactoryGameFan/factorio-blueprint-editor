@@ -280,12 +280,55 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # --with-deps is skipped above on a cache hit, but the OS packages it
-      # installs do not survive in the cache - only the browser does. This puts
-      # them back without re-downloading the browser.
-      - name: Install browser system dependencies
+      # No apt here, on purpose, and this replaces an install rather than
+      # retrying one. Measured: the ubuntu-24.04 image already carries every
+      # shared library the cached chromium needs, so `playwright install-deps`
+      # had nothing to do on a cache hit - while being by a wide margin the
+      # least reliable step in this workflow. Over 44 runs of it: median 17s,
+      # a tail to 686s, and 2 that never finished and took the job timeout and
+      # the deploy with them. The suite then passed on all four shards with it
+      # removed entirely.
+      #
+      # Why it hung, since the number alone does not say: apt stalls on the
+      # mirrorlist fetch. Wrapping it in `timeout` does not help and actively
+      # hurts - timeout kills its own child, `npx`, while the root-owned
+      # `apt-get` underneath survives holding /var/lib/apt/lists/lock, so every
+      # retry after the first dies instantly on the lock. That was measured too,
+      # on all four shards, and is why this is a deletion and not a retry.
+      #
+      # What is left is an assertion, not an install: ask the linker whether
+      # anything is actually missing. About a second, and it cannot hang. If a
+      # future runner image ever drops a library, this fails here naming the
+      # binary, instead of surfacing as chromium failing to launch inside an
+      # unrelated spec.
+      #
+      # THE BINARY COUNT IS PART OF THE ASSERTION, and is the more important
+      # half. The first draft of this check looked for `headless_shell` when the
+      # file is `chrome-headless-shell`, so it silently probed one binary rather
+      # than two and reported a clean result for a binary the specs do not run -
+      # `headless: true` in playwright.config.ts means the headless shell is
+      # what they use. A missing-library count is only meaningful next to the
+      # number of things it looked at.
+      - name: Verify chromium's shared libraries (no apt)
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: |
+          expected=2
+          found=0
+          bad=0
+          while IFS= read -r bin; do
+            found=$((found + 1))
+            echo "--- $bin"
+            if ldd "$bin" | grep -F 'not found'; then
+              echo "::error::$bin is missing the shared libraries listed above"
+              bad=$((bad + 1))
+            fi
+          done < <(find ~/.cache/ms-playwright -type f \( -name chrome -o -name chrome-headless-shell \))
+          echo "probed $found chromium binaries; $bad with missing libraries"
+          if [ "$found" -lt "$expected" ]; then
+            echo "::error::expected at least $expected chromium binaries, found $found - the browser layout changed, so this check is no longer looking at what the specs run"
+            exit 1
+          fi
+          [ "$bad" -eq 0 ]
 
       # The same script a maintainer runs locally, rather than a second copy of
       # "how to start the two servers" that can drift from it. It refuses to
@@ -333,7 +376,7 @@ jobs:
 
       - name: Upload report
         if: ${{ failure() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report-shard-${{ matrix.shard }}
           path: |
