@@ -68,8 +68,22 @@ const noopQuickActions: QuickActions = {
         return Promise.resolve(undefined)
     },
     readClipboardText: () => {
+        /*
+            Resolves rather than rejects, unlike an earlier version of this
+            (#242 review): every other member here reports through
+            `G.logger` and resolves to a falsy value instead, and
+            `ImportDialog`'s Paste button both `.then`s a successful read
+            into the field *and* `.catch`es a failed one into a second
+            `G.logger` call - so rejecting here logged this message once
+            and then the caught error a second time, two toasts for one
+            click where every sibling action logs once. An empty string
+            resolves the same way `importReplace`/`importAppend`/
+            `exportImage` resolve `false` and `encodeCurrent` resolves
+            `undefined` - Paste's `.then` sets the field to it, which is a
+            harmless no-op here since there was never anything to read.
+        */
         G.logger({ text: missingQuickActionsMessage, type: 'error' })
-        return Promise.reject(new Error(missingQuickActionsMessage))
+        return Promise.resolve('')
     },
 }
 

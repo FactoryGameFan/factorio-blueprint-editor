@@ -200,17 +200,35 @@ export class History {
     private transactionHistory: Transaction[] = []
 
     /**
-     * Changes by exactly ±1 on every `commitTransaction`, `undo` and `redo` -
-     * a cheap "did anything happen" signal for a caller that wants to react
+     * A cheap "did anything happen" signal for a caller that wants to react
      * to edits without diffing the blueprint itself (`ExportDialog`'s own
-     * re-encode, see its doc comment). Not an identity for "which state is
-     * this": undo followed by a *different* commit truncates the redo tail
-     * and can land back on a number this already returned for the earlier,
-     * now-discarded state. That only matters to a caller polling coarsely
-     * enough to miss the intermediate value - one checking every rendered
-     * frame, as `ExportDialog` does, cannot land two history operations in
-     * the same frame under real input, so the collision is not reachable
-     * there in practice.
+     * re-encode, see its doc comment) - only that reading, not "changes by
+     * exactly ±1 on every commit", which this used to claim and measured
+     * wrong in three ways (#242 review):
+     *
+     * - Only the *outermost* `commitTransaction` of a nested pair moves it.
+     *   `updateValue`/`updateMap` open their own inner transaction around a
+     *   single write; `transactionCount` reaching 0 is what gates the block
+     *   below, so an inner commit that leaves an outer one still open
+     *   decrements the count and returns without touching `historyIndex` at
+     *   all - only the caller whose own `commitTransaction` brings the
+     *   count to 0 sees it move.
+     * - Not guaranteed to move on that outermost commit either: one that
+     *   turns out empty (`openTransaction.empty()`) returns before
+     *   `historyIndex` is touched.
+     * - Not exactly ±1 once history is long enough to trim: crossing
+     *   `MAX_HISTORY_LENGTH` splices `MAX_HISTORY_LENGTH -
+     *   MIN_HISTORY_LENGTH` entries off the front and reindexes to the new
+     *   length before the usual `+= 1`, so a commit landing on that
+     *   boundary moves this backward by roughly that amount instead of
+     *   forward by one.
+     *
+     * None of that matters to `ExportDialog`'s own use, which only ever
+     * asks "is this different from what I last saw" - undo, redo and a trim
+     * all still change the number, the only property that comparison needs.
+     * It would matter to a future caller trying to count edits or identify
+     * a particular state from this value alone, which is exactly what the
+     * old wording invited.
      */
     public get revision(): number {
         return this.historyIndex

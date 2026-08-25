@@ -144,11 +144,22 @@ test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) =
         is inside that range and still a real desktop width, not an extreme
         this project's UI otherwise ignores - mobile gets a different,
         editing-free UI and is out of scope here.
+
+        Polled rather than read once: `setViewportSize` resolves once the
+        browser itself has resized, not once pixi has handled the `resize`
+        event, updated `G.app.screen.width` and re-run `setPosition` - a
+        single read straight after raced that and intermittently saw the
+        *previous* viewport's layout (measured 3 of 6 runs). `x` is the only
+        field that moves on a resize; the panel's own width is static, so
+        reading it once `x` has settled is safe (#242 review).
     */
     await page.setViewportSize({ width: 800, height: 720 })
 
+    await expect
+        .poll(() => page.evaluate(() => window.__fbe_test.toolsPanelBounds().x))
+        .toBeGreaterThanOrEqual(0)
+
     const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
-    expect(bounds.x).toBeGreaterThanOrEqual(0)
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(800)
 })
 
@@ -162,9 +173,11 @@ test('ToolsPanel does not run off the left edge below its own width (#242 review
         stopped that from reaching `position.set`, pushing the panel off the
         *left* edge instead of merely overlapping the quickbar the way the
         800px case above does. 150px is inside that range.
+
+        Same `setViewportSize`/resize race as the test above (measured 2 of
+        5 runs here) - polled for the same reason.
     */
     await page.setViewportSize({ width: 150, height: 720 })
 
-    const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
-    expect(bounds.x).toBe(0)
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.toolsPanelBounds().x)).toBe(0)
 })

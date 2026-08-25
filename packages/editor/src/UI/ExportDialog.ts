@@ -38,13 +38,22 @@ export class ExportDialog extends Dialog {
     private m_DebounceTimer: ReturnType<typeof setTimeout> | undefined
     private m_EncodeCount = 0
 
-    /** How many times `refreshText` has actually run a `serialize` +
-     * `deflate` this dialog's lifetime - the one thing that proves the
-     * change-detection in the constructor is doing its job rather than
-     * quietly falling back to encoding on every frame, which no assertion on
-     * the field's own text could show (a re-encode of unchanged content is
-     * textually identical to not encoding at all). See
-     * tests/quick-actions.spec.ts. */
+    /**
+     * How many times `refreshText` has been *called* this dialog's lifetime
+     * - not how many times the `serialize` + `deflate` it starts has
+     * actually finished, which this used to claim (#242 review):
+     * `m_EncodeCount += 1` is `refreshText`'s first line, so it moves
+     * synchronously, before `encodeCurrent()`'s promise resolves. That is
+     * also why a caller does not need to poll for the value right after
+     * `openExportDialog()` returns - it is already whatever it will be, the
+     * constructor having called `refreshText` synchronously too.
+     *
+     * The one thing that proves the change-detection in the constructor is
+     * doing its job rather than quietly falling back to encoding on every
+     * frame, which no assertion on the field's own text could show (a
+     * re-encode of unchanged content is textually identical to not
+     * encoding at all). See tests/quick-actions.spec.ts.
+     */
     public get encodeCount(): number {
         return this.m_EncodeCount
     }

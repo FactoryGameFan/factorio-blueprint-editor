@@ -69,6 +69,25 @@ const TWO_CHESTS = encode({
     ],
 })
 
+/*
+    Ctrl + right-drag over the entity, the same gesture
+    tests/editor-mode-input.spec.ts documents. The 1px move after mouse-down
+    is load-bearing: DELETE mode only *defines* the selection-area callback
+    on entry, a later pointermove is what actually populates the entities
+    under it, so a plain down/up with no move in between selects and
+    deletes nothing.
+*/
+async function deleteEntity(page: Page, entityNumber: number): Promise<void> {
+    const at = await page.evaluate(n => window.__fbe_test.entityScreenPosition(n), entityNumber)
+    if (!at) throw new Error(`entity ${entityNumber} not found in the loaded blueprint`)
+    await page.mouse.move(at.x, at.y)
+    await page.keyboard.down('Control')
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.move(at.x + 1, at.y)
+    await page.mouse.up({ button: 'right' })
+    await page.keyboard.up('Control')
+}
+
 async function openImportDialog(page: Page): Promise<void> {
     await page.evaluate(() => window.__fbe_test.openImportDialog())
 }
@@ -376,8 +395,15 @@ test('the export field re-encodes only when the blueprint actually changes, not 
     await loadBlueprint(page, TWO_CHESTS)
     await page.evaluate(() => window.__fbe_test.openExportDialog())
 
-    // The initial open-time encode.
-    await expect.poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+    /*
+        Not polled: `refreshText`'s first line bumps `encodeCount`
+        synchronously in the constructor, so the value is already whatever
+        it will be by the time `openExportDialog()`'s own `evaluate()` call
+        has returned - polling here only extended a real failure's report
+        to the full poll timeout instead of failing immediately (#242
+        review).
+    */
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
     // Idle for well over two of the old 500 ms interval's cycles - nothing
     // in the blueprint changed, so the count must not move.
@@ -386,24 +412,9 @@ test('the export field re-encodes only when the blueprint actually changes, not 
 
     const textBefore = await exportTextarea(page).inputValue()
 
-    /*
-        Delete entity 1 behind the still-open dialog - Ctrl + right-drag,
-        the same gesture tests/editor-mode-input.spec.ts documents.
-        ExportDialog does not block the canvas (its own doc comment), which
-        is the whole reason a stale field was reachable in the first place.
-        The 1px move after mouse-down is load-bearing: DELETE mode only
-        *defines* the selection-area callback on entry, a later pointermove
-        is what actually populates the entities under it, so a plain
-        down/up with no move in between selects and deletes nothing.
-    */
-    const at = await page.evaluate(() => window.__fbe_test.entityScreenPosition(1))
-    if (!at) throw new Error('entity 1 not found in the loaded blueprint')
-    await page.mouse.move(at.x, at.y)
-    await page.keyboard.down('Control')
-    await page.mouse.down({ button: 'right' })
-    await page.mouse.move(at.x + 1, at.y)
-    await page.mouse.up({ button: 'right' })
-    await page.keyboard.up('Control')
+    // ExportDialog does not block the canvas (its own doc comment), which
+    // is the whole reason a stale field was reachable in the first place.
+    await deleteEntity(page, 1)
 
     // One history transaction, debounced to exactly one re-encode - not
     // fired instantly (this is a wait for the debounce delay to elapse, not
@@ -415,4 +426,59 @@ test('the export field re-encodes only when the blueprint actually changes, not 
     const textAfter = await exportTextarea(page).inputValue()
     expect(textAfter).not.toBe(textBefore)
     expect(decodeBlueprintString(textAfter).blueprint.entities).toHaveLength(1)
+})
+
+test('a burst of edits inside one debounce window collapses to a single re-encode (#242 review follow-up)', async ({
+    page,
+}) => {
+    /*
+        The test above cannot tell a real debounce from firing on the very
+        next frame after a change - deleting the debounce delay entirely
+        (calling `refreshText` straight from `changeTick` instead of
+        scheduling it) still passed it in under three seconds, since all
+        that test checks is that *a* second encode eventually happens, not
+        that two edits close together produce exactly one (#242 review).
+        Two revision-changing operations inside the same 500 ms window is
+        what only a real debounce - restarting its timer on each further
+        change rather than firing once per change - collapses to a single
+        re-encode: settling at 2 (one open-time encode plus one for the
+        whole burst) rather than 3 (one per operation).
+
+        A delete followed by an undo, not two deletes: `History.revision`
+        moves on either kind of operation, and undo is a single keypress
+        with no drag-targeting of its own, which is what makes the second
+        operation reliable to land inside the window rather than depending
+        on a second precisely-timed pointer gesture.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+
+    await deleteEntity(page, 1)
+
+    // Well inside the 500 ms window - the delete's debounce timer must
+    // still be pending, not yet fired.
+    await page.waitForTimeout(200)
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+
+    // The delete's own mousedown already blurred ExportDialog's read-only
+    // field (focused since open), so this reaches the undo keybind rather
+    // than being swallowed by Editor.ts's "ignore keys while an input has
+    // focus" guard.
+    await page.keyboard.press('Control+z')
+
+    await expect
+        .poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount()), { timeout: 2000 })
+        .toBe(2)
+
+    // Long enough past the undo's own debounce window that an uncoalesced
+    // implementation's separate re-encode for it would already have
+    // landed - proves the count settles at 2 rather than merely reaching
+    // it on the way to 3.
+    await page.waitForTimeout(700)
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(2)
+
+    // The undo put entity 1 back - the field should show both chests again.
+    const out = await exportTextarea(page).inputValue()
+    expect(decodeBlueprintString(out).blueprint.entities).toHaveLength(2)
 })
