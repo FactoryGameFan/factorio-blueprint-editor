@@ -15,6 +15,31 @@ const CUSTOM_ORIGIN = 'https://fbe.factorygamefan.com'
 */
 const PASSTHROUGH_RESPONSE_HEADERS = ['content-type']
 
+/*
+    Sent on every outbound fetch, because GitHub's API refuses a request without
+    one: `api.github.com` answers 403 "Request forbidden by administrative rules.
+    Please make sure your request has a User-Agent header." Cloudflare's fetch
+    sends none of its own, so the `gist` source in bpString.ts has been broken
+    since this Worker replaced the Cloudflare Pages deploy in March 2026 - the
+    Pages handler used `new Request(apiUrl, request)`, which copied the browser's
+    User-Agent along with everything else.
+
+    A fixed string rather than the caller's, and that distinction is the whole
+    reason this is one line instead of a header copy. Forwarding the client's
+    headers is what the old handler did, and for a same-origin call those include
+    cookies for fbe.factorygamefan.com - which would then be handed to pastebin.
+
+    Nothing can test this. tests/blueprint-sources.spec.ts covers the gist arm and
+    is green, because it intercepts /corsproxy with page.route and never reaches
+    GitHub; no runner here has network access to it either. The guard in
+    tests/corsproxy.test.ts reads this file instead, which is the same answer
+    tests/spec-modifier-keys.test.ts reached for its own untestable class.
+
+    Measured 2026-08-25: of the eight allowlisted hosts, api.github.com is the
+    only one that answers differently with and without this header.
+*/
+const PROXY_USER_AGENT = 'factorio-blueprint-editor (+https://fbe.factorygamefan.com)'
+
 const textResponse = (status: number, body: string): Response =>
     new Response(`${body}\n`, {
         status,
@@ -63,6 +88,7 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
         upstream = await fetch(verdict.url.href, {
             method: request.method,
             redirect: 'follow',
+            headers: { 'user-agent': PROXY_USER_AGENT },
         })
     } catch {
         return textResponse(502, 'Could not reach the target')

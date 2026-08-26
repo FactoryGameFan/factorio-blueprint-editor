@@ -125,3 +125,37 @@ describe('checkProxyTarget - refusals', () => {
         expect(verdict.ok).toBe(false)
     })
 })
+
+/*
+    A source scan rather than a behaviour test, and it is the same answer
+    tests/spec-modifier-keys.test.ts reached for its own class of bug: nothing
+    that runs here can reach api.github.com, so no runner can catch the thing
+    this guards.
+
+    GitHub's API refuses a request with no User-Agent, and Cloudflare's fetch
+    sends none of its own, so dropping this header silently breaks the `gist`
+    source in bpString.ts - and breaks it in a way the whole suite stays green
+    for, because tests/blueprint-sources.spec.ts intercepts /corsproxy with
+    page.route and never leaves the browser. That is exactly how it went
+    unnoticed from March 2026 until it was probed against production.
+*/
+describe('the outbound fetch identifies itself', () => {
+    const worker = fs.readFileSync(
+        path.resolve(process.cwd(), 'packages/worker/src/index.ts'),
+        'utf-8'
+    )
+
+    it('sends a user-agent on the proxied request', () => {
+        const call = worker.match(/upstream = await fetch\([\s\S]*?\n {8}\}\)/)
+        if (call === null) throw new Error('the outbound fetch call could not be located')
+        expect(call[0]).toMatch(/'user-agent':/)
+    })
+
+    it('uses a fixed string that names the project, not the caller’s header', () => {
+        const declared = worker.match(/const PROXY_USER_AGENT = '([^']+)'/)
+        if (declared === null) throw new Error('PROXY_USER_AGENT is not declared')
+        expect(declared[1]).toMatch(/factorio-blueprint-editor/)
+        // Forwarding request.headers would carry our own cookies to the target.
+        expect(worker).not.toMatch(/headers:\s*request\.headers/)
+    })
+})
