@@ -298,6 +298,22 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                         r.text()
                     )
                 case 'factorioprints':
+                    /*
+                        The same fork as the factorio.school arm below, and for
+                        the same reason. `factorioprints.xyz` is the same API
+                        under a factorioprints domain, and a link to one
+                        blueprint *inside a book* is an
+                        `/api/blueprintData/<sha>/position/<i>` URL. The firebase
+                        record holds the whole book and nothing else, so
+                        rewriting to it would silently drop the position and open
+                        the book instead of the blueprint that was linked -
+                        `pathParts[1]` of an API path is `blueprintData`, not a
+                        blueprint key, so in practice the fetch fails outright.
+                    */
+                    if (pathParts[0] === 'api') {
+                        return fetchData(url.href).then(r => r.text())
+                    }
+
                     return fetchData(
                         `https://facorio-blueprints.firebaseio.com/blueprints/${pathParts[1]}.json`
                     )

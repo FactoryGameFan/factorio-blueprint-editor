@@ -64,6 +64,22 @@ describe('checkProxyTarget - the editor’s own sources', () => {
         }
     })
 
+    /*
+        The other direction of the same guard, for the arms that fetch `url.href`
+        rather than a URL they build: their hosts appear nowhere in bpString.ts
+        as a literal, so the scan above cannot see them, and dropping one to the
+        catch-all would go unnoticed.
+    */
+    it('allowlists the hosts the pass-through arms fetch', () => {
+        const passThrough = ['factorio.school', 'www.factorio.school', 'factorioprints.xyz']
+
+        for (const host of passThrough) {
+            expect(ALLOWED_HOSTS.has(host), `${host} is passed through but not allowlisted`).toBe(
+                true
+            )
+        }
+    })
+
     // The allowlist is checked before the catch-all guards, so a named host is
     // exempt from the port rule. Pinned because it is a consequence of the
     // ordering rather than a decision anyone would find by reading the guards.
