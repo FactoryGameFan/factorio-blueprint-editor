@@ -36,6 +36,7 @@ export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
     'facorio-blueprints.firebaseio.com',
     'www.factorio.school',
     'factorio.school',
+    'factorioprints.xyz',
     'factoriobin.com',
     'docs.google.com',
 ])

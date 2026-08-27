@@ -122,6 +122,19 @@ test('factorioprints reads blueprintString off the firebase record', async ({ pa
     expect(r.entities).toBe(2)
 })
 
+/*
+    The same fork inside the factorioprints arm. factorioprints links a blueprint
+    inside a book by its position in the API URL, and the firebase record the
+    /view/ shape rewrites to holds only the whole book - so a rewrite here would
+    load the book and lose the position, with the request still looking right.
+*/
+test('a factorioprints API url is passed through unchanged and read as text', async ({ page }) => {
+    const source = 'https://factorioprints.xyz/api/blueprintData/xyz321/position/1.0'
+    const r = await fetchThrough(page, source, BP)
+    expect(r.target).toBe(source)
+    expect(r.entities).toBe(2)
+})
+
 test('factorio.school reads the doubly nested blueprintString', async ({ page }) => {
     const r = await fetchThrough(page, 'https://www.factorio.school/view/xyz321', schoolBody)
     expect(r.target).toBe('https://www.factorio.school/api/blueprint/xyz321')
