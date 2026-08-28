@@ -149,18 +149,28 @@ test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) =
         browser itself has resized, not once pixi has handled the `resize`
         event, updated `G.app.screen.width` and re-run `setPosition` - a
         single read straight after raced that and intermittently saw the
-        *previous* viewport's layout (measured 3 of 6 runs). `x` is the only
-        field that moves on a resize; the panel's own width is static, so
-        reading it once `x` has settled is safe (#242 review).
+        *previous* viewport's layout (measured 3 of 6 runs).
+
+        The poll asserts the *joint* condition, and that is the whole of it:
+        `x >= 0` alone is already true before the resize lands, since the
+        stale 1280px layout puts the panel at `max(0, min(861, 1068))` =
+        861, so polling for that half resolves on its first check and adds
+        no wait whatsoever - leaving the right-edge assertion after it
+        exposed to exactly the race the poll was added for. The sibling
+        150px test below works only because its target (`x === 0`) is false
+        in that same stale state. So the half that can actually tell the two
+        viewports apart has to be the half inside the poll (#242 review).
     */
     await page.setViewportSize({ width: 800, height: 720 })
 
     await expect
-        .poll(() => page.evaluate(() => window.__fbe_test.toolsPanelBounds().x))
-        .toBeGreaterThanOrEqual(0)
-
-    const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(800)
+        .poll(() =>
+            page.evaluate(() => {
+                const b = window.__fbe_test.toolsPanelBounds()
+                return b.x >= 0 && b.x + b.width <= 800
+            })
+        )
+        .toBe(true)
 })
 
 test('ToolsPanel does not run off the left edge below its own width (#242 review)', async ({
