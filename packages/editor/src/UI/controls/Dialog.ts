@@ -81,6 +81,30 @@ export abstract class Dialog extends Panel {
 
         this.emit('close')
         this.destroy()
+
+        /*
+            Hand the keyboard focus back to the canvas once nothing is left
+            open. `destroy()` above takes any TextInput this dialog held with
+            it, and `TextInput._onRemoved` removes that <input> from
+            document.body - removing the focused element resets
+            `document.activeElement` to <body>, and nothing else in the app
+            ever focuses the canvas back (TextInput's own two calls are the
+            only other `.focus()` in the package). Both clipboard listeners in
+            packages/website/src/index.ts open with
+            `if (document.activeElement !== CANVAS) return`, so Ctrl+C and
+            Ctrl+V went silently dead - no toast, no error - from the moment
+            any dialog with a field had been open until the user clicked the
+            canvas (#242 review).
+
+            Only once the *last* dialog closes: while another is still open,
+            its field is what the keyboard should be talking to, and a Ctrl+C
+            there has to copy the selected text rather than reach the listener
+            that encodes the whole blueprint. Import and Export can be open
+            together (UIContainer tracks them separately), so that is a real
+            case, not a theoretical one - both are covered in
+            tests/quick-actions.spec.ts.
+        */
+        if (!Dialog.anyOpen()) G.app.canvas.focus()
     }
 
     /**

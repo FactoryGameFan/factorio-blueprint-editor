@@ -261,6 +261,58 @@ test('Escape closes ImportDialog and ExportDialog even while the textarea has fo
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 })
 
+test('Closing the last dialog hands the keyboard focus back to the canvas', async ({ page }) => {
+    /*
+        Ctrl+C and Ctrl+V used to go silently dead after either dialog had
+        been open (#242 review). `TextInput._onRemoved` takes the focused
+        <input> out of document.body as the dialog is destroyed, which resets
+        `document.activeElement` to <body>, and nothing focused the canvas
+        back - so both clipboard listeners in packages/website/src/index.ts,
+        each of which opens with `if (document.activeElement !== CANVAS)
+        return`, returned early on every press. No toast, no error; clicking
+        the canvas was the only way to get them back.
+
+        This asserts on the focus rather than on a real Ctrl+C because the
+        listeners' own guard *is* this condition - and a real copy would need
+        clipboard permissions to report anything past it, which is exactly the
+        browser-dependent path ExportDialog exists to avoid.
+    */
+    await loadBlueprint(page, ONE_CHEST)
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+
+    // Load-bearing: the dialog has to actually take the focus off the canvas
+    // first, or what follows would pass on a canvas that never lost it.
+    await expect(exportTextarea(page)).toBeFocused()
+
+    await page.keyboard.press('Escape')
+
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+    await expect(page.locator('canvas#editor')).toBeFocused()
+})
+
+test('Closing one dialog while another is open leaves the canvas unfocused', async ({ page }) => {
+    /*
+        The hand-back above is deliberately conditional on nothing else being
+        open, and this is the half that pins the condition: with a field still
+        on screen the keyboard belongs to it, so focusing the canvas here would
+        turn a Ctrl+C meant for the selected text in the remaining field into
+        the listener that encodes the whole blueprint instead.
+
+        Reachable, not theoretical - `toggleImportDialog`/`toggleExportDialog`
+        track their dialogs separately, as the both-open test below shows.
+    */
+    await loadBlueprint(page, ONE_CHEST)
+    await openImportDialog(page)
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await expect(exportTextarea(page)).toBeFocused()
+
+    // Escape closes the topmost, which is the Export dialog opened last.
+    await page.keyboard.press('Escape')
+
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    await expect(page.locator('canvas#editor')).not.toBeFocused()
+})
+
 test('ImportDialog and ExportDialog can be open at once, and each helper still finds its own textarea', async ({
     page,
 }) => {
