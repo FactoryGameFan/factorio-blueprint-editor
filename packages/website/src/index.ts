@@ -67,6 +67,20 @@ let bp: Blueprint
 // what loadBp's else branch assigns and what getBook/encodeLoaded read.
 let book: Book | undefined
 
+/*
+    Whether startup has run to the point where `bp` and the editor's `G.UI`
+    both exist - set at exactly the moment `__fbe_test` goes on `window`, and
+    for the same reason its own comment gives. Read by the clipboard listeners
+    below; see clipboardShortcutsBelongToCanvas for why they need it.
+
+    Measured before it existed: with the canvas focused during a cold data.json
+    load, Ctrl+C threw an uncaught "Cannot read properties of undefined
+    (reading 'isEmpty')" and Ctrl+V raised a "Blueprint string could not be
+    loaded" toast naming nothing about the real problem. Neither is what a
+    keypress before the editor is up should do.
+*/
+let startupFinished = false
+
 const loadingScreen = {
     el: element('loadingScreen'),
     show() {
@@ -261,6 +275,7 @@ editor
                 that fails to import is a state specs still need to drive.
             */
             .then(() => {
+                startupFinished = true
                 ;(window as any).__fbe_test = testApi
             })
             .catch(error => createErrorMessage('Could not finish starting up.', error))
@@ -301,14 +316,56 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
     }
 }
 
+/**
+ * Whether Ctrl+C and Ctrl+V belong to the canvas right now (issue #279).
+ *
+ * The focus half alone is not enough, and the reason is that the ordinary
+ * route to ImportDialog leaves the canvas focused: clicking ToolsPanel's
+ * Import slot *is* a click on the canvas, and ImportDialog never focuses its
+ * own field (only ExportDialog does). So Ctrl+V with that dialog open ran
+ * `importReplace()` -> `loadBp` -> `Editor.loadBlueprint`, which assigns a
+ * fresh `G.bp` and calls `Dialog.closeAll()`. The whole blueprint was replaced
+ * from the OS clipboard, the dialog went with it along with anything typed
+ * into its field, and the new blueprint's empty `History` meant neither Ctrl+Z
+ * nor the ToolsPanel Undo slot brought the old one back. The dialog on screen
+ * offers Paste, Replace and Append as three separate choices, and the shortcut
+ * silently picked Replace.
+ *
+ * **Both listeners take this, not only `paste`.** Copy is the milder twin
+ * rather than a different case. With ImportDialog open, the only Ctrl+C that
+ * reaches here is one pressed while the user is looking at a field they were
+ * about to paste a blueprint string into - clicking into that field would make
+ * it the `activeElement` and stop the listener anyway - and what it does is
+ * overwrite that string on the OS clipboard with the loaded blueprint's own.
+ * Losing the string you were about to import is smaller than losing the
+ * blueprint you had, but it is the same mistake, silent in the same way, and
+ * gating one and not the other is not explainable from the outside: nothing on
+ * screen tells a user that the two halves of the clipboard follow different
+ * rules while a dialog is up.
+ *
+ * ExportDialog is unaffected either way - it focuses its own textarea on open,
+ * so it already fails the focus half.
+ *
+ * The order is load-bearing. `Editor.openDialogCount` reads `G.UI`, which
+ * `Editor.init` assigns only after awaiting data.json, and these listeners are
+ * registered while that await is still in flight. The canvas is reachable in
+ * that window - it carries `tabindex="1"` and one Tab press focuses it through
+ * the loading screen (measured) - so `startupFinished` has to be read before
+ * `openDialogCount`, or a keypress during a cold load throws a TypeError
+ * naming `G.UI` instead of doing nothing.
+ */
+function clipboardShortcutsBelongToCanvas(): boolean {
+    return startupFinished && document.activeElement === CANVAS && editor.openDialogCount === 0
+}
+
 document.addEventListener('copy', (e: ClipboardEvent) => {
-    if (document.activeElement !== CANVAS) return
+    if (!clipboardShortcutsBelongToCanvas()) return
     e.preventDefault()
     exportString()
 })
 
 document.addEventListener('paste', (e: ClipboardEvent) => {
-    if (document.activeElement !== CANVAS) return
+    if (!clipboardShortcutsBelongToCanvas()) return
     e.preventDefault()
     // Fire-and-forget, same as before importReplace reported success/failure
     // to its callers - this one has nothing to do with the resolved value,
