@@ -11,7 +11,13 @@ import FD, { ColorWithAlpha, getColor, recipeResults } from '../../core/factorio
 import { styles } from '../style'
 import G from '../../common/globals'
 import util from '../../common/util'
-import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
+import { need } from '../../core/need'
+import {
+    IngredientPrototype,
+    IconData,
+    ProductPrototype,
+    Sprite as SpriteData,
+} from 'factorio:prototype'
 
 /**
  * Shade Color
@@ -367,6 +373,52 @@ function rgbToColorSource(r: number, g: number, b: number): ColorSource {
     return Math.floor(r * 255) * 0x10000 + Math.floor(g * 255) * 0x100 + Math.floor(b * 255)
 }
 
+/**
+ * Create Icon from a `FD.utilitySprites` entry - the game's own GUI icons
+ * (import/export/add/...) rather than an item, fluid, recipe or signal.
+ * Takes the resolved sprite (e.g. `FD.utilitySprites.import_slot`) rather
+ * than a key: `UtilitySprites[K]` for a generic `K` collapses to the union
+ * of every field's type - `Sprite | Animation | CursorBoxSpecification | ...`
+ * - which loses `filename`/`width`/`height`/`size` for all of them, where a
+ * plain property access keeps the one field's own `Sprite` type.
+ *
+ * Reads `width`/`height` directly rather than through `need()`, because a
+ * mip sprite (`downloading`, `refresh`, ...) declares `size` instead - a
+ * single number for a square icon, per `SpriteSource`'s own type, which is
+ * every mip icon this is called with. `data.x ?? 0`/`data.y ?? 0` stay a
+ * plain default rather than a `need()`: every utility sprite this is called
+ * with is a single flat icon, unlike the `layers`/tuple-`size` shapes some
+ * other utility sprites use, which this does not attempt to support - a
+ * caller reaching for one of those would rather see why than get a blank
+ * texture.
+ */
+function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = true): Sprite {
+    const filename = need(data, 'filename')
+    const size = typeof data.size === 'number' ? data.size : undefined
+    const width = data.width ?? size
+    const height = data.height ?? size
+    // `!width`/`!height` rather than `=== undefined` (#242 review): a
+    // literal 0 passed the old check (0 !== undefined) and reached
+    // `maxSize / width` below as a division by zero, an invalid scale no
+    // real sprite entry should produce - treated the same as missing.
+    if (!width || !height) {
+        throw new Error(`No width/height/size for ${filename}`)
+    }
+
+    const texture = G.getTexture(filename, data.x ?? 0, data.y ?? 0, width, height)
+    const sprite = new Sprite(texture)
+    // By the larger of the two, not `width` alone (#242 review) - a
+    // non-square mip icon (this is the one caller that declares distinct
+    // width/height) scaled only against its width could still overflow
+    // `maxSize` on its taller axis; fitting both inside the box is what a
+    // caller passing `maxSize` as an icon slot's size actually wants.
+    sprite.scale.set(maxSize / Math.max(width, height))
+    if (setAnchor) {
+        sprite.anchor.set(0.5)
+    }
+    return sprite
+}
+
 export default {
     ShadeColor,
     DrawRectangle,
@@ -374,6 +426,7 @@ export default {
     CreateIcon,
     CreateIconWithAmount,
     CreateRecipe,
+    CreateUtilitySpriteIcon,
     applyTint,
     colorAndAlphaToColorSource,
     rgbToColorSource,

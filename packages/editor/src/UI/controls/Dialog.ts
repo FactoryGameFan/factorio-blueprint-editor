@@ -81,6 +81,49 @@ export abstract class Dialog extends Panel {
 
         this.emit('close')
         this.destroy()
+
+        /*
+            Hand the keyboard focus back to the canvas, but only when this
+            close is what orphaned it.
+
+            `destroy()` above takes any TextInput this dialog held with it,
+            and `TextInput._onRemoved` removes that <input> from
+            document.body - removing the focused element resets
+            `document.activeElement` to <body>, and nothing else in the app
+            ever focuses the canvas back (TextInput's own two calls are the
+            only other `.focus()` in the package). Both clipboard listeners in
+            packages/website/src/index.ts open with
+            `if (document.activeElement !== CANVAS) return`, so Ctrl+C and
+            Ctrl+V went silently dead - no toast, no error - from the moment
+            any dialog with a field had been open until the user clicked the
+            canvas (#242 review).
+
+            <body> is the whole condition, and reading it is what separates
+            "the field that held the focus was just destroyed" from
+            "something else still holds it". An unconditional call took the
+            focus off a live element: the settings pane's BP Book Index box
+            steps on ArrowUp through `changeBookIndex` ->
+            `Editor.loadBlueprint` -> `Dialog.closeAll()`, so with any dialog
+            open the first arrow closed it and this pulled the focus off the
+            <input> the user was still in. The second arrow then reached the
+            editor's keybinds instead of the box - measured 0 -> 1 -> 1
+            against the 0 -> 1 -> 2 with no dialog open (#242 review, and
+            tests/settings-pane-book-index.spec.ts, which is also the first
+            coverage those arrow keys have had).
+
+            Deliberately not also conditional on this being the last dialog.
+            An earlier version was, on the grounds that a surviving dialog's
+            field is what the keyboard should be talking to - which is not
+            true of this code: only ExportDialog focuses its own field
+            (`ExportDialog.ts`), ImportDialog never does. So closing the
+            topmost of two left `document.activeElement` on <body> with a
+            field on screen and nothing focused, which is the same dead
+            keyboard this exists to remove, just with a dialog still open
+            (#242 review). Whatever genuinely holds the focus - the surviving
+            dialog's field once it is clicked, or a DOM control outside the
+            canvas entirely - is not <body>, and so is not touched here.
+        */
+        if (document.activeElement === document.body) G.app.canvas.focus()
     }
 
     /**
