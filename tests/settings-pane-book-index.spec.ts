@@ -37,12 +37,19 @@ import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
     there is nothing here for the suppression to protect against anyway.
 
     The book entries carry a different entity count each, and that is the
-    synchronisation. `setValue` writes the box synchronously and only then
-    starts an async load, so waiting on the box's own value proves nothing
-    about whether the load - and the `closeAll` inside it - has run yet.
-    Pressing the second arrow into that gap passes whatever the guard does.
-    `entityContainerCount()` moves only when a load finishes, and it names
-    *which* entry finished.
+    synchronisation. `entityContainerCount()` moves only when a load finishes,
+    and it names *which* entry finished, which waiting on the box's own value
+    cannot: `setValue` writes the box before `changeBookIndex` is even called.
+
+    There is no gap between the two today, and this header used to say there
+    was. `changeBookIndex` is declared async, but nothing on the path it takes
+    ever yields - `Book.selectBlueprint` is synchronous, and `Editor.loadBlueprint`
+    (Editor.ts) has no `await` in its body, `initBP()` included. So the whole
+    load, and the `Dialog.closeAll()` inside it, runs inside the keydown handler
+    itself, and the second arrow cannot land mid-load however it is timed. The
+    sync point stays: it costs nothing while the load is synchronous, it names
+    the entry rather than merely proving something finished, and it is what
+    keeps the second arrow honest if any step on that path ever starts yielding.
 */
 
 const VERSION = version(2, 0, 55)
@@ -54,14 +61,33 @@ const chests = (n: number): Record<string, unknown>[] =>
         position: { x: i + 0.5, y: 0.5 },
     }))
 
-/** Entry i holds i+1 chests, so entityContainerCount() names the loaded entry. */
+/*
+    Entry i holds i+1 chests, so entityContainerCount() names the loaded entry.
+
+    The hyphen in `blueprint-book` and the `icons` on each entry are both there
+    to keep the load clean rather than to be read by anything. The schema
+    (blueprintSchema.json) pins the hyphen and requires `icons` on a blueprint,
+    and a book missing either takes bpString.ts's `Blueprint had validation
+    warnings (loaded anyway)` path on every run, raising a 10-second warning
+    toast - a state this spec never meant to run in (#281). Both are needed:
+    measured, the underscore reports the `item` const and nothing else, the
+    hyphen on its own reports the missing `icons` and nothing else, and only
+    with both does the load report no warning at all.
+*/
+const ICONS = [{ index: 1, signal: { type: 'item', name: 'wooden-chest' } }]
+
 const BOOK = encodeBook({
-    item: 'blueprint_book',
+    item: 'blueprint-book',
     version: VERSION,
     active_index: 0,
     blueprints: [0, 1, 2].map(index => ({
         index,
-        blueprint: { item: 'blueprint', version: VERSION, entities: chests(index + 1) },
+        blueprint: {
+            item: 'blueprint',
+            version: VERSION,
+            icons: ICONS,
+            entities: chests(index + 1),
+        },
     })),
 })
 

@@ -42,6 +42,40 @@ import {
       the loaded blueprint's real string without going through
       `navigator.clipboard` on the read side, the same reason ExportDialog
       exists as a fallback for a browser that blocks it.
+
+    Three of the tests here cover the focus hand-back at the end of
+    `Dialog.close()`, and they are a set rather than three takes on one thing.
+    Measured on 2026-08-30 by mutating that one line and running this file plus
+    tests/settings-pane-book-index.spec.ts, 17 tests in all:
+
+      shipped   `if (document.activeElement === document.body) focus()`
+                  -> 17 pass
+
+      A         `if (!Dialog.anyOpen() && ...)`, ie. also requiring this to be
+                the last dialog - the plausible-looking re-addition, since a
+                surviving dialog reads like something that should keep the
+                keyboard
+                  -> only "hands the focus back even while another dialog
+                     stays open" fails. This was the gap #281 was filed for:
+                     before that test existed the whole set went green.
+
+      B         unconditional `focus()`, no guard at all - the first version
+                of the #242 fix
+                  -> "does not take the focus off a field that still has it"
+                     fails here, and so does settings-pane-book-index's
+                     "a dialog closing on the first arrow does not steal the
+                     focus off the index box".
+
+      C         the hand-back deleted outright
+                  -> both hand-back tests here fail; both settings-pane tests
+                     pass, since nothing is being stolen.
+
+    Read down the columns rather than across: A is caught by exactly one test
+    in either file, the one #281 added, and by nothing else anywhere. B is
+    caught by the live-field test here and by the settings-pane treatment.
+    C is caught by the two hand-back tests here and by neither settings-pane
+    test. So the guard's two halves fail in opposite directions and each needs
+    its own test; a set missing any one of the three leaves a mutation green.
 */
 
 type Page = import('@playwright/test').Page
@@ -267,7 +301,9 @@ test('Escape closes ImportDialog and ExportDialog even while the textarea has fo
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 })
 
-test('Closing the last dialog hands the keyboard focus back to the canvas', async ({ page }) => {
+test('Closing a dialog whose field held the focus hands the keyboard back to the canvas', async ({
+    page,
+}) => {
     /*
         Ctrl+C and Ctrl+V used to go silently dead after either dialog had
         been open (#242 review). `TextInput._onRemoved` takes the focused
@@ -286,13 +322,63 @@ test('Closing the last dialog hands the keyboard focus back to the canvas', asyn
     await loadBlueprint(page, ONE_CHEST)
     await openExportDialog(page)
 
-    // Load-bearing: the dialog has to actually take the focus off the canvas
-    // first, or what follows would pass on a canvas that never lost it.
+    /*
+        Load-bearing, though not for the reason this used to give: the canvas
+        is not what the field takes the focus from. A fresh page has it on
+        <body> - `waitForEditor` only navigates and `loadBlueprint` runs
+        through `page.evaluate`, so nothing here has ever clicked. What this
+        waits for is the field taking the focus so that destroying it is what
+        *orphans* it, which is the condition `Dialog.close()` reads. Without
+        it the close below could be handing back a focus it never took, and
+        the assertion would say nothing about the guard.
+
+        ExportDialog's focus is also deferred a tick past the render that
+        shows the field (`ExportDialog.ts`), so this is a real barrier rather
+        than a restatement of the line above it.
+    */
     await expect(exportTextarea(page)).toBeFocused()
 
     await page.keyboard.press('Escape')
 
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+    await expect(page.locator('canvas#editor')).toBeFocused()
+})
+
+test('Closing a dialog hands the focus back even while another dialog stays open', async ({
+    page,
+}) => {
+    /*
+        The case `Dialog.close()`'s comment argues hardest for, and which
+        nothing pinned until #281: the hand-back is deliberately *not* also
+        conditional on this being the last dialog. Measured, every other test
+        touching that guard - the two around this one and both in
+        tests/settings-pane-book-index.spec.ts - passes under
+        `!Dialog.anyOpen() && document.activeElement === document.body` as
+        well, so re-adding that half would go green everywhere it was looked
+        for. See this file's own mutation table above.
+
+        Only ExportDialog focuses its own field; ImportDialog never does. So
+        closing Export out from under an Import nobody has clicked leaves a
+        dialog on screen, `document.activeElement` on <body>, and nothing
+        focused - the same dead keyboard the guard exists to remove, with a
+        dialog still open. That is the one state where the shipped guard and
+        the `!anyOpen()` variant disagree.
+
+        Import is opened first so that Export's field is the one holding the
+        focus, and Export is closed through its own toggle, the same route
+        the test below uses.
+    */
+    await loadBlueprint(page, ONE_CHEST)
+    await openImportDialog(page)
+    await openExportDialog(page)
+
+    // Same barrier and the same reason as the test below - the field has to
+    // hold the focus before the close, or the close orphans nothing.
+    await expect(exportTextarea(page)).toBeFocused()
+
+    await openExportDialog(page)
+
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
     await expect(page.locator('canvas#editor')).toBeFocused()
 })
 
@@ -316,6 +402,19 @@ test('Closing a dialog does not take the focus off a field that still has it', a
     await loadBlueprint(page, ONE_CHEST)
     await openImportDialog(page)
     await openExportDialog(page)
+
+    /*
+        Barrier, not decoration. ExportDialog's own focus is deferred -
+        `refreshText({ select: true })` schedules `select()` on
+        `G.app.ticker.addOnce` (`ExportDialog.ts`) - so nothing otherwise
+        orders it against the click below. Should the click ever win, the
+        focus lands on Export's field instead, the toggle then destroys a
+        *focused* field, the guard fires exactly as it should, and the last
+        assertion fails on a 60s timeout that reads as a broken guard rather
+        than as a raced test.
+    */
+    await expect(exportTextarea(page)).toBeFocused()
+
     await importTextarea(page).click()
     await expect(importTextarea(page)).toBeFocused()
 
