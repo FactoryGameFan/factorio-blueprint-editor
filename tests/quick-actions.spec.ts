@@ -92,6 +92,12 @@ async function openImportDialog(page: Page): Promise<void> {
     await page.evaluate(() => window.__fbe_test.openImportDialog())
 }
 
+/** Its Import sibling has had one since this spec was written; this is the
+ * same call, and it is a toggle - a second one closes the dialog again. */
+async function openExportDialog(page: Page): Promise<void> {
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+}
+
 /** Fills ImportDialog's textarea - disambiguated from ExportDialog's
  * identically styled one by placeholder, see helpers/dialog-textareas.ts. */
 async function fillImportField(page: Page, source: string): Promise<void> {
@@ -255,7 +261,7 @@ test('Escape closes ImportDialog and ExportDialog even while the textarea has fo
     await page.keyboard.press('Escape')
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openExportDialog(page)
     await exportTextarea(page).click()
     await page.keyboard.press('Escape')
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
@@ -278,7 +284,7 @@ test('Closing the last dialog hands the keyboard focus back to the canvas', asyn
         browser-dependent path ExportDialog exists to avoid.
     */
     await loadBlueprint(page, ONE_CHEST)
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openExportDialog(page)
 
     // Load-bearing: the dialog has to actually take the focus off the canvas
     // first, or what follows would pass on a canvas that never lost it.
@@ -290,27 +296,33 @@ test('Closing the last dialog hands the keyboard focus back to the canvas', asyn
     await expect(page.locator('canvas#editor')).toBeFocused()
 })
 
-test('Closing one dialog while another is open leaves the canvas unfocused', async ({ page }) => {
+test('Closing a dialog does not take the focus off a field that still has it', async ({ page }) => {
     /*
-        The hand-back above is deliberately conditional on nothing else being
-        open, and this is the half that pins the condition: with a field still
-        on screen the keyboard belongs to it, so focusing the canvas here would
-        turn a Ctrl+C meant for the selected text in the remaining field into
-        the listener that encodes the whole blueprint instead.
+        The other half of the guard: the hand-back only claims focus that this
+        close orphaned, so a live element keeps it.
 
-        Reachable, not theoretical - `toggleImportDialog`/`toggleExportDialog`
-        track their dialogs separately, as the both-open test below shows.
+        `document.activeElement === document.body` is what says which case this
+        is. The first version of this guard read "is this the last dialog"
+        instead, on the grounds that a surviving dialog's field is what the
+        keyboard should be talking to - which this code does not do, since only
+        ExportDialog focuses its own field. tests/settings-pane-book-index.spec.ts
+        covers the same guard from outside the editor entirely, where an
+        unconditional call cost a real user a keypress (#242 review).
+
+        Both dialogs open, the focus deliberately parked in Import's field, and
+        Export closed out from under it through its own toggle - not Escape,
+        which the focused field would route to ImportDialog instead.
     */
     await loadBlueprint(page, ONE_CHEST)
     await openImportDialog(page)
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
-    await expect(exportTextarea(page)).toBeFocused()
+    await openExportDialog(page)
+    await importTextarea(page).click()
+    await expect(importTextarea(page)).toBeFocused()
 
-    // Escape closes the topmost, which is the Export dialog opened last.
-    await page.keyboard.press('Escape')
+    await openExportDialog(page)
 
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
-    await expect(page.locator('canvas#editor')).not.toBeFocused()
+    await expect(importTextarea(page)).toBeFocused()
 })
 
 test('ImportDialog and ExportDialog can be open at once, and each helper still finds its own textarea', async ({
@@ -330,7 +342,7 @@ test('ImportDialog and ExportDialog can be open at once, and each helper still f
     */
     await loadBlueprint(page, ONE_CHEST)
 
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openExportDialog(page)
     await openImportDialog(page)
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(2)
 
@@ -361,7 +373,7 @@ test("ExportDialog's field is read-only and pre-selected once the textarea actua
         Application's own render step.
     */
     await loadBlueprint(page, ONE_CHEST)
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openExportDialog(page)
 
     const textarea = exportTextarea(page)
     await expect(textarea).toBeFocused()
@@ -445,7 +457,7 @@ test('the export field re-encodes only when the blueprint actually changes, not 
         its own doc comment.
     */
     await loadBlueprint(page, TWO_CHESTS)
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openExportDialog(page)
 
     /*
         Not polled: `refreshText`'s first line bumps `encodeCount`
@@ -518,7 +530,7 @@ test('a burst of edits inside one debounce window collapses to a single re-encod
         final poll below is chasing 3 and never sees 2.
     */
     await loadBlueprint(page, TWO_CHESTS)
-    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await openExportDialog(page)
     expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
     await deleteEntity(page, 1)
