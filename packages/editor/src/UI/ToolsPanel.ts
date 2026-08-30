@@ -17,7 +17,7 @@ import { colors, styles } from './style'
 class WireSlot extends Slot<string> {
     public constructor(wireName: string) {
         super(wireName)
-        this.content = safeIcon(wireName, () => F.CreateIcon(wireName))
+        this.content = F.SafeIcon(wireName, () => F.CreateIcon(wireName))
 
         this.on('pointerdown', e => {
             if (e.button !== 0) return
@@ -135,24 +135,13 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 */
 const ROWS = 2
 
-/**
- * An icon that failed to build costs this one slot rather than the whole
- * panel - `F.CreateIcon`/`F.CreateUtilitySpriteIcon` throw by design for a
- * name FD does not have (see `need()` in `core/need.ts`), and nothing above
- * `generateSlots()` catches. Falls back to an empty, childless `Container` -
- * not a drawn blank square, which this doc comment used to claim (#242
- * review): it has no graphic of its own at all, so the slot still exists and
- * is still clickable, but nothing is visible where the icon would have been.
- * Named in a warning rather than silently swallowed either way.
- */
-function safeIcon(name: string, build: () => Container): Container {
-    try {
-        return build()
-    } catch (error) {
-        G.logger({ text: `Could not build the "${name}" icon: ${String(error)}`, type: 'warning' })
-        return new Container()
-    }
-}
+/*
+    `safeIcon` used to live here. It is `F.SafeIcon` now, in
+    `controls/functions.ts` beside the two throwing icon builders it guards,
+    because `DisplayPanelEditor` needs the same guard for an icon a blueprint
+    names rather than one this file hardcodes (issue #280). Moved rather than
+    copied - what it does is unchanged, and its doc comment moved with it.
+*/
 
 export class ToolsPanel extends Panel {
     private slotsContainer: Container
@@ -224,33 +213,33 @@ export class ToolsPanel extends Panel {
             altSlot,
             new WireSlot(WIRES[0]),
             new ActionSlot(
-                safeIcon('import_slot', () =>
+                F.SafeIcon('import_slot', () =>
                     F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot)
                 ),
                 () => G.UI.toggleImportDialog()
             ),
             new WireSlot(WIRES[1]),
             new ActionSlot(
-                safeIcon('export_slot', () =>
+                F.SafeIcon('export_slot', () =>
                     F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot)
                 ),
                 () => G.UI.toggleExportDialog()
             ),
             new WireSlot(WIRES[2]),
             new ActionSlot(
-                safeIcon('signal-anticlockwise-circle-arrow', () =>
+                F.SafeIcon('signal-anticlockwise-circle-arrow', () =>
                     F.CreateIcon('signal-anticlockwise-circle-arrow')
                 ),
                 () => G.bp.history.undo()
             ),
             new ActionSlot(
-                safeIcon('signal-clockwise-circle-arrow', () =>
+                F.SafeIcon('signal-clockwise-circle-arrow', () =>
                     F.CreateIcon('signal-clockwise-circle-arrow')
                 ),
                 () => G.bp.history.redo()
             ),
             new ActionSlot(
-                safeIcon('downloading', () =>
+                F.SafeIcon('downloading', () =>
                     F.CreateUtilitySpriteIcon(FD.utilitySprites.downloading)
                 ),
                 () => G.quickActions.exportImage()

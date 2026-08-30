@@ -18,12 +18,29 @@ const COMPARATOR_COL_WIDTH = 18
 const VALUE_COL_WIDTH = 40
 const CONDITION_WIDTH = ICON_COL_WIDTH + COMPARATOR_COL_WIDTH + VALUE_COL_WIDTH
 
+/*
+    Every icon this file draws is named by the blueprint, in
+    `control_behavior.parameters`, so every one of them is a name FD may not
+    have - and `F.CreateIcon` ends in a bare `throw` for such a name. There is
+    no try/catch anywhere above here: `UIContainer.createEditor` is a bare call,
+    so a throw costs the whole dialog rather than one icon, and it costs it
+    after `Dialog`'s constructor has already registered the dialog as open
+    (issue #280). `F.SafeIcon` is what keeps the cost to the icon.
+
+    Not hypothetical. `data.json` exports no planet prototype at all, so
+    `nauvis`, `vulcanus`, `fulgora` and `gleba` are in none of the five
+    collections `CreateIcon` searches and all four reach that throw - 19 icon
+    references in the committed corpus use one (issue #231). A panel captioned
+    for a planet is exactly the panel someone writes.
+*/
+
 /** Icon(s) + comparator + value, laid out in fixed-width columns to line up across rows */
 function createConditionDisplay(condition: ICondition | undefined): Container {
     const container = new Container()
     if (!condition || !condition.first_signal?.name) return container
 
-    const icon = F.CreateIcon(condition.first_signal.name, CONDITION_ICON_SIZE)
+    const firstName = condition.first_signal.name
+    const icon = F.SafeIcon(firstName, () => F.CreateIcon(firstName, CONDITION_ICON_SIZE))
     icon.position.set(ICON_COL_WIDTH / 2, CONDITION_ICON_SIZE / 2)
     container.addChild(icon)
 
@@ -35,8 +52,11 @@ function createConditionDisplay(condition: ICondition | undefined): Container {
     container.addChild(comparatorLabel)
 
     const valueX = ICON_COL_WIDTH + COMPARATOR_COL_WIDTH
-    if (condition.second_signal?.name) {
-        const secondIcon = F.CreateIcon(condition.second_signal.name, CONDITION_ICON_SIZE)
+    const secondName = condition.second_signal?.name
+    if (secondName) {
+        const secondIcon = F.SafeIcon(secondName, () =>
+            F.CreateIcon(secondName, CONDITION_ICON_SIZE)
+        )
         secondIcon.position.set(valueX + CONDITION_ICON_SIZE / 2, CONDITION_ICON_SIZE / 2)
         container.addChild(secondIcon)
     } else {
@@ -91,8 +111,9 @@ export class DisplayPanelEditor extends Editor {
                 const row = new Container()
                 row.position.set(12, 210 + i * ROW_HEIGHT)
 
-                if (param.icon?.name) {
-                    const icon = F.CreateIcon(param.icon.name, 20)
+                const iconName = param.icon?.name
+                if (iconName) {
+                    const icon = F.SafeIcon(iconName, () => F.CreateIcon(iconName, 20))
                     icon.position.set(10, 10)
                     row.addChild(icon)
                 }

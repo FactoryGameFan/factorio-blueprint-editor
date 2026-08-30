@@ -419,6 +419,37 @@ function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = tru
     return sprite
 }
 
+/**
+ * An icon that failed to build costs the one slot it was going in rather than
+ * whatever was drawing it - `CreateIcon` and `CreateUtilitySpriteIcon` above
+ * both throw by design for a name FD does not have (see `need()` in
+ * `core/need.ts`), and a name can come straight out of a blueprint. Falls back
+ * to an empty, childless `Container`: no graphic of its own at all, so the slot
+ * or row still exists and is still laid out, but nothing is visible where the
+ * icon would have been. Named in a warning either way rather than silently
+ * swallowed - note that reaches the user as a toast, not a console line.
+ *
+ * Takes a builder rather than a name so it covers both icon functions. Lives
+ * here, next to the two calls it is guarding, rather than in whichever caller
+ * needed it first: `ToolsPanel` wanted it for a hardcoded name it could not
+ * spell wrong twice, `DisplayPanelEditor` wants it for a name a blueprint
+ * chose, and a second copy in the second caller is how the two drift.
+ *
+ * **This is not a substitute for a try/catch above a whole feature.** It is the
+ * right tool only where the icon is one piece of something bigger that should
+ * still be drawn without it. Where a throw would cost the caller everything -
+ * see `TileContainer.generateSprite` in CLAUDE.md - the question is what to
+ * draw instead, not how to skip one sprite.
+ */
+function SafeIcon(name: string, build: () => Container): Container {
+    try {
+        return build()
+    } catch (error) {
+        G.logger({ text: `Could not build the "${name}" icon: ${String(error)}`, type: 'warning' })
+        return new Container()
+    }
+}
+
 export default {
     ShadeColor,
     DrawRectangle,
@@ -427,6 +458,7 @@ export default {
     CreateIconWithAmount,
     CreateRecipe,
     CreateUtilitySpriteIcon,
+    SafeIcon,
     applyTint,
     colorAndAlphaToColorSource,
     rgbToColorSource,

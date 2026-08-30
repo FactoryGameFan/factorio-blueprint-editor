@@ -33,7 +33,45 @@ export abstract class Dialog extends Panel {
             this.addLabel(12, 10, title, styles.dialog.title)
         }
 
-        Dialog.s_openDialogs.push(this)
+        /*
+            Registered when the dialog joins the display tree, not here.
+
+            This line used to be a bare `Dialog.s_openDialogs.push(this)`, and
+            a constructor is the one place a dialog cannot safely claim to be
+            open from: `super()` runs before any subclass body, and `close()`
+            is the only thing that takes an entry back out. So a subclass
+            constructor that throws after `super()` returns leaves an entry
+            behind for a dialog that was never shown and that nothing holds a
+            reference to (issue #280).
+
+            That is reachable rather than theoretical. Icon names come out of
+            the blueprint, `F.CreateIcon` throws for a name FD does not have,
+            and `UIContainer.createEditor` is a bare call with no try/catch
+            above it - `DisplayPanelEditor` drawing a planet icon is the
+            measured path. A try/catch at that one call site would have fixed
+            that one call site; every later `new SomethingEditor()` would be
+            free to repeat it.
+
+            `added` is the point a subclass cannot skip and cannot reach early.
+            Pixi emits it from `addChild`/`addChildAt` on the child, and every
+            dialog in this codebase is constructed and then added by its
+            creator - the four sites are `UIContainer`'s `createEditor`,
+            `toggleImportDialog`, `toggleExportDialog` and `createInventory`,
+            each of which adds to `dialogsContainer` on the next line. A
+            constructor that throws never returns the object to be added, so
+            it never registers. Nothing here adds a dialog to anything else,
+            and `Panel`'s own `addChild` of its background emits on the
+            background, not on `this`.
+
+            `once`, not `on`: a dialog is added exactly once and then closed,
+            and `once` means a re-add cannot register a second entry for the
+            same object, which would take two `closeLast()` presses to clear.
+
+            The window this opens - constructed but not yet added, and so not
+            yet `anyOpen()` - is closed by every call site being synchronous.
+            Nothing can read the registry between the two statements.
+        */
+        this.once('added', () => Dialog.s_openDialogs.push(this))
     }
 
     /** Closes last open dialog */
