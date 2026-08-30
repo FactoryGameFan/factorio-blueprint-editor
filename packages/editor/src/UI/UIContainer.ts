@@ -54,6 +54,26 @@ export class UIContainer extends Container {
         this.debugContainer.visible = visible
     }
 
+    /*
+        Deliberately still a bare call with no try/catch, and that is a
+        narrower statement than it looks (issue #280).
+
+        A throwing editor constructor no longer damages anything outside
+        itself: `Dialog` registers on `added` rather than in its constructor,
+        so an editor that dies part-built is never added and never counted as
+        open. See the comment there.
+
+        What a catch here would add is swallowing the throw, and that is the
+        wrong trade. `createEditor` is the point where a dialog is asked for
+        because the user clicked an entity; an editor that cannot be built is a
+        bug in that editor, and it should say so loudly - the failure is
+        already visible as one entity with no dialog, and the console keeps the
+        stack that names which one. Catching it here would turn every future
+        broken editor into a click that does nothing.
+
+        The fix for a specific editor is in that editor - `DisplayPanelEditor`
+        and `F.SafeIcon` are the worked example.
+    */
     public createEditor(entity: Entity): void {
         const editor = createEditor(entity)
         if (editor) {
