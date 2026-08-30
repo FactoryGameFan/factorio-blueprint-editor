@@ -83,8 +83,8 @@ export abstract class Dialog extends Panel {
         this.destroy()
 
         /*
-            Hand the keyboard focus back to the canvas, but only when this
-            close is what orphaned it.
+            Hand the keyboard focus back to the canvas whenever nothing else
+            holds it.
 
             `destroy()` above takes any TextInput this dialog held with it,
             and `TextInput._onRemoved` removes that <input> from
@@ -92,16 +92,30 @@ export abstract class Dialog extends Panel {
             `document.activeElement` to <body>, and nothing else in the app
             ever focuses the canvas back (TextInput's own two calls are the
             only other `.focus()` in the package). Both clipboard listeners in
-            packages/website/src/index.ts open with
-            `if (document.activeElement !== CANVAS) return`, so Ctrl+C and
-            Ctrl+V went silently dead - no toast, no error - from the moment
-            any dialog with a field had been open until the user clicked the
-            canvas (#242 review).
+            packages/website/src/index.ts require the canvas to be holding the
+            focus, so Ctrl+C and Ctrl+V went silently dead - no toast, no
+            error - from the moment any dialog with a field had been open
+            until the user clicked the canvas (#242 review). Described rather
+            than quoted, because that condition has since grown a second half
+            (issue #279) and a copy of it here would go stale without anyone
+            opening this file.
 
             <body> is the whole condition, and reading it is what separates
             "the field that held the focus was just destroyed" from
-            "something else still holds it". An unconditional call took the
-            focus off a live element: the settings pane's BP Book Index box
+            "something else still holds it". Note it cannot separate either of
+            those from "nothing held the focus to begin with", and does not
+            try to: dragging the BP Book Index *slider* rather than typing in
+            its box leaves <body> focused, because dat.gui blurs on mousedown
+            and its track is a plain <div>, and an InventoryDialog owns no
+            <input> at all, so closing one can never orphan anything. Both
+            reach a true condition here and both get a focused canvas, which
+            is the right answer for them anyway. So this is "claim the focus
+            when nothing else wants it", not "detect that I orphaned it" -
+            the subject line of the commit that introduced it says the latter
+            and overstates what the check can see.
+
+            An unconditional call took the focus off a live element: the
+            settings pane's BP Book Index box
             steps on ArrowUp through `changeBookIndex` ->
             `Editor.loadBlueprint` -> `Dialog.closeAll()`, so with any dialog
             open the first arrow closed it and this pulled the focus off the
