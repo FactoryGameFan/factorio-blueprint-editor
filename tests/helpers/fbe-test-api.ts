@@ -58,6 +58,16 @@ export interface FbeTestApi {
      */
     blueprintIcons: () => (string | undefined)[]
     /**
+     * `Blueprint.createEntity`, driven directly rather than through the
+     * canvas. A write hook for the same reason `setEntityFilters` is one:
+     * every user path that creates an entity starts with a click on the
+     * canvas, and that click blurs whatever DOM field was focused first - so
+     * a spec that needs an entity to appear *while* a dialog field still
+     * holds the keyboard cannot get there by driving the real input. See
+     * tests/blueprint-info-editor.spec.ts.
+     */
+    createEntity: (name: string, x: number, y: number) => void
+    /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that
      * blueprint's containers - see tests/entity-container-mappings.spec.ts.

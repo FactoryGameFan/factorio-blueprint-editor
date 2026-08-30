@@ -12,7 +12,7 @@ import {
     COL1_X,
     COL2_X,
 } from '../packages/editor/src/UI/BlueprintAlignment'
-import { ALIGNMENT_X, ALIGNMENT_Y } from '../packages/editor/src/UI/BlueprintInfoEditor'
+import { openBlueprintInfo, enableSnapToGrid } from './helpers/blueprint-info-dialog'
 
 /*
     BlueprintAlignment's "Grid position" field, added after a real screenshot
@@ -91,17 +91,6 @@ const ONE_ASSEMBLER = encode({
 })
 
 const EMPTY_BLUEPRINT = encode({ item: 'blueprint', version: VERSION })
-
-async function openBlueprintInfo(page: Page): Promise<{ x: number; y: number }> {
-    await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
-    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
-    return { x: dialog.x + ALIGNMENT_X, y: dialog.y + ALIGNMENT_Y }
-}
-
-/** Ticks the "Snap to grid" checkbox at BlueprintAlignment's own (0, 0). */
-async function enableSnapToGrid(page: Page, align: { x: number; y: number }): Promise<void> {
-    await page.mouse.click(align.x + 8, align.y + 8)
-}
 
 /**
  * Types into one of "Grid position"'s two fields and commits on blur (Tab
@@ -425,6 +414,93 @@ test("placing or deleting an entity while the dialog is open keeps Grid position
     await page.keyboard.up('Control')
 
     expect(await page.evaluate(() => window.__fbe_test.entityPosition(1))).toBeUndefined()
-    const after = await gridPositionFields(page)
-    expect(after).not.toEqual(before)
+    /*
+        Polled rather than read once: the entity hooks are coalesced onto the
+        next frame now (`scheduleRefreshFromModel`), because they arrive one
+        per entity and each costs a whole-blueprint read - a 500-entity
+        deletion used to run 500 of them. A single read here would race that
+        frame.
+    */
+    await expect.poll(() => gridPositionFields(page)).not.toEqual(before)
+})
+
+test('clicking through Grid position without typing pushes no undo entry (#243 review)', async ({
+    page,
+}) => {
+    /*
+        `gridPositionOffset`'s setter compared the raw store field, and
+        `pointsEqual(undefined, {x: 0, y: 0})` is false - so on a blueprint
+        that had never carried an offset, an untouched blur wrote `{0, 0}`
+        over "unset" and pushed a `Change blueprint grid position offset`
+        transaction. `commitGridPosition` solves for "make the display read
+        what is typed", and an untouched field types back exactly what it
+        shows, so the delta is 0 and the write should have been a no-op - the
+        getter already answers `{0, 0}` for an absent offset, which is why
+        comparing against it rather than the raw field is the fix.
+
+        The visible cost was one stolen Ctrl+Z: the undo below has to reach
+        the checkbox, not an offset write nobody asked for.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const align = await openBlueprintInfo(page)
+
+    // The one real edit on the stack.
+    await enableSnapToGrid(page, align)
+
+    // Click into Grid position X and straight back out, typing nothing.
+    await page.mouse.click(align.x + COL1_X + FIELD_WIDTH / 2, align.y + ROW_HEIGHT * 2 + 4 + 10)
+    await blurToCanvas(page)
+
+    await page.keyboard.press('Control+KeyZ')
+
+    const out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    expect(decodeBlueprintString(out).blueprint['snap-to-grid']).toBeUndefined()
+})
+
+test('an entity appearing while a field is being typed into leaves what was typed alone (#243 review)', async ({
+    page,
+}) => {
+    /*
+        `refreshFromBlueprint` overwrites all six boxes and clears
+        `m_PositionDirty`, and the entity hooks added for the stale-display
+        finding above put it on `'create-entity'`/`'remove-entity'` - so an
+        entity arriving mid-edit threw away what was being typed *and* the
+        flag that would have committed it on blur (#243 review). A
+        model-driven refresh now leaves a focused field alone; one the
+        dialog's own controls ask for still rewrites everything, which is
+        what the Relative-radio race in blueprint-info-editor.spec.ts needs.
+
+        Driven through the `createEntity` hook rather than a canvas click for
+        the reason that hook's own doc comment gives: a click on the canvas
+        blurs the field first, which is the one thing this test must not do.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+    const before = await gridPositionFields(page)
+
+    // Absolute X, typed into and deliberately not blurred.
+    await page.mouse.click(align.x + COL1_X + FIELD_WIDTH / 2, align.y + ROW_HEIGHT * 3 + 4 + 10)
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.type('12')
+
+    // Well outside the two chests, so it moves the minimum corner and the
+    // Grid position display really does have something new to show.
+    await page.evaluate(() => window.__fbe_test.createEntity('wooden-chest', -20.5, -20.5))
+
+    // The refresh this schedules lands on a later frame - wait for the box it
+    // is allowed to rewrite, which also proves it ran at all.
+    await expect.poll(() => gridPositionFields(page)).not.toEqual(before)
+
+    // ...and the one it is not allowed to rewrite still holds the edit.
+    expect(await fieldValues(page)).toHaveLength(7)
+    expect((await fieldValues(page))[5]).toBe('12')
+
+    // Which the blur then commits, the same as if nothing had been placed.
+    await blurToCanvas(page)
+    const out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    expect(decodeBlueprintString(out).blueprint['position-relative-to-grid']).toEqual({
+        x: 12,
+        y: 0,
+    })
 })

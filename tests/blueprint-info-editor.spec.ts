@@ -7,7 +7,7 @@ import {
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 import { suppressOverlays } from './helpers/overlays'
 import { ROW_HEIGHT, FIELD_WIDTH, COL1_X } from '../packages/editor/src/UI/BlueprintAlignment'
-import { ALIGNMENT_X, ALIGNMENT_Y } from '../packages/editor/src/UI/BlueprintInfoEditor'
+import { openBlueprintInfo, enableSnapToGrid } from './helpers/blueprint-info-dialog'
 
 /*
     The rest of the PR #243 review that isn't specifically about "Grid
@@ -29,17 +29,6 @@ const TWO_CHESTS = encode({
         { entity_number: 2, name: 'wooden-chest', position: { x: 8.5, y: 8.5 } },
     ],
 })
-
-async function openBlueprintInfo(page: Page): Promise<{ x: number; y: number }> {
-    await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
-    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
-    return { x: dialog.x + ALIGNMENT_X, y: dialog.y + ALIGNMENT_Y }
-}
-
-/** Ticks the "Snap to grid" checkbox at BlueprintAlignment's own (0, 0). */
-async function enableSnapToGrid(page: Page, align: { x: number; y: number }): Promise<void> {
-    await page.mouse.click(align.x + 8, align.y + 8)
-}
 
 /** Clicks the "Absolute"/"Relative" radio at BlueprintAlignment's row 3/4 - both
  * drawn by RadioButton.drawGraphic, a circle scaled to a local (9, 9) centre. */
@@ -64,6 +53,19 @@ async function typeAbsoluteXWithoutBlur(
     await page.mouse.click(x, y)
     await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.type(value)
+}
+
+/** Absolute's own X box, read from the DOM - see `fieldValues`' own comment
+ * in blueprint-grid-position.spec.ts for the full field ordering. */
+async function absoluteXValue(page: Page): Promise<string> {
+    return page.evaluate(
+        () => [...document.querySelectorAll('input')].filter(el => el.style.cssText !== '')[5].value
+    )
+}
+
+/** The loaded blueprint's own string, straight from the test hook. */
+async function encodeLoaded(page: Page): Promise<string> {
+    return page.evaluate(() => window.__fbe_test.encodeLoaded())
 }
 
 async function exportedLabel(page: Page): Promise<{ label: string; description?: string }> {
@@ -164,7 +166,11 @@ test('a second click of the corner button only closes the dialog when it is the 
         exactly a second real click.
     */
     await loadBlueprint(page, TWO_CHESTS)
-    await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
+    // The helper for the first open, for its render-frame wait: the icon slot
+    // clicked below is hit-tested by pixi against a world transform that is
+    // only current once a frame has run, so a click sent before that misses
+    // it and no picker opens - see the helper's own doc comment.
+    await openBlueprintInfo(page)
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
 
     // The first icon slot, at dialog-local (12, 119), 36 across - opens the
@@ -194,12 +200,15 @@ test('ticking Snap to grid on is one undo step, not two (#243 finding 6)', async
         A single Ctrl+Z must revert both, back to no snapping at all.
     */
     await loadBlueprint(page, TWO_CHESTS)
-    // Settles the icon-autogeneration transaction (finding #14, below) out of
-    // the way first - encodeLoaded() -> serialize() calls generateIcons()
-    // once per blueprint (guarded on icons.size === 0), and since that write
-    // now goes through History too, it would otherwise be the transaction
-    // the first undo below reverts instead of the checkbox's.
-    await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    /*
+        No settling call before this any more. `serialize()` used to generate
+        the missing icons into the model, which put a transaction of its own
+        on the stack, so the first `encodeLoaded()` below had to be spent
+        getting that out of the way or it - not the checkbox - was what the
+        undo reverted. Auto icons are computed at export now and written
+        nowhere (`Blueprint.computeAutoIcons`), so the checkbox's click is
+        the only thing on the stack and the undo below reaches it directly.
+    */
 
     const align = await openBlueprintInfo(page)
     await enableSnapToGrid(page, align)
@@ -262,7 +271,11 @@ test('Name and Description commit once on blur, not once per keystroke (#243 fin
     await loadBlueprint(page, TWO_CHESTS)
     const before = await exportedLabel(page)
 
-    await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
+    // Through the helper, for the render-frame wait it carries - a click on
+    // the Name field computed from the dialog's bounds lands on the canvas
+    // until the field has been positioned, and the typing that follows then
+    // goes to the app's keybinds with nothing to show for it.
+    await openBlueprintInfo(page)
     const info = await page.evaluate(() => window.__fbe_test.topDialogBounds())
 
     // Name field: dialog-local (12, 65), see BlueprintInfoEditor.ts.
@@ -282,38 +295,110 @@ test('Name and Description commit once on blur, not once per keystroke (#243 fin
     expect((await exportedLabel(page)).label).toBe(before.label)
 })
 
-test('the icon regenerated at export time is undoable, not a bypass of History (#243 finding 14)', async ({
+test('serializing a blueprint with no icons of its own writes nothing to it (#243 finding 14, #243 review)', async ({
     page,
 }) => {
     /*
-        `generateIcons()` used to write straight into `this.icons` (a plain
-        Map, no History involved) whenever a blueprint with no icons of its
-        own got serialized - Blueprint.setIcon's own "clearing every slot
-        returns to auto mode" design relies on `serialize()` calling this
-        every time `icons.size === 0`, but the write itself never went
-        through the undo stack and never emitted 'icon', so nothing in the
-        UI could see it happen and undo could not remove it.
+        Three versions of this, and the middle one is the reason the test
+        moved. `generateIcons()` first wrote straight into `this.icons` (a
+        plain Map, no History involved), so an auto icon could not be undone
+        and no `'icon'` event redrew the slot - finding 14. Routing it through
+        `setIcon` fixed the bypass and made `serialize()` a *writer*, which is
+        worse: `History.commitTransaction` trims the redo stack before
+        pushing, so a Ctrl+C spent the user's redos (see the test below).
+
+        Now nothing is written at all, which closes finding 14 from the other
+        side - there is no History bypass left, because there is no write. The
+        exported string still carries the icons; the model still says the
+        blueprint chose none, which is what puts `setIcon`'s "clearing every
+        slot returns to auto" back where it belongs.
     */
     await loadBlueprint(page, TWO_CHESTS)
 
-    // Nothing has been generated yet - generateIcons only runs inside
-    // serialize(), not on load.
+    const before = await page.evaluate(() => window.__fbe_test.blueprintIcons())
+    expect(before).toEqual([undefined, undefined, undefined, undefined])
+
+    const out = await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    // The export carries the auto icon - this is not "no icons anywhere".
+    expect(decodeBlueprintString(out).blueprint.icons?.[0].signal.name).toBe('wooden-chest')
+
+    // ...and the model is untouched by having been read.
     expect(await page.evaluate(() => window.__fbe_test.blueprintIcons())).toEqual([
         undefined,
         undefined,
         undefined,
         undefined,
     ])
+})
 
-    await page.evaluate(() => window.__fbe_test.encodeLoaded())
-    const generated = await page.evaluate(() => window.__fbe_test.blueprintIcons())
-    expect(generated.some(i => i !== undefined)).toBe(true)
+test('copying a blueprint with no icons of its own leaves the redo stack alone (#243 review)', async ({
+    page,
+}) => {
+    /*
+        The blocker that came out of finding 14's own fix. With icon
+        generation routed through History and `serialize()` calling it,
+        `commitTransaction` trimmed the redo stack before pushing - so on a
+        blueprint carrying no icons, any serialize after an undo threw the
+        redos away. Ctrl+C is the obvious way in; the share URL and
+        ExportDialog serialize too.
+
+        Driven here through `encodeLoaded()` rather than a real Ctrl+C, which
+        would reach `navigator.clipboard` - `serialize()` is the shared step,
+        and it is where the write was.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+    expect(decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']).toEqual({
+        x: 1,
+        y: 1,
+    })
 
     await page.keyboard.press('Control+KeyZ')
-    expect(await page.evaluate(() => window.__fbe_test.blueprintIcons())).toEqual([
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-    ])
+    expect(
+        decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']
+    ).toBeUndefined()
+
+    // The redo above has to survive both of those serializes - one of which
+    // ran while the blueprint still had no icons of its own.
+    await page.keyboard.press('Control+KeyY')
+    expect(decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']).toEqual({
+        x: 1,
+        y: 1,
+    })
+})
+
+test('a keystroke the field rejects commits no grid position (#243 review)', async ({ page }) => {
+    /*
+        `TextInput._onInputInput` ran the restriction and then emitted
+        `'changed'` unconditionally, so a character the restriction had just
+        thrown away still reported a change: `BlueprintAlignment` set
+        `m_PositionDirty`, and the next blur committed
+        `positionRelativeToGrid` - putting `"position-relative-to-grid":
+        {"x":0,"y":0}` into a blueprint that had never carried the key
+        (`Blueprint.serialize` writes it whenever it is not undefined, and
+        undefined is the only thing it treats as unset).
+
+        This is the finding-2 phantom origin arriving by a route the dirty
+        flag itself cannot see, since the flag is exactly what a spurious
+        `'changed'` sets.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+
+    // Absolute X shows `0`, and `a` is not in that field's `^-?\d*$`.
+    await typeAbsoluteXWithoutBlur(page, align, 'a')
+
+    // The restriction really did reject it - otherwise the rest of this
+    // proves nothing about a *rejected* keystroke.
+    expect(await absoluteXValue(page)).toBe('0')
+
+    const info = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+    await page.mouse.click(info.x + 30, info.y + 14)
+
+    expect(
+        decodeBlueprintString(await encodeLoaded(page)).blueprint['position-relative-to-grid']
+    ).toBeUndefined()
 })

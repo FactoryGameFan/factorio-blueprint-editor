@@ -305,7 +305,35 @@ class OriginalTextInput extends Container {
     }
 
     private _onInputInput(): void {
+        /*
+            What the field showed before this keystroke, for the restricted
+            case only - `_restrict_value` is the last value the restriction
+            accepted (and what `set text` writes, so a programmatic change
+            keeps it current too), which is exactly what `_applyRestriction`
+            rolls back to when it rejects.
+        */
+        const before = this._restrict_regex === undefined ? undefined : this._restrict_value
+
         if (this._restrict_regex !== undefined) this._applyRestriction(this._restrict_regex)
+
+        /*
+            A rejected keystroke leaves the field showing what it already
+            showed, so it is not a change and must not be reported as one.
+            This used to emit unconditionally: opening Blueprint Info on a
+            blueprint that never carried `position-relative-to-grid`, ticking
+            Snap to grid, clicking Absolute X (showing `0`) and typing a
+            single `a` was enough - the restriction threw the character away
+            and put `0` back, `'changed'` still fired,
+            `BlueprintAlignment.commitPosition` saw a dirty field on the next
+            blur and wrote `{x: 0, y: 0}`, and the exported string gained a
+            `position-relative-to-grid` key it had never had (#243 review).
+
+            Only the restricted case is gated. An unrestricted field's `input`
+            event already means the value changed - the browser does not fire
+            it otherwise - and there is nothing here that could have put the
+            old value back.
+        */
+        if (before !== undefined && this.text === before) return
 
         this.emit('changed')
     }

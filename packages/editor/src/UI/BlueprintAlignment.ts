@@ -80,6 +80,13 @@ function setFieldEnabled(input: TextInput, enabled: boolean): void {
     input.setInputStyle('opacity', enabled ? '1' : '0.5')
 }
 
+/** Whether this field's own DOM element is the one currently taking
+ * keystrokes - `TextInput` renders a real `<input>` onto document.body, so
+ * this is the same question `document.activeElement` answers for any of them. */
+function isFocused(input: TextInput): boolean {
+    return input.htmlInput === document.activeElement
+}
+
 /**
  * The blueprint's own grid-snapping settings - `snap-to-grid`,
  * `absolute-snapping` and `position-relative-to-grid` in the blueprint
@@ -124,9 +131,9 @@ export class BlueprintAlignment extends Container {
     /**
      * Set on the first keystroke in either Absolute field since the last
      * commit or refresh, cleared by `commitPosition` and by
-     * `refreshFromBlueprint` alike - the latter rewrites both fields from
-     * the blueprint's own current state, which makes anything typed since
-     * moot, and skipping that clear there is what let a stale flag survive
+     * `refreshFromBlueprint` (except for a field it deliberately left alone,
+     * see there) - the latter rewrites both fields from the blueprint's own
+     * current state, which makes anything typed since moot, and skipping that clear there is what let a stale flag survive
      * into a later blur and commit a value nobody typed (#243 review, see
      * `refreshFromBlueprint`'s own comment). Blur fires whenever focus
      * leaves the field, typed-in-or-not - tabbing through
@@ -140,6 +147,12 @@ export class BlueprintAlignment extends Container {
      * where the parsed value is always written idempotently either way.
      */
     private m_PositionDirty = false
+
+    /**
+     * Whether a model-driven refresh is already queued for the next frame -
+     * see `scheduleRefreshFromModel`.
+     */
+    private m_ModelRefreshScheduled = false
 
     public static readonly HEIGHT = ROW_HEIGHT * 5
 
@@ -319,14 +332,25 @@ export class BlueprintAlignment extends Container {
             placing or deleting one that moves the blueprint's minimum
             corner while this dialog is open left the box showing its old
             value, and blurring it afterwards committed that stale reading
-            as a fresh target (#243 review). `'create-tile'` has no
-            `'remove-tile'` counterpart to hook - nothing in `Blueprint`
-            emits one - so a tile deletion can still go unnoticed here; entity
-            creation and removal are what the review measured.
+            as a fresh target (#243 review).
+
+            Two gaps are known and named rather than half-covered.
+            `'create-tile'` has no `'remove-tile'` counterpart to hook -
+            nothing in `Blueprint` emits one - so a tile deletion still goes
+            unnoticed here. And moving an entity emits `'position'` on the
+            `Entity` itself (`Entity.ts`), not on the blueprint, so it would
+            take a per-entity subscription re-hooked on every create to see;
+            the display goes stale the same way a deletion used to.
+
+            Scheduled rather than run inline, unlike the four blueprint-level
+            hooks above: each of these runs `getGridPositionDisplay()`, which
+            walks every entity and tile in the blueprint, and they arrive one
+            per entity - deleting a 500-entity selection with this dialog open
+            fired 500 whole-blueprint reads. See `scheduleRefreshFromModel`.
         */
-        this.onBlueprintChange('create-entity', () => this.refreshFromBlueprint())
-        this.onBlueprintChange('remove-entity', () => this.refreshFromBlueprint())
-        this.onBlueprintChange('create-tile', () => this.refreshFromBlueprint())
+        this.onBlueprintChange('create-entity', () => this.scheduleRefreshFromModel())
+        this.onBlueprintChange('remove-entity', () => this.scheduleRefreshFromModel())
+        this.onBlueprintChange('create-tile', () => this.scheduleRefreshFromModel())
     }
 
     private commitSize(): void {
@@ -378,22 +402,61 @@ export class BlueprintAlignment extends Container {
         }
     }
 
-    private refreshFromBlueprint(): void {
+    /**
+     * One refresh on the next frame, however many model events arrive before
+     * it - for the entity/tile hooks in the constructor, which fire once per
+     * entity and each cost a whole-blueprint read through
+     * `getGridPositionDisplay()`.
+     *
+     * `preserveFocused` because these come from the canvas rather than from
+     * this dialog: an entity placed or deleted while someone is mid-edit in
+     * one of these fields must not rewrite what they are typing (#243
+     * review). A refresh the dialog's own controls ask for still overwrites
+     * everything, which is what `refreshFromBlueprint`'s comment on clearing
+     * `m_PositionDirty` describes and depends on.
+     */
+    private scheduleRefreshFromModel(): void {
+        if (this.m_ModelRefreshScheduled) return
+        this.m_ModelRefreshScheduled = true
+
+        G.app.ticker.addOnce(() => {
+            this.m_ModelRefreshScheduled = false
+            // The blueprint outlives the dialog and a tick can land after
+            // close - `onBlueprintChange`'s own teardown unhooks the events,
+            // but not a refresh already queued.
+            if (this.destroyed) return
+            this.refreshFromBlueprint({ preserveFocused: true })
+        })
+    }
+
+    /**
+     * `preserveFocused` leaves a field alone while its own DOM element holds
+     * the keyboard, for a refresh driven by the model rather than by this
+     * dialog - see `scheduleRefreshFromModel`. Off by default, so every
+     * caller that is itself a response to a click in here keeps overwriting
+     * all six boxes.
+     */
+    private refreshFromBlueprint({ preserveFocused = false } = {}): void {
+        const write = (input: TextInput, text: string): void => {
+            if (preserveFocused && isFocused(input)) return
+            input.text = text
+        }
+
         const size = this.m_Blueprint.snapToGrid
         this.m_SnapCheckbox.checked = size !== undefined
-        this.m_WidthInput.text = `${size?.x ?? 1}`
-        this.m_HeightInput.text = `${size?.y ?? 1}`
+        write(this.m_WidthInput, `${size?.x ?? 1}`)
+        write(this.m_HeightInput, `${size?.y ?? 1}`)
 
         this.m_AbsoluteRadio.checked = this.m_Blueprint.absoluteSnapping
         this.m_RelativeRadio.checked = !this.m_Blueprint.absoluteSnapping
 
         const gridPosition = this.m_Blueprint.getGridPositionDisplay()
-        this.m_GridPosXInput.text = `${gridPosition.x}`
-        this.m_GridPosYInput.text = `${gridPosition.y}`
+        write(this.m_GridPosXInput, `${gridPosition.x}`)
+        write(this.m_GridPosYInput, `${gridPosition.y}`)
 
         const position = this.m_Blueprint.positionRelativeToGrid ?? { x: 0, y: 0 }
-        this.m_XInput.text = `${position.x}`
-        this.m_YInput.text = `${position.y}`
+        write(this.m_XInput, `${position.x}`)
+        write(this.m_YInput, `${position.y}`)
         /*
             Clears the same flag commitPosition itself clears, since this
             just overwrote both fields from the blueprint's own current
@@ -406,8 +469,17 @@ export class BlueprintAlignment extends Container {
             fires and commitPosition() commits that freshly-rewritten '0' as
             though it were still the user's own edit, giving the blueprint
             an explicit origin position where it had none (#243 review).
+
+            Not under `preserveFocused` with one of the two still focused,
+            which is the opposite case: nothing was overwritten there, so the
+            edit is still live and its blur still has something real to
+            commit. That distinction is the whole reason the flag is cleared
+            here and not inside `write` - the radio case above blurs *away*
+            from the field, a canvas-driven refresh does not.
         */
-        this.m_PositionDirty = false
+        if (!(preserveFocused && (isFocused(this.m_XInput) || isFocused(this.m_YInput)))) {
+            this.m_PositionDirty = false
+        }
 
         this.refreshEnabled()
     }

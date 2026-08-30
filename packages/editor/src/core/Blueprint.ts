@@ -37,7 +37,7 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
 }
 
 /**
- * The signal type for a name the editor picked itself, in `generateIcons`.
+ * The signal type for a name the editor picked itself, in `computeAutoIcons`.
  *
  * Only for that case. An icon that came from a blueprint keeps the type it
  * arrived with, because this cannot reproduce it: `wooden-chest` is an item, a
@@ -50,8 +50,8 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
  * 55.
  *
  * The 4 it still misses are planets, and they are deliberately not handled here.
- * `generateIcons` only ever passes an item name (`minable.result`) or an entity
- * prototype name, and no planet is either - checked against `data.json`, which
+ * `computeAutoIcons` only ever passes an item name (`minable.result`) or an
+ * entity prototype name, and no planet is either - checked against `data.json`, which
  * exports no planet in any of its eleven collections. A planet icon therefore
  * only ever arrives by being parsed, where its type is preserved rather than
  * derived. A `space-location` arm here would be unreachable.
@@ -608,7 +608,20 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     public set gridPositionOffset(point: IPoint) {
-        if (pointsEqual(this.gridPositionOffsetStore.gridPositionOffset, point)) return
+        /*
+            Against the getter, not the raw store field. `pointsEqual(undefined,
+            {x: 0, y: 0})` is false, so an unset store compared raw differs from
+            the `{0, 0}` every reader of it already sees - and `commitGridPosition`
+            solves for exactly that value whenever the typed target matches what
+            is displayed. Clicking into Grid position X and straight back out
+            without typing anything therefore wrote `{0, 0}` over an absent
+            offset and pushed a `Change blueprint grid position offset`
+            transaction, so the next Ctrl+Z undid that instead of the user's
+            last real edit (#243 review). Absent and `{0, 0}` are the same
+            export - `serialize()` reads this getter - so this is the
+            comparison that matches what a write would actually change.
+        */
+        if (pointsEqual(this.gridPositionOffset, point)) return
 
         this.history
             .updateValue(
@@ -630,14 +643,15 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     /**
-     * `generateIcons` only fills the map in when it is empty at `serialize` time,
-     * so clearing every slot by hand (all four `undefined`) is a real choice
-     * rather than a no-op - it puts the blueprint back into "auto" the same way
-     * it started, rather than locking in an all-empty icon set.
+     * `serialize()` exports `computeAutoIcons()` instead whenever this map is
+     * empty, so clearing every slot by hand (all four `undefined`) is a real
+     * choice rather than a no-op - it puts the blueprint back into "auto" the
+     * same way it started, rather than locking in an all-empty icon set. This
+     * map holds only what someone chose; an auto icon is never written here.
      *
      * Takes a bare name, not a signal - every caller (the icon picker) only
      * ever has a name to offer, so this derives the type the same way
-     * `generateIcons`'s own local `setIcon` does. That is a real guess and
+     * `computeAutoIcons`'s own local `setIcon` does. That is a real guess and
      * not the "trust what was parsed" case issue #264 fixed - there is
      * nothing parsed to trust for an icon the user is choosing fresh.
      */
@@ -1016,35 +1030,49 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
     /** behaves like in Factorio 0.17.14 */
     /**
-     * Called from `serialize()` whenever `icons.size === 0` - including the
-     * "back to auto" case `setIcon`'s own doc comment describes, where
-     * clearing every slot by hand is a deliberate return to this. Used to
-     * write straight into `this.icons` (a plain Map, no History involved),
-     * so the auto-generated icon could never be undone and nothing emitted
-     * `'icon'` for a slot control drawn while this ran to redraw itself by -
-     * both fixed by routing through `setIcon` instead (#243 review).
+     * The icons `serialize()` exports for a blueprint carrying none of its
+     * own - including the "back to auto" case `setIcon`'s own doc comment
+     * describes, where clearing every slot by hand is a deliberate return to
+     * this.
      *
-     * Guarded on `isEmpty()` before opening a transaction rather than after,
-     * the same way every other write in this class is: `commitTransaction()`
-     * returns `false` without clearing `activeTransaction` when the
-     * transaction it closes turns out empty (`History.ts`'s own comment on
-     * that method), which an unconditional start/commit pair here would hit
-     * on every empty blueprint's export and leave the next transaction
-     * anywhere in the app opening into a stale, already-closed one.
+     * Computed and handed back rather than written anywhere. It used to
+     * write: first straight into `this.icons` (a plain Map, no History
+     * involved), then - to make that undoable, which was the right call for
+     * the bypass - through `setIcon` and History. But `serialize()` is what
+     * calls this, so copying became a write, and `commitTransaction` trims
+     * the redo stack before pushing: on a blueprint with no icons of its own,
+     * three edits, three undos and then one Ctrl+C threw all three redos
+     * away. The share URL and ExportDialog serialize too, so a read the user
+     * never asked for could cost them their redo stack (#243 review).
+     *
+     * Writing nothing also takes the escalation in #255 off this path for
+     * good. `getIconPairs` skips every entity with no `minable.result`, so a
+     * blueprint of nothing but a `space-platform-hub` produced an empty list
+     * and threw on `iconPairs[0][0]` (#254) - between a `startTransaction`
+     * and its `commitTransaction`, which left the transaction open and killed
+     * undo for the rest of the session. There is no transaction here to leave
+     * open now, and the empty list is handled below on its own terms besides.
+     *
+     * So an auto icon stays a derived reading of what the blueprint holds,
+     * the way `getGridPositionDisplay()` is: `this.icons` carries only what
+     * someone actually chose.
      */
-    private generateIcons(): void {
-        if (this.isEmpty()) return
-
-        this.history.startTransaction('Generate blueprint icons')
+    private computeAutoIcons(): Map<1 | 2 | 3 | 4, ISignal> {
+        const icons = new Map<1 | 2 | 3 | 4, ISignal>()
+        if (this.isEmpty()) return icons
 
         /*
-            No local `setIcon` shadow here - the class's own `setIcon` above
-            already derives `{name, type: deriveSignalType(name)}` for a
-            fresh name (issue #264) and routes through History, so it does
-            everything the old private helper did plus the undo/`'icon'`
-            wiring this method exists to add (#243 review). Both fixes
-            compose through the one method.
+            A local writer again, unlike the version that routed through the
+            class's own `setIcon` - that one existed to put these into
+            History, which is the write this no longer does. It derives the
+            same `{name, type: deriveSignalType(name)}` the class's setter
+            does for a fresh name (issue #264); nothing parsed is being
+            re-derived here, since this only ever runs when the blueprint
+            carried no icons to trust.
         */
+        const setIcon = (index: 1 | 2 | 3 | 4, name: string): void => {
+            icons.set(index, { name, type: deriveSignalType(name) })
+        }
 
         /** returns [iconName, count][] */
         const getIconPairs = (
@@ -1074,17 +1102,16 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             if (iconPairs.length === 0) {
                 // No entity here can be mined into an item - name the icon
                 // after the first entity anyway rather than leaving the
-                // blueprint iconless. Not a bare `return`: that would skip
-                // `commitTransaction()` below and leave the transaction open.
-                this.setIcon(1, this.entities.valuesArray()[0].name)
+                // blueprint iconless (#254).
+                setIcon(1, this.entities.valuesArray()[0].name)
             } else {
-                this.setIcon(1, iconPairs[0][0])
+                setIcon(1, iconPairs[0][0])
                 if (
                     iconPairs[1] &&
                     getSize(iconPairs[1][0]) > 1 &&
                     getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
                 ) {
-                    this.setIcon(2, iconPairs[1][0])
+                    setIcon(2, iconPairs[1][0])
                 }
             }
         } else if (!this.tiles.isEmpty()) {
@@ -1095,11 +1122,11 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             // Defensive only: every current tile has an item, and Factorio has
             // no tile signal type to use as a schema-valid fallback.
             if (iconPairs.length > 0) {
-                this.setIcon(1, iconPairs[0][0])
+                setIcon(1, iconPairs[0][0])
             }
         }
 
-        this.history.commitTransaction()
+        return icons
     }
 
     /**
@@ -1238,9 +1265,6 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     public serialize(): IBlueprint {
-        if (!this.icons.size) {
-            this.generateIcons()
-        }
         const entityInfo = this.entities.valuesArray().map(e => e.serialize())
         const wires = this.wireConnections.serializeBpWires()
         const center = this.computeExportCenter()
@@ -1270,10 +1294,19 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             },
             name: tile.name,
         }))
-        // The stored signal goes out as it came in. Nothing is re-derived here:
-        // a generated icon got its type at `generateIcons`, and a parsed one
-        // has carried the blueprint's own choice since the constructor.
-        const iconData = [...this.icons.entries()].map(([index, signal]) => ({
+        /*
+            A blueprint carrying no icons of its own exports the auto set
+            instead - the same reading `generateIcons` used to write into the
+            model from here, now computed and used without touching it, so
+            serializing stays a read (see `computeAutoIcons`, #243 review).
+
+            The stored signal goes out as it came in. Nothing is re-derived
+            here: an auto icon got its type inside `computeAutoIcons`, and a
+            parsed one has carried the blueprint's own choice since the
+            constructor.
+        */
+        const icons = this.icons.size ? this.icons : this.computeAutoIcons()
+        const iconData = [...icons.entries()].map(([index, signal]) => ({
             signal: { ...signal },
             index,
         }))
