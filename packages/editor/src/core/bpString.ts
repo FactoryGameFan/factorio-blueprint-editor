@@ -299,18 +299,30 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                     )
                 case 'factorioprints':
                     /*
-                        The same fork as the factorio.school arm below, and for
-                        the same reason. `factorioprints.xyz` is the same API
-                        under a factorioprints domain, and a link to one
-                        blueprint *inside a book* is an
-                        `/api/blueprintData/<sha>/position/<i>` URL. The firebase
-                        record holds the whole book and nothing else, so
-                        rewriting to it would silently drop the position and open
-                        the book instead of the blueprint that was linked -
-                        `pathParts[1]` of an API path is `blueprintData`, not a
-                        blueprint key, so in practice the fetch fails outright.
+                        A pass-through like the factorio.school arm below, but a
+                        narrower one: that arm keys on the path alone, this arm
+                        has to check the host as well. `factorioprints.xyz` is
+                        the API, and a link to one blueprint *inside a book* is
+                        an `/api/blueprintData/<sha>/position/<i>` URL. The
+                        firebase record below holds the whole book and nothing
+                        else, so rewriting to it would drop the position and open
+                        the book instead of the blueprint that was linked.
+
+                        The host check is what keeps `factorioprints.com` out.
+                        This arm is reached by first label alone, so
+                        `factorioprints` under *any* TLD lands here, and `.com`
+                        is the site rather than the API: `factorioprints.com/api/
+                        ...` answers the SPA's index.html at status 200, which
+                        would reach `decode` as a page of HTML. Sending it down
+                        the firebase rewrite instead is not a fix - that request
+                        200s with a body of `null` and `data.blueprintString`
+                        throws - so both routes fail for a `.com` API link and
+                        this only decides which failure it is.
                     */
-                    if (pathParts[0] === 'api') {
+                    if (
+                        url.hostname.replace(/^www\./, '') === 'factorioprints.xyz' &&
+                        pathParts[0] === 'api'
+                    ) {
                         return fetchData(url.href).then(r => r.text())
                     }
 

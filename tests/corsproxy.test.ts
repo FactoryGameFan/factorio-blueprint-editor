@@ -71,7 +71,12 @@ describe('checkProxyTarget - the editor’s own sources', () => {
         catch-all would go unnoticed.
     */
     it('allowlists the hosts the pass-through arms fetch', () => {
-        const passThrough = ['factorio.school', 'www.factorio.school', 'factorioprints.xyz']
+        const passThrough = [
+            'factorio.school',
+            'www.factorio.school',
+            'factorioprints.xyz',
+            'www.factorioprints.xyz',
+        ]
 
         for (const host of passThrough) {
             expect(ALLOWED_HOSTS.has(host), `${host} is passed through but not allowlisted`).toBe(

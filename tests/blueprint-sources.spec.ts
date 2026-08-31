@@ -135,6 +135,46 @@ test('a factorioprints API url is passed through unchanged and read as text', as
     expect(r.entities).toBe(2)
 })
 
+/*
+    The other half of that fork, and the reason it checks the hostname. The arm
+    is reached by first label alone, so `factorioprints.com` lands here too - but
+    it is the site rather than the API, and answers its own index.html at 200 for
+    an /api/ path. Pinned because the passthrough looks host-agnostic at a glance
+    and nothing else would notice a URL that starts fetching HTML.
+*/
+test('a factorioprints.com API url still takes the firebase rewrite', async ({ page }) => {
+    const r = await fetchThrough(
+        page,
+        'https://factorioprints.com/api/blueprintData/xyz321/position/1.0',
+        printsBody
+    )
+    expect(r.target).toBe('https://facorio-blueprints.firebaseio.com/blueprints/blueprintData.json')
+    expect(r.entities).toBe(2)
+})
+
+/*
+    The path half of that condition, which nothing else holds up: with the host
+    check in place, `.com` is excluded on its own, so a `/view/` URL on the API
+    host is what fails if `pathParts[0] === 'api'` is ever dropped.
+*/
+test('a factorioprints.xyz /view/ url still reads the firebase record', async ({ page }) => {
+    const r = await fetchThrough(page, 'https://factorioprints.xyz/view/abc987', printsBody)
+    expect(r.target).toBe('https://facorio-blueprints.firebaseio.com/blueprints/abc987.json')
+    expect(r.entities).toBe(2)
+})
+
+/*
+    And the `www.` strip, which the allowlist entry alone does not exercise -
+    `www.factorioprints.xyz` serves the same API, and without the strip a link to
+    it would take the firebase rewrite.
+*/
+test('a www.factorioprints.xyz API url is passed through unchanged', async ({ page }) => {
+    const source = 'https://www.factorioprints.xyz/api/blueprintData/xyz321/position/1.0'
+    const r = await fetchThrough(page, source, BP)
+    expect(r.target).toBe(source)
+    expect(r.entities).toBe(2)
+})
+
 test('factorio.school reads the doubly nested blueprintString', async ({ page }) => {
     const r = await fetchThrough(page, 'https://www.factorio.school/view/xyz321', schoolBody)
     expect(r.target).toBe('https://www.factorio.school/api/blueprint/xyz321')
