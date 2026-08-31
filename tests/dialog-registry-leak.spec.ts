@@ -16,6 +16,12 @@ import { suppressOverlays } from './helpers/overlays'
     throw cost the whole dialog: clicking the panel did nothing at all. The fix
     is `F.SafeIcon`, so the cost is the one icon and a warning naming it.
 
+    Both cases here set `connect_to_logistic_network: true`, which is what puts
+    the editor down its read-only conditions branch - where those two guarded
+    sites are. A third icon site sits past that branch's `return`, on the
+    ordinary unconnected panel, and is covered by
+    tests/editor-icon-guards.spec.ts along with the rest of the class (#286).
+
     The GENERAL half is `Dialog`'s registry. `Dialog`'s constructor used to push
     `this` onto the static `s_openDialogs`, and `super()` runs before any
     subclass body, so a subclass that threw afterwards left an entry for a
@@ -25,13 +31,24 @@ import { suppressOverlays } from './helpers/overlays'
     Registration moved to the `added` event, which a constructor that throws
     never reaches.
 
-    Why the general half needs its own case, and its own entity. Once the narrow
-    half is in, no display panel can reach the throw any more, so the registry
-    fix would have nothing to prove. The third test uses an assembling machine
-    carrying a recipe name FD does not have, which is the same class of input -
-    a name out of the blueprint, reaching an unguarded `F.CreateIcon`, this time
-    through `Editor`'s own `Recipe` slot. That editor is still broken and this
-    spec does not fix it; it is the fixture precisely because it is broken.
+    Why the general half needs its own case, and where its fixture comes from.
+    Once the narrow half is in, no display panel can reach the throw any more, so
+    the registry fix would have nothing to prove. This spec used to borrow a live
+    bug for that - an assembling machine carrying a recipe name FD does not have,
+    which threw in `Editor`'s `Recipe` slot - and said so: "that editor is still
+    broken and this spec does not fix it; it is the fixture precisely because it
+    is broken."
+
+    Issue #286 guarded that site and five others, so the borrowed fixture is
+    gone. It should not be replaced by another one. **A test that needs a bug to
+    stay unfixed is a test that argues against fixing it**, and the next person
+    to guard an icon would have hit this same wall. The fixture is written down
+    instead: `window.__fbe_test.throwingDialogAttempt()` constructs a
+    `ThrowingDialog` - a `Dialog` subclass whose constructor throws after
+    `super()` and does nothing else - and answers whether it threw. It is never
+    added to the display tree, which is the whole point: registration hangs off
+    the `added` event, so a dialog that is constructed and dropped registers
+    nothing.
 
     What can and cannot be observed. `window.__fbe_test.openDialogCount()` reads
     the pixi child count of `dialogsContainer`, so it cannot see a phantom
@@ -60,7 +77,8 @@ import { suppressOverlays } from './helpers/overlays'
 
     2. `this.once('added', () => Dialog.s_openDialogs.push(this))` ->
        `Dialog.s_openDialogs.push(this)` in `Dialog.ts` (the general half
-       reverted, `F.SafeIcon` kept):
+       reverted, `F.SafeIcon` kept). RE-MEASURED against the ThrowingDialog
+       fixture, since the entity this used to borrow is fixed:
          - test 3 FAILS: `expect(received).toBe(expected)` on the dialog count
            after `E`, 0 against 1. Both phantoms are still queued, so the first
            `E` closes one instead of opening the inventory.
@@ -68,25 +86,29 @@ import { suppressOverlays } from './helpers/overlays'
            leaks.
 
     3. Both reverted (the pre-fix code):
-         - all three FAIL, each with its own message above.
+         - all three FAILED when this spec was written. Not re-measured: the
+           narrow half's own fixture has since moved to
+           tests/editor-icon-guards.spec.ts, so 1 and 2 above are the two halves
+           that still meet here.
 
     So neither half covers for the other, and neither test can pass for the
     wrong reason.
 
-    4. The alternative the issue offers, measured rather than argued: the
-       registry push left in the constructor, and a bare try/catch wrapped
-       around `UIContainer.createEditor` instead (`F.SafeIcon` kept).
-         - test 3 FAILS, and it fails at the CONTROL rather than at the keybind:
-           `expect(received).toHaveLength(expected)`, 2 against 0, on the
-           page-error filter that opens test 3. Swallowing the throw is all
-           that catch does. The phantom entries are still queued and the `E`
-           press after them still goes to the wrong branch; the test never
-           gets that far, because the constructor's failure has stopped being
-           visible at all. That is the whole objection to it, written down in
-           `UIContainer.createEditor`'s own comment: it does not clear the
-           registry - `s_openDialogs` is `protected`, so clearing it from there
-           would need a new public escape hatch on `Dialog` - and it buys the
-           silence of every future broken editor for nothing.
+    4. The alternative the issue offers: the registry push left in the
+       constructor, and a bare try/catch wrapped around
+       `UIContainer.createEditor` instead. Measured against the OLD fixture,
+       when test 3 opened an editor through `createEditor` - it failed at that
+       test's page-error CONTROL, 2 against 0, because swallowing the throw is
+       all that catch does while the phantom entries stay queued.
+
+       That exact reading no longer applies and is kept for the reasoning
+       rather than the numbers: the ThrowingDialog fixture constructs a dialog
+       directly and never goes through `createEditor`, so a try/catch there
+       cannot affect this spec either way. The objection to it stands and is
+       written down in `UIContainer.createEditor`'s own comment: it does not
+       clear the registry - `s_openDialogs` is `protected`, so clearing it from
+       there would need a new public escape hatch on `Dialog` - and it buys the
+       silence of every future broken editor for nothing.
 
     Runs against the dev server like the rest of tests/ - see CLAUDE.md for the
     two servers that have to be up.
@@ -146,26 +168,6 @@ const PLANET_CONDITION = displayPanel([
         },
     },
 ])
-
-/*
-    An assembling machine naming a recipe FD does not have. Decodes and loads -
-    the schema's `recipeName` keyword only warns - and then `Editor`'s `Recipe`
-    slot calls `F.CreateIcon` on it with nothing catching, so the constructor
-    throws after `super()` has run. The fixture for the registry half.
-*/
-const UNKNOWN_RECIPE = encode({
-    item: 'blueprint',
-    version: version(2, 0, 55),
-    icons: [{ index: 1, signal: { type: 'item', name: 'assembling-machine-1' } }],
-    entities: [
-        {
-            entity_number: 1,
-            name: 'assembling-machine-1',
-            position: { x: 1.5, y: 1.5 },
-            recipe: 'totally-not-a-recipe',
-        },
-    ],
-})
 
 async function load(page: Page, source: string): Promise<string[]> {
     const errors: string[] = []
@@ -243,23 +245,24 @@ test('a condition signal naming a planet costs that icon, not the dialog', async
     expect(await dialogCount(page)).toBe(0)
 })
 
-test('an editor constructor that throws leaves the E keybind alone', async ({ page }) => {
-    const errors = await load(page, UNKNOWN_RECIPE)
+test('a dialog constructor that throws leaves the E keybind alone', async ({ page }) => {
+    await load(page, PLANET_ROW_ICON)
 
     /*
-        Twice. One phantom entry costs one `E` press, so a single failed open
-        would still let the second press through and a spec pressing twice would
-        pass against the leak. Two failed opens against one press cannot.
-    */
-    await clickEntity(page, 1)
-    await clickEntity(page, 1)
+        Twice. One phantom entry costs one `E` press, so a single failed
+        construction would still let a second press through and a spec pressing
+        twice would pass against the leak. Two against one press cannot.
 
-    /*
-        The control for this whole test: the constructor really did throw, twice.
-        Without it a change that quietly made the machine editor open would leave
-        the assertion below passing while measuring nothing about the registry.
+        The return value is the control for this whole test: it says the
+        constructor really did throw. Without it, a `ThrowingDialog` that quietly
+        stopped throwing would leave the assertions below passing while measuring
+        nothing about the registry at all.
     */
-    expect(errors.filter(e => e.includes('totally-not-a-recipe'))).toHaveLength(2)
+    const attempt = (): Promise<boolean> =>
+        page.evaluate(() => window.__fbe_test.throwingDialogAttempt())
+    expect(await attempt()).toBe(true)
+    expect(await attempt()).toBe(true)
+
     expect(await dialogCount(page)).toBe(0)
 
     // Nothing is open, so E opens the inventory. A leaked entry sends it to

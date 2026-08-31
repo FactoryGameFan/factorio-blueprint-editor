@@ -20,6 +20,7 @@ import EDITOR, {
     getSpriteData,
     SPRITE_GENERATION_FAILED,
     type QuickActions,
+    Dialog,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
@@ -388,6 +389,28 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     up under load or on a cold start - as two to five random specs failing per
     full run, each passing in isolation.
 */
+
+/*
+    A dialog whose constructor throws after `super()` has run, and nothing else.
+
+    `tests/dialog-registry-leak.spec.ts` needs one to prove that `Dialog`
+    registers on the pixi `added` event rather than in its constructor - a
+    phantom entry in `Dialog.s_openDialogs` is invisible to `openDialogCount`,
+    which counts pixi children, so the only thing that can see one is the `E`
+    keybind branching on `Dialog.anyOpen()`.
+
+    It used to reach a throwing constructor through a live bug instead, an editor
+    drawing an icon the data did not have. #286 guarded every one of those, so
+    that fixture is gone - and a test that needs a bug to stay unfixed is a test
+    that argues against fixing it. This is the fixture written down instead.
+*/
+class ThrowingDialog extends Dialog {
+    public constructor() {
+        super(300, 200, 'never shown')
+        throw new Error('deliberate: a dialog constructor that throws after super()')
+    }
+}
+
 const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
@@ -567,6 +590,24 @@ const testApi = {
         refuses from one it accepts and then writes nothing for.
     */
     copyCursorBoxVisible: () => editor.copyCursorBoxVisible,
+    /*
+        Constructs a dialog whose constructor throws, and answers whether it did.
+        Never added to the display tree, so with registration on the `added`
+        event it leaves nothing behind; with the pre-#280 constructor push it
+        leaves a phantom that the next `E` press is swallowed by.
+
+        The return value is the control: it says the constructor really threw,
+        which a spec cannot otherwise tell from the throw being swallowed
+        somewhere. See tests/dialog-registry-leak.spec.ts.
+    */
+    throwingDialogAttempt: () => {
+        try {
+            new ThrowingDialog()
+            return false
+        } catch {
+            return true
+        }
+    },
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
     toolsPanelBounds: () => editor.toolsPanelBounds,

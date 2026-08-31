@@ -213,6 +213,16 @@ export interface FbeTestApi {
      * tests/inserter-throughput.spec.ts.
      */
     entityInfoText: (entityNumber: number) => string
+    /**
+     * Constructs a dialog whose constructor throws after `super()`, without
+     * adding it to the display tree, and answers whether it threw.
+     *
+     * The only way left to make a dialog constructor throw. It exists because
+     * `openDialogCount` counts pixi children and so cannot see a phantom entry
+     * in `Dialog.s_openDialogs` at all - only the `E` keybind, which branches on
+     * `Dialog.anyOpen()`, can. See tests/dialog-registry-leak.spec.ts.
+     */
+    throwingDialogAttempt: () => boolean
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     openDialogCount: () => number
     /**

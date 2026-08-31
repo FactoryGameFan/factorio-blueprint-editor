@@ -35,7 +35,7 @@ export class Recipe extends Slot<undefined> {
                 this.content = undefined
             }
         } else {
-            this.content = F.CreateIcon(recipe)
+            this.content = F.SafeIcon(recipe, () => F.CreateIcon(recipe))
         }
         this.emit('changed')
     }
