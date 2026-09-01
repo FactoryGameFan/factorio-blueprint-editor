@@ -265,6 +265,10 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
         }).then((url: URL) => {
             console.log(`Loading data from: ${url}`)
             const pathParts = url.pathname.slice(1).split('/')
+            // One strip, read by both the switch discriminant and the
+            // factorioprints host check below - the two have to agree on what
+            // "the host" is, and a second copy is a bound written down twice.
+            const host = url.hostname.replace(/^www\./, '')
 
             const fetchData = (url: string): Promise<Response> =>
                 fetch(`/corsproxy?url=${encodeURIComponent(url)}`).then(response => {
@@ -284,7 +288,7 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                 blueprint string. That second one is a property of fetchData rather
                 than of Dropbox, and so applies to every source below.
             */
-            switch (url.hostname.replace(/^www\./, '').split('.')[0]) {
+            switch (host.split('.')[0]) {
                 case 'pastebin':
                     return fetchData(`https://pastebin.com/raw/${pathParts[0]}`).then(r => r.text())
                 case 'hastebin':
@@ -303,26 +307,26 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                         narrower one: that arm keys on the path alone, this arm
                         has to check the host as well. `factorioprints.xyz` is
                         the API, and a link to one blueprint *inside a book* is
-                        an `/api/blueprintData/<sha>/position/<i>` URL. The
-                        firebase record below holds the whole book and nothing
-                        else, so rewriting to it would drop the position and open
-                        the book instead of the blueprint that was linked.
+                        an `/api/blueprintData/<sha>/position/<i>` URL, which the
+                        pass-through hands to the proxy untouched. The firebase
+                        rewrite below cannot serve that link: `pathParts[1]` of
+                        an API path is the literal string `blueprintData`, not a
+                        blueprint key, so the rewrite fetches
+                        `blueprints/blueprintData.json`, which answers 200 with a
+                        body of `null`, and `data.blueprintString` throws.
 
                         The host check is what keeps `factorioprints.com` out.
                         This arm is reached by first label alone, so
                         `factorioprints` under *any* TLD lands here, and `.com`
                         is the site rather than the API: `factorioprints.com/api/
                         ...` answers the SPA's index.html at status 200, which
-                        would reach `decode` as a page of HTML. Sending it down
-                        the firebase rewrite instead is not a fix - that request
-                        200s with a body of `null` and `data.blueprintString`
-                        throws - so both routes fail for a `.com` API link and
-                        this only decides which failure it is.
+                        would reach `decode` as a page of HTML. Routing it to the
+                        firebase rewrite instead is not a fix - it hits the same
+                        missing-record throw as above - so both routes fail for a
+                        `.com` API link, and the host check only decides which
+                        failure it is.
                     */
-                    if (
-                        url.hostname.replace(/^www\./, '') === 'factorioprints.xyz' &&
-                        pathParts[0] === 'api'
-                    ) {
+                    if (host === 'factorioprints.xyz' && pathParts[0] === 'api') {
                         return fetchData(url.href).then(r => r.text())
                     }
 
@@ -332,6 +336,16 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                         .then(r => r.json())
                         .then(data => data.blueprintString)
                 case 'factorio': // factorio.school
+                    /*
+                        Keyed on the path alone, unlike the factorioprints arm
+                        above - not because that is safer, but because no other
+                        `factorio.<tld>` is known to reach this case. Any
+                        `factorio.<tld>` lands here, an `/api/` path is passed
+                        through and every other path is rewritten to
+                        `www.factorio.school/api/blueprint/<pathParts[1]>`. If a
+                        second `factorio.<tld>` ever serves blueprints, this arm
+                        needs the same host check #291 added above.
+                    */
                     if (pathParts[0] === 'api') {
                         return fetchData(url.href).then(r => r.text())
                     }
