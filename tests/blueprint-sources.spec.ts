@@ -124,9 +124,13 @@ test('factorioprints reads blueprintString off the firebase record', async ({ pa
 
 /*
     The same fork inside the factorioprints arm. factorioprints links a blueprint
-    inside a book by its position in the API URL, and the firebase record the
-    /view/ shape rewrites to holds only the whole book - so a rewrite here would
-    load the book and lose the position, with the request still looking right.
+    inside a book by its position in the API URL, and the firebase rewrite cannot
+    serve that link: `pathParts[1]` of an API path is the literal string
+    `blueprintData`, not a blueprint key, so the rewrite fetches
+    `blueprints/blueprintData.json`, which answers 200 with a body of `null`, and
+    `data.blueprintString` throws (issue #293). The next test pins that exact
+    target. So a rewrite here never reaches the book at all, though one that did
+    read the right key would still lose the position.
 */
 test('a factorioprints API url is passed through unchanged and read as text', async ({ page }) => {
     const source = 'https://factorioprints.xyz/api/blueprintData/xyz321/position/1.0'
@@ -164,9 +168,18 @@ test('a factorioprints.xyz /view/ url still reads the firebase record', async ({
 })
 
 /*
-    And the `www.` strip, which the allowlist entry alone does not exercise -
-    `www.factorioprints.xyz` serves the same API, and without the strip a link to
-    it would take the firebase rewrite.
+    And the `www.` host, which the allowlist entry alone does not exercise:
+    `www.factorioprints.xyz` serves the same API, so the pass-through has to
+    survive the prefix.
+
+    What this test does not hold up is the `www.` strip itself, and it did until
+    #294 gave the switch and the host check one shared `const host`. With a single
+    strip, deleting it keys the switch on `www`, which falls to `default` - and
+    `default` is the same `fetchData(url.href).then(r => r.text())` as this
+    pass-through, so the target is identical and this test stays green. Measured:
+    the one test that goes red on that mutation is `factorio.school reads the
+    doubly nested blueprintString`, where `www.factorio.school/view/...` would
+    fall to `default` instead of being rewritten to `/api/blueprint/<id>`.
 */
 test('a www.factorioprints.xyz API url is passed through unchanged', async ({ page }) => {
     const source = 'https://www.factorioprints.xyz/api/blueprintData/xyz321/position/1.0'
