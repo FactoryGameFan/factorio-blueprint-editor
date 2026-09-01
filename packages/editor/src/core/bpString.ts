@@ -62,6 +62,27 @@ class BookWithNoBlueprintsError {
     public error = 'Blueprint book contains no blueprints!'
 }
 
+/**
+ * There was nothing to import - an empty `?source=`, or a paste from an empty
+ * clipboard (issue #298).
+ *
+ * A rejection rather than an empty `Blueprint`, which is what the issue first
+ * proposed, because every caller pipes a resolved value straight into `loadBp`
+ * -> `Editor.loadBlueprint`, which assigns `G.bp` and destroys the old
+ * container. `History` is per-`Blueprint`, so the replacement carries an empty
+ * undo stack - the mechanism issue #279 measured. Resolving would have turned a
+ * confusing message into a silent wipe on any stray Ctrl+V. Rejecting reaches
+ * the catch every caller already has, none of which loads anything.
+ *
+ * Its own class, and not a bare `Error`, so `createBPImportError` can tell it
+ * from a real failure: an unrecognised error there renders through
+ * `createErrorMessage`, which asks the user to report a bug on github. An empty
+ * clipboard is not a bug to report.
+ */
+class EmptyBlueprintStringError {
+    public error = 'There was nothing to import.'
+}
+
 const keywords: KeywordDefinition[] = [
     {
         keyword: 'entityName',
@@ -251,6 +272,20 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
     // trim whitespace
     const DATA = source.replace(/\s/g, '')
 
+    /*
+        After the strip, not before it: a whitespace-only source has to reach
+        this and not `new URL('https://')`, which is what an empty one used to
+        hit - `DATA[0]` is undefined, so the `'0'` test fails and the URL branch
+        builds a scheme with no host. That threw `TypeError: Invalid URL`, an
+        error naming neither the source nor the real problem (issue #298).
+
+        `undefined` above is a different case and stays silent: it means no
+        `?source=` param at all, which is how the editor opens for most
+        visitors. `?source=` with an empty value is someone who meant to pass
+        something, and is worth saying so.
+    */
+    if (DATA === '') return Promise.reject(new EmptyBlueprintStringError())
+
     let bpString
     if (DATA[0] === '0') {
         bpString = Promise.resolve(DATA)
@@ -374,6 +409,7 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
 export {
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
+    EmptyBlueprintStringError,
     encode,
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,

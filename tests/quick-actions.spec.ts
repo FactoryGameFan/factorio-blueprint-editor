@@ -226,13 +226,30 @@ test('Replace/Append do nothing and leave the dialog open when the field is empt
     page,
 }) => {
     /*
-        Used to call importReplace(''), which falls past bpString.ts's
-        `DATA[0] === '0'` branch into `new URL('https://')` and throws -
+        Used to call importReplace(''), which fell past bpString.ts's
+        `DATA[0] === '0'` branch into `new URL('https://')` and threw -
         reported as "Invalid URL" rather than anything naming the actual
         problem (#242 review). Guarded up front now, before `action` is ever
-        called, so nothing reaches that throw and the dialog stays open with
-        the loaded blueprint untouched, the same as if nothing had been
-        clicked at all.
+        called, so the dialog stays open with the loaded blueprint untouched,
+        the same as if nothing had been clicked at all.
+
+        This no longer holds that guard up, and the measurement is the point.
+        Issue #298 made `getBlueprintOrBookFromSource` reject an empty source
+        instead of throwing, and every assertion here is satisfied by the
+        rejection alone: it is caught by `importReplace`, resolves `false`,
+        and `runImport` closes only on success - so the dialog stays open,
+        the blueprint is untouched and no page error is raised whether or not
+        `runImport` checks the field first. Measured 2026-09-01 by deleting
+        that check: 15 of 15 passed, this test included.
+
+        So what the test now pins is the *outcome*, which two separate
+        mechanisms produce, and the guard itself is uncovered. The only thing
+        it still decides alone is which warning appears - "Paste a blueprint
+        string first.", naming the field, rather than "There was nothing to
+        import." Nothing asserts that, here or anywhere.
+
+        Worth knowing before deleting the guard as dead code: the outcome is
+        the same, the message is worse, and no test will say so.
     */
     const pageErrors: string[] = []
     page.on('pageerror', err => pageErrors.push(err.message))
