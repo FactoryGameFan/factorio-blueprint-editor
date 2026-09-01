@@ -8,6 +8,7 @@ import EDITOR, {
     Book,
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
+    EmptyBlueprintStringError,
     encode,
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,
@@ -945,8 +946,28 @@ function createErrorMessage(text: string, error: unknown, timeout = 10000): void
     })
 }
 function createBPImportError(
-    error: Error | CorruptedBlueprintStringError | BookWithNoBlueprintsError
+    error:
+        | Error
+        | CorruptedBlueprintStringError
+        | BookWithNoBlueprintsError
+        | EmptyBlueprintStringError
 ): void {
+    /*
+        Not through `createErrorMessage`, which is the whole point of the class
+        existing (issue #298). That helper appends "report this bug on github",
+        and an empty `?source=` or a paste from an empty clipboard is not a bug
+        anyone should file. It is also not an error: the import declined to
+        happen and whatever was already loaded is untouched, so this says what
+        happened and gets out of the way.
+
+        It comes first because the arms below it end in a catch-all - an
+        unrecognised error is exactly what this used to be.
+    */
+    if (error instanceof EmptyBlueprintStringError) {
+        createToast({ text: error.error, type: 'warning' })
+        return
+    }
+
     if (error instanceof CorruptedBlueprintStringError) {
         createErrorMessage(
             'Blueprint string might be corrupted. If you think this is a mistake:',

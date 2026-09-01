@@ -129,10 +129,20 @@ export class ImportDialog extends Dialog {
      * even fail - so a bad string took the user's hand-edited text down
      * with it, which is exactly the case this dialog's own class doc names
      * as its reason to exist. The empty case was worse: an empty field
-     * reached `getBlueprintOrBookFromSource('')`, which falls past the
-     * `DATA[0] === '0'` branch into `new URL('https://')` and throws -
+     * reached `getBlueprintOrBookFromSource('')`, which fell past the
+     * `DATA[0] === '0'` branch into `new URL('https://')` and threw -
      * reported as "Invalid URL" rather than anything naming the real
      * problem, which is that there was nothing to import.
+     *
+     * That last throw is gone as of issue #298. The diagnosis above was
+     * right and the guard landed one level too high to act on it: two other
+     * callers reach the same function with an empty string and neither
+     * passes through here, so `getBlueprintOrBookFromSource` now rejects an
+     * empty source itself with `EmptyBlueprintStringError`. This check is
+     * therefore no longer what stands between a blank field and a
+     * `TypeError`, and it stays for a smaller reason - "Paste a blueprint
+     * string first." names the field the user is looking at, where the
+     * function can only say there was nothing to import.
      */
     private runImport(action: (source: string) => Promise<boolean>): void {
         const text = this.m_TextInput.text
