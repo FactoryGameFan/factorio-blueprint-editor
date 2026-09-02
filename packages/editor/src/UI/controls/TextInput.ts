@@ -535,11 +535,29 @@ export class TextInput extends OriginalTextInput {
         renderer: Renderer,
         width: number,
         text: string,
-        maxLength: number,
-        numericOnly = false
+        // undefined leaves the DOM element's `maxlength` attribute unset,
+        // which is what "no limit" means natively - ImportDialog/ExportDialog
+        // pass this for the blueprint-string field, which has no honest cap
+        // to pick: a hardcoded 2**20 (1 MiB) silently truncated the largest
+        // real blueprint in the corpus (2.4 MB) on paste, the one route
+        // `maxlength` actually constrains (programmatic `.text = ...`
+        // assignment, which is how the field gets its initial value here, is
+        // not subject to it at all).
+        maxLength: number | undefined,
+        numericOnly = false,
+        // For ImportDialog/ExportDialog's textarea: OriginalTextInput already
+        // supports a multiline (textarea) mode, but nothing before those
+        // dialogs needed it through this wrapper, so it stopped at the
+        // single-line `<input>`.
+        multiline = false,
+        height?: number,
+        // For ImportDialog's textarea, which wants the game's own import-field
+        // colour instead of the shared textbox background every other field uses.
+        boxBackgroundColor: number = colors.controls.textbox.background.color
     ) {
         super({
             renderer,
+            multiline,
             input: {
                 fontFamily: styles.controls.textbox.fontFamily,
                 fontWeight: styles.controls.textbox.fontWeight,
@@ -555,15 +573,19 @@ export class TextInput extends OriginalTextInput {
                 */
                 fontSize: `${styles.controls.textbox.fontSize}px`,
                 width: `${width}px`,
+                height: height !== undefined ? `${height}px` : undefined,
                 color: `black`,
             },
             box: {
                 default: {
-                    fill: colors.controls.textbox.background.color,
+                    fill: boxBackgroundColor,
                     rounded: 1,
                     stroke: { color: 0xcbcee0, width: 1 },
                 },
                 focused: {
+                    // Left as the shared "active" colour even for a custom
+                    // boxBackgroundColor - focus feedback should read the same
+                    // everywhere, not just on the fields using the default.
                     fill: colors.controls.textbox.active.color,
                     rounded: 1,
                     stroke: { color: 0xabafc6, width: 1 },
@@ -574,7 +596,9 @@ export class TextInput extends OriginalTextInput {
         if (numericOnly) {
             this.restrict = '0123456789'
         }
-        this.maxLength = maxLength
+        if (maxLength !== undefined) {
+            this.maxLength = maxLength
+        }
         this.text = text
     }
 }

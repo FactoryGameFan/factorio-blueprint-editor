@@ -128,6 +128,16 @@ const ALLOWLIST: AllowedChord[] = [
             'ModifierKey is Control | Shift | Alt and there is no Meta binding. No ' +
             'DOM input has focus at that point in the spec.',
     },
+    {
+        file: 'quick-actions.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. ExportDialog's read-only field " +
+            'is focused when the dialog opens, but the preceding deleteEntity() ' +
+            'gesture already blurs it via its own mousedown on the canvas, so no ' +
+            'DOM input has focus by the time this chord is pressed.',
+    },
 ]
 
 interface Found {

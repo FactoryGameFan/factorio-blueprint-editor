@@ -1,6 +1,7 @@
 import { Book } from './core/Book'
 import { Blueprint } from './core/Blueprint'
 import { GridPattern } from './containers/BlueprintContainer'
+import type { QuickActions } from './common/globals'
 import {
     registerAction,
     forEachAction,
@@ -15,6 +16,7 @@ import { EntityContainer } from './containers/EntityContainer'
 import { Entity } from './core/Entity'
 import { EntitySprite } from './containers/EntitySprite'
 import { EntityInfoPanel } from './UI/EntityInfoPanel'
+import { Dialog } from './UI/controls/Dialog'
 import { getSpriteData, SPRITE_GENERATION_FAILED } from './core/spriteDataBuilder'
 
 export * from './core/bpString'
@@ -41,11 +43,20 @@ export {
     // For the entityFilters/setEntityFilters test hooks in packages/website,
     // which look an entity up by number and need to name what they got back.
     Entity,
+    // For the throwingDialogAttempt hook in packages/website, which
+    // tests/dialog-registry-leak.spec.ts uses to construct a dialog whose
+    // constructor throws. That spec used to reach a throwing constructor
+    // through a live bug - an editor drawing an icon the data did not have -
+    // and #286 guarded every one of those, so the only remaining way to make a
+    // constructor throw is to write one that does.
+    Dialog,
     EntitySprite,
     EntityInfoPanel,
     getSpriteData,
     SPRITE_GENERATION_FAILED,
 }
+// For packages/website, which builds the object Editor.init now requires.
+export type { QuickActions }
 export default {
     registerAction,
     forEachAction,

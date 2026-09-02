@@ -13,6 +13,55 @@ export interface ILogMessage {
 
 export type Logger = (msg: ILogMessage) => void
 
+/**
+ * The clipboard/file actions that only ever existed as keyboard shortcuts -
+ * paste to replace, Ctrl+Shift+V to append, Ctrl+S for an image - exposed so
+ * ToolsPanel's quick-action buttons can trigger the exact same website-level
+ * logic a key press does, rather than the editor package reaching for
+ * `navigator.clipboard`/`FileSaver` itself.
+ *
+ * No `exportString` here on purpose, unlike its `exportImage` sibling: Ctrl+C
+ * still calls the website's own local copy of it directly (packages/website/
+ * src/index.ts's `copy` listener), but nothing in the editor package has a
+ * one-click "copy the string" action of its own to trigger it from -
+ * ToolsPanel's Export slot opens ExportDialog instead, the same
+ * dialog-over-raw-clipboard choice ImportDialog made for Replace/Append. A
+ * member here that nothing in this package ever calls is a dead one.
+ */
+export interface QuickActions {
+    /**
+     * Reads the OS clipboard when `source` is omitted - a key press or a
+     * ToolsPanel button - or uses `source` directly, which is what
+     * ImportDialog's textarea passes instead of going through the
+     * clipboard at all. Resolves `true` on a successful load and `false`
+     * after a failure the website's own implementation has already reported
+     * (a toast) - `ImportDialog`'s Replace/Append read this to decide
+     * whether to close, rather than closing unconditionally before the
+     * async load can even fail (#242 review).
+     */
+    importReplace: (source?: string) => Promise<boolean>
+    /** Same as `importReplace` re: `source` and its resolved value. */
+    importAppend: (source?: string) => Promise<boolean>
+    /** False, and a no-op, when the loaded blueprint is empty - the same
+     * guard `encodeCurrent` uses. Nothing currently reads the return value;
+     * it is typed here because the website implementation reports it. */
+    exportImage: () => boolean
+    /**
+     * The loaded blueprint (or book) encoded as a string, for
+     * ExportDialog to show in its textarea - undefined when the
+     * blueprint is empty, the same guard `exportImage` uses before doing
+     * anything.
+     */
+    encodeCurrent: () => Promise<string | undefined>
+    /**
+     * The raw OS clipboard text, for ImportDialog's Paste button - fills the
+     * textarea so it can be reviewed or edited before Replace/Append acts on
+     * it, unlike `importReplace`/`importAppend`'s own clipboard reads, which
+     * parse and act immediately.
+     */
+    readClipboardText: () => Promise<string>
+}
+
 const logger: Logger = msg => {
     switch (msg.type) {
         case 'error':
@@ -52,6 +101,7 @@ interface Globals {
     actions: ActionRegistry
     getTexture: typeof getTexture
     logger: Logger
+    quickActions: QuickActions
 }
 
 const started = new Map<string, Promise<Texture>>()

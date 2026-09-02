@@ -218,11 +218,13 @@ export class Filters extends Container<Slot<number>> {
                     slot.content = undefined
                 }
             } else {
-                if (
-                    slot.content === undefined ||
-                    slot.iconName !== slotFilter.name ||
-                    this.m_Amount
-                ) {
+                /*
+                    Read into a local: TypeScript drops a narrowing of
+                    `slotFilter.name` inside the callbacks below, since it
+                    cannot prove the property does not change in between.
+                */
+                const name = slotFilter.name
+                if (slot.content === undefined || slot.iconName !== name || this.m_Amount) {
                     if (this.m_Amount) {
                         if (slot.content !== undefined) {
                             const text = slot.children[1] as Text
@@ -238,19 +240,23 @@ export class Filters extends Container<Slot<number>> {
                                 slot.content = undefined
                             }
                         }
-                        const container = new Container()
-                        F.CreateIconWithAmount(
-                            container,
-                            -16,
-                            -16,
-                            slotFilter.name,
-                            slotFilter.count
-                        )
-                        slot.content = container
+                        /*
+                            `CreateIconWithAmount` fills a container rather than
+                            answering one, so the container is built here and
+                            handed back from the callback. A throw part way
+                            through leaves a half-filled container behind, which
+                            is why `SafeIcon`'s empty one is used instead of the
+                            local.
+                        */
+                        slot.content = F.SafeIcon(name, () => {
+                            const container = new Container()
+                            F.CreateIconWithAmount(container, -16, -16, name, slotFilter.count)
+                            return container
+                        })
                     } else {
-                        slot.content = F.CreateIcon(slotFilter.name)
+                        slot.content = F.SafeIcon(name, () => F.CreateIcon(name))
                     }
-                    slot.iconName = slotFilter.name
+                    slot.iconName = name
                 }
             }
         }

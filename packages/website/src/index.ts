@@ -8,6 +8,7 @@ import EDITOR, {
     Book,
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
+    EmptyBlueprintStringError,
     encode,
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,
@@ -19,6 +20,8 @@ import EDITOR, {
     EntityInfoPanel,
     getSpriteData,
     SPRITE_GENERATION_FAILED,
+    type QuickActions,
+    Dialog,
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
@@ -65,6 +68,20 @@ let bp: Blueprint
 // undefined whenever a bare blueprint is loaded rather than a book, which is
 // what loadBp's else branch assigns and what getBook/encodeLoaded read.
 let book: Book | undefined
+
+/*
+    Whether startup has run to the point where `bp` and the editor's `G.UI`
+    both exist - set at exactly the moment `__fbe_test` goes on `window`, and
+    for the same reason its own comment gives. Read by the clipboard listeners
+    below; see clipboardShortcutsBelongToCanvas for why they need it.
+
+    Measured before it existed: with the canvas focused during a cold data.json
+    load, Ctrl+C threw an uncaught "Cannot read properties of undefined
+    (reading 'isEmpty')" and Ctrl+V raised a "Blueprint string could not be
+    loaded" toast naming nothing about the real problem. Neither is what a
+    keypress before the editor is up should do.
+*/
+let startupFinished = false
 
 const loadingScreen = {
     el: element('loadingScreen'),
@@ -130,8 +147,102 @@ for (const p of params) {
 
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
+/**
+ * The four actions ToolsPanel's quick-action buttons trigger through
+ * `G.quickActions` (see `QuickActions` in `packages/editor/src/common/globals.ts`) -
+ * the same logic the `copy`/`paste` document listeners and the
+ * `appendBlueprint`/`takePicture` keybinds below call, extracted so both the
+ * keyboard and the button reach one implementation instead of two.
+ *
+ * `importReplace`/`importAppend` read the OS clipboard when called with no
+ * argument - a key press or a ToolsPanel button - or use `source` directly
+ * when ImportDialog's textarea calls them, which never touches the
+ * clipboard at all.
+ */
+/**
+ * Resolves `true` once the loaded blueprint has actually changed, `false`
+ * after a failure this already reported through `createBPImportError` - see
+ * `QuickActions.importReplace`'s own doc comment for who reads that and why.
+ */
+function importReplace(source?: string): Promise<boolean> {
+    loadingScreen.show()
+
+    return (source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
+        .then(getBlueprintOrBookFromSource)
+        .then(loadBp)
+        .then(() => true)
+        .catch(error => {
+            loadingScreen.hide()
+            createBPImportError(error)
+            return false
+        })
+}
+
+/** Same as `importReplace` re: the resolved value. */
+function importAppend(source?: string): Promise<boolean> {
+    return (source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
+        .then(getBlueprintOrBookFromSource)
+        .then(bp => editor.appendBlueprint(bp instanceof Book ? bp.selectBlueprint(0) : bp))
+        .then(() => true)
+        .catch(error => {
+            createBPImportError(error)
+            return false
+        })
+}
+
+function exportString(): boolean {
+    if (bp.isEmpty()) return false
+
+    encode(book || bp)
+        .then(s => navigator.clipboard.writeText(s))
+        .then(() => createToast({ text: 'Blueprint string copied to clipboard', type: 'success' }))
+        .catch(error => createErrorMessage('Blueprint string could not be generated.', error))
+    return true
+}
+
+function exportImage(): boolean {
+    if (bp.isEmpty()) return false
+
+    editor
+        .getPicture()
+        .then(blob => {
+            FileSaver.saveAs(blob, `${bp.name}.png`)
+            createToast({ text: 'Blueprint image successfully generated', type: 'success' })
+        })
+        .catch(error => createErrorMessage('Failed to generate the image.', error))
+    return true
+}
+
+/** For ExportDialog's textarea - the same guard `exportString`/`exportImage`
+ * use, but handing back the string instead of writing it to the clipboard. */
+function encodeCurrent(): Promise<string | undefined> {
+    if (bp.isEmpty()) return Promise.resolve(undefined)
+    return encode(book || bp)
+}
+
+/** For ImportDialog's Paste button - fills the textarea from the OS
+ * clipboard without parsing or loading it, unlike `importReplace`/
+ * `importAppend`'s own clipboard reads. */
+function readClipboardText(): Promise<string> {
+    return navigator.clipboard.readText()
+}
+
+/*
+    exportString stays a local function - it's what the `copy` listener below
+    calls directly - but is deliberately not part of `quickActions`: nothing
+    in the editor package has a one-click "copy the string" action to trigger
+    it from (see QuickActions' own doc comment in common/globals.ts).
+*/
+const quickActions: QuickActions = {
+    importReplace,
+    importAppend,
+    exportImage,
+    encodeCurrent,
+    readClipboardText,
+}
+
 editor
-    .init(CANVAS, createToast)
+    .init(CANVAS, { quickActions, logger: createToast })
     .then(() => {
         const quickbarItems = storedJson<string[]>('quickbarItemNames')
         if (quickbarItems) {
@@ -166,6 +277,7 @@ editor
                 that fails to import is a state specs still need to drive.
             */
             .then(() => {
+                startupFinished = true
                 ;(window as any).__fbe_test = testApi
             })
             .catch(error => createErrorMessage('Could not finish starting up.', error))
@@ -206,40 +318,61 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
     }
 }
 
+/**
+ * Whether Ctrl+C and Ctrl+V belong to the canvas right now (issue #279).
+ *
+ * The focus half alone is not enough, and the reason is that the ordinary
+ * route to ImportDialog leaves the canvas focused: clicking ToolsPanel's
+ * Import slot *is* a click on the canvas, and ImportDialog never focuses its
+ * own field (only ExportDialog does). So Ctrl+V with that dialog open ran
+ * `importReplace()` -> `loadBp` -> `Editor.loadBlueprint`, which assigns a
+ * fresh `G.bp` and calls `Dialog.closeAll()`. The whole blueprint was replaced
+ * from the OS clipboard, the dialog went with it along with anything typed
+ * into its field, and the new blueprint's empty `History` meant neither Ctrl+Z
+ * nor the ToolsPanel Undo slot brought the old one back. The dialog on screen
+ * offers Paste, Replace and Append as three separate choices, and the shortcut
+ * silently picked Replace.
+ *
+ * **Both listeners take this, not only `paste`.** Copy is the milder twin
+ * rather than a different case. With ImportDialog open, the only Ctrl+C that
+ * reaches here is one pressed while the user is looking at a field they were
+ * about to paste a blueprint string into - clicking into that field would make
+ * it the `activeElement` and stop the listener anyway - and what it does is
+ * overwrite that string on the OS clipboard with the loaded blueprint's own.
+ * Losing the string you were about to import is smaller than losing the
+ * blueprint you had, but it is the same mistake, silent in the same way, and
+ * gating one and not the other is not explainable from the outside: nothing on
+ * screen tells a user that the two halves of the clipboard follow different
+ * rules while a dialog is up.
+ *
+ * ExportDialog is unaffected either way - it focuses its own textarea on open,
+ * so it already fails the focus half.
+ *
+ * The order is load-bearing. `Editor.openDialogCount` reads `G.UI`, which
+ * `Editor.init` assigns only after awaiting data.json, and these listeners are
+ * registered while that await is still in flight. The canvas is reachable in
+ * that window - it carries `tabindex="1"` and one Tab press focuses it through
+ * the loading screen (measured) - so `startupFinished` has to be read before
+ * `openDialogCount`, or a keypress during a cold load throws a TypeError
+ * naming `G.UI` instead of doing nothing.
+ */
+function clipboardShortcutsBelongToCanvas(): boolean {
+    return startupFinished && document.activeElement === CANVAS && editor.openDialogCount === 0
+}
+
 document.addEventListener('copy', (e: ClipboardEvent) => {
-    if (document.activeElement !== CANVAS) return
+    if (!clipboardShortcutsBelongToCanvas()) return
     e.preventDefault()
-
-    if (bp.isEmpty()) return
-
-    const onSuccess = (): void => {
-        createToast({ text: 'Blueprint string copied to clipboard', type: 'success' })
-    }
-
-    const onError = (error: Error): void => {
-        createErrorMessage('Blueprint string could not be generated.', error)
-    }
-
-    encode(book || bp)
-        .then(s => navigator.clipboard.writeText(s))
-        .then(onSuccess)
-        .catch(onError)
+    exportString()
 })
 
 document.addEventListener('paste', (e: ClipboardEvent) => {
-    if (document.activeElement !== CANVAS) return
+    if (!clipboardShortcutsBelongToCanvas()) return
     e.preventDefault()
-
-    loadingScreen.show()
-
-    navigator.clipboard
-        .readText()
-        .then(getBlueprintOrBookFromSource)
-        .then(loadBp)
-        .catch(error => {
-            loadingScreen.hide()
-            createBPImportError(error)
-        })
+    // Fire-and-forget, same as before importReplace reported success/failure
+    // to its callers - this one has nothing to do with the resolved value,
+    // unlike ImportDialog's Replace button.
+    void importReplace()
 })
 
 /*
@@ -257,9 +390,60 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     up under load or on a cold start - as two to five random specs failing per
     full run, each passing in isolation.
 */
+
+/*
+    A dialog whose constructor throws after `super()` has run, and nothing else.
+
+    `tests/dialog-registry-leak.spec.ts` needs one to prove that `Dialog`
+    registers on the pixi `added` event rather than in its constructor - a
+    phantom entry in `Dialog.s_openDialogs` is invisible to `openDialogCount`,
+    which counts pixi children, so the only thing that can see one is the `E`
+    keybind branching on `Dialog.anyOpen()`.
+
+    It used to reach a throwing constructor through a live bug instead, an editor
+    drawing an icon the data did not have. #286 guarded every one of those, so
+    that fixture is gone - and a test that needs a bug to stay unfixed is a test
+    that argues against fixing it. This is the fixture written down instead.
+*/
+class ThrowingDialog extends Dialog {
+    public constructor() {
+        super(300, 200, 'never shown')
+        throw new Error('deliberate: a dialog constructor that throws after super()')
+    }
+}
+
 const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
+    /**
+     * Opens ImportDialog, ToolsPanel's Import slot with no keybind of its own
+     * to reach it by. See tests/quick-actions.spec.ts.
+     */
+    openImportDialog: () => editor.openImportDialog(),
+    /** Opens ExportDialog. See tests/quick-actions.spec.ts. */
+    openExportDialog: () => editor.openExportDialog(),
+    /** `Editor.exportEncodeCount`. See tests/quick-actions.spec.ts. */
+    exportEncodeCount: () => editor.exportEncodeCount,
+    /**
+     * `exportString`/`exportImage`'s own guard result, without running
+     * either - `!bp.isEmpty()` is the exact condition both functions open
+     * with, before either touches `navigator.clipboard`/`FileSaver`. This
+     * used to call `exportString()`/`exportImage()` themselves and report
+     * whatever they returned, which mirrors the guard only for an *empty*
+     * blueprint; for a loaded one it silently performs the real action -
+     * an actual clipboard write and an actual PNG download - every time it
+     * is called. That is reachable from more than a future spec that loads
+     * a blueprint first: `__fbe_test` is assigned unconditionally above, so
+     * this sits on `window` at fbe.factorygamefan.com for any script on the
+     * page to call. See tests/quick-actions.spec.ts.
+     */
+    exportGuardResult: () => ({ exportString: !bp.isEmpty(), exportImage: !bp.isEmpty() }),
+    /**
+     * `encodeCurrent`'s own empty-blueprint guard - undefined rather than a
+     * string, the same condition `exportGuardResult` pins for the other two
+     * QuickActions members. See tests/quick-actions.spec.ts.
+     */
+    encodeCurrentResult: () => encodeCurrent(),
     /*
         The interaction mode the canvas is in, by name. The first thing any spec
         driving real pointer or keyboard input needs to assert on (issue #44).
@@ -407,8 +591,27 @@ const testApi = {
         refuses from one it accepts and then writes nothing for.
     */
     copyCursorBoxVisible: () => editor.copyCursorBoxVisible,
+    /*
+        Constructs a dialog whose constructor throws, and answers whether it did.
+        Never added to the display tree, so with registration on the `added`
+        event it leaves nothing behind; with the pre-#280 constructor push it
+        leaves a phantom that the next `E` press is swallowed by.
+
+        The return value is the control: it says the constructor really threw,
+        which a spec cannot otherwise tell from the throw being swallowed
+        somewhere. See tests/dialog-registry-leak.spec.ts.
+    */
+    throwingDialogAttempt: () => {
+        try {
+            new ThrowingDialog()
+            return false
+        } catch {
+            return true
+        }
+    },
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
+    toolsPanelBounds: () => editor.toolsPanelBounds,
     /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but
@@ -631,15 +834,8 @@ function registerActions(): void {
         modifiers: { shift: true, control: true },
         callbacks: {
             onPress: () => {
-                navigator.clipboard
-                    .readText()
-                    .then(getBlueprintOrBookFromSource)
-                    .then(bp =>
-                        editor.appendBlueprint(bp instanceof Book ? bp.selectBlueprint(0) : bp)
-                    )
-                    .catch(error => {
-                        createBPImportError(error)
-                    })
+                // Fire-and-forget, same reason as the `paste` listener above.
+                void importAppend()
                 return true
             },
         },
@@ -689,23 +885,7 @@ function registerActions(): void {
         trigger: { code: 'KeyS' },
         modifiers: { control: true },
         callbacks: {
-            onPress: () => {
-                // false, not a bare return: onPress answers whether the action was
-                // handled, and an empty blueprint takes no picture.
-                if (bp.isEmpty()) return false
-
-                editor
-                    .getPicture()
-                    .then(blob => {
-                        FileSaver.saveAs(blob, `${bp.name}.png`)
-                        createToast({
-                            text: 'Blueprint image successfully generated',
-                            type: 'success',
-                        })
-                    })
-                    .catch(error => createErrorMessage('Failed to generate the image.', error))
-                return true
-            },
+            onPress: () => exportImage(),
         },
     })
 
@@ -766,8 +946,28 @@ function createErrorMessage(text: string, error: unknown, timeout = 10000): void
     })
 }
 function createBPImportError(
-    error: Error | CorruptedBlueprintStringError | BookWithNoBlueprintsError
+    error:
+        | Error
+        | CorruptedBlueprintStringError
+        | BookWithNoBlueprintsError
+        | EmptyBlueprintStringError
 ): void {
+    /*
+        Not through `createErrorMessage`, which is the whole point of the class
+        existing (issue #298). That helper appends "report this bug on github",
+        and an empty `?source=` or a paste from an empty clipboard is not a bug
+        anyone should file. It is also not an error: the import declined to
+        happen and whatever was already loaded is untouched, so this says what
+        happened and gets out of the way.
+
+        It comes first because the arms below it end in a catch-all - an
+        unrecognised error is exactly what this used to be.
+    */
+    if (error instanceof EmptyBlueprintStringError) {
+        createToast({ text: error.error, type: 'warning' })
+        return
+    }
+
     if (error instanceof CorruptedBlueprintStringError) {
         createErrorMessage(
             'Blueprint string might be corrupted. If you think this is a mistake:',

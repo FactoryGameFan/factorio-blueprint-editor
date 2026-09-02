@@ -64,6 +64,33 @@ const roundToFour = (n: number): number => Math.round(n * 10000) / 10000
  * Extends Panel (from /controls/panel, which extends Container).
  * @see instantiation in /index.ts - event in /containers/entity.ts
  */
+/**
+ * A module's prototype, or undefined for a name the data does not have.
+ *
+ * `getModule` throws rather than answering undefined, which issue #55 made
+ * deliberate so that an absent item and a present non-module item could be told
+ * apart. The names reaching here come out of a blueprint, and this panel is
+ * redrawn from `EntityContainer.pointerOverEventHandler` - so an unknown module
+ * threw on **hover**, before any click, and took the hover with it (issue #286).
+ *
+ * Skipping the module is the right answer rather than a fallback effect: a
+ * module whose prototype cannot be read contributes nothing to the totals, which
+ * is the same arithmetic as the empty slot the loop above already skips.
+ *
+ * `console.warn` rather than `G.logger`, which is the toast: this runs on every
+ * hover, so a toast would raise one per pointer move across the entity. The
+ * editor's own module slots draw the same name through `F.SafeIcon` and do raise
+ * one, once, when the dialog opens.
+ */
+function readModule(name: string): ReturnType<typeof getModule> | undefined {
+    try {
+        return getModule(name)
+    } catch (e) {
+        console.warn(`Could not read the "${name}" module:`, e)
+        return undefined
+    }
+}
+
 export class EntityInfoPanel extends Panel {
     private title: Text
     private m_EntityName: Text
@@ -137,7 +164,8 @@ export class EntityInfoPanel extends Panel {
             for (const module of entity.modules) {
                 if (!module) continue
 
-                const moduleData = getModule(module)
+                const moduleData = readModule(module)
+                if (!moduleData) continue
                 if (moduleData.effect.productivity) {
                     productivity += moduleData.effect.productivity
                 }
@@ -158,7 +186,8 @@ export class EntityInfoPanel extends Panel {
                 for (const module of beacon.modules) {
                     if (!module) continue
 
-                    const moduleData = getModule(module)
+                    const moduleData = readModule(module)
+                    if (!moduleData) continue
                     if (moduleData.effect.productivity) {
                         productivity +=
                             moduleData.effect.productivity * beaconData.distribution_effectivity
