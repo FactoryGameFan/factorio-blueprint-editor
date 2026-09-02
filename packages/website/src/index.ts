@@ -70,9 +70,18 @@ let book: Book | undefined
 
 /*
     Whether startup has run to the point where `bp` and the editor's `G.UI`
-    both exist - set at exactly the moment `__fbe_test` goes on `window`, and
-    for the same reason its own comment gives. Read by the clipboard listeners
-    below; see clipboardShortcutsBelongToCanvas for why they need it.
+    both exist - set in the same `.then` that would put `__fbe_test` on
+    `window`, and for the same reason its own comment gives. Read by the
+    clipboard listeners below; see clipboardShortcutsBelongToCanvas for why
+    they need it.
+
+    The two used to be one statement. Since #292 the hook is behind
+    `import.meta.env.DEV` and this flag is not, so in a production build this
+    is set and `__fbe_test` is absent. **Do not collapse them back.** Reading
+    `window.__fbe_test !== undefined` instead of this flag would leave the
+    clipboard listeners permanently disabled in production and nowhere else,
+    which is the #109 Ctrl+C crash again in the one environment no spec
+    covers - the whole suite runs against `vp dev`, where the hook is there.
 
     Measured before it existed: with the canvas focused during a cold data.json
     load, Ctrl+C threw an uncaught "Cannot read properties of undefined
