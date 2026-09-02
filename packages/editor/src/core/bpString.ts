@@ -62,6 +62,27 @@ class BookWithNoBlueprintsError {
     public error = 'Blueprint book contains no blueprints!'
 }
 
+/**
+ * There was nothing to import - an empty `?source=`, or a paste from an empty
+ * clipboard (issue #298).
+ *
+ * A rejection rather than an empty `Blueprint`, which is what the issue first
+ * proposed, because every caller pipes a resolved value straight into `loadBp`
+ * -> `Editor.loadBlueprint`, which assigns `G.bp` and destroys the old
+ * container. `History` is per-`Blueprint`, so the replacement carries an empty
+ * undo stack - the mechanism issue #279 measured. Resolving would have turned a
+ * confusing message into a silent wipe on any stray Ctrl+V. Rejecting reaches
+ * the catch every caller already has, none of which loads anything.
+ *
+ * Its own class, and not a bare `Error`, so `createBPImportError` can tell it
+ * from a real failure: an unrecognised error there renders through
+ * `createErrorMessage`, which asks the user to report a bug on github. An empty
+ * clipboard is not a bug to report.
+ */
+class EmptyBlueprintStringError {
+    public error = 'There was nothing to import.'
+}
+
 const keywords: KeywordDefinition[] = [
     {
         keyword: 'entityName',
@@ -251,6 +272,20 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
     // trim whitespace
     const DATA = source.replace(/\s/g, '')
 
+    /*
+        After the strip, not before it: a whitespace-only source has to reach
+        this and not `new URL('https://')`, which is what an empty one used to
+        hit - `DATA[0]` is undefined, so the `'0'` test fails and the URL branch
+        builds a scheme with no host. That threw `TypeError: Invalid URL`, an
+        error naming neither the source nor the real problem (issue #298).
+
+        `undefined` above is a different case and stays silent: it means no
+        `?source=` param at all, which is how the editor opens for most
+        visitors. `?source=` with an empty value is someone who meant to pass
+        something, and is worth saying so.
+    */
+    if (DATA === '') return Promise.reject(new EmptyBlueprintStringError())
+
     let bpString
     if (DATA[0] === '0') {
         bpString = Promise.resolve(DATA)
@@ -265,6 +300,10 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
         }).then((url: URL) => {
             console.log(`Loading data from: ${url}`)
             const pathParts = url.pathname.slice(1).split('/')
+            // One strip, read by both the switch discriminant and the
+            // factorioprints host check below - the two have to agree on what
+            // "the host" is, and a second copy is a bound written down twice.
+            const host = url.hostname.replace(/^www\./, '')
 
             const fetchData = (url: string): Promise<Response> =>
                 fetch(`/corsproxy?url=${encodeURIComponent(url)}`).then(response => {
@@ -284,7 +323,7 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                 blueprint string. That second one is a property of fetchData rather
                 than of Dropbox, and so applies to every source below.
             */
-            switch (url.hostname.replace(/^www\./, '').split('.')[0]) {
+            switch (host.split('.')[0]) {
                 case 'pastebin':
                     return fetchData(`https://pastebin.com/raw/${pathParts[0]}`).then(r => r.text())
                 case 'hastebin':
@@ -298,12 +337,50 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                         r.text()
                     )
                 case 'factorioprints':
+                    /*
+                        A pass-through like the factorio.school arm below, but a
+                        narrower one: that arm keys on the path alone, this arm
+                        has to check the host as well. `factorioprints.xyz` is
+                        the API, and a link to one blueprint *inside a book* is
+                        an `/api/blueprintData/<sha>/position/<i>` URL, which the
+                        pass-through hands to the proxy untouched. The firebase
+                        rewrite below cannot serve that link: `pathParts[1]` of
+                        an API path is the literal string `blueprintData`, not a
+                        blueprint key, so the rewrite fetches
+                        `blueprints/blueprintData.json`, which answers 200 with a
+                        body of `null`, and `data.blueprintString` throws.
+
+                        The host check is what keeps `factorioprints.com` out.
+                        This arm is reached by first label alone, so
+                        `factorioprints` under *any* TLD lands here, and `.com`
+                        is the site rather than the API: `factorioprints.com/api/
+                        ...` answers the SPA's index.html at status 200, which
+                        would reach `decode` as a page of HTML. Routing it to the
+                        firebase rewrite instead is not a fix - it hits the same
+                        missing-record throw as above - so both routes fail for a
+                        `.com` API link, and the host check only decides which
+                        failure it is.
+                    */
+                    if (host === 'factorioprints.xyz' && pathParts[0] === 'api') {
+                        return fetchData(url.href).then(r => r.text())
+                    }
+
                     return fetchData(
                         `https://facorio-blueprints.firebaseio.com/blueprints/${pathParts[1]}.json`
                     )
                         .then(r => r.json())
                         .then(data => data.blueprintString)
                 case 'factorio': // factorio.school
+                    /*
+                        Keyed on the path alone, unlike the factorioprints arm
+                        above - not because that is safer, but because no other
+                        `factorio.<tld>` is known to reach this case. Any
+                        `factorio.<tld>` lands here, an `/api/` path is passed
+                        through and every other path is rewritten to
+                        `www.factorio.school/api/blueprint/<pathParts[1]>`. If a
+                        second `factorio.<tld>` ever serves blueprints, this arm
+                        needs the same host check #291 added above.
+                    */
                     if (pathParts[0] === 'api') {
                         return fetchData(url.href).then(r => r.text())
                     }
@@ -332,6 +409,7 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
 export {
     CorruptedBlueprintStringError,
     BookWithNoBlueprintsError,
+    EmptyBlueprintStringError,
     encode,
     getBlueprintOrBookFromSource,
     getAndClearLoadWarnings,

@@ -2,7 +2,7 @@
     "$schema": "./node_modules/wrangler/config-schema.json",
     "name": "fbeworkeyman",
     "main": "src/index.ts",
-    "compatibility_date": "2026-03-01",
+    "compatibility_date": "2026-08-25",
     // Keep the legacy workers.dev URL live so it can 301-redirect to the
     // custom domain (redirect logic in src/index.ts).
     "workers_dev": true,

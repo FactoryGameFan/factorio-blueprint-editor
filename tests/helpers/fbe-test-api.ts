@@ -45,6 +45,29 @@ export interface TestFilterSlot extends Omit<TestFilter, 'name'> {
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
+    /** Opens ImportDialog. See tests/quick-actions.spec.ts. */
+    openImportDialog: () => void
+    /** Opens ExportDialog. See tests/quick-actions.spec.ts. */
+    openExportDialog: () => void
+    /**
+     * How many times the open ExportDialog has actually re-encoded, or
+     * undefined when none is open - `ExportDialog.encodeCount`'s own doc
+     * comment explains why this exists: a re-encode of unchanged content is
+     * textually identical to no re-encode at all, so nothing about the
+     * field's own text can show whether the change-detection in the
+     * constructor is skipping needless work while idle. See
+     * tests/quick-actions.spec.ts.
+     */
+    exportEncodeCount: () => number | undefined
+    /**
+     * `exportString`/`exportImage`'s own empty-blueprint guard result - the
+     * only part of either that is safe to call from a spec, since a
+     * non-empty blueprint would reach the OS clipboard or a file save. See
+     * tests/quick-actions.spec.ts.
+     */
+    exportGuardResult: () => { exportString: boolean; exportImage: boolean }
+    /** `encodeCurrent`'s own empty-blueprint guard result. See tests/quick-actions.spec.ts. */
+    encodeCurrentResult: () => Promise<string | undefined>
     /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that
@@ -190,6 +213,16 @@ export interface FbeTestApi {
      * tests/inserter-throughput.spec.ts.
      */
     entityInfoText: (entityNumber: number) => string
+    /**
+     * Constructs a dialog whose constructor throws after `super()`, without
+     * adding it to the display tree, and answers whether it threw.
+     *
+     * The only way left to make a dialog constructor throw. It exists because
+     * `openDialogCount` counts pixi children and so cannot see a phantom entry
+     * in `Dialog.s_openDialogs` at all - only the `E` keybind, which branches on
+     * `Dialog.anyOpen()`, can. See tests/dialog-registry-leak.spec.ts.
+     */
+    throwingDialogAttempt: () => boolean
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     openDialogCount: () => number
     /**
@@ -199,6 +232,11 @@ export interface FbeTestApi {
      * control inside one. Throws when nothing is open.
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
+    /**
+     * Where ToolsPanel sits, in the same client coordinates `topDialogBounds`
+     * answers in. See tests/tools-panel.spec.ts.
+     */
+    toolsPanelBounds: () => { x: number; y: number; width: number; height: number }
     /**
      * Whether `EntityContainer.entityInfo` is currently visible for this
      * entity - the persistent always-show label and the hover tooltip toggle

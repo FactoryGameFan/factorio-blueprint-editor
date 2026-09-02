@@ -94,9 +94,27 @@ export class Preview extends Container {
             this.m_Size / 2 + offset.y * 32 * SCALE
         )
 
-        const o = OverlayContainer.createEntityInfo(this.m_Entity, { x: 0, y: 0 })
-        if (o !== undefined) {
-            entityParts.addChild(o)
+        /*
+            The same guard `OverlayContainer`'s own instance `createEntityInfo`
+            puts around this call, which this site did not have.
+
+            The overlay draws icons for names the blueprint chose - a recipe, a
+            module, a filter - and `F.CreateIcon` throws for a name FD does not
+            have. `Preview` is built by `Editor`'s base constructor, and
+            `UIContainer.createEditor` has no `try` above it on purpose, so a
+            throw here cost the user the whole dialog for *every* editor rather
+            than one preview: clicking the entity did nothing at all. The icon
+            slots below the preview draw the same names through `F.SafeIcon`, so
+            they are what tells the user which name is bad; this only has to stop
+            the dialog dying. Issue #286.
+        */
+        try {
+            const o = OverlayContainer.createEntityInfo(this.m_Entity, { x: 0, y: 0 })
+            if (o !== undefined) {
+                entityParts.addChild(o)
+            }
+        } catch (e) {
+            console.warn(`Failed to create the preview overlay for ${this.m_Entity.name}:`, e)
         }
 
         return entityParts

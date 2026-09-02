@@ -478,6 +478,13 @@ export class OverlayContainer extends Container {
         }
     }
 
+    /** Whether entity info overlays are showing - the alt-mode state ToolsPanel's
+     * Alt button polls for, so it reflects a toggle from the `AltLeft` keybind
+     * in Editor.ts as well as one from the button itself. */
+    public get entityInfoVisible(): boolean {
+        return this.entityInfos.visible
+    }
+
     public toggleEntityInfoVisibility(): void {
         this.entityInfos.visible = !this.entityInfos.visible
     }
