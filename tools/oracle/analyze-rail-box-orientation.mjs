@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE = join(HERE, 'fixtures', 'rail-box-orientation.json')
 const OCCUPANCY = join(HERE, 'fixtures', 'rail-occupancy.json')
+const BASELINE = join(HERE, 'fixtures', 'entity-tile-size.json')
 const DATA_JSON = join(HERE, '..', '..', 'packages', 'exporter', 'data', 'output', 'data.json')
 
 /**
@@ -47,10 +48,22 @@ const fd = JSON.parse(readFileSync(DATA_JSON, 'utf8')).entities
 
 const box = b => [b.left_top.x, b.left_top.y, b.right_bottom.x, b.right_bottom.y]
 
-const sizeFromBox = (e, b) => ({
-    x: e.tile_width || Math.ceil(Math.abs(b[0]) + Math.abs(b[2])),
-    y: e.tile_height || Math.ceil(Math.abs(b[1]) + Math.abs(b[3])),
+/** The enclosing rectangle alone, with no declared dimension over the top of it. */
+const rawSizeFromBox = b => ({
+    x: Math.ceil(Math.abs(b[0]) + Math.abs(b[2])),
+    y: Math.ceil(Math.abs(b[1]) + Math.abs(b[3])),
 })
+
+/**
+ * `getEntitySize`: the enclosing rectangle, unless `data.json` declares a
+ * dimension, in which case the declared one wins. Reported separately from
+ * `rawSizeFromBox` because the two answer different questions - see
+ * `maskedByDeclaredDimension` below.
+ */
+const sizeFromBox = (e, b) => {
+    const raw = rawSizeFromBox(b)
+    return { x: e.tile_width || raw.x, y: e.tile_height || raw.y }
+}
 
 const swapForDirection = (type, dir, size) => {
     if (size.x === size.y) return size
@@ -69,6 +82,43 @@ const keyedCells = (size, position) => {
         for (let y = y0; y < y0 + size.y; y++)
             cells.add(`${x - Math.floor(position.x)},${y - Math.floor(position.y)}`)
     return cells
+}
+
+/**
+ * The transcription control.
+ *
+ * Both arms below run through the same `sizeFromBox`, `swapForDirection` and
+ * `keyedCells`, all three transcribed out of the editor by hand. A mistake in
+ * any of them moves both arms together, so the comparison the fixture reports
+ * would still look sound while every number in it was wrong. Nothing else here
+ * can catch that.
+ *
+ * `fixtures/entity-tile-size.json` can. `probe-entity-tile-size.mjs` transcribed
+ * the same three rules separately for #142, ran them over the same occupancy
+ * fixture against the same wooden-chest reference, and committed the answer for
+ * the arm the two runs share - what the editor keys today. Reproducing that
+ * number is a real risk of failure while the hypothesis under test still holds,
+ * which is the bar `tools/oracle/README.md` sets for a control.
+ */
+const baselineControl = (today, orientations) => {
+    const baseline = JSON.parse(
+        readFileSync(BASELINE, 'utf8')
+    ).proposedChangeAgainstMeasuredOccupancy
+    const theirs = baseline?.arms?.today
+    // Comparable only if the other run scored the same rails against the same
+    // reference. Otherwise the numbers could agree for no reason worth trusting.
+    const comparable =
+        theirs !== undefined &&
+        baseline.reference === 'wooden-chest' &&
+        baseline.orientations === orientations
+    const ok = comparable && today.missed === theirs.missed && today.empty === theirs.empty
+    return {
+        name: "the today arm reproduces #142's independent transcription",
+        ok,
+        detail: comparable
+            ? `${today.missed} missed and ${today.empty} empty here against ${theirs.missed} and ${theirs.empty} in entity-tile-size.json, over ${orientations} orientations`
+            : 'entity-tile-size.json has no comparable today arm to check against',
+    }
 }
 
 const scoreAgainstMeasuredOccupancy = disagreements => {
@@ -111,13 +161,31 @@ const scoreAgainstMeasuredOccupancy = disagreements => {
             rows[key]?.runtimeBoxes.missed === 0 &&
             rows[key]?.runtimeBoxes.empty === 0
     )
-    const footprintChanges = disagreements
-        .map(d => ({
-            name: d.name,
-            today: sizeFromBox(fd[d.name], d.dataJson),
-            runtime: sizeFromBox(fd[d.name], d.runtime),
-        }))
-        .filter(x => x.today.x !== x.runtime.x || x.today.y !== x.runtime.y)
+    const footprints = disagreements.map(d => ({
+        name: d.name,
+        today: sizeFromBox(fd[d.name], d.dataJson),
+        runtime: sizeFromBox(fd[d.name], d.runtime),
+        rawToday: rawSizeFromBox(d.dataJson),
+        rawRuntime: rawSizeFromBox(d.runtime),
+        declared: {
+            tile_width: fd[d.name].tile_width ?? null,
+            tile_height: fd[d.name].tile_height ?? null,
+        },
+    }))
+    const changed = f => f.today.x !== f.runtime.x || f.today.y !== f.runtime.y
+    const rawChanged = f => f.rawToday.x !== f.rawRuntime.x || f.rawToday.y !== f.rawRuntime.y
+    const footprintChanges = footprints.filter(changed)
+    /*
+        The middle case, which "rounds to the same footprint or is masked by a
+        declared dimension" folded in with the benign one. These rails really do
+        enclose a different rectangle; the only reason the editor computes the
+        same footprint either way is that `data.json` declares `tile_height` for
+        them and the declared value wins. That is a field #142 measured to be a
+        centring parity rather than a size, so the agreement rests on something
+        that does not mean what its name says. Named here rather than counted,
+        because a reader checking this finding needs to know which rails they are.
+    */
+    const maskedByDeclaredDimension = footprints.filter(f => !changed(f) && rawChanged(f))
     const controls = [
         {
             name: 'every measured orientation was scored',
@@ -129,6 +197,7 @@ const scoreAgainstMeasuredOccupancy = disagreements => {
             ok: aligned,
             detail: aligned ? '0 missed and 0 empty in both arms' : 'alignment row differs',
         },
+        baselineControl(arms.today, rails.length),
     ]
 
     return {
@@ -139,6 +208,8 @@ const scoreAgainstMeasuredOccupancy = disagreements => {
         controlsAllPassed: controls.every(c => c.ok),
         collisionBoxDisagreements: disagreements.length,
         footprintChanges,
+        maskedByDeclaredDimension,
+        unchangedFootprints: footprints.filter(f => !changed(f) && !rawChanged(f)).length,
         changedMeasuredOrientations,
         arms,
         adoptingRuntimeBoxesIsImprovement:

@@ -348,6 +348,11 @@
                 "name": "the coordinate systems align on cardinal straight rails",
                 "ok": true,
                 "detail": "0 missed and 0 empty in both arms"
+            },
+            {
+                "name": "the today arm reproduces #142's independent transcription",
+                "ok": true,
+                "detail": "180 missed and 96 empty here against 180 and 96 in entity-tile-size.json, over 38 orientations"
             }
         ],
         "controlsAllPassed": true,
@@ -362,9 +367,93 @@
                 "runtime": {
                     "x": 2,
                     "y": 3
+                },
+                "rawToday": {
+                    "x": 4,
+                    "y": 4
+                },
+                "rawRuntime": {
+                    "x": 2,
+                    "y": 3
+                },
+                "declared": {
+                    "tile_width": null,
+                    "tile_height": null
                 }
             }
         ],
+        "maskedByDeclaredDimension": [
+            {
+                "name": "half-diagonal-rail",
+                "today": {
+                    "x": 2,
+                    "y": 2
+                },
+                "runtime": {
+                    "x": 2,
+                    "y": 2
+                },
+                "rawToday": {
+                    "x": 2,
+                    "y": 5
+                },
+                "rawRuntime": {
+                    "x": 2,
+                    "y": 4
+                },
+                "declared": {
+                    "tile_width": null,
+                    "tile_height": 2
+                }
+            },
+            {
+                "name": "dummy-elevated-half-diagonal-rail",
+                "today": {
+                    "x": 2,
+                    "y": 2
+                },
+                "runtime": {
+                    "x": 2,
+                    "y": 2
+                },
+                "rawToday": {
+                    "x": 2,
+                    "y": 5
+                },
+                "rawRuntime": {
+                    "x": 2,
+                    "y": 4
+                },
+                "declared": {
+                    "tile_width": null,
+                    "tile_height": 2
+                }
+            },
+            {
+                "name": "elevated-half-diagonal-rail",
+                "today": {
+                    "x": 2,
+                    "y": 2
+                },
+                "runtime": {
+                    "x": 2,
+                    "y": 2
+                },
+                "rawToday": {
+                    "x": 2,
+                    "y": 5
+                },
+                "rawRuntime": {
+                    "x": 2,
+                    "y": 4
+                },
+                "declared": {
+                    "tile_width": null,
+                    "tile_height": 2
+                }
+            }
+        ],
+        "unchangedFootprints": 12,
         "changedMeasuredOrientations": 8,
         "arms": {
             "today": {
