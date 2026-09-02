@@ -12,15 +12,15 @@ closing references such as `Closes #123` in the pull request body.
 
 ## Repository layout
 
-- `packages/editor` — blueprint model, PixiJS renderer, controls, and unit tests
-- `packages/website` — Vite entry point and browser UI
-- `packages/worker` — Cloudflare Worker serving the built website
-- `packages/exporter` — Rust extractor for Factorio prototype and sprite data
-- `tests` — Playwright browser and blueprint-corpus tests
-- `test-blueprints` — committed real-world blueprint corpus
-- `tools/oracle` — probes that ask a local Factorio installation what it does
-- `docs/superpowers` — `plans` (9) and `specs` (6) for larger past changes
-- `.github/workflows` — CI and deploy; `README.md` holds the job rationale
+- `packages/editor` - blueprint model, PixiJS renderer, controls, and unit tests
+- `packages/website` - Vite entry point and browser UI
+- `packages/worker` - Cloudflare Worker serving the built website
+- `packages/exporter` - Rust extractor for Factorio prototype and sprite data
+- `tests` - Playwright browser and blueprint-corpus tests
+- `test-blueprints` - committed real-world blueprint corpus
+- `tools/oracle` - probes that ask a local Factorio installation what it does
+- `docs/superpowers` - `plans` (9) and `specs` (6) for larger past changes
+- `.github/workflows` - CI and deploy; `README.md` holds the job rationale
 
 ## Setup and commands
 
@@ -53,16 +53,17 @@ cargo check --manifest-path packages/exporter/Cargo.toml
 
 `vp check --fix .` is valid; flags must precede the path. Prefer `vp check` over
 `vp fmt --check` plus `vp lint`: it ends with an error and warning count, so a
-tailed log still shows a failure — missing `vp lint`'s single error line has
+tailed log still shows a failure - missing `vp lint`'s single error line has
 already reached CI here.
 
 There is deliberately no root `tsc` command. The root tsconfig is a base to
-extend — no `include`, no `lib`, and `node` in `types` for the Playwright specs
-— so a bare `tsc` against it compiles the whole tree under settings no package
-builds with. Measured, that reports 5 errors that neither a build nor `vp check`
-sees: four in editor code checked against node's fetch types (`r.json()` gives
-`unknown`), one in website code checked against node globals. Every package is
-at 0 under its own project. To check one, name it, for example:
+extend - no `include`, no `lib`, and `node` in `types` for the Playwright
+specs - so a bare `tsc` against it compiles the whole tree under settings no
+package builds with. Measured, that reports 5 errors that neither a build nor
+`vp check` sees: four in editor code checked against node's fetch types
+(`r.json()` gives `unknown`), one in website code checked against node
+globals. Every package is at 0 under its own project. To check one, name it,
+for example:
 
 ```sh
 npx tsc --noEmit -p packages/editor/tsconfig.json
@@ -85,7 +86,7 @@ every hold. The routine pass is `npm update --save`, and carets are preferred
 over exact pins.
 
 - Renovate extracts from manifests; Dependabot scans the resolved lockfile. A
-  transitive-only advisory therefore never becomes a Renovate PR — a
+  transitive-only advisory therefore never becomes a Renovate PR - a
   consequence of `lockFileMaintenance: { enabled: false }` in `renovate.json5`.
 - Before acting on a transitive advisory, read the parent's declared range: an
   exact pin means it is not actionable, a range means it is.
@@ -112,19 +113,19 @@ The main flow is:
 
 Key files:
 
-- `packages/editor/src/core/bpString.ts` — encode, decode, schema validation,
+- `packages/editor/src/core/bpString.ts` - encode, decode, schema validation,
   and removal of unknown prototypes
-- `packages/editor/src/core/blueprintSchema.json` — accepted blueprint shape
-- `packages/editor/src/core/nameMigrations.ts` — version-scoped prototype renames
-- `packages/editor/src/core/Blueprint.ts` — entity creation, serialization, wires
-- `packages/editor/src/core/Book.ts` — nested books and active-index conversion
-- `packages/editor/src/core/Entity.ts` — accessors over raw blueprint entities
-- `packages/editor/src/core/PositionGrid.ts` — placement and overlap rules
-- `packages/editor/src/core/spriteDataBuilder.ts` — entity rendering dispatch
-- `packages/editor/src/core/spriteShape.ts` — typed-factorio union narrowing
-- `packages/editor/src/core/need.ts` — required prototype-field reads
-- `packages/editor/src/containers/OverlayContainer.ts` — icons and overlays
-- `packages/editor/src/common/globals.ts` — globals assigned during `Editor.init`
+- `packages/editor/src/core/blueprintSchema.json` - accepted blueprint shape
+- `packages/editor/src/core/nameMigrations.ts` - version-scoped prototype renames
+- `packages/editor/src/core/Blueprint.ts` - entity creation, serialization, wires
+- `packages/editor/src/core/Book.ts` - nested books and active-index conversion
+- `packages/editor/src/core/Entity.ts` - accessors over raw blueprint entities
+- `packages/editor/src/core/PositionGrid.ts` - placement and overlap rules
+- `packages/editor/src/core/spriteDataBuilder.ts` - entity rendering dispatch
+- `packages/editor/src/core/spriteShape.ts` - typed-factorio union narrowing
+- `packages/editor/src/core/need.ts` - required prototype-field reads
+- `packages/editor/src/containers/OverlayContainer.ts` - icons and overlays
+- `packages/editor/src/common/globals.ts` - globals assigned during `Editor.init`
 
 ## Invariants worth preserving
 
@@ -158,7 +159,7 @@ local shape checks. Directional sprites use `north`, `east`, `south`, and
 or `__elevated-rails__` prefixes that map into exporter output directories.
 `spriteDataBuilder.ts`'s file header lists the `draw_*` patterns.
 
-An empty list in `data.json` is `{}`, not `[]` — an empty Lua table cannot say
+An empty list in `data.json` is `{}`, not `[]` - an empty Lua table cannot say
 which it was. A field typed `readonly X[] | undefined` therefore has a third
 runtime shape that survives both a `!== undefined` guard and `?? []`, then
 throws "is not iterable" in the first `for-of`. Read list-typed prototype fields
@@ -218,8 +219,9 @@ Without a local installation, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` can
 download base-game data, but that path cannot export Space Age. Sprite
 compression invokes the repository's `basisu` binary, currently macOS ARM64.
 
-The Rust exporter has two input paths—downloaded data and a local install—but
-both route sprite compression through the same implementation in `setup.rs`.
+The Rust exporter has two input paths - downloaded data and a local install -
+but both route sprite compression through the same implementation in
+`setup.rs`.
 
 ## Deployment
 
@@ -246,7 +248,7 @@ tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
   `tests/__fixtures__/sprite-data.json` records it succeeding with 8 layers. It
   was pinned failing against the private corpus this one replaced.
 - Rail placement models rails as integer tile rectangles where Factorio uses
-  continuous collision geometry, so it is wrong in both directions — it accepts
+  continuous collision geometry, so it is wrong in both directions - it accepts
   some arrangements the game refuses and refuses 24 measured cases the game
   accepts (an identical curved rail on an identical curved rail). Preserve the
   measured exceptions and the `tools/oracle` fixtures; issue #133 tracks
