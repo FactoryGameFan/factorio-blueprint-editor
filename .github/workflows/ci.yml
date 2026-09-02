@@ -1,5 +1,11 @@
 name: CI
 
+# WHY THIS FILE LOOKS LIKE THIS: .github/workflows/README.md
+#
+# That doc holds the measurements, the things that were tried and rejected, and
+# the parts that look simplifiable but are not. The comments kept below are only
+# the ones sited where a reader is about to undo the thing they protect.
+
 on:
   pull_request:
     branches:
@@ -14,8 +20,6 @@ on:
         type: boolean
         default: false
 
-# Cancel superseded runs: a newer PR push drops the stale check run, and a newer
-# push to the deploy branch cancels an in-flight run (including its deploy job).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -24,26 +28,10 @@ permissions:
   contents: read
 
 jobs:
-  # Which jobs a run actually needs, worked out once and reused. Before this,
-  # every pull request ran all seven jobs: a Cargo.lock-only crate bump spent
-  # about 23 minutes of runner time, 17 of it on four Playwright shards that
-  # cannot observe a Rust change. Renovate makes that the common case rather
-  # than a corner case - 14 of the 20 bot PRs before 2026-09-01 were single
-  # Rust crate bumps.
-  #
-  # A job with `if:` rather than `on.pull_request.paths`, and the difference is
-  # the point. A workflow-level path filter skips the whole run, so the PR shows
-  # no CI at all - indistinguishable from CI being broken, and it would block
-  # any check that is ever marked required, because a skipped WORKFLOW never
-  # reports while a skipped JOB does.
-  #
-  # It fails open on purpose. Any error listing the files leaves both outputs
-  # true and the run does everything. A wasted run costs minutes; a gate that
-  # skips itself quietly costs a bad merge.
-  #
-  # Cost: `checks` and `e2e` now wait on this, so the deploy critical path the
-  # `deploy` job discusses grows by however long this takes - about 5 seconds,
-  # since it checks nothing out and makes one API call.
+  # Skips jobs that cannot see the change. A job-level `if:` rather than
+  # `on.pull_request.paths` on purpose: a skipped WORKFLOW never reports, a
+  # skipped JOB does. But a skipped MATRIX job reports one unexpanded name, so
+  # `Playwright 1/4` must never be marked a required check. See README.md.
   changes:
     name: Detect changed areas
     runs-on: ubuntu-latest
@@ -62,8 +50,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.number }}
-        # No `set -e`: every failure path below is meant to fall through to
-        # "run everything" rather than abort the job.
         run: |
           set -uo pipefail
 
@@ -125,10 +111,6 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
-      # Format + lint + type check, every package. This replaces the separate
-      # oxfmt and oxlint steps: `lint.options.typeCheck` is now true in
-      # vite.config.ts, which it could not be while packages/website carried 15
-      # unchecked type errors (issue #78).
       - name: Check (oxfmt + oxlint + tsc)
         if: ${{ !cancelled() }}
         run: vp check .
@@ -137,42 +119,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: vp test
 
-      # Kept alongside `vp check` rather than folded into it. The two answer
-      # different questions: vp check asks "does this type-check under the flags
-      # that are on", the gate asks "has the count gone above the committed
-      # baseline". With `strict: true` landed (issue #77) the baseline is 0
-      # again, so this is redundant until the next flag flip.
-      #
-      # How #77 was run, since the next one will want it: the flag was turned on
-      # in a second project that nothing compiled with and only the gate read,
-      # so the baseline could start at 24 and ratchet to 0 with this job green
-      # throughout. Turning it on in the root config instead fails the `vp check`
-      # step above on the first commit and every one after, whatever the baseline
-      # says, because vp check exits non-zero before the gate ever runs.
+      # Do not fold this into `vp check`; they answer different questions. The
+      # strict-ratchet recipe that needs this job is in README.md, and it is the
+      # expensive thing to rediscover.
       - name: Type-check gate
         if: ${{ !cancelled() }}
         run: npm run type-check:gate
 
-  # packages/exporter is Rust, and until now nothing compiled it - so a broken
-  # crate bump or a breaking API change in a dependency was invisible until
-  # somebody built it by hand on macOS. That was the reason .github/renovate.json5
-  # had to attach a "CI does not verify this" warning to every cargo PR.
-  #
-  # This COMPILES the exporter; it cannot RUN it, and the difference is worth
-  # knowing before anyone extends this job. Running it needs a Factorio install to
-  # extract from, and sprite encoding shells out to `./basisu` (src/setup.rs:501,
-  # hardcoded with no cfg(target_os) switch) for which only a macOS ARM64 binary is
-  # tracked. Compiling needs neither: `basisu` is invoked through Command::new at
-  # runtime, there is no build.rs, and no dependency is platform-gated.
-  #
-  # `--locked` is the load-bearing flag. It fails if Cargo.lock disagrees with
-  # Cargo.toml, which is exactly the mistake a dependency PR can make - Renovate
-  # updates the lockfile itself, and this is what checks that it did.
-  #
-  # Deliberately a separate job rather than a step in `checks`: it runs in parallel
-  # instead of adding to that job's wall clock, and `deploy` below stays gated on
-  # `checks` alone, since the deployed artifact is the website and contains nothing
-  # from the exporter.
   rust:
     name: Rust exporter
     needs: changes
@@ -183,9 +136,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # No toolchain action: ubuntu-latest ships a current stable Rust, and this
-      # crate pins nothing (no rust-toolchain.toml, edition 2021). Printed so the
-      # log records which version a given run actually used.
       - name: Record toolchain
         run: cargo --version && rustc --version
 
@@ -203,52 +153,20 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
-      # BLOCKING, both at zero on this runner. They arrived non-blocking with 4
-      # fmt sites and 10 clippy findings, and the `continue-on-error` came off in
-      # the same PR that cleared them - deliberately, because a check nobody has
-      # to fix is a check nobody reads.
-      #
-      # Note `-D warnings` on the clippy step, which is not decoration. Plain
-      # `cargo clippy` exits 0 with warnings - measured - so without it this step
-      # would be green forever and report nothing, which is worse than absent
-      # because it looks like coverage.
-      #
-      # THESE GATE ON LINUX, AND THAT IS LOAD-BEARING RATHER THAN INCIDENTAL.
-      # `download()` in src/setup.rs uses `out_dir` and `stream` only inside
-      # `#[cfg(target_os = "windows")]` and `#[cfg(target_os = "linux")]` blocks, so
-      # on a macOS host both read as unused and clippy proposes renaming them to
-      # `_out_dir`/`_stream`. That autofix compiles on macOS and BREAKS this job,
-      # where the cfg blocks reference the original names. So: clippy is clean here
-      # and reports 2 warnings on a developer's Mac, and the Mac is the one that is
-      # wrong. Do not silence them locally.
       - name: Format
         if: ${{ !cancelled() }}
         run: cargo fmt --check --manifest-path packages/exporter/Cargo.toml
 
+      # `-D warnings` is load-bearing: plain `cargo clippy` exits 0 with warnings.
+      # Gates on Linux deliberately - it reports 2 warnings on a Mac and the Mac
+      # is the one that is wrong. Do not silence them locally. See README.md.
       - name: Clippy
         if: ${{ !cancelled() }}
         run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
 
-  # The Linux job above compiles the linux cfg block of src/setup.rs and SKIPS the
-  # Windows one, so a chunk of that file was never checked by anything. Not
-  # theoretical: `zip` has exactly one call site in the whole crate, setup.rs:623,
-  # inside `#[cfg(target_os = "windows")]` - so the zip v2 -> v8 PR passed the
-  # Linux job green with its only consumer uncompiled. Six majors, covered by
-  # nothing. This job is what makes that PR meaningful.
-  #
-  # WHY A WINDOWS RUNNER RATHER THAN A CROSS-CHECK, which is what this was first
-  # written as and is the obvious cheap answer: `cargo check --target
-  # x86_64-pc-windows-msvc` on ubuntu FAILS, because `check` still runs build
-  # scripts, and `zstd-sys` (pulled in by zip) builds C and refuses the GNU
-  # compiler for an msvc target. Measured, not predicted - the cross-check was
-  # committed, and CI rejected it. Any `-sys` crate reintroduces this, so the
-  # native runner is the durable answer rather than chasing a mingw toolchain.
-  #
-  # macOS is deliberately not covered: `download()` panics on the unsupported-OS
-  # arm, so there is no macOS cfg block to check.
-  #
-  # Free on this repo - GitHub-hosted minutes are unmetered for public repos, so
-  # the 2x Windows billing multiplier costs nothing here.
+  # A NATIVE runner, not `cargo check --target x86_64-pc-windows-msvc`, which
+  # fails: `zstd-sys` refuses the GNU compiler for an msvc target. The
+  # cross-check was committed and CI rejected it. See README.md.
   rust-windows:
     name: Rust exporter (Windows)
     needs: changes
@@ -276,70 +194,18 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
-  # The Playwright suite, which until now ran nowhere but a maintainer's laptop.
-  # That gap was not theoretical: PR #222 arrived with every check green and a
-  # `blueprint-round-trip.spec.ts` failure in it, dropping `position-relative-to-grid`
-  # from every absolutely-snapped blueprint - 325 of the corpus's 367. `vp check`
-  # and `vp test` cannot see any of that, because the whole decode -> model ->
-  # serialize path needs `FD` loaded, which needs a browser and the sprite server.
-  #
-  # It needs no Factorio and no network beyond npm: the corpus is committed under
-  # test-blueprints/ and the sprite data under packages/exporter/data/output, so
-  # this stays as offline as the rest of CI.
-  #
-  # A separate job rather than steps in `checks`, for the same reason `rust` is:
-  # it runs in parallel instead of adding to that job's wall clock, `checks`
-  # itself being 46s.
-  # `deploy` waits on this as well as on `checks` - see the note there.
   e2e:
     name: Playwright ${{ matrix.shard }}/${{ strategy.job-total }}
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    # Sharded across runners rather than run in one job, and the per-step
-    # timings are why that is the lever worth pulling. The first push run spent
-    # 708s of its 774 inside `Run Playwright specs`; everything else - checkout,
-    # vp install, the browser download on a cold cache, both dev servers - came
-    # to 56s. So the part that shards is essentially all of it, and each added
-    # runner pays about a minute to take a quarter off the rest.
-    #
-    # Sharding rather than raising `workers`, which is the other obvious knob
-    # and the wrong one: playwright.config.ts pins `workers: 1` because the
-    # specs share ports 8080/8081 and a single editor instance, and that
-    # conflict is *within a machine*. Giving each shard its own runner, and so
-    # its own pair of dev servers, sidesteps it instead of solving it.
-    #
-    # `fail-fast: false` because a red shard should not cancel the other three.
-    # The point of running the suite at all is to learn what broke, and three
-    # cancelled shards answer that question much less well than three finished
-    # ones.
-    #
-    # Measured over this job's own three runs. The slowest leg is the wall
-    # clock, not the mean, and it came out at 213s, 225s and 250s - so 774s
-    # becomes roughly three to four minutes, a 3x-3.6x speedup, and the deploy
-    # behind it waits minutes rather than the thirteen it did unsharded.
-    #
-    # The spread is the point of writing three numbers instead of one. Each
-    # sample in turn looked precise enough to quote, and each was contradicted by
-    # the next run of the same suite on the same code: 213 became 225 became 250.
-    # A shared runner's throughput is not a property of this repo, so do not
-    # tighten this into a single figure, and do not treat a slow run as a
-    # regression without at least a second sample.
-    #
-    # Playwright splits shards by test count rather than by duration, and the
-    # specs here are nowhere near uniform - the corpus-wide ones (sprite-data,
-    # entity-accessors, blueprint-round-trip) dwarf the rest - so the honest
-    # prediction was lopsided legs. Measured, they land within 11% of each
-    # other. Recorded because the prediction was wrong and the next person
-    # sizing a shard count should trust the numbers over the reasoning.
+    # Sharding is the lever, not `workers`. playwright.config.ts pins
+    # `workers: 1` because the specs share ports 8080/8081, and that clash is
+    # within a machine. See README.md.
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-    # Generous for a shard that should finish in single-digit minutes. It is a
-    # backstop against a hung suite rather than an estimate: a shard that has
-    # genuinely stopped making progress should be killed, and one that is merely
-    # slow should not.
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -351,14 +217,6 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
-      # Pinned by the lockfile like everything else, and cached on the browser
-      # revision rather than on the declared range: `@playwright/test` is a caret
-      # dependency, so the resolved version - and with it the browser build the
-      # runner needs - can move without package.json changing. Keying on the
-      # resolved version is what makes a stale cache impossible; keying on
-      # `^1.62.0` would serve yesterday's browser to today's Playwright, which
-      # fails as a missing chrome-headless-shell executable and reads as a
-      # suite-wide regression rather than a cache miss.
       - name: Resolve Playwright version
         id: pw
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -374,35 +232,10 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # No apt here, on purpose, and this replaces an install rather than
-      # retrying one. Measured: the ubuntu-24.04 image already carries every
-      # shared library the cached chromium needs, so `playwright install-deps`
-      # had nothing to do on a cache hit - while being by a wide margin the
-      # least reliable step in this workflow. Over 44 runs of it: median 17s,
-      # a tail to 686s, and 2 that never finished and took the job timeout and
-      # the deploy with them. The suite then passed on all four shards with it
-      # removed entirely.
-      #
-      # Why it hung, since the number alone does not say: apt stalls on the
-      # mirrorlist fetch. Wrapping it in `timeout` does not help and actively
-      # hurts - timeout kills its own child, `npx`, while the root-owned
-      # `apt-get` underneath survives holding /var/lib/apt/lists/lock, so every
-      # retry after the first dies instantly on the lock. That was measured too,
-      # on all four shards, and is why this is a deletion and not a retry.
-      #
-      # What is left is an assertion, not an install: ask the linker whether
-      # anything is actually missing. About a second, and it cannot hang. If a
-      # future runner image ever drops a library, this fails here naming the
-      # binary, instead of surfacing as chromium failing to launch inside an
-      # unrelated spec.
-      #
-      # THE BINARY COUNT IS PART OF THE ASSERTION, and is the more important
-      # half. The first draft of this check looked for `headless_shell` when the
-      # file is `chrome-headless-shell`, so it silently probed one binary rather
-      # than two and reported a clean result for a binary the specs do not run -
-      # `headless: true` in playwright.config.ts means the headless shell is
-      # what they use. A missing-library count is only meaningful next to the
-      # number of things it looked at.
+      # This REPLACED `playwright install-deps` rather than retrying it. Do not
+      # reintroduce it, and do not wrap it in `timeout`: that kills npx while the
+      # root-owned apt-get keeps the lock. `expected=2` is part of the assertion,
+      # not a guess. See README.md.
       - name: Verify chromium's shared libraries (no apt)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: |
@@ -424,32 +257,9 @@ jobs:
           fi
           [ "$bad" -eq 0 ]
 
-      # The same script a maintainer runs locally, rather than a second copy of
-      # "how to start the two servers" that can drift from it. It refuses to
-      # start if either port is taken and ties both lifetimes together, so a
-      # half-started pair fails here instead of presenting as /data 502s inside
-      # the specs.
-      #
-      # `serve` is a declared devDependency rather than something localpreview's
-      # `npx --yes` fetches fresh, which it was until this job existed. Unpinned
-      # was tolerable while that command only ever ran on a laptop; as a CI
-      # dependency it is a package resolved at run time that the lockfile has no
-      # opinion about, and the whole point of `vp install --frozen-lockfile` two
-      # steps up is that nothing else in the run is. It costs ~990 lines of
-      # lockfile for a dev-only static file server, and buys a reproducible
-      # sprite server plus Renovate tracking the thing.
-      #
-      # stdout is redirected to a file rather than inherited, which is not
-      # cosmetic: a backgrounded process holding the step's stdout pipe open can
-      # stop that step from ever completing. The log is uploaded with the report
-      # on failure, since "the specs all failed" and "the sprite server never
-      # started" look identical from the Playwright output alone.
       - name: Start dev servers
         run: nohup npm run localpreview > /tmp/localpreview.log 2>&1 &
 
-      # localpreview exits non-zero on a port clash but otherwise never returns,
-      # so readiness has to be waited for rather than awaited. Both ports, since
-      # Vite comes up first and the specs need the sprite server too.
       - name: Wait for both servers
         run: |
           for i in $(seq 1 60); do
@@ -481,20 +291,9 @@ jobs:
 
   deploy:
     name: Deploy to Cloudflare
-    # Both gates, not just `checks`. The class of bug this adds cover for is the
-    # one that motivated the `e2e` job: a change that type-checks, lints and
-    # passes every unit test while breaking the editor in a browser - PR #222
-    # dropping `position-relative-to-grid` is the worked example, and `checks`
-    # was green on it. Without `e2e` here, exactly that could reach
-    # fbe.factorygamefan.com. The price is the deploy's critical path growing by
-    # the length of the suite's slowest shard - 213s, 225s and 250s over three
-    # runs, so a deploy that used to start after 46s of `checks` now waits three
-    # to four minutes. It was thirteen before the suite was sharded across four runners,
-    # which is most of why it was. If the wait ever stops being worth paying,
-    # this is the gate to reconsider rather than the job.
+    # Both gates, not just `checks`. Merging to this branch deploys to
+    # fbe.factorygamefan.com, so treat it as a release. See README.md.
     needs: [checks, e2e]
-    # Gate deploys on green checks. Runs on push to the deploy branch, or on a
-    # manual dispatch with the deploy input set; never on pull requests.
     if: >-
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.deploy)

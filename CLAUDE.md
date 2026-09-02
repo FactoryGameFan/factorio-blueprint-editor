@@ -20,6 +20,7 @@ closing references such as `Closes #123` in the pull request body.
 - `test-blueprints` — committed real-world blueprint corpus
 - `tools/oracle` — probes that ask a local Factorio installation what it does
 - `docs/superpowers` — `plans` (9) and `specs` (6) for larger past changes
+- `.github/workflows` — CI and deploy; `README.md` holds the job rationale
 
 ## Setup and commands
 
