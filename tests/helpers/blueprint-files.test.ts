@@ -21,10 +21,10 @@ import { discoverBlueprintFiles } from './blueprint-files'
     So the last test below calls the function bare, against the real corpus, and
     that call is what makes a committed stray file a red CI run.
 
-    This is the only .test.ts under tests/. playwright.config.ts pins a testMatch
-    of spec files only, so Playwright does not also try to run this file as a
-    spec - the other 40 files there are all .spec.ts, so that narrowing changed
-    nothing about what Playwright collects.
+    This is a .test.ts among a directory of .spec.ts (a handful of siblings
+    now). playwright.config.ts pins a testMatch of spec files only, so Playwright
+    does not also try to run a .test.ts as a spec, and vite.config.ts's `unit`
+    project pins the mirror image.
 */
 
 /** A real blueprint string, so a file that gets read is a file that parses. */

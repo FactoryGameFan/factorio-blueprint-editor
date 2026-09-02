@@ -90,6 +90,23 @@ carried 15 unchecked type errors (issue #78).
 Measured 2026-09-02 over 11 successful runs: median 37s, range 31s to 42s. An
 earlier comment in `ci.yml` said 46s, which is above every sample in that set.
 
+### `vp test` now runs a production build
+
+`tests/production-bundle.test.ts` (#322) calls Vite's `build()` in-process and
+greps the emitted chunks, so `import.meta.env.DEV` stripping the Playwright test
+API from the deployed bundle (#292) has coverage that a `vp dev`-only e2e suite
+cannot give it. It is the cheaper of the two options in #322 - a build and a
+string scan, no browser and no preview server - which is why it sits here rather
+than as a Playwright spec or a new `deploy`-adjacent job. `deploy` already needs
+`checks`, so a leak blocks the release.
+
+The build is `packages/website` at its real `vite.config.js` - the same
+`define` substitution and tree-shake production gets - and includes the
+`viteStaticCopy` pass over the sprite output. Measured locally 2026-09-02:
+about 2s of wall time added to `vp test`, most of it Rolldown. If that ever
+grows enough to matter, splitting it into its own parallel job (added to
+`deploy`'s `needs`) is the move, not dropping the check.
+
 ### The strict-ratchet recipe (the type-check gate is gone)
 
 A `Type-check gate` step used to run alongside `vp check`. The two answered
