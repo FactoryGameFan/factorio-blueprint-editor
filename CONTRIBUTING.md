@@ -48,6 +48,12 @@ and filling out the issue template.
     rm vp-install.sh
     ```
 
+    The variable assignments must come before `bash`, not before `curl`: an
+    assignment ahead of a command applies to that command alone, so the piped
+    form (`VP_VERSION=… curl … | bash`) hands the version to `curl` and the
+    `bash` on the far side reads an empty string, installing whatever the
+    bootstrap script defaults to.
+
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
     things need it there: `npm run localpreview` spawns `vp` directly, and
     `VP_NODE_MANAGER=yes` puts vp's managed node and npm on that path, which is

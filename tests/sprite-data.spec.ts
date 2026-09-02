@@ -45,9 +45,22 @@ const DIRECTIONS = [0, 4, 8, 12]
 
     Some entries record known-wrong behaviour rather than correct behaviour, so
     do not "fix" them by editing the file: dummy-rail-ramp and dummy-rail-support
-    generate no layers at all ("0:..."), and railgun-turret is "FAILED" in both
-    real halves because util.getDirName throws for the diagonal facings (2 and
-    14) the corpus places it at.
+    generate no layers at all ("0:...").
+
+    railgun-turret used to belong on that list, and no longer does. It calls
+    util.getDirName, which throws for diagonal facings, and against the private
+    corpus that placed it at directions 2 and 14 both real halves read "FAILED".
+    The public corpus committed in #191 places it at direction 8 only, so the
+    entry is now four ordinary 8-layer digests. Nothing about getDirName changed
+    - DIRECTIONS above is cardinals only, so the synthetic halves could never
+    have shown it either. The hazard is simply no longer covered here.
+
+    More generally: the real halves carry no FAILED entry at all. All 5 failing
+    prototypes (the three factorio-logo sizes, fulgoran-ruin-attractor,
+    hidden-electric-energy-interface) appear only under synthetic, noGrid and
+    paintPreview, which come from the all-entities blueprint. So no committed
+    corpus entity is pinned failing, and a corpus figure quoted in prose is a
+    measurement with a date on it - say which corpus it was taken against.
 */
 const EXPECTED: {
     synthetic: Record<string, string[]>

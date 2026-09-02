@@ -325,6 +325,18 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
             */
             switch (host.split('.')[0]) {
                 case 'pastebin':
+                    /*
+                        A raw link - `pastebin.com/raw/<id>`, what the paste's
+                        own "raw" button gives you - is already the URL this arm
+                        would rewrite to, so pass it through. Rewriting it blind
+                        makes `pathParts[0]` the literal `raw` and fetches
+                        `pastebin.com/raw/raw`, a 404 (issue #297). Same fork as
+                        the `factorio` and `factorioprints` arms below.
+                    */
+                    if (pathParts[0] === 'raw') {
+                        return fetchData(url.href).then(r => r.text())
+                    }
+
                     return fetchData(`https://pastebin.com/raw/${pathParts[0]}`).then(r => r.text())
                 case 'hastebin':
                     return fetchData(`https://hastebin.com/raw/${pathParts[0]}`).then(r => r.text())

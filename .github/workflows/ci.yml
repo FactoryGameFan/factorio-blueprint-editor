@@ -1,5 +1,11 @@
 name: CI
 
+# WHY THIS FILE LOOKS LIKE THIS: .github/workflows/README.md
+#
+# That doc holds the measurements, the things that were tried and rejected, and
+# the parts that look simplifiable but are not. The comments kept below are only
+# the ones sited where a reader is about to undo the thing they protect.
+
 on:
   pull_request:
     branches:
@@ -22,7 +28,77 @@ permissions:
   contents: read
 
 jobs:
+  # Skips jobs that cannot see the change. A job-level `if:` rather than
+  # `on.pull_request.paths` on purpose: a skipped WORKFLOW never reports, a
+  # skipped JOB does. But a skipped MATRIX job reports one unexpanded name, so
+  # `Playwright 1/4` must never be marked a required check. See README.md.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      web: ${{ steps.detect.outputs.web }}
+      rust: ${{ steps.detect.outputs.rust }}
+    steps:
+      - name: List changed files and classify them
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -uo pipefail
+
+          # Anything that is not a pull request - a push to the deploy branch, a
+          # manual dispatch - runs the lot. `deploy` is gated on `checks` and
+          # `e2e`, so narrowing either one here would change when the site ships.
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "Not a pull request. Running every job."
+            echo "web=true"  >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          if [ -z "$files" ]; then
+            echo "Could not list the changed files. Running every job."
+            echo "web=true"  >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$files"
+
+          # `rust` covers the exporter crate, plus this workflow itself, so a
+          # change to these rules is always tested against both sides.
+          if echo "$files" | grep --quiet --extended-regexp '^packages/exporter/|^\.github/workflows/ci\.yml$'; then
+            rust=true
+          else
+            rust=false
+          fi
+
+          # `web` is deliberately the loose one: anything at all outside the
+          # exporter turns it on. That runs `checks` and Playwright for a
+          # README-only change, which wastes a few minutes and cannot miss a
+          # real one.
+          if echo "$files" | grep --quiet --invert-match '^packages/exporter/'; then
+            web=true
+          else
+            web=false
+          fi
+
+          echo "web=$web"   >> "$GITHUB_OUTPUT"
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "Decided: web=$web rust=$rust"
+
   checks:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +121,8 @@ jobs:
 
   rust:
     name: Rust exporter
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -72,12 +150,20 @@ jobs:
         if: ${{ !cancelled() }}
         run: cargo fmt --check --manifest-path packages/exporter/Cargo.toml
 
+      # `-D warnings` is load-bearing: plain `cargo clippy` exits 0 with warnings.
+      # Gates on Linux deliberately - it reports 2 warnings on a Mac and the Mac
+      # is the one that is wrong. Do not silence them locally. See README.md.
       - name: Clippy
         if: ${{ !cancelled() }}
         run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
 
+  # A NATIVE runner, not `cargo check --target x86_64-pc-windows-msvc`, which
+  # fails: `zstd-sys` refuses the GNU compiler for an msvc target. The
+  # cross-check was committed and CI rejected it. See README.md.
   rust-windows:
     name: Rust exporter (Windows)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -103,7 +189,12 @@ jobs:
 
   e2e:
     name: Playwright ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    # Sharding is the lever, not `workers`. playwright.config.ts pins
+    # `workers: 1` because the specs share ports 8080/8081, and that clash is
+    # within a machine. See README.md.
     strategy:
       fail-fast: false
       matrix:
@@ -134,6 +225,10 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
+      # This REPLACED `playwright install-deps` rather than retrying it. Do not
+      # reintroduce it, and do not wrap it in `timeout`: that kills npx while the
+      # root-owned apt-get keeps the lock. `expected=2` is part of the assertion,
+      # not a guess. See README.md.
       - name: Verify chromium's shared libraries (no apt)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: |
@@ -189,6 +284,8 @@ jobs:
 
   deploy:
     name: Deploy to Cloudflare
+    # Both gates, not just `checks`. Merging to this branch deploys to
+    # fbe.factorygamefan.com, so treat it as a release. See README.md.
     needs: [checks, e2e]
     if: >-
       github.event_name == 'push' ||
