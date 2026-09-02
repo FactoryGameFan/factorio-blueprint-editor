@@ -76,7 +76,12 @@ jobs:
 
           # `rust` covers the exporter crate, plus this workflow itself, so a
           # change to these rules is always tested against both sides.
-          if echo "$files" | grep --quiet --extended-regexp '^packages/exporter/|^\.github/workflows/ci\.yml$'; then
+          # Read the list with a here-string, not `echo ... | grep`. `grep --quiet`
+          # exits on its first match and closes the pipe, so on a large PR the
+          # `echo` dies of SIGPIPE, `pipefail` turns that into a non-zero
+          # pipeline, and a MATCH is read as NO MATCH. PR #268 (5,767 files)
+          # skipped the whole gate that way and still reported mergeable.
+          if grep --quiet --extended-regexp '^packages/exporter/|^\.github/workflows/ci\.yml$' <<< "$files"; then
             rust=true
           else
             rust=false
@@ -86,7 +91,7 @@ jobs:
           # exporter turns it on. That runs `checks` and Playwright for a
           # README-only change, which wastes a few minutes and cannot miss a
           # real one.
-          if echo "$files" | grep --quiet --invert-match '^packages/exporter/'; then
+          if grep --quiet --invert-match '^packages/exporter/' <<< "$files"; then
             web=true
           else
             web=false
