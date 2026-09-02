@@ -130,6 +130,14 @@ keyed-but-empty. Checked by deliberately dropping the declared-dimension
 override from `sizeFromBox`, which the first two controls pass unchanged while
 this one reports 168 and 108 and exits non-zero.
 
+All three run in `vp test`, through `analyze-rail-box-orientation.test.mjs`,
+which rescores the committed fixture the same way the command above does. A
+control nothing invokes reports nothing, and until that file existed these ran
+only when somebody ran the analyzer by hand. It also asserts the rescore
+reproduces the committed fixture byte for byte, so drift in `data.json` or in
+either fixture the analyzer reads shows up as a failure rather than as a stale
+finding restated with fresh confidence.
+
 ## Running it
 
 ```fish
