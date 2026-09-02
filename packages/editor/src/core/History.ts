@@ -270,7 +270,15 @@ export class History {
         return historyAction
     }
 
-    /** Updates a value in a `Map` and stores it in the history */
+    /**
+     * Updates a value in a `Map` and stores it in the history.
+     *
+     * `undefined` is a supported value here, meaning "delete this key" - not a
+     * "no change" signal. And `Action.apply` swaps `oldValue`/`newValue` on
+     * undo, so the callback below can legitimately receive `undefined` at
+     * either end: as `newValue` when this call deletes, and as `oldValue` when
+     * undoing a call that created the key. `updateValue` is the same.
+     */
     public updateMap<K, V>(
         target: Map<K, V>,
         key: K,
