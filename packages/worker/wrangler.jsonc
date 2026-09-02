@@ -9,7 +9,65 @@
     "assets": {
         "directory": "../website/dist",
         "binding": "ASSETS",
-        "run_worker_first": true,
+        /*
+            Scoped rather than `true`, and the distinction is the whole cost
+            story for this Worker. Requests to static assets are free and
+            unlimited, but only while the Worker does not run first - with
+            `true`, every one of the 9,097 files in the build output (8,786 of
+            them sprite data) billed as a Worker invocation at the standard
+            rate on every cache miss.
+
+            Measured 2026-09-01 during a traffic spike: 330,522 requests in a
+            day against a 1,256-5,965/day baseline the week before, and
+            303,317 subrequests against 303,331 requests earlier the same day.
+            Subrequests tracking requests one-for-one is the tell - nearly
+            every invocation was doing nothing but handing the request
+            straight to ASSETS.
+
+            `/` stays on the list so the legacy-hostname 301 keeps working.
+            The editor is a single page app, so every real navigation lands on
+            `/`, deep links included: `?source=...` is a query string and the
+            path is still `/`. What changes is that a bundle or a .basis file
+            requested on the legacy hostname is now served rather than
+            redirected, which no user ever sees.
+        */
+        "run_worker_first": ["/", "/corsproxy"],
+    },
+    /*
+        Workers Logs was off, which is not a default - it defaults to true for
+        new Workers, and this config never declared it, so deploys turned it
+        off. The cost of that was measured rather than assumed: a query for
+        this Worker's logs returned 0 events over 7 days while GraphQL
+        analytics reported 330,522 requests in one day. Zero logs against real
+        traffic is indistinguishable from zero traffic, which is exactly the
+        wrong thing to discover during a spike.
+
+        Sampled at 10% deliberately. Log events bill at $0.60 per million past
+        20 million included per month, so an unsampled Worker is one traffic
+        spike away from a log bill larger than its compute bill. 10% of the
+        post-scoping invocation count is still thousands of samples a day,
+        which is plenty for the error rate and the path mix. Raise it once the
+        steady-state volume is known.
+    */
+    "observability": {
+        "enabled": true,
+        "head_sampling_rate": 0.1,
+    },
+    /*
+        A guard against a runaway loop, not a cost control - worth saying
+        plainly, because the name suggests otherwise. CPU is roughly 3% of
+        what this Worker costs: requests bill at $0.30 per million and CPU at
+        $0.02 per million ms, against a measured 409us per request, so a
+        million requests carry about $0.008 of CPU.
+
+        100ms is sized off the measured tail, not picked. Worst p999 over
+        2026-08-30 to 09-01 was 6,251us, p99 1,868us, p50 409us - so this is
+        16x the worst thousandth-percentile request and 300x below the 30s
+        default, which leaves a 16 MiB proxied body (MAX_PROXY_BYTES) far more
+        headroom than it needs while still killing an infinite loop at once.
+    */
+    "limits": {
+        "cpu_ms": 100,
     },
     // Serve the editor from the custom domain. Cloudflare provisions the
     // proxied DNS record + SSL cert automatically since the zone lives in
