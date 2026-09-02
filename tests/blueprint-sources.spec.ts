@@ -98,6 +98,20 @@ test('pastebin asks for the raw paste', async ({ page }) => {
     expect(r.entities).toBe(2)
 })
 
+/*
+    The fork inside the pastebin arm. A raw link - `pastebin.com/raw/<id>`, what
+    the paste's own "raw" button gives you - is already the URL the arm rewrites
+    to, so it is passed through untouched. Rewriting it blind makes `pathParts[0]`
+    the literal `raw` and asks for `pastebin.com/raw/raw`, a 404 (issue #297). The
+    arm above only ever tests the share-link shape, which cannot see this.
+*/
+test('a pastebin raw url is passed through unchanged', async ({ page }) => {
+    const source = 'https://pastebin.com/raw/AbCd1234'
+    const r = await fetchThrough(page, source, BP)
+    expect(r.target).toBe(source)
+    expect(r.entities).toBe(2)
+})
+
 test('hastebin asks for the raw paste', async ({ page }) => {
     const r = await fetchThrough(page, 'https://hastebin.com/xyz789', BP)
     expect(r.target).toBe('https://hastebin.com/raw/xyz789')
