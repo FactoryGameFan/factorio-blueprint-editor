@@ -186,10 +186,10 @@ Read `tools/oracle/README.md` before adding or recapturing a probe. Search the
 matching `factorio-data` release first; use a probe for engine behavior that the
 Lua source cannot answer.
 
-Most probes use `factorio-probe.mjs`, which creates an isolated temporary mod,
-writes its config, runs Factorio, and reads the JSON dump. Set `FACTORIO_BIN` or
-use the macOS Steam default. A deliberate `error("DUMPED-OK")` is success; the
-dump file, not Factorio's exit code, decides whether a run worked.
+Each probe creates an isolated temporary mod, writes its config, runs Factorio,
+and reads the JSON dump. Set `FACTORIO_BIN` or use the macOS Steam default. A
+deliberate `error("DUMPED-OK")` is success; the dump file, not Factorio's exit
+code, decides whether a run worked.
 
 Fixtures change only behind each probe's `--write-fixture` flag. After a
 recapture, run `vp check --fix` and any generator named in the oracle README.
