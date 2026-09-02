@@ -90,25 +90,28 @@ carried 15 unchecked type errors (issue #78).
 Measured 2026-09-02 over 11 successful runs: median 37s, range 31s to 42s. An
 earlier comment in `ci.yml` said 46s, which is above every sample in that set.
 
-### The type-check gate, and the strict-ratchet recipe
+### The strict-ratchet recipe (the type-check gate is gone)
 
-The gate sits alongside `vp check` rather than inside it. The two answer
+A `Type-check gate` step used to run alongside `vp check`. The two answered
 different questions. `vp check` asks whether the code type-checks under the flags
-that are currently on. The gate asks whether the error count has gone above a
-committed baseline. With `strict: true` landed (issue #77) the baseline is 0
-again, so the gate is redundant until the next flag flip.
+that are currently on. The gate asked whether the error count had risen above a
+committed baseline. Once `strict: true` landed (issue #77) the baseline was back
+to 0, which left the gate redundant until the next flag flip, and #268 removed
+the step, the script, its test and the baseline.
 
-**Keep this recipe. It is the part that is expensive to rediscover.** To turn on
-a new strict flag without a red build on every commit in between:
+**Keep this recipe. It is the part that is expensive to rediscover.** It does not
+depend on the gate still existing - it describes how to stand a counting job back
+up for one flag flip and retire it again. To turn on a new strict flag without a
+red build on every commit in between:
 
 1. Turn the flag on in a **second** TypeScript project that nothing compiles
-   with and only the gate reads.
+   with and only the counting job reads.
 2. Start the baseline at whatever the current error count is.
-3. Ratchet it down, keeping this job green the whole way.
+3. Ratchet it down, keeping that job green the whole way.
 
 Turning the flag on in the root config instead fails the `vp check` step on the
 first commit and every one after, whatever the baseline says, because `vp check`
-runs before the gate and tolerates nothing.
+runs first and tolerates nothing.
 
 Issue #77 ran it from 24 to 0 this way.
 

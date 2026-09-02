@@ -114,7 +114,7 @@
     // exceptions below, including GitHub Action digest re-pins.
     //
     // What CI actually covers: `vp check` (oxfmt + oxlint + tsc), `vp test`
-    // (vitest units + the type-check gate), the Playwright suite in the `e2e` job
+    // (vitest units), the Playwright suite in the `e2e` job
     // sharded across four runners, and a compile of packages/exporter on ubuntu
     // and Windows. That is real coverage, and it is MORE than this paragraph
     // claimed until 2026-09-01 - see the corrections below.

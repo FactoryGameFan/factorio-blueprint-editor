@@ -241,15 +241,29 @@ export default defineConfig({
                     a file off disk therefore has to sit under a directory the
                     root config owns, whatever package it is testing.
 
-                    Only *.test.ts is collected. The 40 specs next door are
-                    Playwright's and would fail immediately under vitest, having
-                    no browser fixtures; playwright.config.ts pins the mirror
-                    image of this so neither runner collects the other's files.
+                    Under tests/ only *.test.ts is collected. The 40 specs
+                    next door are Playwright's and would fail immediately under
+                    vitest, having no browser fixtures; playwright.config.ts pins
+                    the mirror image of this so neither runner collects the
+                    other's files.
+
+                    The scripts/ and tools/ globs are narrow on purpose. They
+                    replace the `gate` project that #268 deleted, which was the
+                    only thing collecting the .test.mjs files under scripts/ -
+                    dropping it silently stopped running
+                    scripts/localpreview.test.mjs, and nothing failed to say so.
+                    Keep them limited to .test.mjs files: a wider glob picks up
+                    plain scripts and vitest fails them with "No test suite
+                    found in file".
+
+                    Do not write a star-slash glob in this comment. That
+                    sequence closes the block comment and the config stops
+                    parsing.
                 */
                 test: {
                     name: 'unit',
                     environment: 'node',
-                    include: ['tests/**/*.test.ts'],
+                    include: ['tests/**/*.test.ts', 'scripts/**/*.test.mjs', 'tools/**/*.test.mjs'],
                 },
             },
         ],
