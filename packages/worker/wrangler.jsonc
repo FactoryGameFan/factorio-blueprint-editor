@@ -38,20 +38,25 @@
         new Workers, and this config never declared it, so deploys turned it
         off. The cost of that was measured rather than assumed: a query for
         this Worker's logs returned 0 events over 7 days while GraphQL
-        analytics reported 330,522 requests in one day. Zero logs against real
-        traffic is indistinguishable from zero traffic, which is exactly the
-        wrong thing to discover during a spike.
+        analytics reported 330,522 requests on 2026-09-01. Zero logs against
+        real traffic is indistinguishable from zero traffic, which is exactly
+        the wrong thing to discover during a spike.
 
-        Sampled at 10% deliberately. Log events bill at $0.60 per million past
-        20 million included per month, so an unsampled Worker is one traffic
-        spike away from a log bill larger than its compute bill. 10% of the
-        post-scoping invocation count is still thousands of samples a day,
-        which is plenty for the error rate and the path mix. Raise it once the
-        steady-state volume is known.
+        Unsampled, because at this Worker's invocation rate the quota is not
+        the binding constraint. Scoping `run_worker_first` above took
+        invocations from 93.8/min to 9.9/min, measured per minute across the
+        deploy on 2026-09-02: 199 in the minute before it landed, 21 in the
+        minute after. That is roughly 14,000 log events a day, or 430,000 a
+        month against 20 million included.
+
+        The number to watch is invocations, not this rate. Log events bill at
+        $0.60 per million past the included 20 million, so this stays free
+        while invocations track the page-view count. If they climb back toward
+        the pre-scoping figure, drop this to 0.1 rather than pay for volume.
     */
     "observability": {
         "enabled": true,
-        "head_sampling_rate": 0.1,
+        "head_sampling_rate": 1,
     },
     /*
         A guard against a runaway loop, not a cost control - worth saying
