@@ -120,16 +120,9 @@ jobs:
         if: ${{ !cancelled() }}
         run: vp check .
 
-      - name: Tests (vitest - units + gate)
+      - name: Unit tests
         if: ${{ !cancelled() }}
         run: vp test
-
-      # Do not fold this into `vp check`; they answer different questions. The
-      # strict-ratchet recipe that needs this job is in README.md, and it is the
-      # expensive thing to rediscover.
-      - name: Type-check gate
-        if: ${{ !cancelled() }}
-        run: npm run type-check:gate
 
   rust:
     name: Rust exporter

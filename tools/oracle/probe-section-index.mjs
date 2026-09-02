@@ -17,14 +17,11 @@
     Usage: node tools/oracle/probe-section-index.mjs
 */
 import { deflateSync } from 'node:zlib'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { factorioBin, prepareProbe, runProbe } from './factorio-probe.mjs'
+import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { spawnSync } from 'node:child_process'
 
-const BIN =
-    process.env.FACTORIO_BIN ??
-    `${process.env.HOME}/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio`
+const BIN = factorioBin
 
 if (!existsSync(BIN)) {
     console.error(`No Factorio binary at ${BIN}. Set FACTORIO_BIN.`)
@@ -83,25 +80,14 @@ const BP = encode({
     ],
 })
 
-const work = mkdtempSync(join(tmpdir(), 'fbe-oracle-'))
-const writeData = join(work, 'write-data')
-const modDir = join(work, 'mods')
-const modPath = join(modDir, `${MOD}_0.0.1`)
-mkdirSync(writeData, { recursive: true })
-mkdirSync(modPath, { recursive: true })
-
-writeFileSync(
-    join(modPath, 'info.json'),
-    // factorio_version must be "2.1" for a 2.1.x game or the mod is skipped.
-    JSON.stringify({
-        name: MOD,
-        version: '0.0.1',
-        title: 'Blueprint section index probe',
-        author: 'oracle',
-        factorio_version: '2.1',
-        dependencies: ['base'],
-    })
-)
+const { work, writeData, modDir, modPath } = prepareProbe({
+    name: MOD,
+    version: '0.0.1',
+    title: 'Blueprint section index probe',
+    author: 'oracle',
+    factorio_version: '2.1',
+    dependencies: ['base'],
+})
 
 /* The blueprint string is embedded in a Lua long bracket so its base64 (which
    can contain + and /) survives verbatim. import_stack returns 0 on a clean
@@ -125,30 +111,7 @@ end)
 `
 )
 
-writeFileSync(
-    join(work, 'config.ini'),
-    `[path]\nread-data=__PATH__executable__/../data\nwrite-data=${writeData}\n[general]\n[other]\n`
-)
-
-const res = spawnSync(
-    BIN,
-    [
-        '--create',
-        join(work, 'probe.zip'),
-        '--mod-directory',
-        modDir,
-        '--config',
-        join(work, 'config.ini'),
-    ],
-    { encoding: 'utf8' }
-)
-
-const dumpPath = join(writeData, 'script-output', DUMP)
-if (!existsSync(dumpPath)) {
-    console.error('No dump produced. Factorio output tail:\n')
-    console.error(((res.stdout ?? '') + (res.stderr ?? '')).slice(-3000))
-    process.exit(1)
-}
+const { dumpPath } = runProbe({ bin: BIN, work, writeData, modDir, dump: DUMP })
 
 const dump = JSON.parse(readFileSync(dumpPath, 'utf8'))
 console.log(JSON.stringify({ binary: BIN, work, dump }, null, 2))

@@ -18,7 +18,7 @@ export type Logger = (msg: ILogMessage) => void
  * paste to replace, Ctrl+Shift+V to append, Ctrl+S for an image - exposed so
  * ToolsPanel's quick-action buttons can trigger the exact same website-level
  * logic a key press does, rather than the editor package reaching for
- * `navigator.clipboard`/`FileSaver` itself.
+ * `navigator.clipboard`/`saveBlob` itself.
  *
  * No `exportString` here on purpose, unlike its `exportImage` sibling: Ctrl+C
  * still calls the website's own local copy of it directly (packages/website/

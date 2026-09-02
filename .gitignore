@@ -2,7 +2,9 @@ node_modules
 packages/website/dist
 packages/exporter/data/*
 !packages/exporter/data/output
-packages/exporter/data/output/metadata.json
+packages/exporter/data/output/metadata*.json
+packages/exporter/data/output/**/* 2.basis
+packages/exporter/data/output/**/* 3.basis
 packages/exporter/target
 .env
 .DS_Store

@@ -1,7 +1,6 @@
 import './index.css'
 
 import { isMobile } from 'pixi.js'
-import FileSaver from 'file-saver'
 import EDITOR, {
     Editor,
     Blueprint,
@@ -105,6 +104,14 @@ console.log(
 
 const createToast = initToasts()
 
+function saveBlob(blob: Blob, filename: string): void {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(link.href))
+}
+
 if (isMobile.any) {
     createToast({
         text: 'Viewing in read-only mode. Editing features are not available on mobile devices.',
@@ -206,7 +213,7 @@ function exportImage(): boolean {
     editor
         .getPicture()
         .then(blob => {
-            FileSaver.saveAs(blob, `${bp.name}.png`)
+            saveBlob(blob, `${bp.name}.png`)
             createToast({ text: 'Blueprint image successfully generated', type: 'success' })
         })
         .catch(error => createErrorMessage('Failed to generate the image.', error))
@@ -427,7 +434,7 @@ const testApi = {
     /**
      * `exportString`/`exportImage`'s own guard result, without running
      * either - `!bp.isEmpty()` is the exact condition both functions open
-     * with, before either touches `navigator.clipboard`/`FileSaver`. This
+     * with, before either touches `navigator.clipboard`/`saveBlob`. This
      * used to call `exportString()`/`exportImage()` themselves and report
      * whatever they returned, which mirrors the guard only for an *empty*
      * blueprint; for a loaded one it silently performs the real action -

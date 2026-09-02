@@ -11,24 +11,7 @@
         "moduleDetection": "force",
         "noEmit": true,
 
-        // The migration to full `strict` is finished (issues #22 and #77). This
-        // replaces the sub-flag block that stood here while it ran - every flag
-        // listed there is one `strict` turns on, and the last one to be cleared
-        // was `strictPropertyInitialization`, at 24 errors across 13 files.
-        //
-        // Every package type-checks at 0 under it - editor, website and worker -
-        // and `vp check` enforces that in CI via lint.options.typeCheck. The
-        // worker was already `strict: true` in its own tsconfig, which does not
-        // extend this one.
-        //
-        // How the last flag was landed, since the next one will want it: it was
-        // turned on in a second project, packages/editor/tsconfig.strict.json,
-        // that nothing compiled with and only scripts/type-check-gate.mjs read.
-        // That let the gate's baseline start at 24 and ratchet down while this
-        // file kept every package at 0. Turning it on here first would have
-        // failed `vp check` in CI on the first commit of the migration and every
-        // one after, whatever the baseline said, because `vp check` runs before
-        // the gate and tolerates nothing. That project is deleted now.
+        // `vp check` type-checks each package under its own project.
         "strict": true,
 
         "paths": {

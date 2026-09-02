@@ -42,7 +42,7 @@ class WireSlot extends Slot<string> {
  * A one-shot action button, styled like a WireSlot but calling `onClick`
  * instead of entering PAINT mode. Backs the import/export quick actions -
  * see `QuickActions` in common/globals.ts for why the click reaches
- * `navigator.clipboard`/`FileSaver` through there rather than directly.
+ * `navigator.clipboard`/`saveBlob` through there rather than directly.
  */
 class ActionSlot extends Slot<undefined> {
     public constructor(icon: Container, onClick: () => void) {

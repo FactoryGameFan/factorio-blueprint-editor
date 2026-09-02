@@ -69,16 +69,14 @@
     The --fix after a recapture is not optional: vp's formatter collapses short
     arrays onto one line and JSON.stringify does not.
 */
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { writeFileSync, readFileSync } from 'node:fs'
+import { factorioBin, prepareProbe, runProbe } from './factorio-probe.mjs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { inflateSync } from 'node:zlib'
 
-const BIN =
-    process.env.FACTORIO_BIN ??
-    `${process.env.HOME}/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio`
+const BIN = factorioBin
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE = join(HERE, 'fixtures', 'blueprint-grid-position.json')
@@ -145,24 +143,14 @@ if (binaryVersion.length !== 3) {
 /* Derived, not hardcoded: a mod declaring the wrong version is silently skipped. */
 const MOD_FACTORIO_VERSION = `${binaryVersion[0]}.${binaryVersion[1]}`
 
-const work = mkdtempSync(join(tmpdir(), 'fbe-oracle-'))
-const writeData = join(work, 'write-data')
-const modDir = join(work, 'mods')
-const modPath = join(modDir, `${MOD}_0.0.1`)
-mkdirSync(writeData, { recursive: true })
-mkdirSync(modPath, { recursive: true })
-
-writeFileSync(
-    join(modPath, 'info.json'),
-    JSON.stringify({
-        name: MOD,
-        version: '0.0.1',
-        title: 'Does a blueprint grid position move the entities',
-        author: 'oracle',
-        factorio_version: MOD_FACTORIO_VERSION,
-        dependencies: ['base', 'elevated-rails', 'space-age'],
-    })
-)
+const { work, writeData, modDir, modPath } = prepareProbe({
+    name: MOD,
+    version: '0.0.1',
+    title: 'Does a blueprint grid position move the entities',
+    author: 'oracle',
+    factorio_version: MOD_FACTORIO_VERSION,
+    dependencies: ['base', 'elevated-rails', 'space-age'],
+})
 
 const luaCases = CASES.map(c => {
     const snap = c.snap === null ? 'nil' : `{x = ${c.snap.x}, y = ${c.snap.y}}`
@@ -264,33 +252,14 @@ end)
 `
 )
 
-writeFileSync(
-    join(work, 'config.ini'),
-    `[path]\nread-data=__PATH__executable__/../data\nwrite-data=${writeData}\n[general]\n[other]\n`
-)
-
-const res = spawnSync(
-    BIN,
-    [
-        '--create',
-        join(work, 'p.zip'),
-        '--mod-directory',
-        modDir,
-        '--config',
-        join(work, 'config.ini'),
-    ],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
-)
-
-const dumpPath = join(writeData, 'script-output', DUMP)
-if (!existsSync(dumpPath)) {
-    console.error(
-        `No dump. Mod declared factorio_version ${MOD_FACTORIO_VERSION} against ${binaryLine}.\n` +
-            'Factorio tail:\n' +
-            ((res.stdout ?? '') + (res.stderr ?? '')).slice(-4000)
-    )
-    process.exit(1)
-}
+const { dumpPath } = runProbe({
+    bin: BIN,
+    work,
+    writeData,
+    modDir,
+    dump: DUMP,
+    maxBuffer: 64 * 1024 * 1024,
+})
 
 const d = JSON.parse(readFileSync(dumpPath, 'utf8'))
 const list = v => (v === undefined || v === null ? [] : Object.values(v))

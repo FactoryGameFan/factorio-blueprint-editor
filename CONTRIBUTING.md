@@ -122,13 +122,12 @@ failing rather than as a port clash.
 
 ### Checks
 
-| Command                   | What it does                                                                      |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| `vp check`                | format + lint + type check, every package. This is the one to run before pushing. |
-| `vp check --fix`          | the same, applying the format and lint fixes it can                               |
-| `vp test`                 | unit tests (the editor's, plus the repo scripts')                                 |
-| `npm run type-check:gate` | fails if the type error count rises above the committed baseline                  |
-| `npx playwright test`     | browser tests - needs `npm run localpreview` running first                        |
+| Command               | What it does                                                                      |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `vp check`            | format + lint + type check, every package. This is the one to run before pushing. |
+| `vp check --fix`      | the same, applying the format and lint fixes it can                               |
+| `vp test`             | editor unit tests                                                                 |
+| `npx playwright test` | browser tests - needs `npm run localpreview` running first                        |
 
 Two things about the Playwright suite. Run `npx playwright install` after any
 `@playwright/test` bump, or every spec fails on a missing browser executable.

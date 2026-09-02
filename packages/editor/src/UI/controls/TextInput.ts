@@ -1,6 +1,9 @@
 import { Renderer, Container, DestroyOptions, Graphics, Matrix } from 'pixi.js'
-import { FunctionKeys } from 'utility-types'
 import { colors, styles } from '../style'
+
+type FunctionKeys<T> = {
+    [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never
+}[keyof T]
 
 /*
     The three states a box can be drawn for. This used to carry `| string`,
