@@ -45,7 +45,14 @@ export default defineConfig(async ({ command, mode }) => {
                 'pixi.js/basis',
             ],
         },
-        preview: { port: 8080 },
+        // Deliberately not 8080. playwright.config.ts defaults baseURL to 8080
+        // and every spec waits on window.__fbe_test, which since #292 is
+        // assigned only under `vp dev`. A suite pointed at `vp preview` - a
+        // production bundle with no hook - would otherwise hang 60s per spec on
+        // a function that never appears, with nothing naming the cause (#321).
+        // On a different port the same mistake is a connection refused instead.
+        // The specs need `npm run localpreview`; see CLAUDE.md.
+        preview: { port: 4173 },
         server: {
             port: 8080,
             proxy,
