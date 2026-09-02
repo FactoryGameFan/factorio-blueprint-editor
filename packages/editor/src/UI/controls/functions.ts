@@ -226,6 +226,11 @@ function CreateIcon(
         FD.inventoryLayout.find(g => g.name === itemName)
 
     if (item === undefined) {
+        // A bare throw, not a missing-icon fallback. Callers under a try/catch
+        // (OverlayContainer, or SafeIcon below) degrade to no icon; a caller
+        // with none - e.g. a blueprint-level planet icon, which resolves to
+        // nothing here because data.json exports no planet prototype - loses
+        // the whole blueprint. Tracked as issue #231.
         throw new Error(`No item, fluid, recipe, signal or inventory group named ${itemName}`)
     }
 
