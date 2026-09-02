@@ -1,7 +1,20 @@
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "lib": ["ESNext", "DOM"]
+        "lib": ["ESNext", "DOM"],
+        // Vite serves and bundles this package as ESM, and `src/index.ts` reads
+        // `import.meta.env.DEV` to keep the Playwright test API out of the
+        // production build (issue #292). `import.meta` needs `module` at
+        // es2020+; the root config is on `ES6`, so without this the build is
+        // fine but `vp check` fails the file with TS1343.
+        //
+        // Safe because the root sets `moduleResolution: bundler` explicitly.
+        // Raising `module` alone would otherwise fall back to `Classic`
+        // resolution and break every import in the package. Measured: the
+        // resolved config differs from the base by this one line and nothing
+        // else. `packages/worker/tsconfig.json` pairs the same two settings,
+        // though it spells both out because it does not extend the root.
+        "module": "ESNext"
     },
     "include": ["src", "../editor/src/global.d.ts"]
 }

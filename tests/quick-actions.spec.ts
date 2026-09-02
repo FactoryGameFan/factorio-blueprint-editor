@@ -512,9 +512,12 @@ test('exportGuardResult reports the guard without writing to the clipboard or st
         whatever they returned - which mirrors the guard only for an empty
         blueprint; for a loaded one it silently performed the real action,
         a real clipboard write and a real PNG download, every time it was
-        called (#242 review, the other blocking issue). Reachable from more
-        than a spec: `__fbe_test` is assigned unconditionally, so this sits
-        on `window` in production for any script on the page to call.
+        called (#242 review, the other blocking issue). `__fbe_test` is
+        dev-only since #292, so that no longer sits on `window` at
+        fbe.factorygamefan.com for any script on the page to call - but it
+        would still reach every spec here, because this suite runs against
+        `vp dev`, where the hook exists. The gate is not what makes this
+        safe; reading state instead of changing it is.
 
         The clipboard write is caught by wrapping `navigator.clipboard.
         writeText` before the app's own scripts run - has to happen before

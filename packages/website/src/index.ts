@@ -70,9 +70,18 @@ let book: Book | undefined
 
 /*
     Whether startup has run to the point where `bp` and the editor's `G.UI`
-    both exist - set at exactly the moment `__fbe_test` goes on `window`, and
-    for the same reason its own comment gives. Read by the clipboard listeners
-    below; see clipboardShortcutsBelongToCanvas for why they need it.
+    both exist - set in the same `.then` that would put `__fbe_test` on
+    `window`, and for the same reason its own comment gives. Read by the
+    clipboard listeners below; see clipboardShortcutsBelongToCanvas for why
+    they need it.
+
+    The two used to be one statement. Since #292 the hook is behind
+    `import.meta.env.DEV` and this flag is not, so in a production build this
+    is set and `__fbe_test` is absent. **Do not collapse them back.** Reading
+    `window.__fbe_test !== undefined` instead of this flag would leave the
+    clipboard listeners permanently disabled in production and nowhere else,
+    which is the #109 Ctrl+C crash again in the one environment no spec
+    covers - the whole suite runs against `vp dev`, where the hook is there.
 
     Measured before it existed: with the canvas focused during a cold data.json
     load, Ctrl+C threw an uncaught "Cannot read properties of undefined
@@ -282,10 +291,21 @@ editor
                 initial blueprint is on screen, not merely that this module has
                 run (issue #109). It comes after the catch on purpose: a source
                 that fails to import is a state specs still need to drive.
+
+                `import.meta.env.DEV` gates the assignment so the test API never
+                reaches the production bundle at fbe.factorygamefan.com (issue
+                #292). Vite replaces it with `false` in a `vp build`, which drops
+                this branch and lets Rolldown tree-shake `testApi` and everything
+                only it references. The e2e job serves the app with `vp dev`
+                (via `npm run localpreview`), where it is `true`, so every spec
+                still gets its hook. `startupFinished` stays outside the guard -
+                the clipboard listeners below read it in production too.
             */
             .then(() => {
                 startupFinished = true
-                ;(window as any).__fbe_test = testApi
+                if (import.meta.env.DEV) {
+                    ;(window as any).__fbe_test = testApi
+                }
             })
             .catch(error => createErrorMessage('Could not finish starting up.', error))
     })
@@ -384,7 +404,9 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
 
 /*
     The Playwright test API. Built here, but not put on `window` until startup
-    has finished - see the `.then` above that assigns it, and issue #109.
+    has finished - see the `.then` above that assigns it, and issue #109 - and
+    then only under `import.meta.env.DEV`, so a production build strips the whole
+    thing (issue #292).
 
     Every spec waits for `window.__fbe_test` and treats its arrival as "the
     editor is ready". That was only true by luck: this used to be assigned
@@ -439,10 +461,14 @@ const testApi = {
      * whatever they returned, which mirrors the guard only for an *empty*
      * blueprint; for a loaded one it silently performs the real action -
      * an actual clipboard write and an actual PNG download - every time it
-     * is called. That is reachable from more than a future spec that loads
-     * a blueprint first: `__fbe_test` is assigned unconditionally above, so
-     * this sits on `window` at fbe.factorygamefan.com for any script on the
-     * page to call. See tests/quick-actions.spec.ts.
+     * is called. The gate below removes one half of that reach: this no
+     * longer sits on `window` at fbe.factorygamefan.com for any script on the
+     * page to call (issue #292). It does not remove the other half. The specs
+     * run against `vp dev`, where the hook is present, so a mutating predicate
+     * would still do a real clipboard write and a real PNG download on every
+     * call inside a Playwright run. What makes this safe is that it reads
+     * state instead of changing it, not the gate. See
+     * tests/quick-actions.spec.ts.
      */
     exportGuardResult: () => ({ exportString: !bp.isEmpty(), exportImage: !bp.isEmpty() }),
     /**
