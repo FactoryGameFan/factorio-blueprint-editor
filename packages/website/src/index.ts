@@ -452,8 +452,13 @@ const testApi = {
      * whatever they returned, which mirrors the guard only for an *empty*
      * blueprint; for a loaded one it silently performs the real action -
      * an actual clipboard write and an actual PNG download - every time it
-     * is called. Harmless now that the API is dev-only (issue #292), but a
-     * guard predicate should still read state rather than change it. See
+     * is called. The gate below removes one half of that reach: this no
+     * longer sits on `window` at fbe.factorygamefan.com for any script on the
+     * page to call (issue #292). It does not remove the other half. The specs
+     * run against `vp dev`, where the hook is present, so a mutating predicate
+     * would still do a real clipboard write and a real PNG download on every
+     * call inside a Playwright run. What makes this safe is that it reads
+     * state instead of changing it, not the gate. See
      * tests/quick-actions.spec.ts.
      */
     exportGuardResult: () => ({ exportString: !bp.isEmpty(), exportImage: !bp.isEmpty() }),
