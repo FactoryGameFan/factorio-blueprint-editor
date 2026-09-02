@@ -7,7 +7,7 @@
 > **Historical note, added 2026-09-02.** The type-check gate described below no
 > longer exists. #268 removed `scripts/type-check-gate.mjs`, its baseline and the
 > CI step, after `strict: true` landed under #77 and brought the baseline back to
-> 0. Everything below records the state at the time of writing and is left as
+> zero. Everything below records the state at the time of writing and is left as
 > written. The strict-ratchet technique itself is kept, in
 > `.github/workflows/README.md`.
 
