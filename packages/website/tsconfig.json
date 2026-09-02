@@ -1,7 +1,13 @@
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "lib": ["ESNext", "DOM"]
+        "lib": ["ESNext", "DOM"],
+        // Vite serves and bundles this package as ESM, and `src/index.ts` reads
+        // `import.meta.env.DEV` to keep the Playwright test API out of the
+        // production build (issue #292). `import.meta` needs `module` at
+        // es2020+; the root config is on `ES6`. Same override the worker
+        // tsconfig already carries.
+        "module": "ESNext"
     },
     "include": ["src", "../editor/src/global.d.ts"]
 }

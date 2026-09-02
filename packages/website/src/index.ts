@@ -282,10 +282,21 @@ editor
                 initial blueprint is on screen, not merely that this module has
                 run (issue #109). It comes after the catch on purpose: a source
                 that fails to import is a state specs still need to drive.
+
+                `import.meta.env.DEV` gates the assignment so the test API never
+                reaches the production bundle at fbe.factorygamefan.com (issue
+                #292). Vite replaces it with `false` in a `vp build`, which drops
+                this branch and lets Rolldown tree-shake `testApi` and everything
+                only it references. The e2e job serves the app with `vp dev`
+                (via `npm run localpreview`), where it is `true`, so every spec
+                still gets its hook. `startupFinished` stays outside the guard -
+                the clipboard listeners below read it in production too.
             */
             .then(() => {
                 startupFinished = true
-                ;(window as any).__fbe_test = testApi
+                if (import.meta.env.DEV) {
+                    ;(window as any).__fbe_test = testApi
+                }
             })
             .catch(error => createErrorMessage('Could not finish starting up.', error))
     })
@@ -384,7 +395,9 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
 
 /*
     The Playwright test API. Built here, but not put on `window` until startup
-    has finished - see the `.then` above that assigns it, and issue #109.
+    has finished - see the `.then` above that assigns it, and issue #109 - and
+    then only under `import.meta.env.DEV`, so a production build strips the whole
+    thing (issue #292).
 
     Every spec waits for `window.__fbe_test` and treats its arrival as "the
     editor is ready". That was only true by luck: this used to be assigned
@@ -439,10 +452,9 @@ const testApi = {
      * whatever they returned, which mirrors the guard only for an *empty*
      * blueprint; for a loaded one it silently performs the real action -
      * an actual clipboard write and an actual PNG download - every time it
-     * is called. That is reachable from more than a future spec that loads
-     * a blueprint first: `__fbe_test` is assigned unconditionally above, so
-     * this sits on `window` at fbe.factorygamefan.com for any script on the
-     * page to call. See tests/quick-actions.spec.ts.
+     * is called. Harmless now that the API is dev-only (issue #292), but a
+     * guard predicate should still read state rather than change it. See
+     * tests/quick-actions.spec.ts.
      */
     exportGuardResult: () => ({ exportString: !bp.isEmpty(), exportImage: !bp.isEmpty() }),
     /**
