@@ -25,6 +25,9 @@ export class WireConnectionMap extends Map<string, IConnection> {
             this.entNrToConnHash.set(entityNumber, [...conn, hash])
         }
         add(connection.cps[0].entityNumber)
+        // A self-connection (both endpoints on one entity, e.g. a combinator
+        // wired to itself) is indexed once, not twice - otherwise
+        // getEntityConnections would return it doubled.
         if (connection.cps[0].entityNumber !== connection.cps[1].entityNumber) {
             add(connection.cps[1].entityNumber)
         }

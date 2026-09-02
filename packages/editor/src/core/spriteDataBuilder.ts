@@ -1,3 +1,36 @@
+/*
+    Entity rendering. `generateGraphics` dispatches on prototype `type` to a
+    `draw_*` function that returns `(data) => SpriteData[]` - the sprite layers
+    for one facing. `getSpriteData` caches the returned closure per entity name
+    and wraps it in a try/catch, so a throw here degrades to a placeholder box
+    rather than losing the blueprint - `EntitySprite`/`OverlayContainer` are the
+    boundaries `need()` relies on.
+
+    Common `draw_*` patterns:
+
+      Static layers            return () => e.picture.layers                 draw_container
+      4-way animation          getAnimation(e.graphics_set.animation, dir)   draw_asteroid_collector
+      Direction-indexed        e.sprites[getDirName(data.dir)].layers        draw_constant_combinator
+      X-offset spritesheet     duplicateAndSetPropertyUsing(l,'x','width',   draw_electric_pole
+                                 data.dir / 4)
+      Y-offset spritesheet     duplicateAndSetPropertyUsing(l,'y','height',  draw_ammo_turret
+                                 data.dir / 4)
+      Multi-file (filenames)   l.filename = l.filenames[data.dir / 4]        draw_locomotive, draw_cargo_wagon
+      Rail 8-way               e.pictures[getDirName8Way(dir)], pick keys    draw_rail
+      Flatten picture array    e.graphics_set.picture.flatMap(p => p.layers) draw_cargo_bay
+      Chargable graphics       e.chargable_graphics.picture.layers          draw_accumulator
+
+    Two Space Age hazards, both because the DLC adds members to existing types:
+
+    - A `draw_*` that switches on `e.name` needs a `default` arm that throws
+      naming the entity. Falling off the end returns `undefined`, `getSpriteData`
+      then calls it, and the failure is `graphicsFn is not a function`, which
+      names neither the entity nor the cause (issue #29, `big-mining-drill`).
+    - Which layer keys a prototype carries is per entity, not per type - ground
+      rails have all five picture layers, elevated rails have no `ties`,
+      `heating-tower` is a reactor with no `lower_layer_picture`. Probe
+      `data.json` per entity rather than assuming a whole `type` matches.
+*/
 import util from '../common/util'
 import {
     ArithmeticOperation,

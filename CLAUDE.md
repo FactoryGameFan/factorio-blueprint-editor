@@ -19,6 +19,7 @@ closing references such as `Closes #123` in the pull request body.
 - `tests` — Playwright browser and blueprint-corpus tests
 - `test-blueprints` — committed real-world blueprint corpus
 - `tools/oracle` — probes that ask a local Factorio installation what it does
+- `docs/superpowers/specs` — design documents for larger past changes
 
 ## Setup and commands
 
@@ -44,9 +45,13 @@ npx playwright test         # browser tests; localpreview must be running
 cargo check --manifest-path packages/exporter/Cargo.toml
 ```
 
-`vp check --fix .` is valid; flags must precede the path. There is no root
-`tsc` command because the root tsconfig is only a base. To check one package,
-use its own project, for example:
+`vp check --fix .` is valid; flags must precede the path. Prefer `vp check` over
+`vp fmt --check` plus `vp lint`: it ends with an error and warning count, so a
+tailed log still shows a failure — missing `vp lint`'s single error line has
+already reached CI here.
+
+There is no root `tsc` command because the root tsconfig is only a base. To
+check one package, use its own project, for example:
 
 ```sh
 npx tsc --noEmit -p packages/editor/tsconfig.json
@@ -61,6 +66,24 @@ FBE_BASE_URL=http://localhost:8090 npx playwright test
 
 The sprite server must stay on 8081 because Vite's development proxy targets
 that port. Run `npx playwright install` after changing `@playwright/test`.
+
+## Dependencies
+
+Renovate proposes updates; `.github/renovate.json5` carries the reasoning for
+every hold. The routine pass is `npm update --save`, and carets are preferred
+over exact pins.
+
+- Renovate extracts from manifests; Dependabot scans the resolved lockfile. A
+  transitive-only advisory therefore never becomes a Renovate PR — a
+  consequence of `lockFileMaintenance: { enabled: false }` in `renovate.json5`.
+- Before acting on a transitive advisory, read the parent's declared range: an
+  exact pin means it is not actionable, a range means it is.
+- `undici` has open advisories with no in-range fix. It is blocked upstream
+  behind two exact pins (`wrangler` → `miniflare` → `undici`) and is dev-only.
+  Do not run `npm audit fix`: measured, it does not fix `undici`, it pulls
+  `miniflare` to a major alpha, and `--force` downgrades `wrangler`.
+- `ajv` is ~100 kB minified and nothing branches on its result; `bpString.ts`
+  logs and loads whether validation passes or fails.
 
 ## Architecture
 
@@ -120,12 +143,17 @@ Key files:
 Factorio sprite fields may be a single sprite, a directional object, an array,
 or a layered wrapper. Reuse the helpers in `spriteShape.ts` rather than adding
 local shape checks. Directional sprites use `north`, `east`, `south`, and
-`west`; filenames use `__base__`, `__core__`, `__quality__`, or
-`__space-age__` prefixes that map into exporter output directories.
+`west`; filenames use `__base__`, `__core__`, `__quality__`, `__space-age__`,
+or `__elevated-rails__` prefixes that map into exporter output directories.
+`spriteDataBuilder.ts`'s file header lists the `draw_*` patterns.
 
-Space Age recipe ingredients/results can be tuples or objects. Read them with
-`recipeIngredients()` and `recipeResults()` from `factorioData.ts`. Localised
-names also have multiple shapes; use `localisedName()`.
+An empty list in `data.json` is `{}`, not `[]` — an empty Lua table cannot say
+which it was. A field typed `readonly X[] | undefined` therefore has a third
+runtime shape that survives both a `!== undefined` guard and `?? []`, then
+throws "is not iterable" in the first `for-of`. Read list-typed prototype fields
+through an `Array.isArray` accessor; `recipeIngredients()` and `recipeResults()`
+in `factorioData.ts` are the ones that exist so far. Localised names likewise
+have more than one shape; read them through `localisedName()`.
 
 ## Testing
 
@@ -143,6 +171,14 @@ the test's execution context.
 
 CI runs checks, Rust builds on Linux and Windows, four Playwright shards, and a
 Cloudflare deployment after both checks and browser tests pass.
+
+Two rules the specs cannot enforce:
+
+- A green suite says nothing about how a feature feels. For anything with a
+  radius, a threshold, or a step order, drive the editor and print numbers
+  before calling it done.
+- An intermittent spec usually has a deterministic bug under it. Find the
+  mechanism rather than adding a retry.
 
 ## Asking Factorio
 
@@ -186,12 +222,20 @@ tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
 - Mobile is a read-only viewer; editing remains desktop-only.
 - Some complex animations render only static base sprites.
 - Train sprites approximate 256 orientations with four cardinal frames.
-- Planet (`space-location`) icons round-trip but currently have no exported
-  prototype to draw.
-- `getDirName` rejects diagonal directions, so unsupported diagonal sprite
-  paths fall back to the placeholder rendering.
-- Rail placement uses integer tile rectangles and is deliberately more
-  permissive than Factorio in cases its continuous collision geometry cannot
-  express. Preserve measured exceptions and fixtures in `tools/oracle`.
+- Planet (`space-location`) icons have no exported prototype, and `F.CreateIcon`
+  ends in a bare `throw` for a name it cannot resolve. Below a `try` (an
+  `OverlayContainer` or `SafeIcon` boundary) that is a missing icon; on a path
+  with none it loses the whole blueprint. Serialization keeps the icon's signal
+  (issue #264); drawing it is still open (issue #231).
+- `getDirName` throws on diagonal directions, so any `draw_*` that calls it
+  renders a placeholder for a diagonally-placed entity. This is live, not
+  hypothetical: `railgun-turret` calls it and the corpus places it at directions
+  2 and 14, so it is pinned failing in `tests/__fixtures__/sprite-data.json`.
+- Rail placement models rails as integer tile rectangles where Factorio uses
+  continuous collision geometry, so it is wrong in both directions — it accepts
+  some arrangements the game refuses and refuses 24 measured cases the game
+  accepts (an identical curved rail on an identical curved rail). Preserve the
+  measured exceptions and the `tools/oracle` fixtures; issue #133 tracks
+  closing the gap with per-rail collision shapes.
 - Logistic filters retain quality metadata but the UI has no quality picker.
 - Blueprint icons round-trip, but the UI has no icon picker.
