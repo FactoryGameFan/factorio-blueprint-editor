@@ -30,6 +30,6 @@
     "devDependencies": {
         "@types/pathfinding": "0.1.0",
         "typed-factorio": "^3.36.0",
-        "vite-plus": "0.2.9"
+        "vite-plus": "0.3.0"
     }
 }

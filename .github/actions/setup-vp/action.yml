@@ -11,7 +11,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.vite-plus
-        key: vite-plus-${{ runner.os }}-0.2.9
+        key: vite-plus-${{ runner.os }}-0.3.0
 
     - name: Cache npm downloads
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -61,6 +61,6 @@ runs:
         # So this line has to be here BEFORE VP_VERSION moves, not with it.
         curl -fsSL https://vite.plus -o vp-install.sh
         echo "3dd88cedb6d9b2665c305eda5413971417c8f183a819386148131b66a2cc6b2e  vp-install.sh" | sha256sum -c -
-        VP_HOME="$HOME/.vite-plus" VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh
+        VP_HOME="$HOME/.vite-plus" VP_VERSION=0.3.0 VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh
