@@ -23,3 +23,5 @@ hyper = { version = "1.5.1", features = ["http1", "server"] }
 hyper-util = { version = "0.1.10", features = ["tokio"] }
 zip = "8.0.0"
 dotenvy = "0.15.7"
+# Scratch branch: verifies the ci.yml `changes` job skips the web jobs
+# for an exporter-only diff. Delete this branch after reading the checks.
