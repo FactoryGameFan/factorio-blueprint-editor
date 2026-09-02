@@ -19,7 +19,7 @@ closing references such as `Closes #123` in the pull request body.
 - `tests` — Playwright browser and blueprint-corpus tests
 - `test-blueprints` — committed real-world blueprint corpus
 - `tools/oracle` — probes that ask a local Factorio installation what it does
-- `docs/superpowers/specs` — design documents for larger past changes
+- `docs/superpowers` — `plans` (9) and `specs` (6) for larger past changes
 
 ## Setup and commands
 
@@ -50,8 +50,13 @@ cargo check --manifest-path packages/exporter/Cargo.toml
 tailed log still shows a failure — missing `vp lint`'s single error line has
 already reached CI here.
 
-There is no root `tsc` command because the root tsconfig is only a base. To
-check one package, use its own project, for example:
+There is deliberately no root `tsc` command. The root tsconfig is a base to
+extend — no `include`, no `lib`, and `node` in `types` for the Playwright specs
+— so a bare `tsc` against it compiles the whole tree under settings no package
+builds with. Measured, that reports 5 errors that neither a build nor `vp check`
+sees: four in editor code checked against node's fetch types (`r.json()` gives
+`unknown`), one in website code checked against node globals. Every package is
+at 0 under its own project. To check one, name it, for example:
 
 ```sh
 npx tsc --noEmit -p packages/editor/tsconfig.json
@@ -228,9 +233,12 @@ tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
   with none it loses the whole blueprint. Serialization keeps the icon's signal
   (issue #264); drawing it is still open (issue #231).
 - `getDirName` throws on diagonal directions, so any `draw_*` that calls it
-  renders a placeholder for a diagonally-placed entity. This is live, not
-  hypothetical: `railgun-turret` calls it and the corpus places it at directions
-  2 and 14, so it is pinned failing in `tests/__fixtures__/sprite-data.json`.
+  renders a placeholder for a diagonally-placed entity. `railgun-turret` calls
+  it. The hazard is latent, not pinned: no committed test reaches it. The public
+  corpus (#191) places the turret at direction 8 only, and the synthetic halves
+  of `sprite-data.spec.ts` sweep cardinals alone, so
+  `tests/__fixtures__/sprite-data.json` records it succeeding with 8 layers. It
+  was pinned failing against the private corpus this one replaced.
 - Rail placement models rails as integer tile rectangles where Factorio uses
   continuous collision geometry, so it is wrong in both directions — it accepts
   some arrangements the game refuses and refuses 24 measured cases the game

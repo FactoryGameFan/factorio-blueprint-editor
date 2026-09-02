@@ -2,9 +2,16 @@
     Entity rendering. `generateGraphics` dispatches on prototype `type` to a
     `draw_*` function that returns `(data) => SpriteData[]` - the sprite layers
     for one facing. `getSpriteData` caches the returned closure per entity name
-    and wraps it in a try/catch, so a throw here degrades to a placeholder box
-    rather than losing the blueprint - `EntitySprite`/`OverlayContainer` are the
-    boundaries `need()` relies on.
+    and wraps *the closure* in a try/catch, so a throw at draw time degrades to a
+    placeholder box.
+
+    That try does not cover the factory. `generateGraphics(entity)` is called one
+    line above it, so anything a `draw_*` throws before it returns its closure
+    propagates out of `getSpriteData` uncaught - and neither `EntitySprite` nor
+    `EntityContainer` has a try above that, so it loses the blueprint. Two do it
+    today: `draw_mining_drill`, whose `switch (e.name)` is in the factory body,
+    and `draw_furnace`, whose `need(e, 'graphics_set')` runs there. Keep new work
+    that can throw - `need()` especially - inside the returned closure.
 
     Common `draw_*` patterns:
 
@@ -29,7 +36,11 @@
     - Which layer keys a prototype carries is per entity, not per type - ground
       rails have all five picture layers, elevated rails have no `ties`,
       `heating-tower` is a reactor with no `lower_layer_picture`. Probe
-      `data.json` per entity rather than assuming a whole `type` matches.
+      `data.json` per entity rather than assuming a whole `type` matches. That
+      decides the tool: `draw_rail` can read its keys through `need()` because
+      every ground rail has all of them, while `draw_elevated_rail` has to
+      `.filter(p => p !== undefined)` because they are not all there. Reaching
+      for `need()` on a key this particular entity lacks is the way this bites.
 */
 import util from '../common/util'
 import {
@@ -2127,11 +2138,16 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
 
         default:
             /*
-                getSpriteData catches this and logs it, so an unhandled drill degrades
-                to a placeholder box rather than taking the editor down. Falling off
-                the end of the switch instead used to return undefined, which surfaced
-                as "graphicsFn is not a function" and named neither the entity nor the
-                real problem. See issue #29.
+                Throwing here still beats falling off the end of the switch, which
+                returned undefined and surfaced as "graphicsFn is not a function",
+                naming neither the entity nor the real problem. See issue #29.
+
+                But note where this runs: the switch is in the factory body, so this
+                throw happens inside generateGraphics, which getSpriteData calls
+                OUTSIDE its try. It is not caught and does not degrade to a
+                placeholder - it loses the blueprint. Unreachable today, since every
+                mining-drill prototype in data.json has a case above; a Space Age
+                addition would reach it. See the file header.
             */
             throw new Error(`no draw case for mining drill '${e.name}'`)
     }
