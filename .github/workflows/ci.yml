@@ -24,7 +24,95 @@ permissions:
   contents: read
 
 jobs:
+  # Which jobs a run actually needs, worked out once and reused. Before this,
+  # every pull request ran all seven jobs: a Cargo.lock-only crate bump spent
+  # about 23 minutes of runner time, 17 of it on four Playwright shards that
+  # cannot observe a Rust change. Renovate makes that the common case rather
+  # than a corner case - 14 of the 20 bot PRs before 2026-09-01 were single
+  # Rust crate bumps.
+  #
+  # A job with `if:` rather than `on.pull_request.paths`, and the difference is
+  # the point. A workflow-level path filter skips the whole run, so the PR shows
+  # no CI at all - indistinguishable from CI being broken, and it would block
+  # any check that is ever marked required, because a skipped WORKFLOW never
+  # reports while a skipped JOB does.
+  #
+  # It fails open on purpose. Any error listing the files leaves both outputs
+  # true and the run does everything. A wasted run costs minutes; a gate that
+  # skips itself quietly costs a bad merge.
+  #
+  # Cost: `checks` and `e2e` now wait on this, so the deploy critical path the
+  # `deploy` job discusses grows by however long this takes - about 5 seconds,
+  # since it checks nothing out and makes one API call.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      web: ${{ steps.detect.outputs.web }}
+      rust: ${{ steps.detect.outputs.rust }}
+    steps:
+      - name: List changed files and classify them
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.number }}
+        # No `set -e`: every failure path below is meant to fall through to
+        # "run everything" rather than abort the job.
+        run: |
+          set -uo pipefail
+
+          # Anything that is not a pull request - a push to the deploy branch, a
+          # manual dispatch - runs the lot. `deploy` is gated on `checks` and
+          # `e2e`, so narrowing either one here would change when the site ships.
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "Not a pull request. Running every job."
+            echo "web=true"  >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          if [ -z "$files" ]; then
+            echo "Could not list the changed files. Running every job."
+            echo "web=true"  >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$files"
+
+          # `rust` covers the exporter crate, plus this workflow itself, so a
+          # change to these rules is always tested against both sides.
+          if echo "$files" | grep --quiet --extended-regexp '^packages/exporter/|^\.github/workflows/ci\.yml$'; then
+            rust=true
+          else
+            rust=false
+          fi
+
+          # `web` is deliberately the loose one: anything at all outside the
+          # exporter turns it on. That runs `checks` and Playwright for a
+          # README-only change, which wastes a few minutes and cannot miss a
+          # real one.
+          if echo "$files" | grep --quiet --invert-match '^packages/exporter/'; then
+            web=true
+          else
+            web=false
+          fi
+
+          echo "web=$web"   >> "$GITHUB_OUTPUT"
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "Decided: web=$web rust=$rust"
+
   checks:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -87,6 +175,8 @@ jobs:
   # from the exporter.
   rust:
     name: Rust exporter
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -161,6 +251,8 @@ jobs:
   # the 2x Windows billing multiplier costs nothing here.
   rust-windows:
     name: Rust exporter (Windows)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -201,6 +293,8 @@ jobs:
   # `deploy` waits on this as well as on `checks` - see the note there.
   e2e:
     name: Playwright ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     # Sharded across runners rather than run in one job, and the per-step
     # timings are why that is the lever worth pulling. The first push run spent
