@@ -63,6 +63,41 @@ the place where the editor's geometry is wrong in both directions (#133, #142);
 this says the editor's own **data** disagrees with the game there too, and
 nowhere else.
 
+## Should `data.json` adopt the runtime boxes?
+
+No. Running both sets of boxes through `getEntitySize` changes only
+`legacy-curved-rail`, from 4x4 to 2x3. The other 15 split two ways, and they are
+worth keeping apart:
+
+- **Twelve round to the same footprint.** Both boxes enclose the same rectangle
+  once `ceil` is applied, with nothing propping that up. These are the benign
+  ones.
+- **Three are masked by a declared dimension**: `half-diagonal-rail` and its
+  `elevated-` and `dummy-elevated-` variants. Their boxes really do enclose
+  different rectangles - 2x5 from `data.json` against 2x4 from the game - and
+  the editor computes the same footprint either way only because `data.json`
+  declares `tile_height: 2` for all three and the declared value wins. #142
+  measured that field to be a **centring parity rather than a size**, so the
+  agreement rests on something that does not mean what its name says. Drop or
+  regenerate that declaration and these three join `legacy-curved-rail` as real
+  footprint changes.
+
+The fixture records the three buckets as `maskedByDeclaredDimension`,
+`footprintChanges` and `unchangedFootprints` rather than leaving them as prose.
+Against the 38 orientations in `fixtures/rail-occupancy.json`, the runtime boxes
+trade one error for another rather than improving the result:
+
+| boxes       | occupied but not keyed | keyed but empty |
+| ----------- | ---------------------- | --------------- |
+| `data.json` | 180                    | 96              |
+| runtime     | 220                    | 56              |
+
+The committed fixture can recompute this comparison without rerunning Factorio:
+
+```fish
+node tools/oracle/analyze-rail-box-orientation.mjs tools/oracle/fixtures/rail-box-orientation.json
+```
+
 ## Controls
 
 A control has to be able to fail while the hypothesis holds.
@@ -75,6 +110,33 @@ A control has to be able to fail while the hypothesis holds.
 
 The middle one is the load-bearing one for the "it does not rotate" finding,
 which is otherwise unfalsifiable.
+
+The occupancy scoring above carries three more, recorded in the fixture under
+`proposedChangeAgainstMeasuredOccupancy.controls`:
+
+| Control                                                   | Fails when                                                                                               |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| every measured orientation was scored                     | a rail was skipped, so the totals are over a smaller sweep than the header claims                        |
+| the coordinate systems align on cardinal straight rails   | the analyzer's cells and the measured cells are not in the same frame, which inflates both arms together |
+| the today arm reproduces #142's independent transcription | `sizeFromBox`, `swapForDirection` or `keyedCells` was transcribed wrong                                  |
+
+The third one is the only thing here that can catch a transcription error. Both
+arms run through the same three functions, so a mistake in any of them moves the
+two together and leaves a comparison that still reads as sound.
+`probe-entity-tile-size.mjs` transcribed the same rules separately for #142 and
+committed its answer for the arm the two runs share, so this control just checks
+that the two independent readings agree: 180 occupied-but-not-keyed and 96
+keyed-but-empty. Checked by deliberately dropping the declared-dimension
+override from `sizeFromBox`, which the first two controls pass unchanged while
+this one reports 168 and 108 and exits non-zero.
+
+All three run in `vp test`, through `analyze-rail-box-orientation.test.mjs`,
+which rescores the committed fixture the same way the command above does. A
+control nothing invokes reports nothing, and until that file existed these ran
+only when somebody ran the analyzer by hand. It also asserts the rescore
+reproduces the committed fixture byte for byte, so drift in `data.json` or in
+either fixture the analyzer reads shows up as a failure rather than as a stale
+finding restated with fresh confidence.
 
 ## Running it
 
