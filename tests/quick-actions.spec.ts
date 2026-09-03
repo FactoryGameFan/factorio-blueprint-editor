@@ -412,9 +412,24 @@ test('Closing a dialog does not take the focus off a field that still has it', a
         covers the same guard from outside the editor entirely, where an
         unconditional call cost a real user a keypress (#242 review).
 
-        Both dialogs open, the focus deliberately parked in Import's field, and
-        Export closed out from under it through its own toggle - not Escape,
-        which the focused field would route to ImportDialog instead.
+        Both dialogs open, the focus in the topmost one's field, and the
+        *covered* dialog closed out from under it through its own toggle - not
+        Escape, which the focused field would route elsewhere.
+
+        This used to run the other way round: focus parked in Import's field
+        with Export closed on top of it. That state no longer exists. A covered
+        dialog's DOM fields are `display: none` while something is stacked over
+        them (`Dialog.updateDOMInputVisibility`), so nothing underneath the
+        topmost dialog can be clicked or hold the focus, and the old sequence
+        timed out waiting for Import's textarea to become visible.
+
+        Which of the two is closed makes no difference to what is being tested.
+        The guard reads `document.activeElement` and never asks whose field it
+        is; all it needs is a live focused element at the moment of a close, and
+        Export's own field is one. The mutation this test exists to catch - an
+        unconditional `focus()`, variant B in the header table - still fails
+        here, because that would pull the focus off Export's live field. Neither
+        A nor C is affected, so the three-way matrix above is unchanged.
     */
     await loadBlueprint(page, ONE_CHEST)
     await openImportDialog(page)
@@ -424,21 +439,17 @@ test('Closing a dialog does not take the focus off a field that still has it', a
         Barrier, not decoration. ExportDialog's own focus is deferred -
         `refreshText({ select: true })` schedules `select()` on
         `G.app.ticker.addOnce` (`ExportDialog.ts`) - so nothing otherwise
-        orders it against the click below. Should the click ever win, the
-        focus lands on Export's field instead, the toggle then destroys a
-        *focused* field, the guard fires exactly as it should, and the last
-        assertion fails on a 60s timeout that reads as a broken guard rather
-        than as a raced test.
+        orders it against the close below. Should the close ever win, Import
+        goes while nothing is focused at all, the guard fires exactly as it
+        should, and the last assertion fails on a timeout that reads as a
+        broken guard rather than as a raced test.
     */
     await expect(exportTextarea(page)).toBeFocused()
 
-    await importTextarea(page).click()
-    await expect(importTextarea(page)).toBeFocused()
-
-    await openExportDialog(page)
+    await openImportDialog(page)
 
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
-    await expect(importTextarea(page)).toBeFocused()
+    await expect(exportTextarea(page)).toBeFocused()
 })
 
 test('ImportDialog and ExportDialog can be open at once, and each helper still finds its own textarea', async ({
