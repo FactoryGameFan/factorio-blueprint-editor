@@ -37,7 +37,7 @@ export class Modules extends Container<Slot<number>> {
             // from the test to the use.
             const module = this.m_Modules[slotIndex]
             if (module !== undefined) {
-                slot.content = F.CreateIcon(module)
+                slot.content = F.SafeIcon(module, () => F.CreateIcon(module))
             }
             this.addChild(slot)
         }
@@ -65,7 +65,7 @@ export class Modules extends Container<Slot<number>> {
                 slot.content = undefined
             }
         } else {
-            slot.content = F.CreateIcon(module)
+            slot.content = F.SafeIcon(module, () => F.CreateIcon(module))
         }
         this.emit('changed')
     }

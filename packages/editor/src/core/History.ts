@@ -202,6 +202,41 @@ export class History {
     private activeTransaction: Transaction | undefined
     private transactionHistory: Transaction[] = []
 
+    /**
+     * A cheap "did anything happen" signal for a caller that wants to react
+     * to edits without diffing the blueprint itself (`ExportDialog`'s own
+     * re-encode, see its doc comment) - only that reading, not "changes by
+     * exactly ±1 on every commit", which this used to claim and measured
+     * wrong in three ways (#242 review):
+     *
+     * - Only the *outermost* `commitTransaction` of a nested pair moves it.
+     *   `updateValue`/`updateMap` open their own inner transaction around a
+     *   single write; `transactionCount` reaching 0 is what gates the block
+     *   below, so an inner commit that leaves an outer one still open
+     *   decrements the count and returns without touching `historyIndex` at
+     *   all - only the caller whose own `commitTransaction` brings the
+     *   count to 0 sees it move.
+     * - Not guaranteed to move on that outermost commit either: one that
+     *   turns out empty (`openTransaction.empty()`) returns before
+     *   `historyIndex` is touched.
+     * - Not exactly ±1 once history is long enough to trim: crossing
+     *   `MAX_HISTORY_LENGTH` splices `MAX_HISTORY_LENGTH -
+     *   MIN_HISTORY_LENGTH` entries off the front and reindexes to the new
+     *   length before the usual `+= 1`, so a commit landing on that
+     *   boundary moves this backward by roughly that amount instead of
+     *   forward by one.
+     *
+     * None of that matters to `ExportDialog`'s own use, which only ever
+     * asks "is this different from what I last saw" - undo, redo and a trim
+     * all still change the number, the only property that comparison needs.
+     * It would matter to a future caller trying to count edits or identify
+     * a particular state from this value alone, which is exactly what the
+     * old wording invited.
+     */
+    public get revision(): number {
+        return this.historyIndex
+    }
+
     /** Removes all history entries */
     public reset(): void {
         this.historyIndex = 0
@@ -235,7 +270,15 @@ export class History {
         return historyAction
     }
 
-    /** Updates a value in a `Map` and stores it in the history */
+    /**
+     * Updates a value in a `Map` and stores it in the history.
+     *
+     * `undefined` is a supported value here, meaning "delete this key" - not a
+     * "no change" signal. And `Action.apply` swaps `oldValue`/`newValue` on
+     * undo, so the callback below can legitimately receive `undefined` at
+     * either end: as `newValue` when this call deletes, and as `oldValue` when
+     * undoing a call that created the key. `updateValue` is the same.
+     */
     public updateMap<K, V>(
         target: Map<K, V>,
         key: K,

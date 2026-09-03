@@ -113,22 +113,31 @@
     // prerequisites for ever carving an exception are specific to this repo. No
     // exceptions below, including GitHub Action digest re-pins.
     //
-    // The local reason is specific and stronger than the usual one: CI runs
-    // `vp check` (oxfmt + oxlint + tsc), `vp test` (vitest units + the type-check
-    // gate), and compiles packages/exporter on ubuntu and Windows. It does NOT run
-    // Playwright - and tests/ is where essentially all of this project's
-    // behavioural coverage lives, 25-odd specs covering placement, paste, sprites
-    // and the blueprint round trip. So a green check here proves the repo is
-    // CONSISTENT under lint and types and that the Rust side still builds; it says
-    // nothing about whether a bump is CORRECT.
+    // What CI actually covers: `vp check` (oxfmt + oxlint + tsc), `vp test`
+    // (vitest units), the Playwright suite in the `e2e` job
+    // sharded across four runners, and a compile of packages/exporter on ubuntu
+    // and Windows. That is real coverage, and it is MORE than this paragraph
+    // claimed until 2026-09-01 - see the corrections below.
     //
-    // This paragraph used to end "it also never compiles packages/exporter", which
-    // the `Rust exporter` and `Rust exporter (Windows)` jobs at ci.yml:89 and :163
-    // contradict - and which the cargo rule below already contradicted in the same
-    // file, noting that an earlier draft said the opposite and was corrected. The
-    // conclusion is unchanged either way: the exporter is COMPILED and never RUN,
-    // which is the boundary the cargo note draws, and the Playwright gap carries
-    // this argument on its own.
+    // What a green check still does not prove is that a bump is CORRECT. The
+    // exporter is COMPILED and never RUN, so a crate that changes runtime
+    // behaviour without breaking the build passes. And a suite can be green while
+    // an invariant it never asserts has moved - the sibling repo has that
+    // counterexample on record, just below.
+    //
+    // TWO CORRECTIONS LIVE HERE, both of claims this file stated as measured fact
+    // and got wrong. First: it used to end "it also never compiles
+    // packages/exporter", which the `Rust exporter` and `Rust exporter (Windows)`
+    // jobs contradict. Second, found 2026-09-01: it said in three places that CI
+    // does NOT run Playwright, and that was the load-bearing half of this
+    // argument. The `e2e` job runs 229 `test(` calls across 52 spec files under
+    // tests/, counted with `grep -c -E "^\s*test\(" tests/*.spec.ts`, and
+    // `deploy` is gated on it. Read ci.yml before repeating anything here.
+    //
+    // The conclusion is unchanged, because it never rested on the Playwright gap
+    // alone. It rests on the two prerequisites below, and this repo still meets
+    // neither - re-measured 2026-09-01: `allow_auto_merge` is false, and the only
+    // ruleset is "No ForcePush" with enforcement `disabled`.
     //
     // The sibling repo has the counterexample on record: pako 3.0.0 flipped a hash
     // default that passes a green suite while silently breaking a byte-exactness
@@ -273,7 +282,7 @@
             prBodyNotes: [
                 'This is the ENTIRE toolchain (Vite, Rolldown, oxlint, oxfmt, Vitest). Nothing under it is independently upgradable.',
                 'Check `.github/actions/setup-vp/action.yml` moved too - `VP_VERSION` and the cache key are updated by a customManager, but **the installer sha256 is not**. Re-fetch https://vite.plus and re-hash if that script changed; a mismatch fails CI rather than passing silently.',
-                'CI does not run Playwright. Run `npm run localpreview` then `npx playwright test` locally before merging.',
+                'CI runs the Playwright suite in the `e2e` job, so this bump is gated on it - this note said the opposite until 2026-09-01 and was wrong. What CI still cannot see is a mismatch between the `vp` CLI and the local vite-plus, so read the diff and confirm every pin site moved together.',
             ],
         },
         {
@@ -283,8 +292,8 @@
             // suite-wide regression rather than a missing download.
             matchPackageNames: ['@playwright/test'],
             prBodyNotes: [
-                '**Run `npx playwright install` in this same PR before merging**, or every spec fails on a missing `chrome-headless-shell` and reads as a suite-wide regression rather than a missing download.',
-                'CI does not run Playwright, so this bump gets **no** automated verification. Bring both dev servers up with `npm run localpreview` and run `npx playwright test` locally.',
+                'Run `npx playwright install` in your own working tree after taking this, or every local spec fails on a missing `chrome-headless-shell` and reads as a suite-wide regression rather than a missing download. CI does not need the same step: the `e2e` job keys its browser cache on the resolved @playwright/test version, so a bump misses the cache and reinstalls by itself.',
+                'CI does run the suite (the `e2e` job, four shards), so a browser-revision problem surfaces there rather than only on your machine. This note claimed the bump got **no** automated verification at all; that was wrong.',
             ],
         },
         {
@@ -331,6 +340,23 @@
             // ungated. Same correction as CLAUDE.md's "Known and unfixed" entry, which
             // was fixed first; keep the two in step.
             matchManagers: ['cargo'],
+            // Grouped into ONE PR. 14 of the 20 Renovate PRs before 2026-09-01 were
+            // single Rust crate bumps, and each one used to trigger all seven CI
+            // jobs - about 23 minutes of runner time, 17 of it Playwright shards
+            // that cannot observe a Rust change. The `changes` job added to ci.yml
+            // on the same day stops the wasted jobs; this stops the wasted PRs.
+            //
+            // Safe to group here in a way it would not be for the npm side: these
+            // bumps share one gate, `cargo check --locked` on ubuntu and Windows,
+            // so either the batch compiles or it does not. And backing one out is a
+            // `git revert` of a single commit rather than a hunt across five PRs.
+            //
+            // The cost is real and worth naming: a lockfile-only group PR has no
+            // Cargo.toml diff to read, so the per-crate judgement below applies to
+            // the whole batch at once. If a batch ever mixes a routine bump with an
+            // image, zip, tar or compression crate, split it rather than waving the
+            // note through.
+            groupName: 'rust crates',
             prBodyNotes: [
                 'CI compiles this crate (the `Rust exporter` job) but **cannot run it** - the exporter needs a Factorio install to extract from, and sprite encoding shells out to `./basisu`, for which only a macOS ARM64 binary is tracked. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching **image** handling, run the exporter locally on macOS before merging. For **zip, tar or compression**, a macOS run is not an option and should not be attempted: `download()` panics on macOS (`src/setup.rs:568`), and both extraction branches sit below that panic - `zip` under `cfg(target_os = "windows")` and `tokio-tar` over an `async-compression` `LzmaDecoder` under `cfg(target_os = "linux")`. The ubuntu and Windows compiles are the only evidence available short of running the exporter on one of those platforms.',
             ],

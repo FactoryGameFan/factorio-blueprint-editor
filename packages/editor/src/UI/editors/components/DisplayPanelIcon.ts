@@ -36,7 +36,8 @@ export class DisplayPanelIcon extends Slot<undefined> {
                 this.content = undefined
             }
         } else {
-            this.content = F.CreateIcon(icon.name)
+            const name = icon.name
+            this.content = F.SafeIcon(name, () => F.CreateIcon(name))
         }
         this.emit('changed')
     }

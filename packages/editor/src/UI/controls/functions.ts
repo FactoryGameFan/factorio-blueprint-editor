@@ -11,7 +11,13 @@ import FD, { ColorWithAlpha, getColor, recipeResults } from '../../core/factorio
 import { styles } from '../style'
 import G from '../../common/globals'
 import util from '../../common/util'
-import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
+import { need } from '../../core/need'
+import {
+    IngredientPrototype,
+    IconData,
+    ProductPrototype,
+    Sprite as SpriteData,
+} from 'factorio:prototype'
 
 /**
  * Shade Color
@@ -220,6 +226,11 @@ function CreateIcon(
         FD.inventoryLayout.find(g => g.name === itemName)
 
     if (item === undefined) {
+        // A bare throw, not a missing-icon fallback. Callers under a try/catch
+        // (OverlayContainer, or SafeIcon below) degrade to no icon; a caller
+        // with none - e.g. a blueprint-level planet icon, which resolves to
+        // nothing here because data.json exports no planet prototype - loses
+        // the whole blueprint. Tracked as issue #231.
         throw new Error(`No item, fluid, recipe, signal or inventory group named ${itemName}`)
     }
 
@@ -367,6 +378,83 @@ function rgbToColorSource(r: number, g: number, b: number): ColorSource {
     return Math.floor(r * 255) * 0x10000 + Math.floor(g * 255) * 0x100 + Math.floor(b * 255)
 }
 
+/**
+ * Create Icon from a `FD.utilitySprites` entry - the game's own GUI icons
+ * (import/export/add/...) rather than an item, fluid, recipe or signal.
+ * Takes the resolved sprite (e.g. `FD.utilitySprites.import_slot`) rather
+ * than a key: `UtilitySprites[K]` for a generic `K` collapses to the union
+ * of every field's type - `Sprite | Animation | CursorBoxSpecification | ...`
+ * - which loses `filename`/`width`/`height`/`size` for all of them, where a
+ * plain property access keeps the one field's own `Sprite` type.
+ *
+ * Reads `width`/`height` directly rather than through `need()`, because a
+ * mip sprite (`downloading`, `refresh`, ...) declares `size` instead - a
+ * single number for a square icon, per `SpriteSource`'s own type, which is
+ * every mip icon this is called with. `data.x ?? 0`/`data.y ?? 0` stay a
+ * plain default rather than a `need()`: every utility sprite this is called
+ * with is a single flat icon, unlike the `layers`/tuple-`size` shapes some
+ * other utility sprites use, which this does not attempt to support - a
+ * caller reaching for one of those would rather see why than get a blank
+ * texture.
+ */
+function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = true): Sprite {
+    const filename = need(data, 'filename')
+    const size = typeof data.size === 'number' ? data.size : undefined
+    const width = data.width ?? size
+    const height = data.height ?? size
+    // `!width`/`!height` rather than `=== undefined` (#242 review): a
+    // literal 0 passed the old check (0 !== undefined) and reached
+    // `maxSize / width` below as a division by zero, an invalid scale no
+    // real sprite entry should produce - treated the same as missing.
+    if (!width || !height) {
+        throw new Error(`No width/height/size for ${filename}`)
+    }
+
+    const texture = G.getTexture(filename, data.x ?? 0, data.y ?? 0, width, height)
+    const sprite = new Sprite(texture)
+    // By the larger of the two, not `width` alone (#242 review) - a
+    // non-square mip icon (this is the one caller that declares distinct
+    // width/height) scaled only against its width could still overflow
+    // `maxSize` on its taller axis; fitting both inside the box is what a
+    // caller passing `maxSize` as an icon slot's size actually wants.
+    sprite.scale.set(maxSize / Math.max(width, height))
+    if (setAnchor) {
+        sprite.anchor.set(0.5)
+    }
+    return sprite
+}
+
+/**
+ * An icon that failed to build costs the one slot it was going in rather than
+ * whatever was drawing it - `CreateIcon` and `CreateUtilitySpriteIcon` above
+ * both throw by design for a name FD does not have (see `need()` in
+ * `core/need.ts`), and a name can come straight out of a blueprint. Falls back
+ * to an empty, childless `Container`: no graphic of its own at all, so the slot
+ * or row still exists and is still laid out, but nothing is visible where the
+ * icon would have been. Named in a warning either way rather than silently
+ * swallowed - note that reaches the user as a toast, not a console line.
+ *
+ * Takes a builder rather than a name so it covers both icon functions. Lives
+ * here, next to the two calls it is guarding, rather than in whichever caller
+ * needed it first: `ToolsPanel` wanted it for a hardcoded name it could not
+ * spell wrong twice, `DisplayPanelEditor` wants it for a name a blueprint
+ * chose, and a second copy in the second caller is how the two drift.
+ *
+ * **This is not a substitute for a try/catch above a whole feature.** It is the
+ * right tool only where the icon is one piece of something bigger that should
+ * still be drawn without it. Where a throw would cost the caller everything -
+ * see `TileContainer.generateSprite` in CLAUDE.md - the question is what to
+ * draw instead, not how to skip one sprite.
+ */
+function SafeIcon(name: string, build: () => Container): Container {
+    try {
+        return build()
+    } catch (error) {
+        G.logger({ text: `Could not build the "${name}" icon: ${String(error)}`, type: 'warning' })
+        return new Container()
+    }
+}
+
 export default {
     ShadeColor,
     DrawRectangle,
@@ -374,6 +462,8 @@ export default {
     CreateIcon,
     CreateIconWithAmount,
     CreateRecipe,
+    CreateUtilitySpriteIcon,
+    SafeIcon,
     applyTint,
     colorAndAlphaToColorSource,
     rgbToColorSource,

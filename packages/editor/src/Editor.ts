@@ -11,7 +11,7 @@ import { Application, TextureSource, setBasisTranscoderPath, Assets } from 'pixi
 import basisTranscoderJS from './basis/transcoder.1.16.4.js?url'
 import basisTranscoderWASM from './basis/transcoder.1.16.4.wasm?url'
 import { loadData } from './core/factorioData'
-import G, { Logger } from './common/globals'
+import G, { Logger, QuickActions } from './common/globals'
 import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
@@ -21,16 +21,84 @@ import { Dialog } from './UI/controls/Dialog'
 import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
 
+/**
+ * A single object rather than trailing positional parameters, so a caller
+ * can supply just `logger` without also passing `quickActions` positionally
+ * ahead of it (or the reverse) - two optional-ish things read far more
+ * clearly as named fields than as an ordered pair, and a third one added
+ * later cannot reshuffle anyone's call site the way a new positional
+ * parameter would.
+ */
+export interface EditorInitOptions {
+    quickActions?: QuickActions
+    logger?: Logger
+}
+
+/**
+ * What `G.quickActions` falls back to when `init` is called without one - a
+ * partial options object, or any JS-side caller, previously left it
+ * `undefined` with nothing guarding a single read site, so the first click
+ * on ToolsPanel's export-image slot threw `Cannot read properties of
+ * undefined (reading 'exportImage')`, naming neither `quickActions` nor
+ * that it was ever optional to begin with (#242 review). `@fbe/editor` is
+ * workspace-internal with one consumer today (`packages/website`, which
+ * always supplies the real one), so this is about failure *shape* for a
+ * future or partial caller rather than a broken published API - every
+ * member here reports the same clear reason through `G.logger` instead of
+ * crashing, so a read-only or otherwise clipboard/file-less embed degrades
+ * instead of throwing from deep inside a click handler.
+ */
+const missingQuickActionsMessage =
+    'This embed has no import/export/clipboard actions configured (EditorInitOptions.quickActions was not supplied).'
+const noopQuickActions: QuickActions = {
+    importReplace: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(false)
+    },
+    importAppend: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(false)
+    },
+    exportImage: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return false
+    },
+    encodeCurrent: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(undefined)
+    },
+    readClipboardText: () => {
+        /*
+            Resolves rather than rejects, unlike an earlier version of this
+            (#242 review): every other member here reports through
+            `G.logger` and resolves to a falsy value instead, and
+            `ImportDialog`'s Paste button both `.then`s a successful read
+            into the field *and* `.catch`es a failed one into a second
+            `G.logger` call - so rejecting here logged this message once
+            and then the caught error a second time, two toasts for one
+            click where every sibling action logs once. An empty string
+            resolves the same way `importReplace`/`importAppend`/
+            `exportImage` resolve `false` and `encodeCurrent` resolves
+            `undefined` - Paste's `.then` sets the field to it, which is a
+            harmless no-op here since there was never anything to read.
+        */
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve('')
+    },
+}
+
 export class Editor {
-    public async init(canvas: HTMLCanvasElement, logger?: Logger): Promise<void> {
+    public async init(canvas: HTMLCanvasElement, options: EditorInitOptions): Promise<void> {
         setBasisTranscoderPath({ jsUrl: basisTranscoderJS, wasmUrl: basisTranscoderWASM })
 
         TextureSource.defaultOptions.scaleMode = 'linear'
         TextureSource.defaultOptions.addressMode = 'repeat'
 
-        if (logger) {
-            G.logger = logger
+        if (options.logger) {
+            G.logger = options.logger
         }
+
+        G.quickActions = options.quickActions ?? noopQuickActions
 
         const app = new Application()
 
@@ -289,6 +357,31 @@ export class Editor {
      */
     public openBlueprintInfoEditor(): void {
         G.UI.toggleBlueprintInfoEditor(G.bp)
+    }
+
+    /** Where ToolsPanel sits in client coordinates. See tests/tools-panel.spec.ts. */
+    public get toolsPanelBounds(): { x: number; y: number; width: number; height: number } {
+        return G.UI.toolsPanelBounds
+    }
+
+    /**
+     * Opens ImportDialog, the same as clicking ToolsPanel's Import slot -
+     * there is no keybind for opening it (only for the paste/append it
+     * shortcuts), so a spec has no other way to reach it without computing
+     * ToolsPanel's own screen position. See tests/quick-actions.spec.ts.
+     */
+    public openImportDialog(): void {
+        G.UI.toggleImportDialog()
+    }
+
+    /** Same as `openImportDialog`, for ExportDialog. See tests/quick-actions.spec.ts. */
+    public openExportDialog(): void {
+        G.UI.toggleExportDialog()
+    }
+
+    /** `UIContainer.exportEncodeCount`. See tests/quick-actions.spec.ts. */
+    public get exportEncodeCount(): number | undefined {
+        return G.UI.exportEncodeCount
     }
 
     public get debug(): boolean {

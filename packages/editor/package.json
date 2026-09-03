@@ -24,12 +24,11 @@
         "eventemitter3": "^5.0.4",
         "pako": "^3.0.1",
         "pathfinding": "^0.4.18",
-        "pixi.js": "^8.19.0",
-        "utility-types": "^3.11.0"
+        "pixi.js": "^8.19.0"
     },
     "devDependencies": {
         "@types/pathfinding": "0.1.0",
         "typed-factorio": "^3.36.0",
-        "vite-plus": "0.2.9"
+        "vite-plus": "0.3.0"
     }
 }

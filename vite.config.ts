@@ -17,7 +17,6 @@ export default defineConfig({
             // wrangler-generated worker-configuration.d.ts that is absent on a
             // fresh checkout (e.g. CI), which oxlint reports as an invalid tsconfig.
             'packages/worker',
-            'functions/corsproxy.js',
         ],
         rules: {
             'constructor-super': 'error',
@@ -222,15 +221,6 @@ export default defineConfig({
             // editor unit tests: uses packages/editor/vitest.config.ts as-is
             './packages/editor',
             {
-                // type-check-gate tests (outside any workspace package)
-                test: {
-                    name: 'gate',
-                    environment: 'node',
-                    include: ['scripts/**/*.test.mjs'],
-                    exclude: ['tests/**', '**/node_modules/**', '**/dist/**'],
-                },
-            },
-            {
                 /*
                     The tests under tests/ that need no browser. Two reasons they
                     are here rather than in a package's own project.
@@ -251,15 +241,29 @@ export default defineConfig({
                     a file off disk therefore has to sit under a directory the
                     root config owns, whatever package it is testing.
 
-                    Only *.test.ts is collected. The 40 specs next door are
-                    Playwright's and would fail immediately under vitest, having
-                    no browser fixtures; playwright.config.ts pins the mirror
-                    image of this so neither runner collects the other's files.
+                    Under tests/ only *.test.ts is collected. The 40 specs
+                    next door are Playwright's and would fail immediately under
+                    vitest, having no browser fixtures; playwright.config.ts pins
+                    the mirror image of this so neither runner collects the
+                    other's files.
+
+                    The scripts/ and tools/ globs are narrow on purpose. They
+                    replace the `gate` project that #268 deleted, which was the
+                    only thing collecting the .test.mjs files under scripts/ -
+                    dropping it silently stopped running
+                    scripts/localpreview.test.mjs, and nothing failed to say so.
+                    Keep them limited to .test.mjs files: a wider glob picks up
+                    plain scripts and vitest fails them with "No test suite
+                    found in file".
+
+                    Do not write a star-slash glob in this comment. That
+                    sequence closes the block comment and the config stops
+                    parsing.
                 */
                 test: {
                     name: 'unit',
                     environment: 'node',
-                    include: ['tests/**/*.test.ts'],
+                    include: ['tests/**/*.test.ts', 'scripts/**/*.test.mjs', 'tools/**/*.test.mjs'],
                 },
             },
         ],

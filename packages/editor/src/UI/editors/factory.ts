@@ -1,73 +1,35 @@
 import { Entity } from '../../core/Entity'
 import { Editor } from './Editor'
-import { BeaconEditor } from './BeaconEditor'
 import { ChestEditor } from './ChestEditor'
 import { InserterEditor } from './InserterEditor'
-import { MachineEditor } from './MachineEditor'
-import { MiningEditor } from './MiningEditor'
 import { SplitterEditor } from './SplitterEditor'
 import { TempEditor } from './TempEditor'
 import { TrainStopEditor } from './TrainStopEditor'
 import { DisplayPanelEditor } from './DisplayPanelEditor'
 
-/**
- * Factory Function for creating Editor based on Entity Number
- *
- * @description This function is needed externally of the Editor class as otherwise there will
- * be a raise condition where the MachineEditor cannot be created due to teh Editor not being
- * available yet. This can be solved in the future with lazy loading classes with Import(). Once
- * lazy loading is available, this function can move into the Editor class
- *
- * @param entityNumber - Entity Number for which to create Editor for
- */
 export function createEditor(entity: Entity): Editor | undefined {
-    // undefined is the common answer, not a failure: most entities have no
-    // editor at all, which is why the sole caller is already an `if (editor)`.
-    let editor: Editor
     switch (entity.name) {
-        // Assembly Machines
-        case 'assembling-machine-1':
-        case 'assembling-machine-2':
-        case 'assembling-machine-3': {
-            editor = new MachineEditor(entity)
-            break
-        }
-        // Beacon
-        case 'beacon': {
-            editor = new BeaconEditor(entity)
-            break
-        }
-        // Inserters
         case 'burner-inserter':
         case 'inserter':
         case 'long-handed-inserter':
         case 'fast-inserter':
         case 'bulk-inserter':
-        case 'stack-inserter': {
-            editor = new InserterEditor(entity)
-            break
-        }
-        // Mining
-        case 'electric-mining-drill': {
-            editor = new MiningEditor(entity)
-            break
-        }
-        // Splitters
+        case 'stack-inserter':
+            return new InserterEditor(entity)
         case 'splitter':
         case 'fast-splitter':
         case 'express-splitter':
-        case 'turbo-splitter': {
-            editor = new SplitterEditor(entity)
-            break
-        }
-        // Chests
+        case 'turbo-splitter':
+            return new SplitterEditor(entity)
         case 'buffer-chest':
         case 'requester-chest':
-        case 'storage-chest': {
-            editor = new ChestEditor(entity)
-            break
-        }
-        // Temp
+        case 'storage-chest':
+            return new ChestEditor(entity)
+        case 'assembling-machine-1':
+        case 'assembling-machine-2':
+        case 'assembling-machine-3':
+        case 'beacon':
+        case 'electric-mining-drill':
         case 'lab':
         case 'electric-furnace':
         case 'pumpjack':
@@ -75,20 +37,12 @@ export function createEditor(entity: Entity): Editor | undefined {
         case 'chemical-plant':
         case 'centrifuge':
         case 'rocket-silo':
-            editor = new TempEditor(entity)
-            break
-        // Train stop
+            return new TempEditor(entity)
         case 'train-stop':
-            editor = new TrainStopEditor(entity)
-            break
-        // Display panel
+            return new TrainStopEditor(entity)
         case 'display-panel':
-            editor = new DisplayPanelEditor(entity)
-            break
-        default: {
+            return new DisplayPanelEditor(entity)
+        default:
             return undefined
-        }
     }
-
-    return editor
 }

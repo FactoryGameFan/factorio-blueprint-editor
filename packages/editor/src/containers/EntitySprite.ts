@@ -296,6 +296,13 @@ export class EntitySprite extends Sprite {
             } else {
                 sprite.__zIndex = LAYER.ENTITY_BASE
             }
+            // `i` is the pre-skip index into spriteData: the loop `continue`s
+            // past falsy, shadow and filename-less entries above, so zOrder
+            // values can have gaps. Harmless in itself - `compareFn` only
+            // compares them relatively - but it means the numbering is not
+            // stable across edits to the generators: a draw_* that stops
+            // emitting an `undefined` placeholder shifts every later zOrder
+            // down by one. draw_reactor has already been changed that way.
             sprite.zOrder = i
 
             // Only tint the colorable mask layers (those flagged apply_runtime_tint),

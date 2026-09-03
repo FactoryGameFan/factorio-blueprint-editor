@@ -4,6 +4,13 @@ Date: 2026-06-27
 Status: Approved (design)
 Branch base: `wormeyman-space-age-support`
 
+> **Historical note, added 2026-09-02.** The type-check gate described below no
+> longer exists. #268 removed `scripts/type-check-gate.mjs`, its baseline and the
+> CI step, after `strict: true` landed under #77 and brought the baseline back to
+> zero. Everything below records the state at the time of writing and is left as
+> written. The strict-ratchet technique itself is kept, in
+> `.github/workflows/README.md`.
+
 ## Context
 
 The editor enforces a TypeScript error budget via a CI gate

@@ -145,6 +145,16 @@ const ALLOWLIST: AllowedChord[] = [
             'checkbox click, a click on the dialog title bar away from any field, ' +
             'or no dialog interaction at all, so no DOM input has focus by then.',
     },
+    {
+        file: 'quick-actions.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. ExportDialog's read-only field " +
+            'is focused when the dialog opens, but the preceding deleteEntity() ' +
+            'gesture already blurs it via its own mousedown on the canvas, so no ' +
+            'DOM input has focus by the time this chord is pressed.',
+    },
 ]
 
 interface Found {

@@ -98,6 +98,20 @@ test('pastebin asks for the raw paste', async ({ page }) => {
     expect(r.entities).toBe(2)
 })
 
+/*
+    The fork inside the pastebin arm. A raw link - `pastebin.com/raw/<id>`, what
+    the paste's own "raw" button gives you - is already the URL the arm rewrites
+    to, so it is passed through untouched. Rewriting it blind makes `pathParts[0]`
+    the literal `raw` and asks for `pastebin.com/raw/raw`, a 404 (issue #297). The
+    arm above only ever tests the share-link shape, which cannot see this.
+*/
+test('a pastebin raw url is passed through unchanged', async ({ page }) => {
+    const source = 'https://pastebin.com/raw/AbCd1234'
+    const r = await fetchThrough(page, source, BP)
+    expect(r.target).toBe(source)
+    expect(r.entities).toBe(2)
+})
+
 test('hastebin asks for the raw paste', async ({ page }) => {
     const r = await fetchThrough(page, 'https://hastebin.com/xyz789', BP)
     expect(r.target).toBe('https://hastebin.com/raw/xyz789')
@@ -119,6 +133,72 @@ test('gist asks the API and takes the first file, whatever it is called', async 
 test('factorioprints reads blueprintString off the firebase record', async ({ page }) => {
     const r = await fetchThrough(page, 'https://factorioprints.com/view/abc987', printsBody)
     expect(r.target).toBe('https://facorio-blueprints.firebaseio.com/blueprints/abc987.json')
+    expect(r.entities).toBe(2)
+})
+
+/*
+    The same fork inside the factorioprints arm. factorioprints links a blueprint
+    inside a book by its position in the API URL, and the firebase rewrite cannot
+    serve that link: `pathParts[1]` of an API path is the literal string
+    `blueprintData`, not a blueprint key, so the rewrite fetches
+    `blueprints/blueprintData.json`, which answers 200 with a body of `null`, and
+    `data.blueprintString` throws (issue #293). The next test pins that exact
+    target. So a rewrite here never reaches the book at all, though one that did
+    read the right key would still lose the position.
+*/
+test('a factorioprints API url is passed through unchanged and read as text', async ({ page }) => {
+    const source = 'https://factorioprints.xyz/api/blueprintData/xyz321/position/1.0'
+    const r = await fetchThrough(page, source, BP)
+    expect(r.target).toBe(source)
+    expect(r.entities).toBe(2)
+})
+
+/*
+    The other half of that fork, and the reason it checks the hostname. The arm
+    is reached by first label alone, so `factorioprints.com` lands here too - but
+    it is the site rather than the API, and answers its own index.html at 200 for
+    an /api/ path. Pinned because the passthrough looks host-agnostic at a glance
+    and nothing else would notice a URL that starts fetching HTML.
+*/
+test('a factorioprints.com API url still takes the firebase rewrite', async ({ page }) => {
+    const r = await fetchThrough(
+        page,
+        'https://factorioprints.com/api/blueprintData/xyz321/position/1.0',
+        printsBody
+    )
+    expect(r.target).toBe('https://facorio-blueprints.firebaseio.com/blueprints/blueprintData.json')
+    expect(r.entities).toBe(2)
+})
+
+/*
+    The path half of that condition, which nothing else holds up: with the host
+    check in place, `.com` is excluded on its own, so a `/view/` URL on the API
+    host is what fails if `pathParts[0] === 'api'` is ever dropped.
+*/
+test('a factorioprints.xyz /view/ url still reads the firebase record', async ({ page }) => {
+    const r = await fetchThrough(page, 'https://factorioprints.xyz/view/abc987', printsBody)
+    expect(r.target).toBe('https://facorio-blueprints.firebaseio.com/blueprints/abc987.json')
+    expect(r.entities).toBe(2)
+})
+
+/*
+    And the `www.` host, which the allowlist entry alone does not exercise:
+    `www.factorioprints.xyz` serves the same API, so the pass-through has to
+    survive the prefix.
+
+    What this test does not hold up is the `www.` strip itself, and it did until
+    #294 gave the switch and the host check one shared `const host`. With a single
+    strip, deleting it keys the switch on `www`, which falls to `default` - and
+    `default` is the same `fetchData(url.href).then(r => r.text())` as this
+    pass-through, so the target is identical and this test stays green. Measured:
+    the one test that goes red on that mutation is `factorio.school reads the
+    doubly nested blueprintString`, where `www.factorio.school/view/...` would
+    fall to `default` instead of being rewritten to `/api/blueprint/<id>`.
+*/
+test('a www.factorioprints.xyz API url is passed through unchanged', async ({ page }) => {
+    const source = 'https://www.factorioprints.xyz/api/blueprintData/xyz321/position/1.0'
+    const r = await fetchThrough(page, source, BP)
+    expect(r.target).toBe(source)
     expect(r.entities).toBe(2)
 })
 
