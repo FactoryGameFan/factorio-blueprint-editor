@@ -230,6 +230,33 @@ is `packages/worker/wrangler.jsonc`; GitHub Actions deploys after checks and e2e
 tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`.
 
+## Visitor counts
+
+Two counters measure the same thing from opposite sides, and they are meant to
+disagree.
+
+- Cloudflare Web Analytics. `packages/website/vite.config.js` injects the beacon
+  at build time when `CF_BEACON_TOKEN` is set, which only the deploy job does.
+  Unset, the tag is omitted and the build is otherwise identical. Read it in the
+  Cloudflare dashboard. It counts sessions that ran JavaScript, so ad blockers
+  and crawlers are missing from it.
+- A server-side count in the Worker. `packages/worker/src/visitorCount.ts` holds
+  the rules and the definition: one GET of `/` per IP + User-Agent +
+  Accept-Language per UTC day, deduped in the Cache API and written to the
+  `fbe_unique_visitors` Analytics Engine dataset. Nothing identifying is stored;
+  the fingerprint is a cache key and never reaches the dataset. Analytics Engine
+  has no dashboard, so read it over the SQL API with the query in the
+  `recordVisit` comment in `packages/worker/src/index.ts` - and note it has no
+  `uniq()` or `COUNT(DISTINCT)`, which is why deduplication happens at write
+  time and a query is a plain `SUM(_sample_interval)`.
+
+Neither number is exact. The Worker count runs high (per-colo dedupe, and it
+counts crawlers that send a browser's `Accept`); the beacon runs low. The gap
+between them is the useful part.
+
+`tests/visitor-count.test.ts` covers the pure rules and pins the beacon's hosts
+against the CSP in `packages/website/public/_headers` that permits them.
+
 ## Known limits
 
 - Mobile is a read-only viewer; editing remains desktop-only.

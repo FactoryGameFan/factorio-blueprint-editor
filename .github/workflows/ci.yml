@@ -307,8 +307,15 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
+      # CF_BEACON_TOKEN injects Cloudflare Web Analytics' beacon into
+      # index.html (packages/website/vite.config.js). Deploy-only on purpose:
+      # the `checks` job builds nothing that ships, and a PR build must not
+      # report page loads as though they were the live site. An unset secret
+      # omits the tag and the build is unchanged, so this stays green in a fork.
       - name: Build website
         run: npm run build:website
+        env:
+          CF_BEACON_TOKEN: ${{ secrets.CF_BEACON_TOKEN }}
 
       - name: Deploy worker to Cloudflare
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
