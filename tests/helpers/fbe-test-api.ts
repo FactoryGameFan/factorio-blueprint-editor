@@ -60,6 +60,30 @@ export interface FbeTestApi {
      */
     exportEncodeCount: () => number | undefined
     /**
+     * Whether the open ExportDialog has a debounced re-encode still waiting
+     * for its window. See tests/quick-actions.spec.ts.
+     */
+    exportReencodePending: () => boolean
+    /**
+     * Runs the open ExportDialog's pending debounced re-encode now, and
+     * answers whether there was one. Paired with
+     * `setExportReencodeDebounceMs` so a spec can widen the window past its
+     * own round-trip latency, edit, then read the coalesced result on demand
+     * rather than racing the timer (#313). See tests/quick-actions.spec.ts.
+     */
+    flushExportReencode: () => boolean
+    /**
+     * Overrides ExportDialog's re-encode debounce, in ms, for re-encodes
+     * scheduled after this call. Test-only. See tests/quick-actions.spec.ts.
+     */
+    setExportReencodeDebounceMs: (ms: number) => void
+    /**
+     * `Blueprint.history.revision`, the signal ExportDialog debounces on -
+     * poll it to a steady value to know an edit's follow-up frames have
+     * settled. See tests/quick-actions.spec.ts.
+     */
+    historyRevision: () => number
+    /**
      * `exportString`/`exportImage`'s own empty-blueprint guard result - the
      * only part of either that is safe to call from a spec, since a
      * non-empty blueprint would reach the OS clipboard or a file save. See

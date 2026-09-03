@@ -374,6 +374,31 @@ export class Editor {
         return G.UI.exportEncodeCount
     }
 
+    /** `UIContainer.exportReencodePending`. See tests/quick-actions.spec.ts. */
+    public get exportReencodePending(): boolean {
+        return G.UI.exportReencodePending
+    }
+
+    /** `UIContainer.flushExportReencode`. See tests/quick-actions.spec.ts. */
+    public flushExportReencode(): boolean {
+        return G.UI.flushExportReencode()
+    }
+
+    /** `UIContainer.setExportReencodeDebounceMs`. See tests/quick-actions.spec.ts. */
+    public setExportReencodeDebounceMs(ms: number): void {
+        G.UI.setExportReencodeDebounceMs(ms)
+    }
+
+    /**
+     * `Blueprint.history.revision` - the "did anything change" signal
+     * ExportDialog debounces re-encodes on. A spec can poll it to a fixed
+     * value to know an edit and its follow-up frames have fully settled. See
+     * tests/quick-actions.spec.ts.
+     */
+    public get historyRevision(): number {
+        return G.bp.history.revision
+    }
+
     public get debug(): boolean {
         return G.debug
     }
