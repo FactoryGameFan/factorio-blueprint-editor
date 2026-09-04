@@ -92,10 +92,16 @@ describe('every book in test-blueprints/', () => {
         number is an inventory slot and a book with empty slots has more slots
         than entries.
 
-        One book in the corpus has it: a book nested in
-        `EARN/earn-v22-0-12.rev-2.txt` with six entries and an `active_index` of
-        8. Asserting the count rather than "at least one" means a corpus change
-        that removes it has to be noticed rather than silently emptying this
+        Two books in the corpus have it. One is nested in
+        `EARN/earn-v22-0-12.rev-2.txt`, six entries and an `active_index` of 8 -
+        latent for as long as the corpus has existed, and harmless only because
+        nothing ever selected it. The other is the top level of
+        `UPSTREAM-277/combat-robot-capsules-1-1-69.txt`, three entries and an
+        `active_index` of 5, which is the blueprint that actually crashed CI and
+        led to the fix.
+
+        Asserting the exact list rather than "at least one" means a corpus change
+        that removes them has to be noticed rather than silently emptying this
         file of its point.
     */
     it('still holds a book whose active_index is past its entry array', () => {
@@ -103,6 +109,7 @@ describe('every book in test-blueprints/', () => {
 
         expect(past.map(({ file, path }) => `${file} ${path}`)).toEqual([
             'EARN/earn-v22-0-12.rev-2 root/9/4',
+            'UPSTREAM-277/combat-robot-capsules-1-1-69 root',
         ])
     })
 
