@@ -116,10 +116,12 @@ over exact pins.
   consequence of `lockFileMaintenance: { enabled: false }` in `renovate.json5`.
 - Before acting on a transitive advisory, read the parent's declared range: an
   exact pin means it is not actionable, a range means it is.
-- `undici` has open advisories with no in-range fix. It is blocked upstream
-  behind two exact pins (`wrangler` → `miniflare` → `undici`) and is dev-only.
-  Do not run `npm audit fix`: measured, it does not fix `undici`, it pulls
-  `miniflare` to a major alpha, and `--force` downgrades `wrangler`.
+- Upgrade Wrangler and its pinned runtime dependencies together. Wrangler
+  4.126.0 brings workerd 1.20260825.1, Miniflare 5.20260825.0-alpha, and
+  undici 7.29.0; it accepts the configured 2026-08-25 compatibility date in
+  local development (#304). This also resolves the advisory reported against
+  the previous undici 7.28.0 pin. Do not use `npm audit fix --force` or override
+  Miniflare independently; validate the Worker with `wrangler dev --local`.
 - `ajv` is ~100 kB minified and nothing branches on its result; `bpString.ts`
   logs and loads whether validation passes or fails.
 
