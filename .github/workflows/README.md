@@ -94,18 +94,25 @@ earlier comment in `ci.yml` said 46s, which is above every sample in that set.
 
 `tests/production-bundle.test.ts` (#322) calls Vite's `build()` in-process and
 greps the emitted chunks, so `import.meta.env.DEV` stripping the Playwright test
-API from the deployed bundle (#292) has coverage that a `vp dev`-only e2e suite
+API from executable JavaScript (#292) has coverage that a `vp dev`-only e2e suite
 cannot give it. It is the cheaper of the two options in #322 - a build and a
 string scan, no browser and no preview server - which is why it sits here rather
 than as a Playwright spec or a new `deploy`-adjacent job. `deploy` already needs
 `checks`, so a leak blocks the release.
 
-The build is `packages/website` at its real `vite.config.js` - the same
-`define` substitution and tree-shake production gets - and includes the
-`viteStaticCopy` pass over the sprite output. Measured locally 2026-09-02:
-about 2s of wall time added to `vp test`, most of it Rolldown. If that ever
-grows enough to matter, splitting it into its own parallel job (added to
-`deploy`'s `needs`) is the move, not dropping the check.
+The build is `packages/website` at its real `vite.config.js`, with the same
+`define` substitution and tree-shaking as production. The test reads emitted
+JavaScript and maps in memory (`write: false`), so it neither overwrites a local
+`dist` nor runs the sprite-copy write hook. It verifies compilation, not whether
+the canvas renders; the browser suite still covers the dev build.
+
+Public source maps are intentional (#328). This editor's source is public, and
+maps make production errors debuggable in browser devtools. They retain
+`sourcesContent`, including the original test API code, and the executable chunks
+link to them with `sourceMappingURL`. The Worker/static-assets service serves
+those maps like other assets. The test asserts that source remains in the maps
+while the API is absent from executable JavaScript. This is not a claim that the
+test API's source text is secret or absent from all deployed bytes.
 
 ### The strict-ratchet recipe (the type-check gate is gone)
 

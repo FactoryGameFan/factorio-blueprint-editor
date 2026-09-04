@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
-import * as fs from 'fs'
 import * as path from 'path'
 import { build } from 'vite-plus'
 
 /*
-    #292 put `window.__fbe_test` and the ~400-line test API behind it behind
+    #292 put `window.__fbe_test` and the ~400-line test API behind
     `import.meta.env.DEV`, so a `vp build` folds that to `false`, drops the
     branch, and tree-shakes `testApi` and everything only it references. Nothing
     checked that it worked, and by construction nothing could: every Playwright
@@ -19,28 +18,27 @@ import { build } from 'vite-plus'
     scan, no browser. It runs `build()` with the website's real `vite.config.js`
     - not a stripped-down config - so the `define` substitution and the
     tree-shake it enables are exactly the ones production gets, then greps the
-    emitted chunks.
+    emitted chunks. Public source maps deliberately retain the original source
+    for debugging (#328); the exclusion applies to executable JavaScript only.
 
     Why grep for these particular names. #292's own review found that three of
     the symbols first cited as evidence - `DIGESTED_FIELDS`, `spriteDataDigest`,
     `ThrowingDialog` - are module-local bindings that the minifier renames in
     every build, so a grep for them reads 0 whether or not the shake fired. The
     markers below are a `window` property and object keys; a minifier renames
-    neither, so a hit means the code shipped. The positive control in the first
+    neither, so a hit in executable JavaScript means the code shipped. The positive control in the first
     test guards against the inverse false pass - a grep over an empty or partial
     `dist` - by asserting a string that production code always emits is there.
 
     A vitest test under tests/ rather than a Playwright spec, same as
     tests/wire-switch-completeness.test.ts and for the reasons written there:
     no browser is needed, so it belongs in the cheap `checks` gate rather than
-    behind two dev servers, and a test that reads files off disk has to sit
-    under the directory the root tsconfig owns. Path resolved from the working
+    behind two dev servers. Path resolved from the working
     directory, not this file, because both runners start at the repo root and
     `import.meta.dirname` does not compile under the shared `module: ES6`.
 */
 
 const websiteDir = path.resolve(process.cwd(), 'packages/website')
-const assetsDir = path.join(websiteDir, 'dist', 'assets')
 
 /*
     Strings that packages/website/src/index.ts uses only inside the test API or
@@ -61,6 +59,8 @@ const TEST_API_MARKERS = [
 ]
 
 let bundledJs = ''
+let mappedSource = ''
+let sourceMapCount = 0
 const nodeEnvBefore = process.env.NODE_ENV
 
 beforeAll(async () => {
@@ -73,12 +73,20 @@ beforeAll(async () => {
         still sees the value vitest set.
     */
     process.env.NODE_ENV = 'production'
-    await build({ root: websiteDir, logLevel: 'silent' })
-    bundledJs = fs
-        .readdirSync(assetsDir)
-        .filter(name => name.endsWith('.js'))
-        .map(name => fs.readFileSync(path.join(assetsDir, name), 'utf8'))
-        .join('\n')
+    // Inspect this build's output in memory. Writing to the shared dist would
+    // overwrite a local preview and could scan stale files from an earlier build.
+    const result = await build({ root: websiteDir, logLevel: 'silent', build: { write: false } })
+    for (const bundle of Array.isArray(result) ? result : [result]) {
+        if (!('output' in bundle)) throw new Error('expected a completed production build')
+        for (const file of bundle.output) {
+            if (file.type === 'chunk') {
+                bundledJs += `${file.code}\n`
+                mappedSource += (file.map?.sourcesContent ?? []).join('\n')
+            } else if (file.fileName.endsWith('.js.map')) {
+                sourceMapCount++
+            }
+        }
+    }
 }, 180_000)
 
 afterAll(() => {
@@ -96,12 +104,18 @@ describe('the production website bundle', () => {
         expect(bundledJs.length).toBeGreaterThan(100_000)
     })
 
-    it('does not carry the Playwright test API', () => {
+    it('does not carry the Playwright test API in executable JavaScript', () => {
         const leaked = TEST_API_MARKERS.filter(marker => bundledJs.includes(marker))
         expect(
             leaked,
             `test-API symbols found in packages/website/dist/assets/*.js: ${leaked.join(', ')}. ` +
                 'The import.meta.env.DEV guard in packages/website/src/index.ts is not holding.'
         ).toEqual([])
+    })
+
+    it('retains original source in public source maps for debugging', () => {
+        expect(sourceMapCount).toBeGreaterThan(0)
+        expect(bundledJs).toContain('sourceMappingURL=')
+        for (const marker of TEST_API_MARKERS) expect(mappedSource).toContain(marker)
     })
 })
