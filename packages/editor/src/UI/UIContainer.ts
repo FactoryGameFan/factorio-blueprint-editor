@@ -5,7 +5,7 @@ import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { ImportDialog } from './ImportDialog'
-import { ExportDialog } from './ExportDialog'
+import { ExportDialog, setReencodeDebounceMsForTests } from './ExportDialog'
 import { ToolsPanel } from './ToolsPanel'
 import { createEditor } from './editors/factory'
 
@@ -154,6 +154,21 @@ export class UIContainer extends Container {
      * when none is open - see that getter's own doc comment. */
     public get exportEncodeCount(): number | undefined {
         return this.exportDialog?.encodeCount
+    }
+
+    /** `ExportDialog.reencodePending` for the open one, false when none is. */
+    public get exportReencodePending(): boolean {
+        return this.exportDialog?.reencodePending ?? false
+    }
+
+    /** `ExportDialog.flushPendingReencode` for the open one, false when none is. */
+    public flushExportReencode(): boolean {
+        return this.exportDialog?.flushPendingReencode() ?? false
+    }
+
+    /** Test-only; see `ExportDialog.setReencodeDebounceMsForTests`. */
+    public setExportReencodeDebounceMs(ms: number): void {
+        setReencodeDebounceMsForTests(ms)
     }
 
     public createInventory(

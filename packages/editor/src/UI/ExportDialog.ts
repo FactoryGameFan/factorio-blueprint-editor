@@ -22,8 +22,18 @@ export const PLACEHOLDER = 'The current blueprint is empty.'
     of edits (a drag, a multi-entity delete) would each re-run that cost:
     debouncing collapses a burst to one re-encode after it settles, the same
     way a keystroke-driven text field would.
+
+    A `let` rather than a `const` only so `setReencodeDebounceMsForTests` can
+    widen it. tests/quick-actions.spec.ts needs a window longer than any
+    round-trip it makes so the re-encode cannot fire on its own between two
+    edits it is checking coalesce (#313); nothing in the app reassigns this.
 */
-const REENCODE_DEBOUNCE_MS = 500
+let reencodeDebounceMs = 500
+
+/** See `reencodeDebounceMs`. Test-only; the app never calls this. */
+export function setReencodeDebounceMsForTests(ms: number): void {
+    reencodeDebounceMs = ms
+}
 
 /**
  * Shows the loaded blueprint's string in a real textarea - readable and
@@ -35,7 +45,10 @@ const REENCODE_DEBOUNCE_MS = 500
 export class ExportDialog extends Dialog {
     private readonly m_TextInput: TextInput
     private m_LastSeenRevision = -1
-    private m_DebounceTimer: ReturnType<typeof setTimeout> | undefined
+    // `performance.now()` timestamp the next debounced re-encode is due at, or
+    // undefined when none is pending. One value, pushed forward on every
+    // further change - see `changeTick`.
+    private m_ReencodeDueAt: number | undefined
     private m_EncodeCount = 0
 
     /**
@@ -56,6 +69,30 @@ export class ExportDialog extends Dialog {
      */
     public get encodeCount(): number {
         return this.m_EncodeCount
+    }
+
+    /**
+     * Whether a debounced re-encode is waiting for its window to elapse. See
+     * tests/quick-actions.spec.ts, which reads this to tell "the burst pushed
+     * the same pending encode out again" from "a second one got scheduled".
+     */
+    public get reencodePending(): boolean {
+        return this.m_ReencodeDueAt !== undefined
+    }
+
+    /**
+     * Runs a pending debounced re-encode now instead of waiting out the rest
+     * of its window, and answers whether there was one to run. For
+     * tests/quick-actions.spec.ts: it widens the window past any wall-clock
+     * slop so the pending re-encode cannot mature on its own mid-test (#313),
+     * makes its burst of edits, then calls this to observe the single
+     * coalesced result.
+     */
+    public flushPendingReencode(): boolean {
+        if (this.m_ReencodeDueAt === undefined) return false
+        this.m_ReencodeDueAt = undefined
+        this.refreshText({ select: false })
+        return true
     }
 
     public constructor() {
@@ -112,32 +149,34 @@ export class ExportDialog extends Dialog {
             Debounced rather than fired on the first change seen, because a
             burst of history transactions (a drag, a multi-entity delete)
             would otherwise re-run the same expensive encode once per
-            transaction in the burst; each further change during the debounce
-            window restarts it, so only the settled state after the burst
-            gets encoded. Both the frame listener and any pending debounce are
-            cleared on destroy so neither can fire against a closed dialog.
-            Never re-selects on this path: the field is read-only but still
-            click-selectable, and re-selecting the whole text out from under
-            a user mid-way through selecting part of it by hand would fight
-            them - see `select: true` only ever being passed on the initial
-            open above.
+            transaction in the burst. The debounce is one due-time that every
+            further change pushes forward, checked against `performance.now()`
+            on the same frame poll - not a `setTimeout` per change. So a burst
+            collapses to a single encode by construction: there is no way to
+            leave a second timer running, which the previous `clearTimeout` +
+            reschedule had to get right and which nothing could observe
+            without racing the very window it was measuring (#313). Removing
+            the frame listener on destroy is enough to stop it firing against
+            a closed dialog. Never re-selects on this path: the field is
+            read-only but still click-selectable, and re-selecting the whole
+            text out from under a user mid-way through selecting part of it by
+            hand would fight them - see `select: true` only ever being passed
+            on the initial open above.
         */
         const changeTick = (): void => {
             const revision = G.bp.history.revision
-            if (revision === this.m_LastSeenRevision) return
-            this.m_LastSeenRevision = revision
-
-            if (this.m_DebounceTimer !== undefined) clearTimeout(this.m_DebounceTimer)
-            this.m_DebounceTimer = setTimeout(() => {
-                this.m_DebounceTimer = undefined
+            if (revision !== this.m_LastSeenRevision) {
+                this.m_LastSeenRevision = revision
+                this.m_ReencodeDueAt = performance.now() + reencodeDebounceMs
+                return
+            }
+            if (this.m_ReencodeDueAt !== undefined && performance.now() >= this.m_ReencodeDueAt) {
+                this.m_ReencodeDueAt = undefined
                 this.refreshText({ select: false })
-            }, REENCODE_DEBOUNCE_MS)
+            }
         }
         G.app.ticker.add(changeTick)
-        this.once('destroyed', () => {
-            G.app.ticker.remove(changeTick)
-            if (this.m_DebounceTimer !== undefined) clearTimeout(this.m_DebounceTimer)
-        })
+        this.once('destroyed', () => G.app.ticker.remove(changeTick))
     }
 
     private refreshText({ select }: { select: boolean }): void {

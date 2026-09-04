@@ -615,67 +615,82 @@ test('a burst of edits inside one debounce window collapses to a single re-encod
     page,
 }) => {
     /*
-        The test above cannot tell a real debounce from firing on the very
-        next frame after a change - deleting the debounce delay entirely
-        (calling `refreshText` straight from `changeTick` instead of
-        scheduling it) still passed it in under three seconds, since all
-        that test checks is that *a* second encode eventually happens, not
-        that two edits close together produce exactly one (#242 review).
-        Two revision-changing operations inside the same 500 ms window is
-        what only a real debounce - restarting its timer on each further
-        change rather than firing once per change - collapses to a single
-        re-encode: settling at 2 (one open-time encode plus one for the
-        whole burst) rather than 3 (one per operation).
+        The test above cannot tell a real debounce from one that fires on the
+        very next frame after a change - deleting the debounce entirely
+        (encoding straight from `changeTick`) still passes it, since all it
+        checks is that *a* second encode eventually happens, not that two edits
+        close together produce exactly one (#242 review). What only a debounce
+        produces is two revision-changing operations collapsing to a single
+        re-encode: the count reaching 2 (one at open, one for the burst) and
+        not 3.
 
-        A delete followed by an undo, not two deletes: `History.revision`
-        moves on either kind of operation, and undo is a single keypress
-        with no drag-targeting of its own, which is what makes the second
-        operation reliable to land inside the window rather than depending
-        on a second precisely-timed pointer gesture.
+        A delete then an undo, not two deletes: `History.revision` moves on
+        either, and undo is one keypress with no pointer targeting.
 
-        No intermediate "still 1" check between the two operations - there
-        used to be one, reading `exportEncodeCount()` right after a 200 ms
-        wait and asserting it had not yet moved. That raced the same 500 ms
-        debounce it was trying to observe: `page.waitForTimeout` is a wall-
-        clock wait with no floor on how much *more* than 200 ms elapses
-        before the following `page.evaluate` round-trip actually runs, and
-        under enough system load (measured reproducibly as part of a full,
-        54-test shard, never in isolation) that slack alone was enough to
-        cross 500 ms - the debounce had genuinely already fired, and the
-        "bug" the assertion reported was the shard's own CPU contention.
-        The check added nothing a mutation the checks below cannot already
-        catch: with the debounce deleted entirely, the delete's own
-        re-encode already lands before the undo is even pressed, so the
-        final poll below is chasing 3 and never sees 2.
+        The window is widened first, past anything a round-trip here can take.
+        At the shipped 500 ms this test raced the very timer it measured -
+        `page.waitForTimeout` and every `page.evaluate` are wall-clock waits
+        with no ceiling, so on a loaded shard the slack between the two
+        operations could cross 500 ms on its own, fire the delete's re-encode
+        alone, and make the burst genuinely two encodes - CPU contention
+        wearing the shape of a bug (#313). Widened, nothing re-encodes on its
+        own: `exportEncodeCount` staying at 1 through both edits is the "not
+        one re-encode per change" check - the one a `waitForTimeout` + "still
+        1" assertion used to reach for and lose to the same race - and
+        `flushExportReencode()` then runs the single coalesced re-encode on
+        demand.
     */
+
+    // Poll this to a fixed value between an edit and the asserts that follow:
+    // a delete drag and an undo both move `History.revision` over more than
+    // one frame, and `changeTick` re-arms the (widened) debounce on each, so
+    // a flush fired mid-settle would leave another re-encode armed behind it.
+    const revisionSettled = async (): Promise<boolean> => {
+        const before = await page.evaluate(() => window.__fbe_test.historyRevision())
+        await page.waitForTimeout(100)
+        return (await page.evaluate(() => window.__fbe_test.historyRevision())) === before
+    }
+
     await loadBlueprint(page, TWO_CHESTS)
     await openExportDialog(page)
+    await page.evaluate(() => window.__fbe_test.setExportReencodeDebounceMs(120_000))
     expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
     await deleteEntity(page, 1)
-
-    // Well inside the 500 ms window, so the delete's debounce timer is
-    // still pending when the undo below lands and restarts it.
-    await page.waitForTimeout(200)
+    await expect.poll(revisionSettled).toBe(true)
+    expect(await page.evaluate(() => window.__fbe_test.exportReencodePending())).toBe(true)
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
     // The delete's own mousedown already blurred ExportDialog's read-only
     // field (focused since open), so this reaches the undo keybind rather
     // than being swallowed by Editor.ts's "ignore keys while an input has
     // focus" guard.
     await page.keyboard.press('Control+KeyZ')
-
     await expect
-        .poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount()), { timeout: 2000 })
-        .toBe(2)
+        .poll(() => page.evaluate(() => window.__fbe_test.entityScreenPosition(1) !== undefined))
+        .toBe(true)
+    await expect.poll(revisionSettled).toBe(true)
 
-    // Long enough past the undo's own debounce window that an uncoalesced
-    // implementation's separate re-encode for it would already have
-    // landed - proves the count settles at 2 rather than merely reaching
-    // it on the way to 3.
-    await page.waitForTimeout(700)
+    // Still one armed re-encode for the whole burst, and still no encode yet -
+    // the undo pushed the same debounce out rather than scheduling its own.
+    expect(await page.evaluate(() => window.__fbe_test.exportReencodePending())).toBe(true)
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+
+    // Run it: exactly one more encode, and nothing left armed after.
+    expect(await page.evaluate(() => window.__fbe_test.flushExportReencode())).toBe(true)
+    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(2)
+    expect(await page.evaluate(() => window.__fbe_test.flushExportReencode())).toBe(false)
     expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(2)
 
     // The undo put entity 1 back - the field should show both chests again.
-    const out = await exportTextarea(page).inputValue()
-    expect(decodeBlueprintString(out).blueprint.entities).toHaveLength(2)
+    await expect
+        .poll(async () => {
+            try {
+                return decodeBlueprintString(await exportTextarea(page).inputValue()).blueprint
+                    .entities.length
+            } catch {
+                return -1
+            }
+        })
+        .toBe(2)
 })
