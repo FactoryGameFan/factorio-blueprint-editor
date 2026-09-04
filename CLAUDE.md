@@ -285,6 +285,15 @@ unaffected and can be recorded here; **`overlay-container` and
 `sprite-generation` must be recorded from CI.** Re-check this table rather than
 assuming it, because which specs touch a canvas can change.
 
+**Do not try removing `--disable-software-rasterizer` to fix those two.** It
+sits next to `--use-gl=swiftshader` and reads as a contradiction, because
+SwiftShader is the software rasterizer, so it looks like the cause of the
+`drawImage` failure. Measured on WSL2 at `ece449f5`, it is not. With that one
+flag dropped and every other flag kept, the two specs go from 2 of their 4 tests
+failing to all 4, `drawImage` disappears from the log entirely, and
+`waitForEditor` times out after 120 s because the editor never initialises. The
+flag is load-bearing in the opposite direction from the guess.
+
 Two rules the specs cannot enforce:
 
 - A green suite says nothing about how a feature feels. For anything with a
