@@ -651,6 +651,7 @@
         ],
         "electric-energy-interface": ["2:cd86c7c5"],
         "electric-furnace": ["2:3723ab1a"],
+        "electric-mining-drill": ["6:d8923149", "7:fff4ccce"],
         "electromagnetic-plant": [
             "2:8c86a981",
             "4:17441381",
@@ -684,7 +685,14 @@
         "elevated-half-diagonal-rail": ["4:4fd6bcb7", "4:5b181fda", "4:7658a127", "4:873cd155"],
         "elevated-straight-rail": ["4:5c16d026", "4:d2810a23", "4:e1aa574e", "4:e3233f7b"],
         "express-loader": ["3:0f007021", "3:1f38a98e", "3:627a6139", "3:9cc01836"],
-        "express-splitter": ["11:d9102557", "8:666218a4", "8:6eac2873", "8:dac52e66", "8:ed3cace2"],
+        "express-splitter": [
+            "11:6cfdc527",
+            "11:d9102557",
+            "8:666218a4",
+            "8:6eac2873",
+            "8:dac52e66",
+            "8:ed3cace2"
+        ],
         "express-transport-belt": ["3:50449222", "3:5aa56f96", "3:8faf094e", "3:fedb4d14"],
         "express-underground-belt": [
             "5:6aef8e0c",
@@ -1849,6 +1857,7 @@
         ],
         "electric-energy-interface": ["2:cd86c7c5"],
         "electric-furnace": ["2:3723ab1a"],
+        "electric-mining-drill": ["6:d8923149", "7:fff4ccce"],
         "electromagnetic-plant": [
             "2:8c86a981",
             "3:a4f510ca",
@@ -1928,8 +1937,11 @@
             "6:fba0f0d6",
             "7:014ab7e2",
             "7:10e91162",
+            "7:4a288c5b",
             "7:579b79ec",
+            "7:77b15fe9",
             "7:7e54f353",
+            "7:d6197ef3",
             "7:e8086452",
             "8:b7a644b4"
         ],
@@ -1991,6 +2003,7 @@
         "express-underground-belt": [
             "3:3353fc16",
             "3:5163fbc3",
+            "3:72904641",
             "3:ae0633c9",
             "3:d77363d4",
             "4:0973e39e",
@@ -2163,6 +2176,7 @@
             "5:f200dc37"
         ],
         "flamethrower-turret": [
+            "6:c5b620b2",
             "6:dfb145ee",
             "7:08c64a1b",
             "7:8e42a806",
@@ -2668,6 +2682,7 @@
             "3:a11d53e6",
             "3:b0312fdc",
             "3:b3d16603",
+            "3:c1dc37eb",
             "3:c35e55b7",
             "3:d1e406dd",
             "3:e42efd27",
@@ -2681,6 +2696,7 @@
             "4:778ad430",
             "4:9248c6ba",
             "4:979b04b6",
+            "4:97a2bd50",
             "4:bb57d2eb",
             "4:c65dafa2",
             "4:d67763ad",
