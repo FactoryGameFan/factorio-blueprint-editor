@@ -26,6 +26,17 @@
     count that runs a few percent high. An Analytics Engine dataset, by
     contrast, is created by its first write.
 
+    The same store costs a second over-count, smaller than the first. Reading
+    the cache and writing to it are two steps, and index.ts can only do them in
+    order: ask, miss, write. Nothing holds the gap between those two calls, so
+    two requests from one visitor that land inside it both miss and both write,
+    scoring one visitor-day twice. A browser that prefetches `/` and then
+    navigates to it does exactly that, and so do two tabs restored at once. The
+    Cache API offers no compare-and-set to close the gap with, and closing it
+    properly needs the global store this design gave up on above. The window is
+    the few milliseconds between the two calls, so this is rarer than the colo
+    split and points the same way.
+
     No visitor identifier is ever stored. The fingerprint below exists only as a
     cache key inside the 24h dedupe window; the data point written to Analytics
     Engine carries the day, the country and the number 1, and nothing that

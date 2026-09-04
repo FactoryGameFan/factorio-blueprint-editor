@@ -250,9 +250,9 @@ disagree.
   `uniq()` or `COUNT(DISTINCT)`, which is why deduplication happens at write
   time and a query is a plain `SUM(_sample_interval)`.
 
-Neither number is exact. The Worker count runs high (per-colo dedupe, and it
-counts crawlers that send a browser's `Accept`); the beacon runs low. The gap
-between them is the useful part.
+Neither number is exact. The Worker count runs high (per-colo dedupe, a
+check-then-act race inside that dedupe, and crawlers that send a browser's
+`Accept`); the beacon runs low. The gap between them is the useful part.
 
 `tests/visitor-count.test.ts` covers the pure rules and pins the beacon's hosts
 against the CSP in `packages/website/public/_headers` that permits them.

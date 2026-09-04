@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vite-plus/test'
 import * as fs from 'fs'
 import * as path from 'path'
 import {
-    DEDUPE_WINDOW_SECONDS,
     dedupeKey,
     isPageView,
     utcDay,
@@ -65,10 +64,6 @@ describe('utcDay - the dedupe window and the reporting bucket', () => {
     it('is the UTC calendar day, not the local one', () => {
         expect(utcDay(new Date('2026-09-03T23:59:59Z'))).toBe('2026-09-03')
         expect(utcDay(new Date('2026-09-04T00:00:00Z'))).toBe('2026-09-04')
-    })
-
-    it('matches the cache lifetime the Worker sets', () => {
-        expect(DEDUPE_WINDOW_SECONDS).toBe(24 * 60 * 60)
     })
 })
 
@@ -142,6 +137,50 @@ describe('dedupeKey - a cache key, not a route', () => {
     it('separates days, so yesterday’s entry cannot answer today', () => {
         const key = (day: string) => dedupeKey('https://fbe.factorygamefan.com', day, 'abc')
         expect(key('2026-09-03')).not.toBe(key('2026-09-04'))
+    })
+})
+
+/*
+    The cache entry has to stop being valid when the dedupe window closes, and
+    index.ts is where that is decided: the `cache.put` there sets the entry's
+    `max-age`. Nothing here can run that line - the Cache API exists only in the
+    Workers runtime, and `packages/worker` is collected by no test project, for
+    the reason at the top of this file.
+
+    Comparing DEDUPE_WINDOW_SECONDS against 24 * 60 * 60 is what this used to
+    do, and it proved nothing: index.ts imports that same constant, so the two
+    cannot disagree and the assertion only restated the literal. The failure
+    worth guarding is the lifetime being written out as a number, which then
+    keeps its old value on the day the constant changes. Nothing would fail -
+    the entry would just expire on the wrong schedule and re-count every
+    visitor, or hold past midnight and lose them.
+
+    So this reads the source instead, the same answer corsproxy.test.ts reached
+    for its User-Agent header.
+*/
+describe('the cache entry lives exactly as long as the dedupe window', () => {
+    const worker = fs.readFileSync(
+        path.resolve(process.cwd(), 'packages/worker/src/index.ts'),
+        'utf-8'
+    )
+
+    it('builds the entry’s max-age from the constant, never a literal', () => {
+        const put = worker.match(/await cache\.put\([\s\S]*?\n {8}\)/)
+        if (put === null) throw new Error('the cache.put call could not be located')
+        expect(put[0]).toMatch(/max-age=\$\{DEDUPE_WINDOW_SECONDS\}/)
+        expect(put[0]).not.toMatch(/max-age=\d/)
+    })
+
+    /*
+        And that it is the constant this file covers, not a second one of the
+        same name declared locally - which would satisfy the check above while
+        holding whatever value someone typed.
+    */
+    it('takes that constant from visitorCount.ts rather than redeclaring it', () => {
+        const imported = worker.match(/import \{[\s\S]*?\} from '\.\/visitorCount'/)
+        if (imported === null) throw new Error('the visitorCount import could not be located')
+        expect(imported[0]).toContain('DEDUPE_WINDOW_SECONDS')
+        expect(worker).not.toMatch(/(?:const|let|var) DEDUPE_WINDOW_SECONDS/)
     })
 })
 
