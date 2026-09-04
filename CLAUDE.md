@@ -201,7 +201,13 @@ browser UI. The committed corpus is useful for modern blueprints but does not
 cover pre-2.0 migrations; create a synthetic blueprint at the required version
 with `tests/helpers/encode-blueprint.ts` for those branches.
 
-Browser tests use `window.__fbe_test` to load sources without URL-length limits.
+Browser tests use `window.__fbe_test` to load sources without URL-length
+limits. That hook is assigned only under `import.meta.env.DEV` (#292), so the
+specs need the dev server `npm run localpreview` starts. Run against
+`vp preview` / `preview:website` - a production bundle, no hook - every spec
+instead burns its 60s wait on a function that never appears, and the only
+symptom is a timeout that names nothing (#321). `vp preview` binds 4173, not
+8080, so that mistake surfaces as a connection refused rather than a hang.
 Tests that dispatch pointer input should call `suppressOverlays(page)` before
 navigation so toasts and the settings panel cannot intercept events. Do not
 edit files while a Playwright run is active: Vite reloads the page and destroys
