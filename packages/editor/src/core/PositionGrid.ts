@@ -91,7 +91,8 @@ const canHoldASignalOnItsTiles = (rail: Entity): boolean => {
  * straight and half-diagonal orientations, with `getPossibleRotations` giving a
  * gate [0, 4, 8, 12] and every rail [0, 2, 4, 6, 8, 10, 12, 14]. The only
  * remaining disagreement on a reachable direction is the gate-on-a-curved-rail
- * refusal, which is #133.
+ * refusal, which #133 item 3 costed and then closed as not worth doing: an
+ * exact gate table would remove almost nothing.
  *
  * They disagree on *un*reachable ones, and it is worth knowing why rather than
  * discovering it later: the caller compares `direction % 8`, where a gate has
@@ -228,8 +229,10 @@ const STRAIGHT_RAIL_NAMES = new Set([
  *
  * What stays refused and should not: an identical curved rail at an identical
  * direction, 24 rows of it, because a curved rail's rectangle holds a curve and
- * nothing on this grid can say which cells the curve uses. That is issue #133
- * item 1 and needs occupancy shapes, not another comparison here.
+ * nothing on this grid can say which cells the curve uses. That is #133 item
+ * 1, which PR #138 measured and closed as not implementable as written:
+ * occupancy is not a property of the rail, because which cells it blocks
+ * depends on the size of the box asking. Not another comparison here either.
  */
 const railOccupiesTheSameCells = (rail: Entity, name: string, direction: number): boolean => {
     const nd = normaliseRailDirection(name, direction)
@@ -446,7 +449,9 @@ export class PositionGrid {
      * not: a curved-rail-a is a 2x6 rectangle here holding a curve and a
      * half-diagonal-rail a 2x2 square against a collision box spanning roughly
      * 1.5x4.5. Modelling the real rules means per-rail collision shapes rather
-     * than rectangles, which is its own piece of work - issue #133.
+     * than rectangles, and #133 item 1 measured that no single such shape can
+     * be right: which cells a rail blocks depends on the size of the box
+     * asking. That item is closed.
      *
      * The four elevated-* rail types are on their own collision layer rather
      * than their own geometry, so they are handled here (also #133): everything
@@ -464,8 +469,8 @@ export class PositionGrid {
      * one.
      *
      * Known refusals the game would allow, left alone as annoyances rather than
-     * corruptions and tracked in #133: a half-diagonal or curved rail laid over
-     * a gate, and a gate on a curved rail.
+     * corruptions, and costed in #133 before it closed: a half-diagonal or
+     * curved rail laid over a gate, and a gate on a curved rail.
      *
      * One acceptance the layer filter cannot judge, and which stays permissive:
      * a rail signal on an elevated rail is the same **prototype** as one on the

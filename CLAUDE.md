@@ -388,7 +388,10 @@ against the CSP in `packages/website/public/_headers` that permits them.
   continuous collision geometry, so it is wrong in both directions - it accepts
   some arrangements the game refuses and refuses 24 measured cases the game
   accepts (an identical curved rail on an identical curved rail). Preserve the
-  measured exceptions and the `tools/oracle` fixtures; issue #133 tracks
-  closing the gap with per-rail collision shapes.
+  measured exceptions and the `tools/oracle` fixtures. Per-rail collision
+  shapes will not close it: #133 measured that occupancy is not a property
+  of the rail, because which cells it blocks depends on the size of the box
+  asking, and #142 measured that the game's published `tile_width` does not
+  help either. Both are closed. #183 is the live rail defect.
 - Logistic filters retain quality metadata but the UI has no quality picker.
 - Blueprint icons round-trip, but the UI has no icon picker.
