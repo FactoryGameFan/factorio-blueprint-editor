@@ -65,16 +65,21 @@ export class EntitySprite extends Sprite {
     private id: number
     /*
         The render layer, defaulted rather than left unset. `getParts` assigns
-        this per sprite, but its splitter/underground-belt/loader arm only does
-        so for the one sprite that is the main belt:
+        this per sprite, but its splitter/underground-belt/loader arm assigns
+        only to the belt sprites; the structure and patch sprites of those three
+        types fall out of the chain with nothing.
 
-            if (!foundMainBelt && data.filename.includes('transport-belt')) {
-
-        Every other sprite of those three types fell out with no value at all,
-        and `compareFn` then computed `undefined - undefined`, which is NaN -
-        an incoherent comparator, so their order was whatever the sort happened
-        to do. ENTITY_BASE is what the chain's own `else` gives everything not
+        They used to fall out with no value at all, and `compareFn` then
+        computed `undefined - undefined`, which is NaN - an incoherent
+        comparator, so their order was whatever the sort happened to do.
+        ENTITY_BASE is what the chain's own `else` gives everything not
         otherwise special, so it is the value they were meant to have.
+
+        Upstream PR #274 wrote it into that arm as an explicit `else` instead.
+        Measured across all 13 splitter/underground-belt/loader prototypes in
+        `data.json`, no `structure` or `structure_patch` filename contains
+        "transport-belt", so the two are the same thing and the default carries
+        it here.
     */
     private __zIndex: number = LAYER.ENTITY_BASE
     /** Overwritten by getParts for every sprite it builds; 0 is its first index. */
@@ -285,9 +290,42 @@ export class EntitySprite extends Sprite {
                 entity.type === 'underground-belt' ||
                 entity.type === 'loader'
             ) {
-                if (!foundMainBelt && data.filename.includes('transport-belt')) {
+                /*
+                    The same TRANSPORT_BELT/TRANSPORT_BELT_ABOVE pair the
+                    `transport-belt` arm above uses, and for the same sprites:
+                    all three of these draw functions build their belt art with
+                    `getBeltSprites`, which returns the main belt plus a start
+                    and/or end cap. Only the main belt was being layered, so
+                    every cap - and, on a splitter, the whole of the second
+                    lane - took the ENTITY_BASE default and sat with the
+                    machines instead of with the belts. Upstream PR #274.
+
+                    Not cosmetic. In `tests/__fixtures__/sprite-data.json` the
+                    smallest layer count any real splitter placement records is
+                    4, and a splitter is always belts + structure_patch +
+                    structure, so all 195 splitter placements in the corpus have
+                    at least 2 belt sprites and only ever had the first of them
+                    layered. That left a splitter's two lanes six layers apart
+                    while drawing the identical animation.
+
+                    It moves nothing within a splitter: every sprite of one
+                    entity shares `entityPos`, so `compareFn` falls through to
+                    `zOrder`, which is the index in the draw function's array,
+                    and the belt sprites already precede both structures there.
+                    What does move is `beltParts[1]` on an underground belt or a
+                    loader, which those two push *after* the structure and which
+                    therefore drew on top of it. Under the structure is where
+                    its own main belt already is, and where Factorio puts it.
+
+                    No committed fixture moves either way: `spriteDataDigest`
+                    hashes `getSpriteData`'s output, and `__zIndex` is assigned
+                    here, afterwards.
+                */
+                if (data.filename.includes('transport-belt')) {
+                    sprite.__zIndex = foundMainBelt
+                        ? LAYER.TRANSPORT_BELT_ABOVE
+                        : LAYER.TRANSPORT_BELT
                     foundMainBelt = true
-                    sprite.__zIndex = LAYER.TRANSPORT_BELT
                 }
             } else if (entity.type === 'pipe' || entity.type === 'infinity-pipe') {
                 sprite.__zIndex = LAYER.PIPE
