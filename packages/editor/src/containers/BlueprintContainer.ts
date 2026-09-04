@@ -38,6 +38,18 @@ export enum GridPattern {
     GRID = 'grid',
 }
 
+/**
+ * The item the user picked cannot be painted at all: `FD.items` has no entry
+ * for it, or it has one that places nothing (a science pack, a fluid barrel).
+ *
+ * Separate from the errors a `Paint*Container` constructor throws, which mean
+ * something different - the item *is* placeable and the editor failed to build
+ * a preview for it - and so earns a different message in `spawnPaintContainer`.
+ * A class rather than a message comparison because the messages carry the item
+ * name, and because `IllegalFlipError` next door already sets the pattern.
+ */
+export class UnplaceableItemError extends Error {}
+
 type MoveDirections = {
     up: boolean
     left: boolean
@@ -1151,14 +1163,18 @@ export class BlueprintContainer extends Container {
         try {
             if (typeof itemNameOrEntities === 'string') {
                 const itemData = FD.items[itemNameOrEntities]
-                if (!itemData) throw new Error(`Item data not found: ${itemNameOrEntities}`)
+                if (!itemData)
+                    throw new UnplaceableItemError(`Item data not found: ${itemNameOrEntities}`)
 
                 const wireResult =
                     ToolsPanel.Wires.includes(itemNameOrEntities) && itemNameOrEntities
                 const tileResult = itemData.place_as_tile && itemData.place_as_tile.result
                 const placeResult = itemData.place_result || tileResult || wireResult
 
-                if (!placeResult) throw new Error(`No place result for item: ${itemNameOrEntities}`)
+                if (!placeResult)
+                    throw new UnplaceableItemError(
+                        `No place result for item: ${itemNameOrEntities}`
+                    )
 
                 if (wireResult) {
                     this.paintContainer = this.wirePaintSlot.addChild(
@@ -1180,6 +1196,31 @@ export class BlueprintContainer extends Container {
             }
         } catch (e) {
             console.error('Failed to create paint container:', e)
+            /*
+                Without this the failure was completely silent: the console line
+                is not something a player sees, the mode drops straight back to
+                NONE, and clicking the item simply did nothing. Upstream PR #274
+                raised a toast here too, keyed off the message 'Not implemented!'
+                - a string this fork never produces, so the branch is on
+                UnplaceableItemError instead. That splits the two cases the way
+                they actually differ: an item that places nothing at all, versus
+                a placeable one whose paint preview could not be built (a missing
+                sprite field, getDirName on a diagonal, an unhandled prototype
+                shape).
+
+                `warning` rather than `error`, because nothing is broken and the
+                editor carries on. It also keeps this out of the persistent
+                class: both of the website's `timeout: Infinity` toasts are
+                `error`s that throw straight afterwards, and a mis-click must not
+                leave behind an overlay the user has to dismiss by hand.
+            */
+            G.logger({
+                text:
+                    e instanceof UnplaceableItemError
+                        ? 'Could not place this item.'
+                        : 'This entity is not supported yet.',
+                type: 'warning',
+            })
             this.setMode(EditorMode.NONE)
             this.cursor = 'inherit'
             return
