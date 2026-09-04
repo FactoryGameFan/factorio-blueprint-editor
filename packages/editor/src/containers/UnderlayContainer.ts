@@ -7,6 +7,7 @@ import FD, {
     isBeacon,
     isMiningDrill,
 } from '../core/factorioData'
+import { supplyAreaHalfExtent } from '../core/supplyArea'
 import { IPoint } from '../types'
 import { VisualizationArea } from './VisualizationArea'
 
@@ -65,7 +66,7 @@ export class UnderlayContainer extends Container {
             return [
                 {
                     type: 'poles',
-                    radius: ed.supply_area_distance,
+                    radius: supplyAreaHalfExtent(ed),
                     color: 0x3755d9,
                     alpha: VisualizationArea.ALPHA,
                 },
@@ -75,7 +76,7 @@ export class UnderlayContainer extends Container {
             return [
                 {
                     type: 'beacons',
-                    radius: ed.supply_area_distance + 1,
+                    radius: supplyAreaHalfExtent(ed),
                     color: 0xd9c037,
                     alpha: VisualizationArea.ALPHA,
                 },
