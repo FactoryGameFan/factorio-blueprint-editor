@@ -72,6 +72,9 @@ export default defineConfig(async ({ command, mode }) => {
         }
     }
     return {
+        // Public source maps are intentional debugging support for this open-source
+        // editor. They include the dev-only test API's source, although tree-shaking
+        // removes that API from executable JavaScript (#328).
         build: { sourcemap: true },
         optimizeDeps: {
             include: [
