@@ -78,6 +78,127 @@ platform.
 
 All eight are by the same author, [Jepakazol](https://www.factorio.school/user/I6YX1Ar1cWUwhbQgMcW4nyZkDs52).
 
+## UPSTREAM-277 - reporters' blueprints from the old repo
+
+Recovered 2026-09-04 from
+[`teoxoy/factorio-blueprint-editor` issue #277](https://github.com/teoxoy/factorio-blueprint-editor/issues/277),
+a feedback round-up on the upstream project this fork continues. Its section
+headed "Blueprints that don't load" is seven bare blueprint strings with no
+prose between them: no author names, no titles, no explanation of what each one
+was meant to show. Four of those seven are kept here.
+
+| File                               | Book or blueprint label                                     | Declared version | Entities |
+| ---------------------------------- | ----------------------------------------------------------- | ---------------- | -------- |
+| `beacon-mall-2-0-43.txt`           | `Blueprint`                                                 | 2.0.43           | 1,145    |
+| `combat-robot-capsules-1-1-69.txt` | `Capsules[item=destroyer-capsule][item=distractor-capsule]` | 1.1.69           | 186      |
+| `corner-defense-1-1-34.txt`        | `Corner Defense`                                            | 1.1.34           | 438      |
+| `mining-outpost-2-0-73.txt`        | (unlabelled)                                                | 2.0.73           | 1,368    |
+
+Authorship is the one thing this collection cannot record. Each string was
+pasted into a public issue by whoever hit the bug, and neither the issue nor
+the strings themselves name a designer. The removal-on-request offer at the top
+of this file applies to them the same way it applies to the two named
+collections.
+
+**"Doesn't load" was mostly a version gap, not a defect that reproduces here.**
+Five of the seven declare 2.0.x, and upstream stopped at Factorio 1.1 - it has
+no 2.0 prototypes to resolve them against, so it could not have loaded them
+whatever their contents. That covers `beacon-mall` and `mining-outpost`.
+
+It does not cover the two 1.1-era files, and honesty is better than a tidy
+story: nobody has run upstream against them, so why they were reported is
+unknown. `combat-robot-capsules` at least has a mechanism worth writing down.
+It carries four `logistic-chest-storage`, and upstream applied its rename table
+unconditionally, with the version conditions written as comments rather than
+code - the same bug this fork fixed in issue #40. Against a 1.1 dataset that
+rewrite produces `storage-chest`, a name 1.1 does not have. That is a
+hypothesis, not a measurement.
+
+What _is_ measured, on 2026-09-04, is the property this directory rests on:
+every one of the four inflates, parses, and resolves every entity name against
+`packages/exporter/data/output/data.json` - `logistic-chest-storage` through
+the pre-2.0 gate in `nameMigrations.ts`, which is exactly the path it is here
+to exercise.
+
+### Why these four and not the other three
+
+`combat-robot-capsules-1-1-69.txt` is the one that pays for itself. Before it,
+the note further down this file was flatly true - the corpus was entirely
+post-2.0 and so could reach no pre-2.0 branch at all. This file declares
+1.1.69 and carries both kinds of pre-2.0 work: four `logistic-chest-storage`
+for the rename table, and eight `control_behavior.filters` without `sections`
+for the combinator shape migration in `Blueprint.ts`. Both were covered only by
+hand-built blueprints from `tests/helpers/encode-blueprint.ts` until now. It
+costs 2,545 characters, about 0.05% of the corpus.
+
+`corner-defense-1-1-34.txt` is the second pre-2.0 file and buys the corpus's
+thinnest grid-reading family. Gates pick a sprite from their neighbours, and
+the whole corpus held 240 of them; this adds 24, plus 196 `stone-wall` in a
+defensive line rather than a factory wall.
+
+`beacon-mall-2-0-43.txt` is kept for underground-belt pairing density. Pairing
+is one of the grid-reading `draw_*` functions, and the ratio is what matters
+rather than the count: the corpus runs 28,376 undergrounds against 110,008
+belts, about 26%, while this file runs 230 against 440, about 52%. Nothing else
+here weaves undergrounds that tightly.
+
+`mining-outpost-2-0-73.txt` carries the only entity name in all seven that the
+real half of the suite lacked: `electric-mining-drill`, 175 of them. It was
+reachable before only through the synthetic blueprint, which by construction
+spaces entities so none of them touch.
+
+The three left out add nothing the corpus does not already hold, and a corpus
+file is not free - see "Facts the test suite depends on" at the end of this
+file.
+
+### The pinned fixtures for these four are not recorded yet
+
+Adding these files changes every corpus-derived fixed point in the browser
+suite, and **none of them has been moved**. Until they are, the Playwright job
+fails and this collection is not mergeable. That is deliberate rather than an
+oversight: those values are fixed points, the only honest way to change one is
+to measure it, and the machine these files were added on cannot run Playwright
+at all. A guessed fixture is worse than a red one - it passes.
+
+What has to be re-recorded, against a run with all 16 files present:
+
+- `tests/blueprint-round-trip.spec.ts`, `EXPECTED` - all of it. `blueprints`
+  367 to 372 and `entities` 347,725 to 350,862 are already known from decoding
+  the strings, but `tiles`, `wires` and `icons` should be re-measured rather
+  than copied from this file, and `positionChecksum`,
+  `modelPositionChecksum` and `serializedHash` can only come from a run.
+- `tests/sprite-data.spec.ts` - the bare `expect(blueprintCount).toBe(367)`,
+  plus `real` and `noGridReal` in `tests/__fixtures__/sprite-data.json`. The
+  `synthetic`, `noGrid` and `paintPreview` halves are built from `data.json`
+  rather than from the corpus and should not move; if one does, that is a
+  finding, not a re-record.
+- `tests/entity-accessors.spec.ts`, `EXPECTED` - `entityCount`,
+  `blueprintCount`, and every bucket in `shape` and `values`.
+- `tests/overlay-container.spec.ts`, `EXPECTED_REAL`. Watch
+  `electric-mining-drill` in particular: it is in `EXPECTED_SYNTHETIC` and not
+  in `EXPECTED_REAL`, and `mining-outpost` is what puts it there.
+- `tests/sprite-generation.spec.ts`, `EXPECTED_FAILURES` - only if the new
+  files reach a sprite path the corpus did not. Expected to stay empty.
+
+`tests/helpers/blueprint-files.test.ts` is the one that moved with these files,
+because it names the collections and runs under `vp test` rather than
+Playwright, so it could be measured here.
+
+- The 653-character one, `起手红瓶`, holds 21 entities across 4 names and not a
+  single member of any grid-reading family. It was reported alongside a "click
+  on assembler, screen goes blank" complaint, and that is a real thing to chase,
+  but not here: these specs cover decode to model to render and serialize, and
+  none of them clicks an entity. A click crash needs a targeted spec with a
+  blueprint built for it.
+- The `Micro grid` book, 651 entities, is 492 pipes and 88 rails against a
+  corpus that already holds 27,275 pipes and 34,740 rails, the latter including
+  a book that is nothing but a rail network.
+- The 267-entity unlabelled one is 147 belts and 12 undergrounds, the same
+  families `beacon-mall` carries at four times the density. Its one distinction
+  is declaring 2.0.15, below this corpus's old floor of 2.0.32 - which buys
+  nothing, because every version gate in the editor sits at 2.0.0 or below, so
+  2.0.15 and 2.0.32 fall on the same side of all of them.
+
 ## What the set is chosen for
 
 Not popularity. Two of the most-favourited blueprints on factorio.school for
@@ -120,18 +241,31 @@ pipes in arrangements nothing else covers.
 
 ## Facts the test suite depends on
 
-Re-derive these rather than trusting them; they were measured on 2026-08-05.
+Re-derive these rather than trusting them. The first line was re-measured on
+2026-09-04, when UPSTREAM-277 was added; the rest date from 2026-08-05.
 
-- **12 files, 367 flattened blueprints** (a nested book contributes its contents,
-  not itself), 347,725 entities, 232,815 tiles, 4.68 MB.
+- **16 files, 372 flattened blueprints** (a nested book contributes its contents,
+  not itself), 350,862 entities, 232,815 tiles, 49,257 wires, 970 icons,
+  4,910,200 bytes on disk (4.68 MiB).
+  The flattened count excludes 17 planners - 11 deconstruction and 6 upgrade -
+  which are nodes in these books but are not blueprints and are not counted as
+  such by any spec. Before UPSTREAM-277 the figures were 12 files, 367
+  blueprints, 347,725 entities, 48,869 wires, 956 icons.
 - **Zero unknown prototypes.** Every entity name and tile name resolves against
   `packages/exporter/data/output/data.json`. Adding a file that does not hold
   this breaks `blueprint-loading.spec.ts` and `tests/unknown-prototypes.spec.ts`
-  at once.
-- **Declared versions run 2.0.32 to 2.1.12**, all post-2.0. So the corpus still
-  cannot reach any pre-2.0 branch - `nameMigrations.ts`, and the two shape
-  migrations in `Blueprint.ts`. Those need a synthetic blueprint at a chosen
-  version, which is what `tests/helpers/encode-blueprint.ts` is for.
+  at once. One name needs a migration to get there: the four
+  `logistic-chest-storage` in `UPSTREAM-277/combat-robot-capsules-1-1-69.txt`
+  resolve only because `nameMigrations.ts` renames them to `storage-chest`
+  under its pre-2.0 gate. That is the point of the file, and it also means a
+  regression in that gate now shows up as an unknown prototype.
+- **Declared versions run 1.1.34 to 2.1.12.** Until UPSTREAM-277 they were all
+  post-2.0 and no pre-2.0 branch was reachable from here at all. Two files now
+  reach some of it - the rename table in `nameMigrations.ts` and the combinator
+  shape migration in `Blueprint.ts`. The rest still needs a synthetic blueprint
+  at a chosen version, which is what `tests/helpers/encode-blueprint.ts` is for:
+  nothing here holds an array-shaped `request_filters`, so that half of the
+  shape migrations stays synthetic-only.
 - **Every file starts with `0`**, the plain blueprint-string form, so the
   `?source=` handlers in `bpString.ts` are unreachable from here by
   construction. `tests/blueprint-sources.spec.ts` covers those instead.
@@ -141,3 +275,9 @@ Adding a file moves five sets of pinned fixture values -
 `entity-accessors`, `blueprint-round-trip` and `overlay-container`, plus
 possibly `EXPECTED_FAILURES` in `sprite-generation`. Those are fixed points with
 no re-record path on purpose. Weigh what a new file buys against that.
+
+Two of those are worth naming exactly, because they are counts rather than
+tallies and so read as harmless: `blueprint-round-trip.spec.ts` pins
+`blueprints: 367` alongside two position checksums and a hash of every
+serialized blueprint, and `sprite-data.spec.ts` asserts `blueprintCount` is
+367 on its own line. Both are now 372.

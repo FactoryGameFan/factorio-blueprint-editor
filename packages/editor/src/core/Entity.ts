@@ -362,6 +362,19 @@ export class Entity extends EventEmitter<EntityEvents> {
             .commit()
     }
 
+    /**
+     * The 16-way direction this entity's hidden underground connection runs in,
+     * which is also the direction its partner has to be searched for in.
+     *
+     * An input faces the way it points; an output's connection comes from
+     * behind it. Anything without a directionType - a pipe-to-ground, which
+     * stores none - takes the output form, which is the convention every caller
+     * already used before this getter collected them.
+     */
+    public get undergroundSearchDirection(): number {
+        return this.directionType === 'input' ? this.direction : (this.direction + 8) % 16
+    }
+
     /** Entity recipe */
     public get recipe(): string | undefined {
         return this.m_rawEntity.recipe
@@ -1311,7 +1324,7 @@ export class Entity extends EventEmitter<EntityEvents> {
                         this.name,
                         this.direction,
                         this.position,
-                        this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
+                        this.undergroundSearchDirection,
                         isUndergroundBelt(this.entityData)
                             ? this.entityData.max_distance
                             : undefined

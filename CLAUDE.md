@@ -24,8 +24,8 @@ closing references such as `Closes #123` in the pull request body.
 
 ## Setup and commands
 
-The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Put
-`~/.vite-plus/bin` on `PATH`; the root package requires npm 12.
+The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Prepend
+`~/.vite-plus/bin` to `PATH`; the root package requires npm 12.
 
 ```sh
 curl -fsSL https://vite.plus -o vp-install.sh
@@ -38,6 +38,32 @@ vp install
 layout and puts the binaries in `~/.local/share/vite-plus/bin`, so dropping it
 makes the `PATH` line above wrong and `vp` looks missing rather than misplaced.
 `.github/actions/setup-vp/action.yml` pins the same layout for the same reason.
+
+Prepend rather than append, because Vite+ works through shims. It installs
+`node`, `npm`, `npx` and `corepack` into that one directory, and each of them
+resolves a version per directory at the moment you run it. Any other `node` or
+`npm` earlier on `PATH` wins instead, and the shims are then never consulted.
+
+Node and npm are two separate pins, which is the part worth knowing. The Node
+version comes from `.node-version` (24.20.0). The npm version comes from
+`devEngines.packageManager` in the root `package.json`, and Vite+ keeps it in
+`~/.vite-plus/package_manager/npm/<version>/` rather than using the one inside
+the Node install. That matters because the npm bundled inside Node 24.20.0 is
+11.19.0. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
+satisfy this repo whichever Node it selects, because npm 12 comes from Vite+
+and from nowhere else.
+
+The symptom when something else's npm wins is `EBADDEVENGINES`:
+
+```
+npm error EBADDEVENGINES Invalid semver version "^12" does not match "11.19.0"
+```
+
+Every `npm` and `npx` command fails that way, including the `npx tsc` line
+below, which reads as a broken repository rather than a misordered `PATH`.
+`vp env doctor` identifies it - the PATH section marks each tool `(vp shim)` or
+`(not vp shim)` - but it reports the mismatch as a warning and still ends in
+`All checks passed`, so read that section rather than the verdict.
 
 Common commands:
 
@@ -135,6 +161,12 @@ Key files:
   blueprints without a version. Do not treat a missing version as version zero.
 - Keep migrations conditional on the blueprint's declared version. Current
   Factorio can reuse an old prototype name.
+- A blueprint book's `active_index`, and the `index` on each of its entries,
+  are inventory **slots**, not positions in the `blueprints` array. A book with
+  empty slots exports a dense array with sparse `index` values, so
+  `blueprints[active_index]` is the wrong lookup and can be out of range
+  entirely. An active slot that holds nothing is legal and means the first
+  blueprint. Measured in the shipped binary; `Book.ts` carries the citation.
 - Entity accessors preserve the distinction between absent values and empty or
   zero values. Tests in `entity-accessors.spec.ts` pin this behavior.
 - Logistic filter writes must retain unknown sections and per-filter quality,
@@ -171,11 +203,20 @@ have more than one shape; read them through `localisedName()`.
 
 Unit tests cover pure model and rendering decisions. Playwright covers the
 decode → model → render/serialize path with loaded Factorio data and the real
-browser UI. The committed corpus is useful for modern blueprints but does not
-cover pre-2.0 migrations; create a synthetic blueprint at the required version
-with `tests/helpers/encode-blueprint.ts` for those branches.
+browser UI. The committed corpus is mostly modern blueprints and reaches only
+part of the pre-2.0 work: the `UPSTREAM-277` collection added two 1.1-era files
+that exercise the rename table in `nameMigrations.ts` and the combinator shape
+migration in `Blueprint.ts`, but no committed blueprint holds an array-shaped
+`request_filters`. For that branch, and for any version you need exactly,
+create a synthetic blueprint with `tests/helpers/encode-blueprint.ts`.
 
-Browser tests use `window.__fbe_test` to load sources without URL-length limits.
+Browser tests use `window.__fbe_test` to load sources without URL-length
+limits. That hook is assigned only under `import.meta.env.DEV` (#292), so the
+specs need the dev server `npm run localpreview` starts. Run against
+`vp preview` / `preview:website` - a production bundle, no hook - every spec
+instead burns its 60s wait on a function that never appears, and the only
+symptom is a timeout that names nothing (#321). `vp preview` binds 4173, not
+8080, so that mistake surfaces as a connection refused rather than a hang.
 Tests that dispatch pointer input should call `suppressOverlays(page)` before
 navigation so toasts and the settings panel cannot intercept events. Do not
 edit files while a Playwright run is active: Vite reloads the page and destroys
@@ -183,6 +224,75 @@ the test's execution context.
 
 CI runs checks, Rust builds on Linux and Windows, four Playwright shards, and a
 Cloudflare deployment after both checks and browser tests pass.
+
+### Running the browser suite under WSL2
+
+Chromium's default settings destroy the whole WSL virtual machine, not just the
+browser process - `Wsl/Service/E_UNEXPECTED`, needing `wsl.exe --shutdown` to
+recover. It is not a missing-library fault: the binary starts and prints its
+version, then the VM dies when a page renders. The cause is the GPU
+paravirtualisation path, since WSLg is running and `/dev/dxg` is present, so
+Chromium crosses into the Windows GPU driver. Forcing software rendering keeps
+it inside the VM.
+
+`playwright.wsl.config.ts` spreads the committed config and adds those flags.
+CI is unaffected - it applies only when passed explicitly:
+
+```sh
+export DISPLAY= WAYLAND_DISPLAY=
+npx playwright test --config playwright.wsl.config.ts
+```
+
+Blanking those two variables is required, not cosmetic: they are what attaches
+Chromium to WSLg in the first place.
+
+`playwright install-deps` needs root, and on a machine where `sudo -n` fails the
+libraries can be unpacked into a private prefix instead - `apt-get download`
+needs no root:
+
+```sh
+apt-get download libnspr4 libnss3 libasound2t64
+for f in *.deb; do dpkg -x "$f" ~/pw-libs; done
+export LD_LIBRARY_PATH=~/pw-libs/usr/lib/x86_64-linux-gnu
+```
+
+Re-run `ldd` on the Chromium binary after a Playwright upgrade; the missing set
+can grow.
+
+**Software rendering does not reproduce every spec, so know which half you are
+in before recording a fixture from a local run.** Measured 2026-09-04 against a
+clean base branch that is green in CI:
+
+| Spec                               | Local under swiftshader |
+| ---------------------------------- | ----------------------- |
+| `blueprint-round-trip.spec.ts`     | passes                  |
+| `entity-accessors.spec.ts`         | passes                  |
+| `sprite-data.spec.ts` (both cases) | passes                  |
+| `overlay-container.spec.ts`        | **fails**               |
+| `sprite-generation.spec.ts`        | **fails**               |
+
+The two failures are the same page error, and it is the renderer rather than
+the model:
+
+```
+TypeError: Failed to execute 'drawImage' on 'CanvasRenderingContext2D':
+The provided value is not of type '(CSSImageValue or HTMLCanvasElement or ...)'
+```
+
+Both specs assert `pageErrors` is empty, so they fail on that line rather than
+on a value. The specs whose pins are model-level checksums and tallies are
+unaffected and can be recorded here; **`overlay-container` and
+`sprite-generation` must be recorded from CI.** Re-check this table rather than
+assuming it, because which specs touch a canvas can change.
+
+**Do not try removing `--disable-software-rasterizer` to fix those two.** It
+sits next to `--use-gl=swiftshader` and reads as a contradiction, because
+SwiftShader is the software rasterizer, so it looks like the cause of the
+`drawImage` failure. Measured on WSL2 at `ece449f5`, it is not. With that one
+flag dropped and every other flag kept, the two specs go from 2 of their 4 tests
+failing to all 4, `drawImage` disappears from the log entirely, and
+`waitForEditor` times out after 120 s because the editor never initialises. The
+flag is load-bearing in the opposite direction from the guess.
 
 Two rules the specs cannot enforce:
 
@@ -229,6 +339,33 @@ but both route sprite compression through the same implementation in
 is `packages/worker/wrangler.jsonc`; GitHub Actions deploys after checks and e2e
 tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`.
+
+## Visitor counts
+
+Two counters measure the same thing from opposite sides, and they are meant to
+disagree.
+
+- Cloudflare Web Analytics. `packages/website/vite.config.js` injects the beacon
+  at build time when `CF_BEACON_TOKEN` is set, which only the deploy job does.
+  Unset, the tag is omitted and the build is otherwise identical. Read it in the
+  Cloudflare dashboard. It counts sessions that ran JavaScript, so ad blockers
+  and crawlers are missing from it.
+- A server-side count in the Worker. `packages/worker/src/visitorCount.ts` holds
+  the rules and the definition: one GET of `/` per IP + User-Agent +
+  Accept-Language per UTC day, deduped in the Cache API and written to the
+  `fbe_unique_visitors` Analytics Engine dataset. Nothing identifying is stored;
+  the fingerprint is a cache key and never reaches the dataset. Analytics Engine
+  has no dashboard, so read it over the SQL API with the query in the
+  `recordVisit` comment in `packages/worker/src/index.ts` - and note it has no
+  `uniq()` or `COUNT(DISTINCT)`, which is why deduplication happens at write
+  time and a query is a plain `SUM(_sample_interval)`.
+
+Neither number is exact. The Worker count runs high (per-colo dedupe, a
+check-then-act race inside that dedupe, and crawlers that send a browser's
+`Accept`); the beacon runs low. The gap between them is the useful part.
+
+`tests/visitor-count.test.ts` covers the pure rules and pins the beacon's hosts
+against the CSP in `packages/website/public/_headers` that permits them.
 
 ## Known limits
 

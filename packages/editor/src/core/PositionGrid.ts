@@ -725,6 +725,22 @@ export class PositionGrid {
         return entity
     }
 
+    /**
+     * The entity number of the underground partner of an entity, if it has one.
+     *
+     * Walks `searchDirection` one tile at a time out to `maxDistance`, and stops
+     * at the first entity of the same name it meets: that entity is the partner
+     * when it faces `direction`, and blocks the pair when it faces the opposite
+     * way, exactly as Factorio's own underground connections do.
+     *
+     * `searchDirection` is a 16-way direction (north 0, east 4, south 8, west
+     * 12), which is what all three callers pass. It used to be read as Factorio
+     * 1.1's 8-way scheme - `searchDirection % 4 !== 0` for a horizontal search
+     * and a negative step for 0 or 6 - and neither test survives the 16-way
+     * values: every cardinal is a multiple of 4, so an east or west underground
+     * searched along Y and could never find its partner, and 6 is not a
+     * direction at all, so west searched towards +X (issue #329).
+     */
     public getOpposingEntity(
         name: string,
         direction: number,
@@ -735,12 +751,13 @@ export class PositionGrid {
         // no reach to search along; the loop below already expressed this by not running
         if (maxDistance === undefined) return undefined
 
-        const horizontal = searchDirection % 4 !== 0
-        const sign = searchDirection === 0 || searchDirection === 6 ? -1 : 1
+        const step = util.getDirOffset(searchDirection)
+        // a diagonal has no axis to walk, so nothing can be its partner
+        if (step === undefined) return undefined
 
         for (let i = 1; i <= maxDistance; i++) {
-            const X = Math.floor(position.x) + (horizontal ? i * sign : 0)
-            const Y = Math.floor(position.y) + (horizontal ? 0 : i * sign)
+            const X = Math.floor(position.x) + step.x * i
+            const Y = Math.floor(position.y) + step.y * i
             const cell = this.grid.get(`${X},${Y}`)
 
             if (typeof cell === 'number') {

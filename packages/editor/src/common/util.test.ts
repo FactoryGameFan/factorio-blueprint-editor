@@ -160,6 +160,28 @@ describe('getDirName', () => {
     })
 })
 
+describe('getDirOffset', () => {
+    /*
+        Y grows downwards, so north is -Y. The four answers here are what
+        PositionGrid.getOpposingEntity walks the grid by, and what the old
+        8-way arithmetic got wrong for east and west (#329).
+    */
+    it.each([
+        [0, { x: 0, y: -1 }],
+        [4, { x: 1, y: 0 }],
+        [8, { x: 0, y: 1 }],
+        [12, { x: -1, y: 0 }],
+    ])('direction %i steps by %o', (dir, expected) => {
+        expect(util.getDirOffset(dir)).toEqual(expected)
+    })
+
+    // unlike getDirName it degrades rather than throwing, because its callers
+    // are walking a blueprint and one odd direction should cost one connection
+    it('a diagonal direction has no offset', () => {
+        expect(util.getDirOffset(2)).toBeUndefined()
+    })
+})
+
 describe('vectorToTuple', () => {
     it('passes a tuple through', () => {
         expect(util.vectorToTuple([1, 2])).toEqual([1, 2])
