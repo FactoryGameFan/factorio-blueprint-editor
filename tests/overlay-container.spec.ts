@@ -141,6 +141,17 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
  * filter icons), the combinators carry signals, and fast-inserter and splitter
  * show both states - [-1, 1] means some are configured and some are not, which
  * is the discrimination that would be lost if a branch started skipping.
+ *
+ * `boiler`, `steam-engine` and `fast-splitter` arrived with the slot fix in
+ * Book.ts. This spec renders whatever page a corpus book opens on, and
+ * EARN/power-blocks-v22-0-8.rev-1 declares active_index 5 against slots
+ * [0,1,6,7,8,9,10,12,13] - slot 5 is empty, so it now opens on page 0, a power
+ * block, rather than on array position 5. Those three names are what page 0
+ * draws.
+ *
+ * The check that this is a page change and not a branch that stopped firing:
+ * the run added three keys and removed none. A skipping branch would show up
+ * as a removal or a shortened array, never as a pure addition.
  */
 const EXPECTED_REAL: Record<string, number[]> = {
     'arithmetic-combinator': [2],
@@ -148,6 +159,7 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'assembling-machine-2': [1, 3],
     'assembling-machine-3': [-1, 1, 2, 3, 4],
     biochamber: [2, 4],
+    boiler: [2],
     'buffer-chest': [1],
     'bulk-inserter': [-1, 1],
     'burner-inserter': [-1, 1],
@@ -161,6 +173,7 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'electromagnetic-plant': [1, 2, 4],
     'express-splitter': [-1, 1],
     'fast-inserter': [-1, 1],
+    'fast-splitter': [-1, 1],
     foundry: [2, 4],
     'fusion-generator': [2],
     'fusion-reactor': [2],
@@ -176,6 +189,7 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'rocket-silo': [1],
     splitter: [-1, 1],
     'stack-inserter': [-1, 1],
+    'steam-engine': [2],
     'steam-turbine': [2],
     'storage-chest': [1],
     'turbo-splitter': [-1, 1],
