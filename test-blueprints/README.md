@@ -245,7 +245,7 @@ Re-derive these rather than trusting them. The first line was re-measured on
 2026-09-04, when UPSTREAM-277 was added; the rest date from 2026-08-05.
 
 - **16 files, 372 flattened blueprints** (a nested book contributes its contents,
-  not itself), 350,862 entities, 232,815 tiles, 49,182 wires, 970 icons,
+  not itself), 350,862 entities, 232,815 tiles, 49,257 wires, 970 icons,
   4,910,200 bytes on disk (4.68 MiB).
   The flattened count excludes 17 planners - 11 deconstruction and 6 upgrade -
   which are nodes in these books but are not blueprints and are not counted as
