@@ -203,9 +203,12 @@ have more than one shape; read them through `localisedName()`.
 
 Unit tests cover pure model and rendering decisions. Playwright covers the
 decode → model → render/serialize path with loaded Factorio data and the real
-browser UI. The committed corpus is useful for modern blueprints but does not
-cover pre-2.0 migrations; create a synthetic blueprint at the required version
-with `tests/helpers/encode-blueprint.ts` for those branches.
+browser UI. The committed corpus is mostly modern blueprints and reaches only
+part of the pre-2.0 work: the `UPSTREAM-277` collection added two 1.1-era files
+that exercise the rename table in `nameMigrations.ts` and the combinator shape
+migration in `Blueprint.ts`, but no committed blueprint holds an array-shaped
+`request_filters`. For that branch, and for any version you need exactly,
+create a synthetic blueprint with `tests/helpers/encode-blueprint.ts`.
 
 Browser tests use `window.__fbe_test` to load sources without URL-length
 limits. That hook is assigned only under `import.meta.env.DEV` (#292), so the
