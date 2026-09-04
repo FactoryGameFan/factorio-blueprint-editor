@@ -218,3 +218,105 @@ test('a numeric-only box rejects what does not match its restriction', async ({ 
     await page.keyboard.type('9')
     expect(await valueOf(page, '479')).toBe('479')
 })
+
+/*
+    Same inline-style filter as textInputValues, plus whether the element is
+    currently on screen. `display` rather than a bounding box: _setDOMInputVisible
+    is what writes it, and a zero-sized box would also be what an element that
+    has not been positioned yet reports.
+*/
+const textInputVisibility = (page: Page): Promise<{ value: string; shown: boolean }[]> =>
+    page.evaluate(() =>
+        ([...document.querySelectorAll('input, textarea')] as HTMLInputElement[])
+            .filter(el => el.style.cssText !== '')
+            .map(el => ({ value: el.value, shown: el.style.display !== 'none' }))
+    )
+
+/*
+    A frame has to run before any of these reads. _onAdded hides the element and
+    only onRender -> _updateDOMInput puts it back, so a read taken straight after
+    the click that opened the dialog races the renderer: measured, 1 run in 6 came
+    back with all six fields hidden and the test failing on its first assertion.
+
+    Two frames rather than one, because the first callback can be queued ahead of
+    pixi's own render. A timeout would also have worked and would have hidden the
+    reason - and it matters here beyond flakiness: the middle assertion expects
+    everything hidden, which an unrendered frame satisfies for the wrong reason.
+*/
+const nextFrame = (page: Page): Promise<void> =>
+    page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+
+test('a dialog opened on top hides the DOM fields of the one underneath', async ({ page }) => {
+    /*
+        The one thing about TextInput that no pixi assertion can reach. Its
+        element sits on document.body over the canvas, so a dialog drawn on top
+        of the one that owns it cannot cover it: before this was handled, opening
+        the icon picker over Blueprint Info left six fields showing through it -
+        the name box printing "Blueprint" across the picker's slot row, and five
+        more invisible only because their background is none, all still answering
+        elementFromPoint and so eating the clicks aimed at the slots underneath.
+
+        Both halves matter and they fail differently. Hiding on open is the bug;
+        showing again on close is what a fix that only ever hides gets wrong, and
+        that one is worse, since the fields never come back for the rest of the
+        session. Mutation-checked: dropping the updateDOMInputVisibility call from
+        Dialog's constructor fails the middle assertion only, and dropping it from
+        close() fails the last one only.
+
+        Blueprint Info is used rather than an entity editor because it is the
+        dialog that both owns TextInputs and opens a second dialog over itself.
+    */
+    await suppressOverlays(page)
+    await page.goto('/')
+    await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
+
+    // Through the test hook rather than clicking the corner button's own
+    // hardcoded (152, 6) - a second hand-copy of BlueprintInfoButton's
+    // position, which this PR already moved once (#243 review).
+    await page.evaluate(() => (window as any).__fbe_test.openBlueprintInfoEditor())
+    await nextFrame(page)
+    const opened = await textInputVisibility(page)
+    // Name, description, and BlueprintAlignment's grid width/height, grid
+    // position x/y, and absolute x/y.
+    expect(opened.map(f => f.shown)).toEqual([true, true, true, true, true, true, true, true])
+
+    /*
+        The first icon slot, at dialog-local (12, 119) and 36 across, opens the
+        picker as a second dialog. Read the dialog's own bounds rather than
+        assuming where it sits: Dialog.setPosition centres it on the screen.
+    */
+    const info = await page.evaluate(() => (window as any).__fbe_test.topDialogBounds())
+    await page.mouse.click(info.x + 12 + 18, info.y + 119 + 18)
+    expect(await page.evaluate(() => (window as any).__fbe_test.openDialogCount())).toBe(2)
+    await nextFrame(page)
+
+    expect((await textInputVisibility(page)).map(f => f.shown)).toEqual([
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+    ])
+
+    await page.keyboard.press('Escape')
+    expect(await page.evaluate(() => (window as any).__fbe_test.openDialogCount())).toBe(1)
+    await nextFrame(page)
+    expect((await textInputVisibility(page)).map(f => f.shown)).toEqual([
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+    ])
+})

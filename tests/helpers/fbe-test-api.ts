@@ -49,6 +49,28 @@ export interface TestFilterSlot extends Omit<TestFilter, 'name'> {
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
+    /** Opens BlueprintInfoEditor. See tests/blueprint-grid-position.spec.ts. */
+    openBlueprintInfoEditor: () => void
+    /**
+     * `Blueprint.getIcon(1..4)`, read directly rather than through a
+     * serialize() call - `encodeLoaded()` would work too, but `serialize()`
+     * regenerates empty icon slots on every call (by design, see
+     * `Blueprint.setIcon`'s own doc comment), which makes it unable to tell
+     * "undo removed the regenerated icon" from "nothing happened and
+     * serialize() regenerated it again anyway" - both look identical
+     * through a re-serialize. See tests/blueprint-info-editor.spec.ts.
+     */
+    blueprintIcons: () => (string | undefined)[]
+    /**
+     * `Blueprint.createEntity`, driven directly rather than through the
+     * canvas. A write hook for the same reason `setEntityFilters` is one:
+     * every user path that creates an entity starts with a click on the
+     * canvas, and that click blurs whatever DOM field was focused first - so
+     * a spec that needs an entity to appear *while* a dialog field still
+     * holds the keyboard cannot get there by driving the real input. See
+     * tests/blueprint-info-editor.spec.ts.
+     */
+    createEntity: (name: string, x: number, y: number) => void
     /** Opens ImportDialog. See tests/quick-actions.spec.ts. */
     openImportDialog: () => void
     /** Opens ExportDialog. See tests/quick-actions.spec.ts. */

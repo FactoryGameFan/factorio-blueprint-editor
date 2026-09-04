@@ -445,6 +445,15 @@ const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
     /**
+     * Opens BlueprintInfoEditor, whose persistent button has no keybind of
+     * its own. See tests/blueprint-grid-position.spec.ts.
+     */
+    openBlueprintInfoEditor: () => editor.openBlueprintInfoEditor(),
+    blueprintIcons: () => [1, 2, 3, 4].map(i => bp.getIcon(i as 1 | 2 | 3 | 4)),
+    createEntity: (name: string, x: number, y: number) => {
+        bp.createEntity({ name, position: { x, y } })
+    },
+    /**
      * Opens ImportDialog, ToolsPanel's Import slot with no keybind of its own
      * to reach it by. See tests/quick-actions.spec.ts.
      */

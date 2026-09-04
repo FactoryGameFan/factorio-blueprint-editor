@@ -129,6 +129,23 @@ const ALLOWLIST: AllowedChord[] = [
             'DOM input has focus at that point in the spec.',
     },
     {
+        file: 'blueprint-grid-position.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. Both presses follow blurToCanvas() " +
+            'and closing the dialog with Escape, so no DOM input has focus by then.',
+    },
+    {
+        file: 'blueprint-info-editor.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. Each press follows either a " +
+            'checkbox click, a click on the dialog title bar away from any field, ' +
+            'or no dialog interaction at all, so no DOM input has focus by then.',
+    },
+    {
         file: 'quick-actions.spec.ts',
         chord: 'Control+KeyZ',
         reason:

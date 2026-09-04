@@ -188,10 +188,44 @@ class OriginalTextInput extends Container {
 
     public set text(text: string) {
         this._dom_input.value = text
+        /*
+            `_restrict_value` used to be written only inside
+            `_applyRestriction`, on a real keystroke - a programmatic
+            assignment (every constructor, and every commit-then-redisplay
+            in the dialogs above this) fires no `input` event, so it left
+            `_restrict_value` at its constructor default of `''` regardless
+            of what `.text` had just been set to. The first *rejected*
+            keystroke afterwards then rolled the field back to that stale
+            `''` rather than to what was actually showing (#243 review) -
+            reachable the moment anything committed on blur and let a bad
+            character reach `_applyRestriction` before the field had ever
+            legitimately changed by typing.
+        */
+        this._restrict_value = text
     }
 
     public get htmlInput(): HTMLInputElement | HTMLTextAreaElement {
         return this._dom_input
+    }
+
+    public get domVisible(): boolean {
+        return this._dom_visible
+    }
+
+    /**
+     * Whether the element may show at all, independent of `visible`. False is
+     * how a dialog that is no longer the topmost one hides its fields: the
+     * element sits on document.body over the canvas, so no pixi dialog drawn
+     * above it can occlude it - it shows through, and goes on taking the
+     * clicks aimed at whatever covers it.
+     */
+    public set domVisible(visible: boolean) {
+        if (this._dom_visible === visible) return
+        this._dom_visible = visible
+        // _needsUpdate watches the transform and the canvas rect only, so no
+        // update is otherwise pending - a field that never moves again would
+        // keep the old visibility forever.
+        this._setDOMInputVisible(this.visible && visible)
     }
 
     public focus(): void {
@@ -274,7 +308,35 @@ class OriginalTextInput extends Container {
     }
 
     private _onInputInput(): void {
+        /*
+            What the field showed before this keystroke, for the restricted
+            case only - `_restrict_value` is the last value the restriction
+            accepted (and what `set text` writes, so a programmatic change
+            keeps it current too), which is exactly what `_applyRestriction`
+            rolls back to when it rejects.
+        */
+        const before = this._restrict_regex === undefined ? undefined : this._restrict_value
+
         if (this._restrict_regex !== undefined) this._applyRestriction(this._restrict_regex)
+
+        /*
+            A rejected keystroke leaves the field showing what it already
+            showed, so it is not a change and must not be reported as one.
+            This used to emit unconditionally: opening Blueprint Info on a
+            blueprint that never carried `position-relative-to-grid`, ticking
+            Snap to grid, clicking Absolute X (showing `0`) and typing a
+            single `a` was enough - the restriction threw the character away
+            and put `0` back, `'changed'` still fired,
+            `BlueprintAlignment.commitPosition` saw a dirty field on the next
+            blur and wrote `{x: 0, y: 0}`, and the exported string gained a
+            `position-relative-to-grid` key it had never had (#243 review).
+
+            Only the restricted case is gated. An unrestricted field's `input`
+            event already means the value changed - the browser does not fire
+            it otherwise - and there is nothing here that could have put the
+            old value back.
+        */
+        if (before !== undefined && this.text === before) return
 
         this.emit('changed')
     }
@@ -290,7 +352,7 @@ class OriginalTextInput extends Container {
 
     private _onBlurred(): void {
         this._setState('DEFAULT')
-        // this.emit('blur')
+        this.emit('blur')
     }
 
     private _onAdded(): void {
@@ -548,10 +610,13 @@ export class TextInput extends OriginalTextInput {
         // not subject to it at all).
         maxLength: number | undefined,
         numericOnly = false,
-        // For ImportDialog/ExportDialog's textarea: OriginalTextInput already
+        // For BlueprintInfoEditor's description field and
+        // ImportDialog/ExportDialog's textarea: OriginalTextInput already
         // supports a multiline (textarea) mode, but nothing before those
         // dialogs needed it through this wrapper, so it stopped at the
-        // single-line `<input>`.
+        // single-line `<input>`. A description is the one piece of text in
+        // the app that is genuinely multi-line rather than a single value
+        // that happens to be long.
         multiline = false,
         height?: number,
         // For ImportDialog's textarea, which wants the game's own import-field

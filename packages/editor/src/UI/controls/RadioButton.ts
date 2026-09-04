@@ -3,37 +3,23 @@ import { colors } from '../style'
 import F from './functions'
 import { ToggleControl } from './ToggleControl'
 
-/** Base Checkbox */
-export class Checkbox extends ToggleControl {
-    /** Checkmark Polygon */
-    // prettier-ignore
-    private static readonly CHECK_POLYGON = [
-        8,  8, 12,  8, 16, 12, 20, 12, 24,  8,
-       28,  8, 28, 12, 24, 16, 24, 20, 28, 24,
-       28, 28, 24, 28, 20, 24, 16, 24, 12, 28,
-        8, 28,  8, 24, 12, 20, 12, 16,  8, 12,
-        8,  8]
-
+/**
+ * A circular on/off indicator, visually distinct from `Checkbox`'s rounded
+ * square - for a choice between mutually exclusive options (BlueprintAlignment's
+ * Absolute/Relative) rather than an independent toggle. Does not enforce
+ * exclusivity itself: same division of responsibility as `Checkbox`, which
+ * doesn't know about any other checkbox either - the group is wired up by
+ * whoever owns both.
+ */
+export class RadioButton extends ToggleControl {
     public constructor(checked = false, text?: string) {
-        super(checked, text, Checkbox.drawGraphic, current => !current)
+        super(checked, text, RadioButton.drawGraphic, () => true)
     }
 
-    /**
-     * Draw Checkbox Graphic
-     * @param checked - Whether the checkbox graphic shall be checked
-     * @param hover - Whether the checkbox graphic shall be shown hovered
-     */
     private static drawGraphic(checked: boolean, hover: boolean, visible: boolean): Graphics {
         const graphic = new Graphics()
         graphic
-            .rect(2, 2, 32, 32)
-            .fill(
-                F.colorAndAlphaToColorSource(
-                    colors.controls.checkbox.background.color,
-                    colors.controls.checkbox.background.alpha
-                )
-            )
-            .roundRect(0, 0, 36, 36, 10)
+            .circle(18, 18, 16)
             .fill(
                 F.colorAndAlphaToColorSource(
                     hover
@@ -51,7 +37,7 @@ export class Checkbox extends ToggleControl {
             })
         if (checked) {
             graphic
-                .poly(Checkbox.CHECK_POLYGON)
+                .circle(18, 18, 8)
                 .fill(
                     F.colorAndAlphaToColorSource(
                         colors.controls.checkbox.checkmark.color,

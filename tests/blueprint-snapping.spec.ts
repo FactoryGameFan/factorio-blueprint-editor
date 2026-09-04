@@ -164,3 +164,35 @@ test('a grid position at the origin is carried as it arrived', async ({ page }) 
 
     expect(out['position-relative-to-grid']).toEqual({ x: 0, y: 0 })
 })
+
+test('absolute-snapping with no grid is stripped, not passed through', async ({ page }) => {
+    /*
+        A state the in-game GUI cannot reach: there is no way to set "absolute"
+        or a grid position without first turning `snap-to-grid` on. The fixture
+        row this comes from ("no-grid-absolute-set" in
+        tools/oracle/fixtures/blueprint-snapping.json) shows the game itself
+        will still WRITE `absolute-snapping: true` and a `position-relative-to-
+        grid` here if a mod forces the setters directly - but its own controls
+        mark that row unscored: re-importing what it wrote reads back as
+        `absolute: false, position: null`, so the write does not even survive
+        the game's own round trip. Forwarding it here would preserve a shape
+        that is not reachable through play and that the game itself cannot
+        reconstruct.
+
+        So this layer normalises it instead: `snap-to-grid` gates the other
+        two on serialize (Blueprint.ts's `snapToGrid && absoluteSnapping`),
+        which strips all three keys whenever there is no grid to be relative
+        to. Pinned so a future change to forward `absolute-snapping` and
+        `position-relative-to-grid` unconditionally - which would match the
+        game's raw `written` value for this one row - is a decision, not a
+        side effect.
+    */
+    const out = await serializedSnapping(page, {
+        'absolute-snapping': true,
+        'position-relative-to-grid': { x: 3, y: 5 },
+    })
+
+    expect(out['snap-to-grid']).toBeUndefined()
+    expect(out['absolute-snapping']).toBeUndefined()
+    expect(out['position-relative-to-grid']).toBeUndefined()
+})

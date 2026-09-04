@@ -37,7 +37,7 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
 }
 
 /**
- * The signal type for a name the editor picked itself, in `generateIcons`.
+ * The signal type for a name the editor picked itself, in `computeAutoIcons`.
  *
  * Only for that case. An icon that came from a blueprint keeps the type it
  * arrived with, because this cannot reproduce it: `wooden-chest` is an item, a
@@ -50,8 +50,8 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
  * 55.
  *
  * The 4 it still misses are planets, and they are deliberately not handled here.
- * `generateIcons` only ever passes an item name (`minable.result`) or an entity
- * prototype name, and no planet is either - checked against `data.json`, which
+ * `computeAutoIcons` only ever passes an item name (`minable.result`) or an
+ * entity prototype name, and no planet is either - checked against `data.json`, which
  * exports no planet in any of its eleven collections. A planet icon therefore
  * only ever arrives by being parsed, where its type is preserved rather than
  * derived. A `space-location` arm here would be unreachable.
@@ -121,11 +121,31 @@ export interface BlueprintEvents {
     'create-entity': [entity: Entity]
     'remove-entity': []
     'create-tile': [tile: Tile]
+    name: []
+    description: []
+    icon: [index: 1 | 2 | 3 | 4]
+    snapToGrid: []
+    absoluteSnapping: []
+    positionRelativeToGrid: []
+    gridPositionOffset: []
+}
+
+/** `IPoint`s compare by value everywhere they're read; this is the one place
+ * that needs to know whether a new one is actually a change. */
+function pointsEqual(a: IPoint | undefined, b: IPoint | undefined): boolean {
+    if (a === b) return true
+    if (a === undefined || b === undefined) return false
+    return a.x === b.x && a.y === b.y
 }
 
 /** Blueprint base class */
 class Blueprint extends EventEmitter<BlueprintEvents> {
-    public name = 'Blueprint'
+    // Boxed rather than bare fields, same reasoning as scheduleStore below:
+    // `History.updateValue` needs `keyof T` on whatever it is handed, and
+    // `keyof this` never includes a private member, so routing edits through
+    // `this` directly does not type check.
+    private readonly nameStore: { name: string } = { name: 'Blueprint' }
+    private readonly descriptionStore: { description?: string } = {}
     /*
         The whole signal, not just the name. An icon's type is a choice the
         blueprint made, and a name cannot be relied on to reproduce it: most
@@ -142,7 +162,6 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     public readonly history = new History()
 
     // unused blueprint properties
-    private readonly description?: string
     /*
         Boxed, unlike its neighbours, because it is the one of them that changes:
         `setSchedule` rewrites it when a locomotive is pasted onto (issue #115),
@@ -156,9 +175,47 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         editor, and nothing reads the contents.
     */
     private readonly scheduleStore: { schedules?: ISchedule[] } = {}
-    private readonly absolute_snapping?: boolean
-    private readonly snap_to_grid?: IPoint
-    private readonly position_relative_to_grid?: IPoint
+    // Boxed for the same reason as nameStore/descriptionStore above - editable
+    // now via BlueprintAlignmentEditor, so each needs a History.updateValue
+    // target `keyof this` cannot give it directly.
+    private readonly snapToGridStore: { snapToGrid?: IPoint } = {}
+    private readonly absoluteSnappingStore: { absoluteSnapping?: boolean } = {}
+    private readonly positionRelativeToGridStore: { positionRelativeToGrid?: IPoint } = {}
+    /**
+     * `BlueprintAlignment`'s "Grid position" field - carries no field of its
+     * own in the blueprint string, unlike `absoluteSnapping`/
+     * `positionRelativeToGrid` beside it, and is not directly settable
+     * through the game's own scripting API either (confirmed against
+     * `probe-blueprint-grid-position.mjs`, which set
+     * `blueprint_position_relative_to_grid` - that is Absolute X/Y, a
+     * different field, and its own conclusion that grid position leaves
+     * entities alone does not transfer). Round-tripping a real export
+     * directly through the game showed the opposite for the field this
+     * class means: typing a target there moves every entity so that
+     * `getGridPositionDisplay()`'s formula, applied to the result, equals
+     * what was typed - see that method's own doc comment for the formula.
+     *
+     * This store holds that shift, applied only inside `serialize()` against
+     * `computeExportCenter()`'s result - never against `entities`/`tiles`
+     * themselves. An earlier version moved every entity directly and relied
+     * on the shifted bounding box surviving into the export; that cannot
+     * work in *this* codebase, since `serialize()` re-centers on that same
+     * bounding box on every call, which any uniform translation is invisible
+     * to by construction - translating every entity by (dx, dy) moves the
+     * box's centre by exactly (dx, dy) too, so subtracting the (now-shifted)
+     * centre from the (now-shifted) positions always reproduces the
+     * pre-translation numbers. (The game itself evidently does not re-centre
+     * an export around its own bounding box the way this class does - a
+     * real export's entities sit nowhere near centred on their own bounding
+     * box - which is the other half of why moving entities here would not
+     * reproduce what the game does even if the recentre problem were fixed.)
+     * Storing the offset separately and applying it once, after the real
+     * centre is computed, is what a bounding-box recentre cannot undo - and
+     * it comes with tiles for free, since both loops in `serialize()`
+     * subtract the same adjusted centre and can no longer drift apart the
+     * way moving only entities did.
+     */
+    private readonly gridPositionOffsetStore: { gridPositionOffset?: IPoint } = {}
 
     private m_nextEntityNumber = 1
 
@@ -421,9 +478,10 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
             this.description = data.description
             this.scheduleStore.schedules = data.schedules
-            this.absolute_snapping = data['absolute-snapping']
-            this.snap_to_grid = data['snap-to-grid']
-            this.position_relative_to_grid = data['position-relative-to-grid']
+            this.snapToGridStore.snapToGrid = data['snap-to-grid']
+            this.absoluteSnappingStore.absoluteSnapping = data['absolute-snapping']
+            this.positionRelativeToGridStore.positionRelativeToGrid =
+                data['position-relative-to-grid']
         }
 
         // makes initial entities non undoable and resets the history if the user cleared the editor
@@ -431,6 +489,184 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.logging = G.debug
 
         return this
+    }
+
+    public get name(): string {
+        return this.nameStore.name
+    }
+
+    public set name(name: string) {
+        if (this.nameStore.name === name) return
+
+        this.history
+            .updateValue(this.nameStore, 'name', name, 'Change blueprint name')
+            .onDone(() => this.emit('name'))
+            .commit()
+    }
+
+    public get description(): string | undefined {
+        return this.descriptionStore.description
+    }
+
+    public set description(description: string | undefined) {
+        if (this.descriptionStore.description === description) return
+
+        this.history
+            .updateValue(
+                this.descriptionStore,
+                'description',
+                description,
+                'Change blueprint description'
+            )
+            .onDone(() => this.emit('description'))
+            .commit()
+    }
+
+    /** Undefined means snapping is off - the same absence that made the
+     * blueprint string omit `snap-to-grid` in the first place. */
+    public get snapToGrid(): IPoint | undefined {
+        return this.snapToGridStore.snapToGrid
+    }
+
+    public set snapToGrid(point: IPoint | undefined) {
+        if (pointsEqual(this.snapToGridStore.snapToGrid, point)) return
+
+        this.history.startTransaction('Change blueprint grid size')
+        this.history
+            .updateValue(this.snapToGridStore, 'snapToGrid', point, 'Change blueprint grid size')
+            .onDone(() => this.emit('snapToGrid'))
+            .commit()
+
+        /*
+            `gridPositionOffset` applies inside `serialize()` unconditionally
+            (see that store's own doc comment) - it has no field of its own
+            to omit the way `snap-to-grid`/`absolute-snapping`/`position-
+            relative-to-grid` do, so turning the grid off left it in place
+            with no field left enabled to zero it: every export stayed
+            shifted for the rest of the session, undo being the only way
+            back (#243 review). Bundled into the same transaction as the
+            write above, so switching the grid off and on again the same way
+            is one undo step, not two.
+        */
+        if (point === undefined) {
+            this.gridPositionOffset = { x: 0, y: 0 }
+        }
+        this.history.commitTransaction()
+    }
+
+    /**
+     * False (relative) is Factorio's own default - confirmed by decoding a
+     * real blueprint string exported with Relative selected: the game omits
+     * `absolute-snapping` entirely rather than writing `false`, the same way
+     * it omits `position-relative-to-grid` at `{0, 0}`. Only an explicit
+     * Absolute choice serializes the key, as `true`.
+     */
+    public get absoluteSnapping(): boolean {
+        return this.absoluteSnappingStore.absoluteSnapping ?? false
+    }
+
+    public set absoluteSnapping(value: boolean) {
+        if (this.absoluteSnapping === value) return
+
+        this.history
+            .updateValue(
+                this.absoluteSnappingStore,
+                'absoluteSnapping',
+                value,
+                'Change blueprint grid position mode'
+            )
+            .onDone(() => this.emit('absoluteSnapping'))
+            .commit()
+    }
+
+    /** Only meaningful while `absoluteSnapping` is true - Absolute is the
+     * mode the game actually carries a grid position under (issue #226);
+     * `serialize()` drops it under Relative regardless of what this holds. */
+    public get positionRelativeToGrid(): IPoint | undefined {
+        return this.positionRelativeToGridStore.positionRelativeToGrid
+    }
+
+    public set positionRelativeToGrid(point: IPoint | undefined) {
+        if (pointsEqual(this.positionRelativeToGridStore.positionRelativeToGrid, point)) return
+
+        this.history
+            .updateValue(
+                this.positionRelativeToGridStore,
+                'positionRelativeToGrid',
+                point,
+                'Change blueprint grid position'
+            )
+            .onDone(() => this.emit('positionRelativeToGrid'))
+            .commit()
+    }
+
+    /** See `gridPositionOffsetStore`'s own doc comment - a pure export-time
+     * shift, accumulated across every "Grid position" commit, never applied
+     * to `entities`/`tiles` themselves. */
+    public get gridPositionOffset(): IPoint {
+        return this.gridPositionOffsetStore.gridPositionOffset ?? { x: 0, y: 0 }
+    }
+
+    public set gridPositionOffset(point: IPoint) {
+        /*
+            Against the getter, not the raw store field. `pointsEqual(undefined,
+            {x: 0, y: 0})` is false, so an unset store compared raw differs from
+            the `{0, 0}` every reader of it already sees - and `commitGridPosition`
+            solves for exactly that value whenever the typed target matches what
+            is displayed. Clicking into Grid position X and straight back out
+            without typing anything therefore wrote `{0, 0}` over an absent
+            offset and pushed a `Change blueprint grid position offset`
+            transaction, so the next Ctrl+Z undid that instead of the user's
+            last real edit (#243 review). Absent and `{0, 0}` are the same
+            export - `serialize()` reads this getter - so this is the
+            comparison that matches what a write would actually change.
+        */
+        if (pointsEqual(this.gridPositionOffset, point)) return
+
+        this.history
+            .updateValue(
+                this.gridPositionOffsetStore,
+                'gridPositionOffset',
+                point,
+                'Change blueprint grid position offset'
+            )
+            .onDone(() => this.emit('gridPositionOffset'))
+            .commit()
+    }
+
+    /** The icon's name only - `icons` itself stores the whole `ISignal`
+     * (name and type both, see that field's own comment), but every
+     * caller here only ever wants the name back: `F.CreateIcon` resolves
+     * the type itself from FD, and `setIcon` below is the only writer. */
+    public getIcon(index: 1 | 2 | 3 | 4): string | undefined {
+        return this.icons.get(index)?.name
+    }
+
+    /**
+     * `serialize()` exports `computeAutoIcons()` instead whenever this map is
+     * empty, so clearing every slot by hand (all four `undefined`) is a real
+     * choice rather than a no-op - it puts the blueprint back into "auto" the
+     * same way it started, rather than locking in an all-empty icon set. This
+     * map holds only what someone chose; an auto icon is never written here.
+     *
+     * Takes a bare name, not a signal - every caller (the icon picker) only
+     * ever has a name to offer, so this derives the type the same way
+     * `computeAutoIcons`'s own local `setIcon` does. That is a real guess and
+     * not the "trust what was parsed" case issue #264 fixed - there is
+     * nothing parsed to trust for an icon the user is choosing fresh.
+     */
+    public setIcon(index: 1 | 2 | 3 | 4, name: string | undefined): void {
+        if (this.icons.get(index)?.name === name) return
+
+        this.history
+            .updateMap(
+                this.icons,
+                index,
+                name === undefined ? undefined : { name, type: deriveSignalType(name) },
+                'Change blueprint icon'
+            )
+            .onDone(() => this.emit('icon', index))
+            .commit()
     }
 
     public createEntity(rawData: IEntityData, connectPowerPole = false): Entity {
@@ -575,24 +811,40 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         return this.entities.isEmpty() && this.tiles.isEmpty()
     }
 
-    private getCenter(): IPoint {
-        if (this.isEmpty()) return { x: 0, y: 0 }
-
-        const data = [
+    /** Every entity's and tile's own footprint, `w`/`h` being the full tile
+     * size rather than a half-extent - shared by `getCenter()` and
+     * `getGridPositionDisplay()` so the two can't independently drift on
+     * what "this blueprint's content" means. */
+    private footprintData(): { x: number; y: number; w: number; h: number }[] {
+        return [
             ...this.entities
                 .valuesArray()
                 .map(e => ({ x: e.position.x, y: e.position.y, w: e.size.x, h: e.size.y })),
             ...this.tiles.valuesArray().map(t => ({ x: t.x, y: t.y, w: 1, h: 1 })),
         ]
+    }
 
-        const minX = data.reduce((min, d) => Math.min(min, d.x - d.w / 2), Infinity)
-        const minY = data.reduce((min, d) => Math.min(min, d.y - d.h / 2), Infinity)
+    /** The minimum corner of a `footprintData()` set - each entry's own edge,
+     * not its centre. Empty input answers `Infinity` on both axes; every
+     * caller here already guards on `isEmpty()` first. */
+    private minCorner(data: { x: number; y: number; w: number; h: number }[]): IPoint {
+        return {
+            x: data.reduce((min, d) => Math.min(min, d.x - d.w / 2), Infinity),
+            y: data.reduce((min, d) => Math.min(min, d.y - d.h / 2), Infinity),
+        }
+    }
+
+    private getCenter(): IPoint {
+        if (this.isEmpty()) return { x: 0, y: 0 }
+
+        const data = this.footprintData()
+        const min = this.minCorner(data)
         const maxX = data.reduce((max, d) => Math.max(max, d.x + d.w / 2), -Infinity)
         const maxY = data.reduce((max, d) => Math.max(max, d.y + d.h / 2), -Infinity)
 
         return {
-            x: Math.round((minX + maxX) / 2),
-            y: Math.round((minY + maxY) / 2),
+            x: Math.round((min.x + maxX) / 2),
+            y: Math.round((min.y + maxY) / 2),
         }
     }
 
@@ -777,11 +1029,49 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     }
 
     /** behaves like in Factorio 0.17.14 */
-    private generateIcons(): void {
-        // Only for an icon this method invents. A parsed one keeps the type it
-        // arrived with, which is the half no derivation can get right.
-        const setIcon = (index: 1 | 2, name: string): void => {
-            this.icons.set(index, { name, type: deriveSignalType(name) })
+    /**
+     * The icons `serialize()` exports for a blueprint carrying none of its
+     * own - including the "back to auto" case `setIcon`'s own doc comment
+     * describes, where clearing every slot by hand is a deliberate return to
+     * this.
+     *
+     * Computed and handed back rather than written anywhere. It used to
+     * write: first straight into `this.icons` (a plain Map, no History
+     * involved), then - to make that undoable, which was the right call for
+     * the bypass - through `setIcon` and History. But `serialize()` is what
+     * calls this, so copying became a write, and `commitTransaction` trims
+     * the redo stack before pushing: on a blueprint with no icons of its own,
+     * three edits, three undos and then one Ctrl+C threw all three redos
+     * away. The share URL and ExportDialog serialize too, so a read the user
+     * never asked for could cost them their redo stack (#243 review).
+     *
+     * Writing nothing also takes the escalation in #255 off this path for
+     * good. `getIconPairs` skips every entity with no `minable.result`, so a
+     * blueprint of nothing but a `space-platform-hub` produced an empty list
+     * and threw on `iconPairs[0][0]` (#254) - between a `startTransaction`
+     * and its `commitTransaction`, which left the transaction open and killed
+     * undo for the rest of the session. There is no transaction here to leave
+     * open now, and the empty list is handled below on its own terms besides.
+     *
+     * So an auto icon stays a derived reading of what the blueprint holds,
+     * the way `getGridPositionDisplay()` is: `this.icons` carries only what
+     * someone actually chose.
+     */
+    private computeAutoIcons(): Map<1 | 2 | 3 | 4, ISignal> {
+        const icons = new Map<1 | 2 | 3 | 4, ISignal>()
+        if (this.isEmpty()) return icons
+
+        /*
+            A local writer again, unlike the version that routed through the
+            class's own `setIcon` - that one existed to put these into
+            History, which is the write this no longer does. It derives the
+            same `{name, type: deriveSignalType(name)}` the class's setter
+            does for a fresh name (issue #264); nothing parsed is being
+            re-derived here, since this only ever runs when the blueprint
+            carried no icons to trust.
+        */
+        const setIcon = (index: 1 | 2 | 3 | 4, name: string): void => {
+            icons.set(index, { name, type: deriveSignalType(name) })
         }
 
         /** returns [iconName, count][] */
@@ -810,16 +1100,19 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             )
 
             if (iconPairs.length === 0) {
+                // No entity here can be mined into an item - name the icon
+                // after the first entity anyway rather than leaving the
+                // blueprint iconless (#254).
                 setIcon(1, this.entities.valuesArray()[0].name)
-                return
-            }
-            setIcon(1, iconPairs[0][0])
-            if (
-                iconPairs[1] &&
-                getSize(iconPairs[1][0]) > 1 &&
-                getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
-            ) {
-                setIcon(2, iconPairs[1][0])
+            } else {
+                setIcon(1, iconPairs[0][0])
+                if (
+                    iconPairs[1] &&
+                    getSize(iconPairs[1][0]) > 1 &&
+                    getItemScore(iconPairs[1]) * 2.5 > getItemScore(iconPairs[0])
+                ) {
+                    setIcon(2, iconPairs[1][0])
+                }
             }
         } else if (!this.tiles.isEmpty()) {
             const iconPairs = getIconPairs(this.tiles.valuesArray(), Tile.getItemName).sort(
@@ -828,9 +1121,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
             // Defensive only: every current tile has an item, and Factorio has
             // no tile signal type to use as a schema-valid fallback.
-            if (iconPairs.length === 0) return
-            setIcon(1, iconPairs[0][0])
+            if (iconPairs.length > 0) {
+                setIcon(1, iconPairs[0][0])
+            }
         }
+
+        return icons
     }
 
     /**
@@ -900,12 +1196,11 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             .commit()
     }
 
-    public serialize(): IBlueprint {
-        if (!this.icons.size) {
-            this.generateIcons()
-        }
-        const entityInfo = this.entities.valuesArray().map(e => e.serialize())
-        const wires = this.wireConnections.serializeBpWires()
+    /** `getCenter()` plus the rail-parity nudge `serialize()` and
+     * `getGridPositionDisplay()` both need - split out so the display method
+     * can match what an export would actually centre on without duplicating
+     * the parity arm. */
+    private computeExportCenter(): IPoint {
         const center = this.getCenter()
         const firstRailPos = this.getFirstRailRelatedEntityPos()
 
@@ -918,6 +1213,76 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             }
         }
 
+        return center
+    }
+
+    /**
+     * What "Grid position" should display right now - measured directly
+     * against the game rather than inferred from a screenshot (the #222
+     * mistake `probe-blueprint-grid-position.mjs`'s own header describes):
+     * typing a target into the field there moves every entity so that the
+     * floored, negated minimum corner of the blueprint's own content equals
+     * what was typed, and re-importing the result reproduces the same
+     * number. That is this formula, applied to what this model would
+     * currently export - `-floor(min x/y)` over every entity's and tile's
+     * position, offset by `gridPositionOffset` exactly the way `serialize()`
+     * offsets `computeExportCenter()`'s result, so the two stay in lockstep
+     * without duplicating that arithmetic.
+     *
+     * Reads the minimum corner through `minCorner(footprintData())` - the
+     * same footprint-edge reading `getCenter()` uses - rather than each
+     * entity's own centre. The two used to disagree without anything here
+     * being able to tell: every case measured so far used 1x1 entities on a
+     * half-integer centre, where centre-floor and edge-floor land on the
+     * same tile by construction. `tools/oracle/fixtures/blueprint-grid-
+     * position-gui.json` (`entityEdgesAndTiles` the sole surviving reading
+     * of five tried) settles which one the game actually reads, and a
+     * single multi-tile entity - `assembling-machine-1`, a 3x3, at
+     * (10.5, 10.5) - is what separates them: edge-based gives 2, a
+     * centre-based reading gives 1 (#243 review).
+     *
+     * No longer special-cases an empty blueprint to `{0, 0}` outright - the
+     * formula already answers correctly there once `min`/`center` both fall
+     * back to `{0, 0}` rather than being skipped, since `-floor(0 - 0 +
+     * offset.x)` reproduces whatever was typed into an empty blueprint
+     * exactly the way a non-empty one does. The old early return ignored
+     * `gridPositionOffset` entirely, so typing a target on an empty
+     * blueprint committed the offset correctly and then immediately
+     * displayed `{0, 0}` back at the user on the very refresh that commit
+     * triggers - the value they just typed visibly reset in front of them,
+     * with every entity placed afterwards still exporting shifted by it and
+     * nothing on screen saying why (#243 review).
+     */
+    public getGridPositionDisplay(): IPoint {
+        const center = this.isEmpty() ? { x: 0, y: 0 } : this.computeExportCenter()
+        const offset = this.gridPositionOffset
+        const min = this.isEmpty() ? { x: 0, y: 0 } : this.minCorner(this.footprintData())
+
+        return {
+            x: -Math.floor(min.x - center.x + offset.x),
+            y: -Math.floor(min.y - center.y + offset.y),
+        }
+    }
+
+    public serialize(): IBlueprint {
+        const entityInfo = this.entities.valuesArray().map(e => e.serialize())
+        const wires = this.wireConnections.serializeBpWires()
+        const center = this.computeExportCenter()
+
+        /*
+            "Grid position"'s whole effect - see gridPositionOffsetStore's doc
+            comment for why this has to land here, after the real centre (and
+            its rail-parity nudge) are both settled, rather than as a move
+            applied to entities/tiles beforehand: a recentre on the bounding
+            box is blind to any translation of everything inside that box by
+            the same amount, so the shift can only survive by being applied
+            to the number doing the subtracting, once, after that number is
+            final.
+        */
+        const offset = this.gridPositionOffset
+        center.x -= offset.x
+        center.y -= offset.y
+
         for (const e of entityInfo) {
             e.position.x -= center.x
             e.position.y -= center.y
@@ -929,13 +1294,54 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             },
             name: tile.name,
         }))
-        // The stored signal goes out as it came in. Nothing is re-derived here:
-        // a generated icon got its type at `generateIcons`, and a parsed one
-        // has carried the blueprint's own choice since the constructor.
-        const iconData = [...this.icons.entries()].map(([index, signal]) => ({
+        /*
+            A blueprint carrying no icons of its own exports the auto set
+            instead - the same reading `generateIcons` used to write into the
+            model from here, now computed and used without touching it, so
+            serializing stays a read (see `computeAutoIcons`, #243 review).
+
+            The stored signal goes out as it came in. Nothing is re-derived
+            here: an auto icon got its type inside `computeAutoIcons`, and a
+            parsed one has carried the blueprint's own choice since the
+            constructor.
+        */
+        const icons = this.icons.size ? this.icons : this.computeAutoIcons()
+        const iconData = [...icons.entries()].map(([index, signal]) => ({
             signal: { ...signal },
             index,
         }))
+        /*
+            Measured against Factorio 2.0.77 (issue #226, tools/oracle/probe-
+            blueprint-snapping.mjs), not reasoned about - the first version of
+            this comment guessed `position-relative-to-grid` belongs to
+            Relative mode from three hand-decoded strings, and the guess was
+            wrong. The game writes the position under Absolute snapping and
+            omits it under Relative; `tools/oracle/fixtures/blueprint-
+            snapping.json` is the measured table this reads back to zero
+            disagreements, the current condition disagreed on three of seven
+            grid-bearing rows. Factorio omits each field at its own default
+            (`snap-to-grid` off, `absolute-snapping` false, `position-
+            relative-to-grid` `{0, 0}`) rather than writing it in both modes,
+            and the two alignment fields both need `snap-to-grid` present
+            before they mean anything - so this can't just forward the boxed
+            stores the way `label`/`description` do, or turning `snap-to-grid`
+            back off would leave a stale `absolute-snapping: true` behind from
+            before it was.
+        */
+        const snapToGrid = this.snapToGridStore.snapToGrid
+        const absoluteSnapping = this.absoluteSnappingStore.absoluteSnapping ?? false
+        const positionRelativeToGrid = this.positionRelativeToGridStore.positionRelativeToGrid
+        /*
+            Unset only, not "or equals {0, 0}" - tests/blueprint-snapping.spec.ts's
+            origin case pins that an explicit `{0, 0}` a blueprint arrived with
+            passes straight through rather than being stripped as if it matched
+            the game's own omit-at-origin behaviour. That is a deliberate
+            difference from the game: this layer round-trips what it was given,
+            and only an absent position (never set at all) counts as "nothing to
+            write" here.
+        */
+        const positionIsUnset = positionRelativeToGrid === undefined
+
         return {
             icons: iconData,
             entities: this.entities.isEmpty() ? undefined : entityInfo,
@@ -945,9 +1351,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             label: this.name,
             description: this.description,
             schedules: this.scheduleStore.schedules,
-            'absolute-snapping': this.absolute_snapping,
-            'snap-to-grid': this.snap_to_grid,
-            'position-relative-to-grid': this.position_relative_to_grid,
+            'absolute-snapping': snapToGrid && absoluteSnapping ? true : undefined,
+            'snap-to-grid': snapToGrid,
+            'position-relative-to-grid':
+                snapToGrid && absoluteSnapping && !positionIsUnset
+                    ? positionRelativeToGrid
+                    : undefined,
             wires,
         }
     }

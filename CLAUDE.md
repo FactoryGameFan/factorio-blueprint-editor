@@ -319,4 +319,10 @@ against the CSP in `packages/website/public/_headers` that permits them.
   measured exceptions and the `tools/oracle` fixtures; issue #133 tracks
   closing the gap with per-rail collision shapes.
 - Logistic filters retain quality metadata but the UI has no quality picker.
-- Blueprint icons round-trip, but the UI has no icon picker.
+- Blueprint icons round-trip, and an auto icon is never stored.
+  `BlueprintInfoEditor`'s four slots are the one place a blueprint's own
+  icons are set; a blueprint carrying none exports what `computeAutoIcons`
+  derives from its contents at serialize time, without writing it into the
+  model - so clearing every slot by hand is a deliberate return to auto
+  rather than a locked-in empty set, and serializing stays a read (routing
+  that generation through History made `Ctrl+C` trim the redo stack).
