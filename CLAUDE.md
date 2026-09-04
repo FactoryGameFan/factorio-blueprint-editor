@@ -250,10 +250,31 @@ export LD_LIBRARY_PATH=~/pw-libs/usr/lib/x86_64-linux-gnu
 Re-run `ldd` on the Chromium binary after a Playwright upgrade; the missing set
 can grow.
 
-Measured 2026-09-04: with this, `blueprint-round-trip.spec.ts` passes against
-the committed `EXPECTED`. Software rendering does not change any pinned value,
-because they are model-level checksums and tallies rather than pixel
-comparisons - so fixtures recorded this way match what CI records.
+**Software rendering does not reproduce every spec, so know which half you are
+in before recording a fixture from a local run.** Measured 2026-09-04 against a
+clean base branch that is green in CI:
+
+| Spec                               | Local under swiftshader |
+| ---------------------------------- | ----------------------- |
+| `blueprint-round-trip.spec.ts`     | passes                  |
+| `entity-accessors.spec.ts`         | passes                  |
+| `sprite-data.spec.ts` (both cases) | passes                  |
+| `overlay-container.spec.ts`        | **fails**               |
+| `sprite-generation.spec.ts`        | **fails**               |
+
+The two failures are the same page error, and it is the renderer rather than
+the model:
+
+```
+TypeError: Failed to execute 'drawImage' on 'CanvasRenderingContext2D':
+The provided value is not of type '(CSSImageValue or HTMLCanvasElement or ...)'
+```
+
+Both specs assert `pageErrors` is empty, so they fail on that line rather than
+on a value. The specs whose pins are model-level checksums and tallies are
+unaffected and can be recorded here; **`overlay-container` and
+`sprite-generation` must be recorded from CI.** Re-check this table rather than
+assuming it, because which specs touch a canvas can change.
 
 Two rules the specs cannot enforce:
 
