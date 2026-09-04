@@ -225,6 +225,66 @@ the test's execution context.
 CI runs checks, Rust builds on Linux and Windows, four Playwright shards, and a
 Cloudflare deployment after both checks and browser tests pass.
 
+### Running the browser suite under WSL2
+
+Chromium's default settings destroy the whole WSL virtual machine, not just the
+browser process - `Wsl/Service/E_UNEXPECTED`, needing `wsl.exe --shutdown` to
+recover. It is not a missing-library fault: the binary starts and prints its
+version, then the VM dies when a page renders. The cause is the GPU
+paravirtualisation path, since WSLg is running and `/dev/dxg` is present, so
+Chromium crosses into the Windows GPU driver. Forcing software rendering keeps
+it inside the VM.
+
+`playwright.wsl.config.ts` spreads the committed config and adds those flags.
+CI is unaffected - it applies only when passed explicitly:
+
+```sh
+export DISPLAY= WAYLAND_DISPLAY=
+npx playwright test --config playwright.wsl.config.ts
+```
+
+Blanking those two variables is required, not cosmetic: they are what attaches
+Chromium to WSLg in the first place.
+
+`playwright install-deps` needs root, and on a machine where `sudo -n` fails the
+libraries can be unpacked into a private prefix instead - `apt-get download`
+needs no root:
+
+```sh
+apt-get download libnspr4 libnss3 libasound2t64
+for f in *.deb; do dpkg -x "$f" ~/pw-libs; done
+export LD_LIBRARY_PATH=~/pw-libs/usr/lib/x86_64-linux-gnu
+```
+
+Re-run `ldd` on the Chromium binary after a Playwright upgrade; the missing set
+can grow.
+
+**Software rendering does not reproduce every spec, so know which half you are
+in before recording a fixture from a local run.** Measured 2026-09-04 against a
+clean base branch that is green in CI:
+
+| Spec                               | Local under swiftshader |
+| ---------------------------------- | ----------------------- |
+| `blueprint-round-trip.spec.ts`     | passes                  |
+| `entity-accessors.spec.ts`         | passes                  |
+| `sprite-data.spec.ts` (both cases) | passes                  |
+| `overlay-container.spec.ts`        | **fails**               |
+| `sprite-generation.spec.ts`        | **fails**               |
+
+The two failures are the same page error, and it is the renderer rather than
+the model:
+
+```
+TypeError: Failed to execute 'drawImage' on 'CanvasRenderingContext2D':
+The provided value is not of type '(CSSImageValue or HTMLCanvasElement or ...)'
+```
+
+Both specs assert `pageErrors` is empty, so they fail on that line rather than
+on a value. The specs whose pins are model-level checksums and tallies are
+unaffected and can be recorded here; **`overlay-container` and
+`sprite-generation` must be recorded from CI.** Re-check this table rather than
+assuming it, because which specs touch a canvas can change.
+
 Two rules the specs cannot enforce:
 
 - A green suite says nothing about how a feature feels. For anything with a
