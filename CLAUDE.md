@@ -161,6 +161,12 @@ Key files:
   blueprints without a version. Do not treat a missing version as version zero.
 - Keep migrations conditional on the blueprint's declared version. Current
   Factorio can reuse an old prototype name.
+- A blueprint book's `active_index`, and the `index` on each of its entries,
+  are inventory **slots**, not positions in the `blueprints` array. A book with
+  empty slots exports a dense array with sparse `index` values, so
+  `blueprints[active_index]` is the wrong lookup and can be out of range
+  entirely. An active slot that holds nothing is legal and means the first
+  blueprint. Measured in the shipped binary; `Book.ts` carries the citation.
 - Entity accessors preserve the distinction between absent values and empty or
   zero values. Tests in `entity-accessors.spec.ts` pin this behavior.
 - Logistic filter writes must retain unknown sections and per-filter quality,
