@@ -59,6 +59,30 @@
         "head_sampling_rate": 1,
     },
     /*
+        Unique-visitor counting. src/visitorCount.ts defines what "unique" means
+        here and what it costs in accuracy; this is why the binding looks like
+        this and what it bills.
+
+        No id, unlike a KV namespace or a D1 database. An Analytics Engine
+        dataset is created by its first write, so this deploys from a clean
+        checkout with nothing provisioned in the dashboard first - which is the
+        reason dedupe state lives in the Cache API rather than in KV. A binding
+        that needs an id pasted in from the dashboard turns a missing setup step
+        into a failed deploy of the whole site.
+
+        Cost: writes are billed as data points, and this writes at most one per
+        visitor per day per colo - not one per request, and not one per asset.
+        It is a fraction of the invocation count already discussed above, so if
+        the Worker's own request bill is acceptable this is noise beside it.
+
+        There is no dashboard for a dataset. Read it over the SQL API with the
+        query in the `recordVisit` comment in src/index.ts. The beacon in
+        packages/website/index.html is the half that does have a dashboard
+        (Web Analytics), and the two are meant to disagree: this counts requests
+        that never ran JavaScript, the beacon counts sessions that did.
+    */
+    "analytics_engine_datasets": [{ "binding": "VISITS", "dataset": "fbe_unique_visitors" }],
+    /*
         A guard against a runaway loop, not a cost control - worth saying
         plainly, because the name suggests otherwise. CPU is roughly 3% of
         what this Worker costs: requests bill at $0.30 per million and CPU at
