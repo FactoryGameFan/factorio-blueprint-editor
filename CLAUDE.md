@@ -24,8 +24,8 @@ closing references such as `Closes #123` in the pull request body.
 
 ## Setup and commands
 
-The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Put
-`~/.vite-plus/bin` on `PATH`; the root package requires npm 12.
+The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Prepend
+`~/.vite-plus/bin` to `PATH`; the root package requires npm 12.
 
 ```sh
 curl -fsSL https://vite.plus -o vp-install.sh
@@ -38,6 +38,32 @@ vp install
 layout and puts the binaries in `~/.local/share/vite-plus/bin`, so dropping it
 makes the `PATH` line above wrong and `vp` looks missing rather than misplaced.
 `.github/actions/setup-vp/action.yml` pins the same layout for the same reason.
+
+Prepend rather than append, because Vite+ works through shims. It installs
+`node`, `npm`, `npx` and `corepack` into that one directory, and each of them
+resolves a version per directory at the moment you run it. Any other `node` or
+`npm` earlier on `PATH` wins instead, and the shims are then never consulted.
+
+Node and npm are two separate pins, which is the part worth knowing. The Node
+version comes from `.node-version` (24.20.0). The npm version comes from
+`devEngines.packageManager` in the root `package.json`, and Vite+ keeps it in
+`~/.vite-plus/package_manager/npm/<version>/` rather than using the one inside
+the Node install. That matters because the npm bundled inside Node 24.20.0 is
+11.19.0. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
+satisfy this repo whichever Node it selects, because npm 12 comes from Vite+
+and from nowhere else.
+
+The symptom when something else's npm wins is `EBADDEVENGINES`:
+
+```
+npm error EBADDEVENGINES Invalid semver version "^12" does not match "11.19.0"
+```
+
+Every `npm` and `npx` command fails that way, including the `npx tsc` line
+below, which reads as a broken repository rather than a misordered `PATH`.
+`vp env doctor` identifies it - the PATH section marks each tool `(vp shim)` or
+`(not vp shim)` - but it reports the mismatch as a warning and still ends in
+`All checks passed`, so read that section rather than the verdict.
 
 Common commands:
 
