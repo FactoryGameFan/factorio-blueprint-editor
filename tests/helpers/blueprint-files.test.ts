@@ -141,6 +141,8 @@ describe('discoverBlueprintFiles', () => {
         const files = discoverBlueprintFiles()
 
         expect(files.length).toBeGreaterThan(0)
-        expect(new Set(files.map(f => f.collection))).toEqual(new Set(['EARN', 'JEPAKAZOL']))
+        expect(new Set(files.map(f => f.collection))).toEqual(
+            new Set(['EARN', 'JEPAKAZOL', 'UPSTREAM-277'])
+        )
     })
 })
