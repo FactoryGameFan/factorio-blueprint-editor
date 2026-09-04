@@ -555,9 +555,10 @@ export class OverlayContainer extends Container {
         searchDirection: number
         /*
             undefined whenever there is no line to draw: the entity is not an
-            underground, has no partner in range, or the partner faces the same
-            way. Every caller already stores the result in a `Container |
-            undefined` field and checks it.
+            underground, has no partner in range, the partner faces the same
+            way, or searchDirection is not one of the four 16-way cardinals and
+            so names no axis to draw along. Every caller already stores the
+            result in a `Container | undefined` field and checks it.
         */
     ): Container | undefined {
         const fd = FD.entities[name]
@@ -574,23 +575,32 @@ export class OverlayContainer extends Container {
                     ? undefined
                     : this.bpc.bp.entities.get(opposingEntityNumber)
 
-            if (otherEntity) {
-                // Return if directionTypes are the same
+            const step = util.getDirOffset(searchDirection)
+
+            if (otherEntity && step) {
+                /*
+                    Return if the two connections run the same way - two inputs
+                    or two outputs, which is not a pair.
+
+                    This read `otherEntity.direction + (8 % 16)` until #329. The
+                    misplaced bracket makes it `direction + 8`, which agrees
+                    with the intended `(direction + 8) % 16` only below 8: a
+                    south-facing output gave 16 and a west-facing one 20, and
+                    neither can equal a searchDirection, so the guard silently
+                    stopped firing on half the directions and a line was drawn
+                    between two entities that are not partners.
+                */
                 if (
                     fd.type === 'underground-belt' &&
-                    (otherEntity.directionType === 'input'
-                        ? otherEntity.direction
-                        : otherEntity.direction + (8 % 16)) === searchDirection
+                    otherEntity.undergroundSearchDirection === searchDirection
                 ) {
                     return
                 }
 
-                const searchingAlongY = searchDirection % 4 === 0
-                const distance = searchingAlongY
-                    ? Math.abs(otherEntity.position.y - position.y)
-                    : Math.abs(otherEntity.position.x - position.x)
-
-                const sign = searchDirection === 0 || searchDirection === 6 ? -1 : 1
+                const distance =
+                    step.x === 0
+                        ? Math.abs(otherEntity.position.y - position.y)
+                        : Math.abs(otherEntity.position.x - position.x)
 
                 const lineParts = new Container()
                 lineParts.x = position.x * 32
@@ -608,15 +618,15 @@ export class OverlayContainer extends Container {
                         s.scale.set(data.scale)
                     }
                     s.anchor.set(0.5)
-                    s.x = searchingAlongY ? 0 : sign * i * 32
-                    s.y = searchingAlongY ? sign * i * 32 : 0
+                    s.x = step.x * i * 32
+                    s.y = step.y * i * 32
                     lineParts.addChild(s)
                 }
 
                 const otherEntityCursorBox = this.createCursorBox(
                     {
-                        x: searchingAlongY ? 0 : sign * distance * 32,
-                        y: searchingAlongY ? sign * distance * 32 : 0,
+                        x: step.x * distance * 32,
+                        y: step.y * distance * 32,
                     },
                     otherEntity.size,
                     'pair'
