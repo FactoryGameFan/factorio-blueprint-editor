@@ -380,12 +380,17 @@ against the CSP in `packages/website/public/_headers` that permits them.
   with none it loses the whole blueprint. Serialization keeps the icon's signal
   (issue #264); drawing it is still open (issue #231).
 - `getDirName` throws on diagonal directions, so any `draw_*` that calls it
-  renders a placeholder for a diagonally-placed entity. `railgun-turret` calls
-  it. The hazard is latent, not pinned: no committed test reaches it. The public
-  corpus (#191) places the turret at direction 8 only, and the synthetic halves
-  of `sprite-data.spec.ts` sweep cardinals alone, so
-  `tests/__fixtures__/sprite-data.json` records it succeeding with 8 layers. It
-  was pinned failing against the private corpus this one replaced.
+  renders a placeholder for a diagonally-placed entity. Around 20 call sites
+  still reach it and have not been audited for which of their entities can face
+  a diagonal, so treat the hazard as live everywhere except the one case below.
+  `railgun-turret` was the known instance, being 8-way: #357 moved it onto the
+  underscored `RotatedAnimation8Way` keys and
+  `tests/railgun-turret-diagonal.spec.ts` now pins all four diagonals rendering
+  8 layers apiece. Measured against the pre-#357 draw, all four read `FAILED`,
+  so that spec fails if the fix is reverted. It is the only committed test that
+  reaches a diagonal at all: the public corpus (#191) places the turret at
+  direction 8 only, and the synthetic halves of `sprite-data.spec.ts` sweep
+  cardinals alone.
 - Rail placement models rails as integer tile rectangles where Factorio uses
   continuous collision geometry, so it is wrong in both directions - it accepts
   some arrangements the game refuses and refuses 24 measured cases the game
