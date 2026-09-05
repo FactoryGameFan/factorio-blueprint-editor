@@ -996,12 +996,29 @@ function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly
         duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[1], 'y', 'height', data.dir / 4),
     ]
 }
+/**
+ * RotatedAnimation8Way / Sprite8Way direction keys, underscored - the shape
+ * railgun-turret's base_visualisation.animation and folded_animation use.
+ * util.getDirName8Way produces the un-underscored rail-picture keys instead,
+ * and util.getDirName throws outright on the four diagonal facings.
+ */
+const ROTATED_8WAY_KEYS = [
+    'north',
+    'north_east',
+    'east',
+    'south_east',
+    'south',
+    'south_west',
+    'west',
+    'north_west',
+] as const
+
 function draw_railgun_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const dirName = util.getDirName(data.dir)
-        const base = (e as any).graphics_set.base_visualisation.animation[dirName]?.layers || []
-        const folded = (e as any).folded_animation[dirName]?.layers || []
-        return [...base, ...folded]
+        const key = ROTATED_8WAY_KEYS[(data.dir >> 1) & 7]
+        const bv = need(e, 'graphics_set', 'base_visualisation')
+        const animation = (Array.isArray(bv) ? bv[0] : bv).animation
+        return [...dirLayers(animation, key), ...dirLayers(need(e, 'folded_animation'), key)]
     }
 }
 function draw_arithmetic_combinator(
