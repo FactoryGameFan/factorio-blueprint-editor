@@ -50,8 +50,8 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
  * 55.
  *
  * The 4 it still misses are planets, and they are deliberately not handled here.
- * `generateIcons` only ever passes an item name (`minable.result`) or an entity
- * prototype name, and no planet is either - checked against `data.json`, which
+ * `generateIcons` only ever passes an item name (from `Entity.getItemName`) or an
+ * entity prototype name, and no planet is either - checked against `data.json`, which
  * exports no planet in any of its eleven collections. A planet icon therefore
  * only ever arrives by being parsed, where its type is preserved rather than
  * derived. A `space-location` arm here would be unreachable.
@@ -791,7 +791,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         ): [string, number][] => [
             ...tilesOrEntities.reduce<Map<string, number>>((map, tileOrEntity) => {
                 const itemName = getItemName(tileOrEntity.name)
-                // nothing to show for an entity that cannot be mined into an item
+                // nothing to show for an entity no item mines into or places
                 if (itemName === undefined) return map
                 const count = map.get(itemName)
                 return map.set(itemName, count === undefined ? 0 : count + 1)

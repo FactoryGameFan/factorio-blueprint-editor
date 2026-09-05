@@ -958,10 +958,37 @@ for (const key of Object.keys(FD_KEYS) as (keyof FactorioData)[]) {
     })
 }
 
+/*
+    Entity name -> the item whose `place_result` is that entity, built once by
+    `loadData` rather than scanned per call. Measured against the committed
+    data.json (issue #367): 340 items, 136 of them place an entity, and no two
+    place the same one, so a Map holds the whole relation. 8 items point at
+    things the exporter does not carry - `car`, `spidertron`, the robots, the
+    plants - and those keys are simply never asked for.
+*/
+let placedBy = new Map<string, string>()
+
+/**
+ * The item that places an entity, or undefined for one no item places.
+ *
+ * This is the placing relation, where `minable.result` is the mining one. They
+ * agree for most entities, which is why `Entity.getItemName` got away with
+ * reading only the mining side for so long. Two entities are `minable: null`
+ * and placeable - `captive-biter-spawner` and `space-platform-hub` - and only
+ * this side knows their item (issue #367).
+ */
+export function itemThatPlaces(entityName: string): string | undefined {
+    return placedBy.get(entityName)
+}
+
 export function loadData(str: string): void {
     const data = JSON.parse(str)
     console.log(data)
     FD.items = data.items
+    placedBy = new Map()
+    for (const [itemName, item] of Object.entries(FD.items)) {
+        if (item.place_result !== undefined) placedBy.set(item.place_result, itemName)
+    }
     FD.fluids = data.fluids
     FD.signals = data.signals
     FD.recipes = data.recipes
