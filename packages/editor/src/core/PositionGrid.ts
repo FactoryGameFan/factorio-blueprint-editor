@@ -19,6 +19,13 @@ interface INeighbourData extends IPoint {
     entity: Entity | undefined
 }
 
+/** One member of a group move: where it is going and which way it will face there. */
+export interface GroupRelocation {
+    entity: Entity
+    position: IPoint
+    direction: number
+}
+
 /** Moves X and Y to top left corner from middle (anchor 0.5 0.5 => 0 0) */
 const processArea = (area: IArea): IArea => ({
     ...area,
@@ -436,6 +443,56 @@ export class PositionGrid {
         const spaceAvalible = this.isAreaAvailable(entity.name, newPosition, entity.direction)
         this.setTileData(entity)
         return spaceAvalible
+    }
+
+    /**
+     * Whether every entity in the group may move by `delta` at once. See
+     * `canGroupRelocate`, which this is the translation-only form of.
+     */
+    public canGroupMoveTo(entities: readonly Entity[], delta: IPoint): boolean {
+        return this.canGroupRelocate(
+            entities.map(entity => ({
+                entity,
+                position: { x: entity.position.x + delta.x, y: entity.position.y + delta.y },
+                direction: entity.direction,
+            }))
+        )
+    }
+
+    /**
+     * Whether every entity in the group may take its target at once.
+     *
+     * `canMoveTo` above answers for one entity by lifting only that entity out
+     * of the grid before asking - so asked once per member of a group that is
+     * moving together, it reports a member as blocked by a neighbour that is
+     * itself about to move out of the way, and refuses a group whose members
+     * trade places even though the group as a whole fits. Every member is
+     * lifted out first here, then every target is checked against what
+     * remains, and then every member is put back where it was.
+     *
+     * The put-back is in a `finally`: `isAreaAvailable` reads prototype data
+     * that a stale name could make throw, and a throw between the lifts and the
+     * restores would leave the grid missing entries for entities the blueprint
+     * still holds - the drift `entityAt` exists to catch, caused by the check
+     * that was meant to prevent a bad write.
+     *
+     * A check only. Nothing is written; the caller commits through
+     * `Entity.relocate`, which is what lets it skip the per-member check the
+     * `position` setter would otherwise repeat one member at a time.
+     */
+    public canGroupRelocate(targets: readonly GroupRelocation[]): boolean {
+        for (const { entity } of targets) {
+            this.removeTileData(entity)
+        }
+        try {
+            return targets.every(({ entity, position, direction }) =>
+                this.isAreaAvailable(entity.name, position, direction)
+            )
+        } finally {
+            for (const { entity } of targets) {
+                this.setTileData(entity)
+            }
+        }
     }
 
     /**

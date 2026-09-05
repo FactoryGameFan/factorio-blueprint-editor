@@ -280,6 +280,25 @@ export class Entity extends EventEmitter<EntityEvents> {
             )
         if (G.BPC.limitWireReach && connectionsBreak) return
 
+        this.relocate(position)
+    }
+
+    /**
+     * Moves the entity without the checks the `position` setter makes.
+     *
+     * For a caller that has already established the destination is free and
+     * every wire still reaches - for the **whole group at once**, through
+     * `PositionGrid.canGroupRelocate` and `BlueprintContainer`'s group wire
+     * check. The setter's own `canMoveTo` lifts only this entity out of the
+     * grid before asking, so a group whose members trade places, or shift as a
+     * block, is refused one member at a time even though the group as a whole
+     * fits: each member is blocked by a neighbour that is itself about to move
+     * out of the way. The setter still routes through here, so the history
+     * entry and the grid/emit bookkeeping are one piece of code either way.
+     */
+    public relocate(position: IPoint): void {
+        if (util.areObjectsEquivalent(this.m_rawEntity.position, position)) return
+
         this.m_BP.history
             .updateValue(this.m_rawEntity, 'position', position, 'Change position')
             .onDone((newValue, oldValue) => {
