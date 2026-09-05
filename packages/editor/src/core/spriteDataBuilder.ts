@@ -77,6 +77,7 @@ import {
     TransportBeltAnimationSetWithCorners,
     Sprite as SpriteData,
     HeatConnection,
+    PipeConnectionDefinition,
     Sprite4Way,
     AccumulatorPrototype,
     AgriculturalTowerPrototype,
@@ -325,6 +326,32 @@ function duplicateAndSetPropertyUsing<K0 extends SpriteNumberKey, K1 extends Spr
     return setPropertyUsing(util.duplicate(img), key0, key1, mult)
 }
 
+function fluidConnection(
+    connection: PipeConnectionDefinition & {
+        alt_position?: IPoint | readonly [number, number]
+        alt_direction?: number
+    },
+    entityDir: number
+): { offset: IPoint; dir: number } {
+    // 2.1 alternate connections are defined at north-east, then rotate in quarter turns.
+    const diagonal = entityDir % 4 === 2
+    const rotation = diagonal ? entityDir - 2 : entityDir
+    const position = diagonal
+        ? (connection.alt_position ?? connection.position ?? need(connection, 'positions')[0])
+        : connection.position
+    return {
+        offset: position
+            ? util.rotatePointBasedOnDir(position, rotation)
+            : util.Point(need(connection, 'positions')[entityDir / 4]),
+        dir:
+            (rotation +
+                (diagonal
+                    ? (connection.alt_direction ?? need(connection, 'direction'))
+                    : need(connection, 'direction'))) %
+            16,
+    }
+}
+
 function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly SpriteData[] {
     if (e.name === 'pipe' || e.name === 'infinity-pipe') {
         return []
@@ -355,11 +382,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
             )
                 continue
 
-            const dir = (data.dir + need(connection, 'direction')) % 16
-
-            const offset = connection.position
-                ? util.rotatePointBasedOnDir(connection.position, data.dir)
-                : util.Point(need(connection, 'positions')[data.dir / 4])
+            const { dir, offset } = fluidConnection(connection, data.dir)
             const offset2 = util.rotatePointBasedOnDir([0, -1], dir)
             offset.x += offset2.x
             offset.y += offset2.y
@@ -401,13 +424,11 @@ function checkFluidConnection(x: number, y: number, entity: Entity, relDir: numb
         .filter(conn => conn.connection_type === undefined || conn.connection_type === 'normal')
 
     for (const connection of connections) {
-        const offset = connection.position
-            ? util.rotatePointBasedOnDir(connection.position, entity.direction)
-            : util.Point(need(connection, 'positions')[entity.direction / 4])
+        const { dir, offset } = fluidConnection(connection, entity.direction)
         if (
             x === Math.floor(entity.position.x + offset.x) &&
             y === Math.floor(entity.position.y + offset.y) &&
-            (entity.direction + need(connection, 'direction')) % 16 === (relDir + 8) % 16
+            dir === (relDir + 8) % 16
         ) {
             return true
         }
@@ -1621,10 +1642,23 @@ function draw_elevated_straight_rail(
     return draw_elevated_rail(e as unknown as RailPrototype)
 }
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => [
-        ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), data.dir),
-        ...dirLayers(e.folded_animation, util.getDirName(data.dir)),
-    ]
+    return (data: IDrawData) => {
+        // RotatedAnimation8Way uses underscores, unlike rail sprite directions.
+        const dir = [
+            'north',
+            'north_east',
+            'east',
+            'south_east',
+            'south',
+            'south_west',
+            'west',
+            'north_west',
+        ][data.dir / 2]
+        return [
+            ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), dir),
+            ...dirLayers(e.folded_animation, dir),
+        ]
+    }
 }
 function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
