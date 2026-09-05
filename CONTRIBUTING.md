@@ -120,6 +120,23 @@ convenience is: started by hand, Vite without `--strictPort` quietly falls back
 to 8081 and then proxies `/data` to itself, which presents as the sprite server
 failing rather than as a port clash.
 
+### Running the Worker locally
+
+To exercise the production asset routing, redirects, and `/corsproxy`, build the
+website and start the Worker from the repo root:
+
+```shell
+npm run build:website
+npm --workspace=fbeworkeyman run dev -- --local
+```
+
+Wrangler serves this at <http://localhost:8787>. The pinned Wrangler runtime
+supports the configured compatibility date; no `--compatibility-date` override
+is needed (#304). This serves the production build, so the development-only
+Playwright test hook is absent. Use `localpreview` for the existing browser suite.
+To test the legacy-host redirect locally, also pass
+`--host fbeworkeyman.wormeyman.workers.dev` to the dev command.
+
 ### Checks
 
 | Command               | What it does                                                                      |
