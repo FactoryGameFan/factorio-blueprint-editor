@@ -48,7 +48,7 @@
         "electric-energy-interface": ["2:cd86c7c5"],
         "electric-furnace": ["2:3723ab1a"],
         "electric-mining-drill": ["6:d8923149", "7:fff4ccce", "8:79587f6c", "8:ec214b2c"],
-        "electromagnetic-plant": ["2:8c86a981"],
+        "electromagnetic-plant": ["4:bd5246b8"],
         "elevated-curved-rail-a": ["4:48a23dfe", "4:5b56ba78", "4:8794c4a4", "4:bc5b6248"],
         "elevated-curved-rail-b": ["4:112bac66", "4:a2f12c22", "4:e2f0cd42", "4:eb1fd234"],
         "elevated-half-diagonal-rail": ["4:5b181fda", "4:873cd155"],
@@ -205,7 +205,7 @@
         "electric-energy-interface": ["2:cd86c7c5"],
         "electric-furnace": ["2:3723ab1a"],
         "electric-mining-drill": ["6:d8923149", "7:fff4ccce", "8:79587f6c", "8:ec214b2c"],
-        "electromagnetic-plant": ["2:8c86a981"],
+        "electromagnetic-plant": ["4:bd5246b8"],
         "elevated-curved-rail-a": ["4:48a23dfe", "4:5b56ba78", "4:8794c4a4", "4:bc5b6248"],
         "elevated-curved-rail-b": ["4:112bac66", "4:a2f12c22", "4:e2f0cd42", "4:eb1fd234"],
         "elevated-half-diagonal-rail": ["4:5b181fda", "4:873cd155"],
@@ -653,14 +653,14 @@
         "electric-furnace": ["2:3723ab1a"],
         "electric-mining-drill": ["6:d8923149", "7:fff4ccce"],
         "electromagnetic-plant": [
-            "2:8c86a981",
-            "4:17441381",
-            "4:629e789d",
-            "4:ccb41809",
-            "4:ecfe1b35",
-            "5:96e66cf2",
-            "6:14404a45",
-            "6:b77425f5"
+            "4:bd5246b8",
+            "6:1898a258",
+            "6:69669f18",
+            "6:7415edc8",
+            "6:f9d9c260",
+            "7:9e7fcad5",
+            "8:101bcae8",
+            "8:8736b8f0"
         ],
         "elevated-curved-rail-a": [
             "4:42cad53b",
@@ -1179,11 +1179,11 @@
             "6:d8923149"
         ],
         "electromagnetic-plant": [
-            "2:8c86a981",
-            "2:8c86a981",
-            "2:8c86a981",
-            "2:8c86a981",
-            "2:8c86a981"
+            "4:bd5246b8",
+            "4:bd5246b8",
+            "4:bd5246b8",
+            "4:bd5246b8",
+            "4:bd5246b8"
         ],
         "elevated-curved-rail-a": [
             "4:5b56ba78",
@@ -1859,19 +1859,19 @@
         "electric-furnace": ["2:3723ab1a"],
         "electric-mining-drill": ["6:d8923149", "7:fff4ccce"],
         "electromagnetic-plant": [
-            "2:8c86a981",
-            "3:a4f510ca",
-            "3:aaa39d9f",
-            "3:e52307e8",
-            "3:fbb88ddb",
-            "4:17441381",
-            "4:629e789d",
-            "4:ccb41809",
-            "4:ecfe1b35",
-            "5:309784dc",
-            "5:96e66cf2",
-            "5:a106069b",
-            "6:14404a45"
+            "4:bd5246b8",
+            "5:3a8241e3",
+            "5:97df3f84",
+            "5:988feaac",
+            "5:9f7d2f51",
+            "6:1898a258",
+            "6:69669f18",
+            "6:7415edc8",
+            "6:f9d9c260",
+            "7:7d139503",
+            "7:9e7fcad5",
+            "7:e15effdc",
+            "8:101bcae8"
         ],
         "elevated-curved-rail-a": [
             "4:42cad53b",

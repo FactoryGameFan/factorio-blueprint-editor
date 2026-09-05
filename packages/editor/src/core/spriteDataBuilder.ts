@@ -1105,14 +1105,37 @@ function draw_artillery_wagon(
         return layers
     }
 }
+/**
+ * The electromagnetic plant's idle animation is only its shell - its core is a
+ * separate `working_visualisation` the draw never picked up, leaving a hole.
+ * Its one unconditional entry (`always_draw`, no `name`, no `enabled_by_name`)
+ * is that core.
+ *
+ * Only the electromagnetic plant. Other crafting machines' `always_draw`
+ * visualisations are `apply_runtime_tint` masks that read wrong without the
+ * base they tint (cryogenic-plant) or recipe-gated (`enabled_by_name`, foundry);
+ * folding those in is a wider change than fixing the hole this leaves.
+ */
+function restingCoreLayers(e: AssemblingMachinePrototype): readonly SpriteData[] {
+    if (e.name !== 'electromagnetic-plant') return []
+    const core = need(e, 'graphics_set').working_visualisations?.find(
+        wv => wv.always_draw && !wv.name && !wv.enabled_by_name && wv.animation
+    )
+    return core?.animation ? layersOf(core.animation) : []
+}
+
 function draw_assembling_machine(
     e: AssemblingMachinePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
+        const core = restingCoreLayers(e)
         if (need(e, 'graphics_set').always_draw_idle_animation) {
-            return layersOf(need(e, 'graphics_set', 'idle_animation'))
+            return [...layersOf(need(e, 'graphics_set', 'idle_animation')), ...core]
         } else {
-            const out = [...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir))]
+            const out = [
+                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
+                ...core,
+            ]
 
             const fbs = getFluidBoxes(
                 e,
