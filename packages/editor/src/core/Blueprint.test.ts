@@ -17,6 +17,10 @@ beforeAll(() => {
             */
             items: {
                 'wooden-chest': { name: 'wooden-chest', place_result: 'wooden-chest' },
+                'captive-biter-spawner': {
+                    name: 'captive-biter-spawner',
+                    place_result: 'captive-biter-spawner',
+                },
             },
             fluids: {},
             signals: {},
@@ -24,12 +28,27 @@ beforeAll(() => {
                 'wooden-chest': { name: 'wooden-chest' },
             },
             entities: {
-                'space-platform-hub': {
-                    type: 'space-platform-hub',
-                    name: 'space-platform-hub',
+                /*
+                    `red-chest` has neither a `minable` nor an item that places
+                    it, in data.json as here. `captive-biter-spawner` has no
+                    `minable` either but is placed by the item above, which is
+                    the shape issue #367 is about.
+                */
+                'red-chest': {
+                    type: 'container',
+                    name: 'red-chest',
                     collision_box: [
-                        [-1, -1],
-                        [1, 1],
+                        [-0.35, -0.35],
+                        [0.35, 0.35],
+                    ],
+                },
+                'captive-biter-spawner': {
+                    type: 'unit-spawner',
+                    name: 'captive-biter-spawner',
+                    minable: null,
+                    collision_box: [
+                        [-2.2, -2.2],
+                        [2.2, 2.2],
                     ],
                 },
                 'wooden-chest': {
@@ -53,12 +72,12 @@ beforeAll(() => {
 })
 
 describe('Blueprint icon generation', () => {
-    it('round-trips with an entity icon when every entity is non-minable', async () => {
+    it('round-trips with an entity icon when no item mines into or places any entity', async () => {
         const blueprint = new Blueprint({
             entities: [
                 {
                     entity_number: 1,
-                    name: 'space-platform-hub',
+                    name: 'red-chest',
                     position: { x: 0, y: 0 },
                 },
             ],
@@ -67,7 +86,7 @@ describe('Blueprint icon generation', () => {
         const icons = [
             {
                 index: 1,
-                signal: { type: 'entity' as const, name: 'space-platform-hub' },
+                signal: { type: 'entity' as const, name: 'red-chest' },
             },
         ]
         expect(blueprint.serialize().icons).toEqual(icons)
@@ -76,6 +95,32 @@ describe('Blueprint icon generation', () => {
 
         expect(getAndClearLoadWarnings()).toEqual([])
         expect(roundTripped.serialize().icons).toEqual(icons)
+    })
+
+    it('scores an unmineable entity by the item that places it (issue #367)', () => {
+        /*
+            Two spawners against two chests. Reading `minable.result` alone
+            skipped the spawners, so the chests took the icon; scored, the 5x5
+            spawners win. Two of each because the first occurrence of a name
+            counts 0, so a lone spawner ties a lone chest at 0.
+
+            A spawner on its own is not a test of this: with nothing scored the
+            entity-name fallback above names it anyway, and `deriveSignalType`
+            then finds the item, so the icon reads the same with or without the
+            fix. Measured: that shape stayed green with the fix reverted.
+        */
+        const blueprint = new Blueprint({
+            entities: [
+                { entity_number: 1, name: 'captive-biter-spawner', position: { x: 2.5, y: 2.5 } },
+                { entity_number: 2, name: 'captive-biter-spawner', position: { x: 7.5, y: 2.5 } },
+                { entity_number: 3, name: 'wooden-chest', position: { x: 0.5, y: 6.5 } },
+                { entity_number: 4, name: 'wooden-chest', position: { x: 1.5, y: 6.5 } },
+            ],
+        })
+
+        expect(blueprint.serialize().icons).toEqual([
+            { index: 1, signal: { type: 'item', name: 'captive-biter-spawner' } },
+        ])
     })
 
     it('derives `item` for a name that is also a recipe', () => {

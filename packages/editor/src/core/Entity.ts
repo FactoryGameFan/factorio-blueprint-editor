@@ -29,6 +29,7 @@ import FD, {
     isLoader,
     isMiningDrill,
     isLogisticContainer,
+    itemThatPlaces,
     isModule,
     isRoboport,
     isUndergroundBelt,
@@ -204,9 +205,27 @@ export class Entity extends EventEmitter<EntityEvents> {
         return this.m_rawEntity
     }
 
-    /** undefined for entities that cannot be mined into an item, e.g. the dummy rails */
+    /**
+     * The item that places this entity, or undefined for one nothing places.
+     *
+     * `minable.result` first, then the item whose `place_result` is the entity.
+     * Measured against data.json, the two agree for 134 of the 155 entities and
+     * each side alone answers for some of the rest, which is why this is a
+     * fallback and not a swap (issue #367):
+     *
+     * - 9 rails - `curved-rail-a`, `half-diagonal-rail`, `legacy-straight-rail`
+     *   and the elevated ones - mine into `rail`, and no item places them
+     *   because the rail planner does. Only the mining side knows them.
+     * - `captive-biter-spawner` and `space-platform-hub` are `minable: null`
+     *   and placed by the item of the same name. Only the placing side knows
+     *   them, and reading the mining side alone left them unpaintable.
+     * - 18 have neither - the dummy rails, `red-chest`, the logo tiles - and
+     *   get undefined, which `generateIcons` and `pipette` both handle.
+     */
     public static getItemName(name: string): string | undefined {
-        return FD.entities[name]?.minable?.result
+        const entity = FD.entities[name]
+        if (entity === undefined) return undefined
+        return entity.minable?.result ?? itemThatPlaces(name)
     }
 
     public destroy(): void {
