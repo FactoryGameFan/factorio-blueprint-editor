@@ -421,5 +421,30 @@ against the CSP in `packages/website/public/_headers` that permits them.
   candidate visualisation against the layers already emitted before adding it;
   measured over all 155 entities, `agricultural-tower` and `big-mining-drill`
   are the ones where an `always_draw` entry duplicates the main animation.
+- Cargo hatches are drawn parked shut, and that is frame 0 for free - the
+  editor draws frame 0 of every sheet and nothing reads `frame_count`. Three
+  entities have one, and each drew a hole until #362: `cargo-bay` through
+  `hatch_definitions`, `cargo-landing-pad` and `space-platform-hub` through
+  `cargo_station_parameters.giga_hatch_definitions`. Their plain hatches carry
+  no `hatch_graphics` at all, so the giga hatch is the only drawable one.
+  Placement differs between the two: a plain hatch needs `offset` plus each
+  layer's own `shift`, which the shadow layer settles - only that sum lands it
+  in the band the bay's own shadow occupies. A giga hatch has no `offset`.
+  `tests/cargo-hatches.spec.ts` pins all three by layer count, because every
+  guard in both helpers returns an empty array and a drop would otherwise be
+  silent.
+- The cargo bay's five `bridge_*` connection pieces are still not drawn, and
+  the fix is not "add them to the neighbour logic" (issue #362). Measured: all
+  five stay inside the bay's own 4x4 footprint, so they are not spans drawn
+  into a gap; Factorio 2.1 replaced the 12 named wall and corner keys with
+  `tileset` plus a `tileset_mapping` bitmask and left the bridges outside it,
+  so the choice is not a function of the 8-neighbour mask
+  `getCargoBayConnectionSprites` computes. No committed blueprint needs one:
+  bays sit on a 4-tile lattice throughout, gaps are 0, 4 or 8 tiles and never
+  2, and no bay is a pass-through. Two smaller items on the same issue are
+  measured and open: `render_layer` is discarded, which reorders layers on 10
+  of the 14 corpus neighbour masks but changes at most 684 pixels and none at
+  all on the commonest one; and `variants[0]` is taken unconditionally where
+  the game picks at random from 4 wall or 2 corner variants.
 - Logistic filters retain quality metadata but the UI has no quality picker.
 - Blueprint icons round-trip, but the UI has no icon picker.

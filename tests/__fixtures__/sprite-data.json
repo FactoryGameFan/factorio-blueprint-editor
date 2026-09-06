@@ -24,8 +24,8 @@
         "burner-inserter": ["3:23c96fbe", "3:2b93478c", "3:6f4acc29", "3:ca754e03"],
         "burner-mining-drill": ["2:5a05aec3", "2:76febf43", "2:97b66334", "2:c263ae5e"],
         "captive-biter-spawner": ["2:26deb24e"],
-        "cargo-bay": ["42:966b3e85"],
-        "cargo-landing-pad": ["13:bccc3ca7"],
+        "cargo-bay": ["44:2f318bc5"],
+        "cargo-landing-pad": ["17:ef1e8a06"],
         "cargo-pod-container": ["2:69ebec7c"],
         "cargo-wagon": ["3:595d3990", "3:5ce699af", "3:74b86925", "3:f31225fe"],
         "centrifuge": ["6:5ca9d563"],
@@ -131,7 +131,7 @@
         "small-electric-pole": ["1:685ccfa6"],
         "small-lamp": ["2:988e4aa4"],
         "solar-panel": ["2:b86cb635"],
-        "space-platform-hub": ["15:3486a776"],
+        "space-platform-hub": ["22:261eb6a9"],
         "splitter": ["8:188df570", "8:4b96fdf2", "8:9ba6c22b", "8:b49efd1c"],
         "stack-inserter": ["3:14e51b74", "3:18aeace5", "3:22fbb480", "3:e2536683"],
         "steam-engine": ["4:2264dd84", "4:4879a94e", "4:6624eb32", "4:778cff42"],
@@ -181,8 +181,8 @@
         "burner-inserter": ["3:23c96fbe", "3:2b93478c", "3:6f4acc29", "3:ca754e03"],
         "burner-mining-drill": ["2:5a05aec3", "2:76febf43", "2:97b66334", "2:c263ae5e"],
         "captive-biter-spawner": ["2:26deb24e"],
-        "cargo-bay": ["5:d40e4267"],
-        "cargo-landing-pad": ["13:bccc3ca7"],
+        "cargo-bay": ["7:7958b553"],
+        "cargo-landing-pad": ["17:ef1e8a06"],
         "cargo-pod-container": ["2:69ebec7c"],
         "cargo-wagon": ["3:595d3990", "3:5ce699af", "3:74b86925", "3:f31225fe"],
         "centrifuge": ["6:5ca9d563"],
@@ -288,7 +288,7 @@
         "small-electric-pole": ["1:685ccfa6"],
         "small-lamp": ["2:988e4aa4"],
         "solar-panel": ["2:b86cb635"],
-        "space-platform-hub": ["15:3486a776"],
+        "space-platform-hub": ["22:261eb6a9"],
         "splitter": ["8:188df570", "8:4b96fdf2", "8:9ba6c22b", "8:b49efd1c"],
         "stack-inserter": ["3:14e51b74", "3:18aeace5", "3:22fbb480", "3:e2536683"],
         "steam-engine": ["4:2264dd84", "4:4879a94e", "4:6624eb32", "4:778cff42"],
@@ -401,8 +401,8 @@
             "6:671aa8bf",
             "6:ed98fae1"
         ],
-        "cargo-bay": ["5:d40e4267"],
-        "cargo-landing-pad": ["13:bccc3ca7"],
+        "cargo-bay": ["7:7958b553"],
+        "cargo-landing-pad": ["17:ef1e8a06"],
         "cargo-wagon": ["3:f31225fe"],
         "centrifuge": ["6:5ca9d563", "9:8bd93858"],
         "chemical-plant": [
@@ -899,7 +899,7 @@
         "small-electric-pole": ["1:1d482b65", "1:57985197", "1:685ccfa6", "1:79d94a79"],
         "small-lamp": ["2:988e4aa4", "5:ee0efe0a"],
         "solar-panel": ["2:b86cb635"],
-        "space-platform-hub": ["15:3486a776"],
+        "space-platform-hub": ["22:261eb6a9"],
         "splitter": ["8:188df570", "8:4b96fdf2", "8:9ba6c22b", "8:b49efd1c"],
         "stack-inserter": [
             "3:14e51b74",
@@ -1076,13 +1076,13 @@
             "2:26deb24e",
             "2:26deb24e"
         ],
-        "cargo-bay": ["5:d40e4267", "5:d40e4267", "5:d40e4267", "5:d40e4267", "5:d40e4267"],
+        "cargo-bay": ["7:7958b553", "7:7958b553", "7:7958b553", "7:7958b553", "7:7958b553"],
         "cargo-landing-pad": [
-            "13:bccc3ca7",
-            "13:bccc3ca7",
-            "13:bccc3ca7",
-            "13:bccc3ca7",
-            "13:bccc3ca7"
+            "17:ef1e8a06",
+            "17:ef1e8a06",
+            "17:ef1e8a06",
+            "17:ef1e8a06",
+            "17:ef1e8a06"
         ],
         "cargo-pod-container": [
             "2:69ebec7c",
@@ -1406,11 +1406,11 @@
         "small-lamp": ["2:988e4aa4", "2:988e4aa4", "2:988e4aa4", "2:988e4aa4", "2:988e4aa4"],
         "solar-panel": ["2:b86cb635", "2:b86cb635", "2:b86cb635", "2:b86cb635", "2:b86cb635"],
         "space-platform-hub": [
-            "15:3486a776",
-            "15:3486a776",
-            "15:3486a776",
-            "15:3486a776",
-            "15:3486a776"
+            "22:261eb6a9",
+            "22:261eb6a9",
+            "22:261eb6a9",
+            "22:261eb6a9",
+            "22:261eb6a9"
         ],
         "splitter": ["8:188df570", "8:9ba6c22b", "8:b49efd1c", "8:4b96fdf2", "8:188df570"],
         "stack-inserter": ["3:18aeace5", "3:e2536683", "3:22fbb480", "3:14e51b74", "3:18aeace5"],
@@ -1548,19 +1548,19 @@
             "6:ed98fae1"
         ],
         "cargo-bay": [
-            "10:8b0cef60",
-            "10:df6bf593",
-            "17:bd2cf44d",
-            "19:8c9bd978",
-            "19:e954dc65",
-            "20:55525606",
-            "5:d40e4267",
-            "9:070569a6",
-            "9:51ac852b",
-            "9:5a86f5ac",
-            "9:ebacf6b9"
+            "11:668cdc94",
+            "11:8a966fb1",
+            "11:b2a7f51f",
+            "11:d47f447a",
+            "12:321e6bb7",
+            "12:e254dfb0",
+            "19:aa31afdd",
+            "21:010a5e98",
+            "21:b6a6f3a5",
+            "22:4c9f425a",
+            "7:7958b553"
         ],
-        "cargo-landing-pad": ["13:bccc3ca7"],
+        "cargo-landing-pad": ["17:ef1e8a06"],
         "cargo-wagon": ["3:f31225fe"],
         "centrifuge": ["6:5ca9d563", "9:8bd93858"],
         "chemical-plant": [
@@ -2511,7 +2511,7 @@
         "small-electric-pole": ["1:1d482b65", "1:57985197", "1:685ccfa6", "1:79d94a79"],
         "small-lamp": ["2:988e4aa4", "5:ee0efe0a"],
         "solar-panel": ["2:b86cb635"],
-        "space-platform-hub": ["15:3486a776"],
+        "space-platform-hub": ["22:261eb6a9"],
         "splitter": [
             "4:0e7b6fc9",
             "4:8438a2b4",
