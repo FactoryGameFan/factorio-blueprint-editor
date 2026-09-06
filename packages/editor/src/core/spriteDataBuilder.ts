@@ -1706,7 +1706,7 @@ function draw_cargo_landing_pad(
         return [
             ...connections,
             ...base,
-            ...graphicsSetAnimationLayers((e as any).graphics_set.animation),
+            ...graphicsSetAnimationLayers(e.graphics_set?.animation),
             ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
         ]
     }
@@ -2781,7 +2781,7 @@ function draw_space_platform_hub(
         return [
             ...connections,
             ...(e as any).graphics_set.picture.flatMap((p: any) => p.layers),
-            ...graphicsSetAnimationLayers((e as any).graphics_set.animation),
+            ...graphicsSetAnimationLayers(e.graphics_set?.animation),
             ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
         ]
     }
