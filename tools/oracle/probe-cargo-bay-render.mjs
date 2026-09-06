@@ -281,10 +281,32 @@ spawnSync(BIN, ['--create', map, ...common], { encoding: 'utf8' })
 // run 2 opens the graphical client, which is the only way a screenshot happens
 spawnSync(BIN, ['--load-game', map, ...common], { encoding: 'utf8', timeout: 240_000 })
 
+/*
+    The dump decides whether the run worked, not Factorio's exit code - which is
+    the rule for every probe here, and it needs stating in full for this one.
+    The dump is not one file: it is `done.txt`, the `placed.json` control, and a
+    pair of screenshots per case. A run that dies partway still leaves a
+    script-output directory behind, so checking only that the directory exists
+    reports a truncated capture as a success, and the consumer then scores
+    whichever cases happen to be there.
+*/
 const scriptOutput = join(p.writeData, 'script-output')
 if (!existsSync(scriptOutput)) throw new Error(`Factorio produced nothing. Work dir: ${p.work}`)
+
+const expected = ['done.txt', 'placed.json']
+// String() because CASES is a heterogeneous tuple, so c[0] widens to the union
+// of every element type even though the name is always the first one
+for (const c of CASES) expected.push(`${String(c[0])}.png`, `${String(c[0])}-empty.png`)
+const missing = expected.filter(f => !existsSync(join(scriptOutput, f)))
+if (missing.length > 0) {
+    throw new Error(
+        `Factorio wrote ${expected.length - missing.length} of ${expected.length} expected files. ` +
+            `Missing: ${missing.join(' ')}. Work dir: ${p.work}`
+    )
+}
+
 mkdirSync(OUT, { recursive: true })
 const files = readdirSync(scriptOutput)
 for (const f of files) copyFileSync(join(scriptOutput, f), join(OUT, f))
-console.log(`wrote ${files.length} files to ${OUT}`)
+console.log(`wrote ${files.length} files to ${OUT}, all ${expected.length} expected ones present`)
 console.log(files.join(' '))
