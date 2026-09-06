@@ -219,6 +219,19 @@ specs need the dev server `npm run localpreview` starts. Run against
 instead burns its 60s wait on a function that never appears, and the only
 symptom is a timeout that names nothing (#321). `vp preview` binds 4173, not
 8080, so that mistake surfaces as a connection refused rather than a hang.
+
+A layer count is not a monotone function of neighbours, so it cannot express
+"this entity joined to something". A cargo bay that gains a west neighbour swaps
+its two left outer corners, 4 + 5 layers, for a top and a bottom wall, also
+4 + 5. Measured, a bay covered on its west or north stays at 26 while one
+covered on its east or south drops to 25. Compare the digest, not the count.
+
+An entity's own position is not always on a whole tile: loading a blueprint
+re-centres it, and a blueprint whose extent is odd puts everything in it on a
+half tile - the all-entities blueprint at four directions puts the landing pad
+at x -73.5. Anything deriving a tile grid from `position` must not round, or the
+same entity draws different sprites depending on where it was dropped.
+
 Tests that dispatch pointer input should call `suppressOverlays(page)` before
 navigation so toasts and the settings panel cannot intercept events. Do not
 edit files while a Playwright run is active: Vite reloads the page and destroys
@@ -433,18 +446,29 @@ against the CSP in `packages/website/public/_headers` that permits them.
   `tests/cargo-hatches.spec.ts` pins all three by layer count, because every
   guard in both helpers returns an empty array and a drop would otherwise be
   silent.
-- The cargo bay's five `bridge_*` connection pieces are still not drawn, and
-  the fix is not "add them to the neighbour logic" (issue #362). Measured: all
-  five stay inside the bay's own 4x4 footprint, so they are not spans drawn
-  into a gap; Factorio 2.1 replaced the 12 named wall and corner keys with
-  `tileset` plus a `tileset_mapping` bitmask and left the bridges outside it,
-  so the choice is not a function of the 8-neighbour mask
-  `getCargoBayConnectionSprites` computes. No committed blueprint needs one:
-  bays sit on a 4-tile lattice throughout, gaps are 0, 4 or 8 tiles and never
-  2, and no bay is a pass-through. Two smaller items on the same issue are
-  measured and open: `render_layer` is discarded, which reorders layers on 10
-  of the 14 corpus neighbour masks but changes at most 684 pixels and none at
-  all on the commonest one; and `variants[0]` is taken unconditionally where
-  the game picks at random from 4 wall or 2 corner variants.
+- Cargo bay connection pieces are placed per 2x2 cell and per shared edge, and
+  both halves are measured against Factorio 2.0.77 rather than reasoned out
+  (issues #378, #362 item 2). The cell rule is Factorio 2.1's `tileset_mapping`
+  written as code and agrees with it on 173 of its 175 mapped masks. The bridge
+  rule cannot come from that table at all, because a bridge is anchored on the
+  shared edge BETWEEN two entities and no cell mask can select one - which is
+  why 2.1 leaves the five `bridge_*` keys outside the mapping, and why reading
+  that silence as "unreachable" was wrong. The rule: the key names the direction
+  the bridge spans, so entities side by side take `bridge_horizontal_*` and
+  stacked ones take `bridge_vertical_*`; a 4-tile shared edge takes `_wide` and
+  a 2-tile one `_narrow`, with a longer edge split into 4-tile spans; and a cell
+  corner where the covering entity changes both left to right and top to bottom
+  takes `bridge_crossing`. Each piece is drawn once, by the entity west or north
+  of the seam and by the one north-west of a crossing. Nothing spans a gap - two
+  bays 2 tiles apart draw no join at all, which is the control.
+  `cargoBayConnections.ts` holds both rules, pure and unit tested;
+  `tests/cargo-bay-connections.spec.ts` pins the placement.
+- Two of #362's items remain open on the cargo bay. `render_layer` is
+  discarded, which reorders layers on 10 of the 14 corpus neighbour masks but
+  changes at most 684 pixels and none at all on the commonest one. And
+  `variants[0]` is taken unconditionally where the game picks by tile position -
+  measured on the bridges, which variant the game uses differs from seam to
+  seam, so reproducing it needs a position hash we would be inventing. That
+  applies to all 17 keys, not just the walls.
 - Logistic filters retain quality metadata but the UI has no quality picker.
 - Blueprint icons round-trip, but the UI has no icon picker.

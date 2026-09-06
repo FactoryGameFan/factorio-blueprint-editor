@@ -18,6 +18,12 @@
     the consumer can difference the pair into an exact entity mask instead of
     guessing which pixels are ground.
 
+    Two things the difference still catches that are not the entity's own art.
+    An entity lights the ground around it, so a soft halo a tile or two wide
+    reads as "the game drew something here"; and its shadow falls outside its
+    footprint. Score a candidate piece over the pixels it would itself cover,
+    where both are absent, rather than over a window of open ground.
+
     WHAT IT ALREADY ANSWERED, so nobody re-derives it:
 
     - Connection pieces are placed per 2x2 cell, not once per entity. Scored
@@ -29,6 +35,14 @@
       unreachable. Adding one per seam takes two adjacent bays to 11.6% and a
       row of three to 8.9%, with only ~300 of 129,287 pixels left missing.
     - Vertical adjacency is the worst case without them, at 34.5%.
+    - Which bridge goes where. The key names the direction the bridge spans, so
+      entities side by side take `bridge_horizontal_*` and stacked ones take
+      `bridge_vertical_*`; a 4-tile shared edge takes `_wide` and a 2-tile one
+      `_narrow`; and a cell corner where the covering entity changes both left
+      to right and top to bottom takes `bridge_crossing`. At every seam measured
+      exactly one of the eight candidates beats drawing nothing.
+    - Nothing at all spans a 2-tile gap - the `gap2` case is the control for
+      that, and it is why "bridge" does not mean what the word suggests.
 
     Run it directly; there is no fixture. FACTORIO_BIN must point at a full
     (non-headless) install - the 2.0.77 build this editor targets is at
@@ -44,52 +58,137 @@ const BIN =
     `${process.env.HOME}/GitHub/factorio-oracle/installs/factorio-2.0.77.app/Contents/MacOS/factorio`
 const OUT = process.env.OUT_DIR ?? '/tmp/cargo-bay-render'
 
-/** [name, bay positions, screenshot centre]. Positions are entity centres. */
+/**
+ * [name, entities, screenshot centre, zoom]. An entity is [prototype, x, y] and
+ * the coordinates are entity centres. Zoom 2 shows 8x8 tiles in the 512 px shot,
+ * zoom 1 shows 16x16 - a case only needs the smaller zoom when it does not fit.
+ *
+ * The first six cases are what pinned per-cell placement and the wide bridges.
+ * The rest were added to reach the pieces those could not: the two `*_narrow`
+ * keys, `bridge_crossing` at more than one place, and the two 8x8 entities.
+ */
 const CASES = [
-    ['lone', [[0, 0]], [0, 0]],
+    ['lone', [['cargo-bay', 0, 0]], [0, 0], 2],
     [
         'h-pair',
         [
-            [40, 0],
-            [44, 0],
+            ['cargo-bay', 40, 0],
+            ['cargo-bay', 44, 0],
         ],
         [42, 0],
+        2,
     ],
     [
         'v-pair',
         [
-            [80, 0],
-            [80, 4],
+            ['cargo-bay', 80, 0],
+            ['cargo-bay', 80, 4],
         ],
         [80, 2],
+        2,
     ],
     [
         'row3',
         [
-            [120, 0],
-            [124, 0],
-            [128, 0],
+            ['cargo-bay', 120, 0],
+            ['cargo-bay', 124, 0],
+            ['cargo-bay', 128, 0],
         ],
         [124, 0],
+        2,
     ],
     [
         'block',
         [
-            [160, 0],
-            [164, 0],
-            [160, 4],
-            [164, 4],
+            ['cargo-bay', 160, 0],
+            ['cargo-bay', 164, 0],
+            ['cargo-bay', 160, 4],
+            ['cargo-bay', 164, 4],
         ],
         [162, 2],
+        2,
     ],
     [
         'ell',
         [
-            [200, 0],
-            [204, 0],
-            [200, 4],
+            ['cargo-bay', 200, 0],
+            ['cargo-bay', 204, 0],
+            ['cargo-bay', 200, 4],
         ],
         [202, 2],
+        2,
+    ],
+
+    // A 2-tile offset. A cargo bay declares no `build_grid_size`, so it snaps to
+    // whole tiles and both of these are legally placed; they share only 2 tiles
+    // of edge instead of 4. This is the case the `*_narrow` keys answer.
+    [
+        'h-offset',
+        [
+            ['cargo-bay', 240, 0],
+            ['cargo-bay', 244, 2],
+        ],
+        [242, 1],
+        2,
+    ],
+    [
+        'v-offset',
+        [
+            ['cargo-bay', 280, 0],
+            ['cargo-bay', 282, 4],
+        ],
+        [281, 2],
+        2,
+    ],
+
+    // A 2-tile gap, to separate "a bridge spans a gap" from "a bridge covers a
+    // seam". Nothing should join these two.
+    [
+        'gap2',
+        [
+            ['cargo-bay', 320, 0],
+            ['cargo-bay', 326, 0],
+        ],
+        [323, 0],
+        2,
+    ],
+
+    // An 8x8 entity against a 4x4 one, and two 8x8 entities against each other.
+    // A landing pad's side is 4 cells long where a bay's is 2.
+    [
+        'pad-bay',
+        [
+            ['cargo-landing-pad', 360, 0],
+            ['cargo-bay', 366, -2],
+        ],
+        [364, -2],
+        2,
+    ],
+    [
+        'pad-bays',
+        [
+            ['cargo-landing-pad', 400, 0],
+            ['cargo-bay', 406, -2],
+            ['cargo-bay', 406, 2],
+        ],
+        [402, 0],
+        1,
+    ],
+
+    // Two crossings, so a position-dependent crossing variant would show up as
+    // different art at the two of them.
+    [
+        'block2x3',
+        [
+            ['cargo-bay', 440, 0],
+            ['cargo-bay', 444, 0],
+            ['cargo-bay', 440, 4],
+            ['cargo-bay', 444, 4],
+            ['cargo-bay', 440, 8],
+            ['cargo-bay', 444, 8],
+        ],
+        [442, 4],
+        1,
     ],
 ]
 
@@ -118,16 +217,23 @@ script.on_init(function()
   s.always_day = true
   s.daytime = 0
   for _, e in pairs(s.find_entities()) do if e.type ~= "character" then e.destroy() end end
-  -- a flat, uniform floor, so differencing the two shots gives a clean mask
+  -- a flat, uniform floor, so differencing the two shots gives a clean mask.
+  -- set_tiles is silent on an ungenerated chunk, so the chunks have to exist
+  -- first: without this the far cases land on natural ground with rocks and
+  -- bushes on it, and the pair no longer differs only by the entity.
+  s.request_to_generate_chunks({240, 0}, 20)
+  s.force_generate_chunk_requests()
   local tiles = {}
-  for x = -20, 240 do for y = -20, 20 do tiles[#tiles+1] = {name="refined-concrete", position={x,y}} end end
+  for x = -20, 480 do for y = -24, 28 do tiles[#tiles+1] = {name="refined-concrete", position={x,y}} end end
   s.set_tiles(tiles)
+  s.destroy_decoratives{area = {{-20, -24}, {480, 28}}}
   local placed = {}
   for _, c in pairs(CASES) do
-    for _, xy in pairs(c[2]) do
-      local e = s.create_entity{name="cargo-bay", position={xy[1], xy[2]}, force="player", raise_built=true}
+    for _, ent in pairs(c[2]) do
+      local e = s.create_entity{name=ent[1], position={ent[2], ent[3]}, force="player", raise_built=true}
       local b = e.bounding_box
-      placed[#placed+1] = { case = c[1], asked = xy, got = {e.position.x, e.position.y},
+      placed[#placed+1] = { case = c[1], name = ent[1], asked = {ent[2], ent[3]},
+                            got = {e.position.x, e.position.y},
                             box = {b.left_top.x, b.left_top.y, b.right_bottom.x, b.right_bottom.y} }
     end
   end
@@ -140,7 +246,7 @@ local function shoot(suffix)
   local s = game.surfaces[1]
   for _, c in pairs(CASES) do
     game.take_screenshot{
-      surface = s, position = {c[3][1], c[3][2]}, resolution = {512, 512}, zoom = 2,
+      surface = s, position = {c[3][1], c[3][2]}, resolution = {512, 512}, zoom = c[4],
       path = c[1] .. suffix .. ".png", show_gui = false, show_entity_info = false,
       daytime = 0, water_tick = 0, anti_alias = false,
     }
@@ -149,12 +255,12 @@ end
 
 script.on_event(defines.events.on_tick, function()
   local s = game.surfaces[1]
-  if game.tick == 30 then shoot("") end
-  if game.tick == 70 then
-    for _, e in pairs(s.find_entities_filtered{name="cargo-bay"}) do e.destroy() end
+  if game.tick == 60 then shoot("") end
+  if game.tick == 140 then
+    for _, e in pairs(s.find_entities_filtered{name={"cargo-bay", "cargo-landing-pad", "space-platform-hub"}}) do e.destroy() end
   end
-  if game.tick == 110 then shoot("-empty") end
-  if game.tick > 170 then
+  if game.tick == 220 then shoot("-empty") end
+  if game.tick > 320 then
     helpers.write_file("done.txt", "ok")
     error("DUMPED-OK")
   end

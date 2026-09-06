@@ -160,7 +160,13 @@ import {
 } from 'factorio:prototype'
 import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
-import { CARGO_BAY_CELL, cargoBayCellPieces } from './cargoBayConnections'
+import {
+    CARGO_BAY_CELL,
+    cargoBayBridges,
+    cargoBayCellPieces,
+    cargoBayCrossings,
+    type CargoBayBox,
+} from './cargoBayConnections'
 import { need } from './need'
 
 /**
@@ -185,6 +191,8 @@ export interface IDrawData {
     position: IPoint
     /** Defaulted to false by getDrawData. */
     generateConnector: boolean
+    /** Absent for the paint preview, which draws no entity from the blueprint. */
+    entityNumber: number | undefined
 
     displayPanelIcon: undefined | ISignal
     /** Defaulted to false by getDrawData. */
@@ -1389,6 +1397,11 @@ function draw_burner_generator(
  * Cargo bays, landing pads and platform hubs all carry a
  * `CargoBayConnectableGraphicsSet` and join into one structure when placed
  * against each other, so all three count as neighbours for each other.
+ *
+ * This keys on the entity TYPE while `EntityContainer.generateUpdateGroups`
+ * keys on the NAME, and the two have to name the same set or a neighbour will
+ * not be redrawn. They do today because each of these three types has exactly
+ * one prototype of that name; a fourth would need adding in both places.
  */
 function isCargoBayLike(entity: { type: string } | undefined): boolean {
     return (
@@ -1399,66 +1412,143 @@ function isCargoBayLike(entity: { type: string } | undefined): boolean {
     )
 }
 
+/*
+    `entityNumber` comes from the entity rather than from a grid lookup at its own
+    position. The grid keeps overlapping entities in one cell and hands back the
+    smallest, and blueprint loading creates entities without an availability
+    check, so an overlapping import could make a landing pad believe it was the
+    bay sitting inside it - and then both would draw the same crossing.
+*/
 function getCargoBayConnectionSprites(
     connections: any,
     position: IPoint,
     size: number,
-    positionGrid: PositionGrid | undefined
+    positionGrid: PositionGrid | undefined,
+    entityNumber: number | undefined
 ): SpriteData[] {
     if (!connections || !positionGrid) return []
 
+    const C = CARGO_BAY_CELL
     const half = size / 2
-    const x0 = Math.round(position.x - half)
-    const y0 = Math.round(position.y - half)
+    /*
+        The footprint origin is not rounded, because the entity's own position is
+        not always on a tile. Loading a blueprint re-centres it, and a blueprint
+        whose extent is odd puts every entity in it on a half tile - measured, the
+        all-entities blueprint at four directions puts the landing pad at x
+        -73.5. Rounding there snapped the cells half a tile off the entity while
+        the sprites stayed put, so the same lone pad drew different sprites
+        depending on where it had been dropped.
+    */
+    const x0 = position.x - half
+    const y0 = position.y - half
 
     /*
-        A cell is occupied if any bay-like entity covers it. Sampling one tile
-        answers that, because every entity here sits on the same 2-tile grid the
-        cells do, so a cell is never half covered.
+        Occupancy is asked of the tile immediately across the edge in question,
+        never of the neighbouring cell's own middle.
+
+        The difference matters because bay-like entities do NOT all share one
+        2-tile grid. Only `cargo-landing-pad` declares `build_grid_size = 2`;
+        `cargo-bay` and `space-platform-hub` declare none, so they snap to whole
+        tiles like any other even-sized entity and two bays can sit an odd number
+        of tiles apart. Sampling the far cell then reads across a 1-tile gap and
+        reports a join that is not there, and it does so asymmetrically - the two
+        entities disagree about whether they touch, which is also a gap
+        `getSurroundingEntities` is too narrow to redraw across.
+
+        `bayAt` therefore takes a point, not a cell, and every caller hands it a
+        point half a tile past the edge it is asking about. That lands inside the
+        adjacent tile whether or not the grid is aligned to whole tiles.
     */
-    const occupied = (cellX: number, cellY: number): boolean =>
-        isCargoBayLike(positionGrid.getEntityAtPosition({ x: cellX, y: cellY }))
+    const bayAt = (x: number, y: number): Entity | undefined => {
+        const e = positionGrid.getEntityAtPosition({ x, y })
+        return isCargoBayLike(e) ? e : undefined
+    }
+    const ownerAt = (x: number, y: number): number | undefined => bayAt(x, y)?.entityNumber
 
     const sprites: SpriteData[] = []
+    const emit = (key: string, offset: readonly [number, number]): void => {
+        const variants = connections[key]
+        if (!variants || variants.length === 0) return
+        // variants[0] throughout, as every other connection key here does. The
+        // game picks by tile position and measurably uses both - which variant
+        // wins differs from seam to seam - but reproducing that needs a position
+        // hash we would be inventing. Issue #362 item 4 tracks it for all keys.
+        for (const rendition of variants[0]) {
+            if (rendition.layers) {
+                for (const layer of rendition.layers) {
+                    sprites.push(addToShift(offset, util.duplicate(layer)))
+                }
+            } else {
+                const { render_layer: _render_layer, ...spriteData } = rendition
+                sprites.push(addToShift(offset, util.duplicate(spriteData)))
+            }
+        }
+    }
 
-    for (let dy = 0; dy < size; dy += CARGO_BAY_CELL) {
-        for (let dx = 0; dx < size; dx += CARGO_BAY_CELL) {
-            const cx = x0 + dx
-            const cy = y0 + dy
-            const C = CARGO_BAY_CELL
+    for (let dy = 0; dy < size; dy += C) {
+        for (let dx = 0; dx < size; dx += C) {
+            // the eight tiles that touch this cell: half a tile outside each
+            // edge, and level with the cell's own middle along the other axis
+            const w = x0 + dx - 0.5
+            const e = x0 + dx + C + 0.5
+            const n = y0 + dy - 0.5
+            const s = y0 + dy + C + 0.5
+            const mx = x0 + dx + C / 2
+            const my = y0 + dy + C / 2
+            const has = (x: number, y: number): boolean => bayAt(x, y) !== undefined
             const keys = cargoBayCellPieces({
-                N: occupied(cx, cy - C),
-                S: occupied(cx, cy + C),
-                W: occupied(cx - C, cy),
-                E: occupied(cx + C, cy),
-                NW: occupied(cx - C, cy - C),
-                NE: occupied(cx + C, cy - C),
-                SW: occupied(cx - C, cy + C),
-                SE: occupied(cx + C, cy + C),
+                N: has(mx, n),
+                S: has(mx, s),
+                W: has(w, my),
+                E: has(e, my),
+                NW: has(w, n),
+                NE: has(e, n),
+                SW: has(w, s),
+                SE: has(e, s),
             })
             if (keys.length === 0) continue
 
             // the cell's centre, relative to the entity's own centre
-            const offset: readonly [number, number] = [
-                x0 + dx + C / 2 - position.x,
-                y0 + dy + C / 2 - position.y,
-            ]
-
-            for (const key of keys) {
-                const variants = connections[key]
-                if (!variants || variants.length === 0) continue
-                for (const rendition of variants[0]) {
-                    if (rendition.layers) {
-                        for (const layer of rendition.layers) {
-                            sprites.push(addToShift(offset, util.duplicate(layer)))
-                        }
-                    } else {
-                        const { render_layer: _render_layer, ...spriteData } = rendition
-                        sprites.push(addToShift(offset, util.duplicate(spriteData)))
-                    }
-                }
-            }
+            const offset: readonly [number, number] = [dx + C / 2 - half, dy + C / 2 - half]
+            for (const key of keys) emit(key, offset)
         }
+    }
+
+    /*
+        Bridges and crossings are anchored between entities rather than on a
+        cell, so they need the neighbours themselves and not just an occupancy
+        flag. `cargoBayBridges` draws each seam from its west or north side
+        only; the two entities of a pair are redrawn together, because
+        EntityContainer's update group covers all three bay-like names.
+    */
+    if (entityNumber === undefined) return sprites
+
+    /*
+        Every tile down each of the four sides, not every cell: two entities can
+        share as little as one tile of edge, and stepping by the cell size walks
+        straight past such a neighbour from one of the two sides.
+    */
+    const neighbours = new Map<number, CargoBayBox>()
+    for (let d = 0.5; d < size; d += 1) {
+        const ring: [number, number][] = [
+            [x0 - 0.5, y0 + d],
+            [x0 + size + 0.5, y0 + d],
+            [x0 + d, y0 - 0.5],
+            [x0 + d, y0 + size + 0.5],
+        ]
+        for (const [x, y] of ring) {
+            const e = bayAt(x, y)
+            if (e === undefined || e.entityNumber === entityNumber) continue
+            neighbours.set(e.entityNumber, { x: e.position.x, y: e.position.y, size: e.size.x })
+        }
+    }
+
+    const self: CargoBayBox = { x: position.x, y: position.y, size }
+    for (const piece of [
+        ...cargoBayBridges(self, [...neighbours.values()]),
+        ...cargoBayCrossings(self, entityNumber, ownerAt),
+    ]) {
+        emit(piece.key, [piece.x - position.x, piece.y - position.y])
     }
 
     return sprites
@@ -1548,7 +1638,8 @@ function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly Spr
             (e as any).graphics_set.connections,
             data.position,
             4,
-            data.positionGrid
+            data.positionGrid,
+            data.entityNumber
         )
         return [...connections, ...base, ...cargoHatchLayers(e.hatch_definitions)]
     }
@@ -1562,7 +1653,8 @@ function draw_cargo_landing_pad(
             (e as any).graphics_set.connections,
             data.position,
             8,
-            data.positionGrid
+            data.positionGrid,
+            data.entityNumber
         )
         return [
             ...connections,
@@ -2635,7 +2727,8 @@ function draw_space_platform_hub(
             (e as any).graphics_set.connections,
             data.position,
             8,
-            data.positionGrid
+            data.positionGrid,
+            data.entityNumber
         )
         return [
             ...connections,
