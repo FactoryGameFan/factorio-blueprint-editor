@@ -2,7 +2,7 @@
     "synthetic": {
         "accumulator": ["2:7322c197"],
         "active-provider-chest": ["2:1ba3b50f"],
-        "agricultural-tower": ["2:1ec5a67a"],
+        "agricultural-tower": ["3:aee8ae27"],
         "arithmetic-combinator": ["3:0bc34c26", "3:339accdf", "3:8884e549", "3:97476b7e"],
         "artillery-turret": ["4:09767d50", "4:849b53d8", "4:c2a8f70d", "4:ec9d7e67"],
         "artillery-wagon": ["6:3c92482e", "6:5a10aff6", "6:81f48d06", "6:9e18233e"],
@@ -159,7 +159,7 @@
     "noGrid": {
         "accumulator": ["2:7322c197"],
         "active-provider-chest": ["2:1ba3b50f"],
-        "agricultural-tower": ["2:1ec5a67a"],
+        "agricultural-tower": ["3:aee8ae27"],
         "arithmetic-combinator": ["3:0bc34c26", "3:339accdf", "3:8884e549", "3:97476b7e"],
         "artillery-turret": ["4:09767d50", "4:849b53d8", "4:c2a8f70d", "4:ec9d7e67"],
         "artillery-wagon": ["6:3c92482e", "6:5a10aff6", "6:81f48d06", "6:9e18233e"],
@@ -1001,11 +1001,11 @@
             "2:1ba3b50f"
         ],
         "agricultural-tower": [
-            "2:1ec5a67a",
-            "2:1ec5a67a",
-            "2:1ec5a67a",
-            "2:1ec5a67a",
-            "2:1ec5a67a"
+            "3:aee8ae27",
+            "3:aee8ae27",
+            "3:aee8ae27",
+            "3:aee8ae27",
+            "3:aee8ae27"
         ],
         "arithmetic-combinator": [
             "2:34aa592f",
