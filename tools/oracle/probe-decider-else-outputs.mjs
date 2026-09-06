@@ -39,19 +39,37 @@ const decodeBp = str =>
 const encodeBp = obj =>
     `0${deflateSync(Buffer.from(JSON.stringify(obj), 'utf8')).toString('base64')}`
 
+/*
+    Both version fields this probe needs, read off the binary rather than written
+    down. Two separate reasons, and getting either wrong is quiet:
+
+    - `factorio_version` in the mod's `info.json` must match the binary's
+      major.minor or the mod is silently skipped, the dump never appears, and
+      nothing in Factorio's output names the cause.
+    - the control blueprint's own `version`. A hardcoded one disagrees with the
+      binary the moment `FACTORIO_BIN` points somewhere else, and then a failed
+      import cannot be attributed: the version field and the `else_outputs` key
+      are both candidates and the probe cannot separate them. Deriving it leaves
+      the key as the only thing under test.
+*/
+const version = (() => {
+    const out = spawnSync(factorioBin, ['--version'], { encoding: 'utf8' }).stdout ?? ''
+    const m = /Version:\s*(\d+)\.(\d+)\.(\d+)/.exec(out)
+    if (!m) throw new Error(`could not read a version out of: ${out.slice(0, 200)}`)
+    const [major, minor, patch] = m.slice(1).map(Number)
+    return {
+        modVersion: `${major}.${minor}`,
+        /* How Factorio packs a version: four 16-bit fields, dev last. */
+        packed: major * 2 ** 48 + minor * 2 ** 32 + patch * 2 ** 16,
+    }
+})()
+
 const { work, writeData, modDir, modPath } = prepareProbe({
     name: MOD,
     version: '0.0.1',
     title: 'Decider else-output probe',
     author: 'oracle',
-    // Derived rather than hardcoded: a mismatch against the binary's
-    // major.minor makes the mod silently skipped and the run ends on "No dump".
-    factorio_version: (() => {
-        const out = spawnSync(factorioBin, ['--version'], { encoding: 'utf8' }).stdout ?? ''
-        const m = /Version:\s*(\d+)\.(\d+)/.exec(out)
-        if (!m) throw new Error(`could not read a version out of: ${out.slice(0, 200)}`)
-        return `${m[1]}.${m[2]}`
-    })(),
+    factorio_version: version.modVersion,
     dependencies: ['base'],
 })
 
@@ -64,7 +82,7 @@ const { work, writeData, modDir, modPath } = prepareProbe({
 const REIMPORT = encodeBp({
     blueprint: {
         item: 'blueprint',
-        version: 562954249175042,
+        version: version.packed,
         entities: [
             {
                 entity_number: 1,
