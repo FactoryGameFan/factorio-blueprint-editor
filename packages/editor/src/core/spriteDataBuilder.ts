@@ -160,6 +160,7 @@ import {
 } from 'factorio:prototype'
 import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
+import { CARGO_BAY_CELL, cargoBayCellPieces } from './cargoBayConnections'
 import { need } from './need'
 
 /**
@@ -1384,68 +1385,81 @@ function draw_burner_generator(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => layersOf(getAnimation((e as any).animation, data.dir))
 }
+/**
+ * Cargo bays, landing pads and platform hubs all carry a
+ * `CargoBayConnectableGraphicsSet` and join into one structure when placed
+ * against each other, so all three count as neighbours for each other.
+ */
 function isCargoBayLike(entity: { type: string } | undefined): boolean {
     return (
-        entity !== undefined && (entity.type === 'cargo-bay' || entity.type === 'cargo-landing-pad')
+        entity !== undefined &&
+        (entity.type === 'cargo-bay' ||
+            entity.type === 'cargo-landing-pad' ||
+            entity.type === 'space-platform-hub')
     )
 }
 
 function getCargoBayConnectionSprites(
     connections: any,
     position: IPoint,
+    size: number,
     positionGrid: PositionGrid | undefined
 ): SpriteData[] {
     if (!connections || !positionGrid) return []
 
-    // Cargo bays are 4x4 tiles. Check tiles just outside the boundary for adjacent cargo bays.
-    const x0 = Math.round(position.x - 2)
-    const y0 = Math.round(position.y - 2)
+    const half = size / 2
+    const x0 = Math.round(position.x - half)
+    const y0 = Math.round(position.y - half)
 
-    const hasN = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 1, y: y0 - 1 }))
-    const hasS = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 1, y: y0 + 4 }))
-    const hasW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 + 1 }))
-    const hasE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 + 1 }))
-
-    const hasNW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 - 1 }))
-    const hasNE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 - 1 }))
-    const hasSW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 + 4 }))
-    const hasSE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 + 4 }))
+    /*
+        A cell is occupied if any bay-like entity covers it. Sampling one tile
+        answers that, because every entity here sits on the same 2-tile grid the
+        cells do, so a cell is never half covered.
+    */
+    const occupied = (cellX: number, cellY: number): boolean =>
+        isCargoBayLike(positionGrid.getEntityAtPosition({ x: cellX, y: cellY }))
 
     const sprites: SpriteData[] = []
 
-    const addConnectionSprites = (key: string): void => {
-        const variants = connections[key]
-        if (!variants || variants.length === 0) return
-        const variant = variants[0]
-        for (const rendition of variant) {
-            if (rendition.layers) {
-                for (const layer of rendition.layers) {
-                    sprites.push(util.duplicate(layer))
+    for (let dy = 0; dy < size; dy += CARGO_BAY_CELL) {
+        for (let dx = 0; dx < size; dx += CARGO_BAY_CELL) {
+            const cx = x0 + dx
+            const cy = y0 + dy
+            const C = CARGO_BAY_CELL
+            const keys = cargoBayCellPieces({
+                N: occupied(cx, cy - C),
+                S: occupied(cx, cy + C),
+                W: occupied(cx - C, cy),
+                E: occupied(cx + C, cy),
+                NW: occupied(cx - C, cy - C),
+                NE: occupied(cx + C, cy - C),
+                SW: occupied(cx - C, cy + C),
+                SE: occupied(cx + C, cy + C),
+            })
+            if (keys.length === 0) continue
+
+            // the cell's centre, relative to the entity's own centre
+            const offset: readonly [number, number] = [
+                x0 + dx + C / 2 - position.x,
+                y0 + dy + C / 2 - position.y,
+            ]
+
+            for (const key of keys) {
+                const variants = connections[key]
+                if (!variants || variants.length === 0) continue
+                for (const rendition of variants[0]) {
+                    if (rendition.layers) {
+                        for (const layer of rendition.layers) {
+                            sprites.push(addToShift(offset, util.duplicate(layer)))
+                        }
+                    } else {
+                        const { render_layer: _render_layer, ...spriteData } = rendition
+                        sprites.push(addToShift(offset, util.duplicate(spriteData)))
+                    }
                 }
-            } else {
-                const { render_layer: _render_layer, ...spriteData } = rendition
-                sprites.push(util.duplicate(spriteData))
             }
         }
     }
-
-    // Exterior walls: drawn on edges WITHOUT a neighbor
-    if (!hasN) addConnectionSprites('top_wall')
-    if (!hasS) addConnectionSprites('bottom_wall')
-    if (!hasW) addConnectionSprites('left_wall')
-    if (!hasE) addConnectionSprites('right_wall')
-
-    // Outer corners: convex corners where two exterior walls meet
-    if (!hasN && !hasW) addConnectionSprites('top_left_outer_corner')
-    if (!hasN && !hasE) addConnectionSprites('top_right_outer_corner')
-    if (!hasS && !hasW) addConnectionSprites('bottom_left_outer_corner')
-    if (!hasS && !hasE) addConnectionSprites('bottom_right_outer_corner')
-
-    // Inner corners: concave notch where two connected sides meet but diagonal is missing
-    if (hasN && hasW && !hasNW) addConnectionSprites('top_left_inner_corner')
-    if (hasN && hasE && !hasNE) addConnectionSprites('top_right_inner_corner')
-    if (hasS && hasW && !hasSW) addConnectionSprites('bottom_left_inner_corner')
-    if (hasS && hasE && !hasSE) addConnectionSprites('bottom_right_inner_corner')
 
     return sprites
 }
@@ -1533,6 +1547,7 @@ function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly Spr
         const connections = getCargoBayConnectionSprites(
             (e as any).graphics_set.connections,
             data.position,
+            4,
             data.positionGrid
         )
         return [...connections, ...base, ...cargoHatchLayers(e.hatch_definitions)]
@@ -1546,6 +1561,7 @@ function draw_cargo_landing_pad(
         const connections = getCargoBayConnectionSprites(
             (e as any).graphics_set.connections,
             data.position,
+            8,
             data.positionGrid
         )
         return [
@@ -2612,10 +2628,21 @@ function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => [
-        ...(e as any).graphics_set.picture.flatMap((p: any) => p.layers),
-        ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
-    ]
+    return (data: IDrawData) => {
+        // The hub has all 17 `connections` keys and never drew any of them
+        // (issue #364), so a bay placed against one had nothing to join to.
+        const connections = getCargoBayConnectionSprites(
+            (e as any).graphics_set.connections,
+            data.position,
+            8,
+            data.positionGrid
+        )
+        return [
+            ...connections,
+            ...(e as any).graphics_set.picture.flatMap((p: any) => p.layers),
+            ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
+        ]
+    }
 }
 function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
