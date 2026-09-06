@@ -90,6 +90,7 @@ import {
     BoilerPrototype,
     BurnerGeneratorPrototype,
     CargoBayPrototype,
+    CargoHatchDefinition,
     CargoLandingPadPrototype,
     CargoWagonPrototype,
     ConstantCombinatorPrototype,
@@ -143,6 +144,7 @@ import {
     RocketSiloPrototype,
     SelectorCombinatorPrototype,
     SolarPanelPrototype,
+    GigaCargoHatchDefinition,
     SpacePlatformHubPrototype,
     SplitterPrototype,
     StorageTankPrototype,
@@ -1448,6 +1450,83 @@ function getCargoBayConnectionSprites(
     return sprites
 }
 
+/**
+ * A cargo hatch is an animation of a lid opening for an arriving pod, and the
+ * three entities that have one draw a hole under it that nothing else fills.
+ * Unfixed, `cargo-bay` renders a black 0.75 x 0.66 tile notch ringed with red
+ * indicator lights, and `cargo-landing-pad` and `space-platform-hub` render an
+ * open pit several tiles across - on those two it is the entity's dominant
+ * feature.
+ *
+ * Frame 0 is the lid shut, so no frame has to be asked for: the editor already
+ * draws frame 0 of every sheet, because `EntitySprite.getParts` passes `data.x`
+ * and `data.y`, which default to 0, and nothing reads `frame_count`. Measured
+ * against the 2.0.77 art, the bay lid's opaque pixel count falls monotonically
+ * from 2378 at frame 0 to 1843 at frame 20, and the Lua sets
+ * `run_mode = "forward-then-backward"`, which puts the resting pose at frame 0.
+ * The giga hatches agree: frame 0 is their brightest and most covered frame.
+ *
+ * `draw_as_shadow` layers are dropped for the reason `craneHubLayers` drops
+ * one - `EntitySprite.getParts` skips them, so each would cost a fixture layer
+ * and draw nothing. The emission layers are kept: they are `blend_mode:
+ * "additive"`, which `EntitySprite` maps to Pixi's `add`, and on the bay that
+ * is a red idle status light. This is not the `agricultural-tower` trap, where
+ * the unread field was `tint_as_overlay`.
+ */
+function cargoHatchLayers(
+    hatches: readonly CargoHatchDefinition[] | undefined
+): readonly SpriteData[] {
+    if (!Array.isArray(hatches)) return []
+
+    const layers: SpriteData[] = []
+    for (const hatch of hatches) {
+        if (!hatch?.hatch_graphics) continue
+        // `offset` places the hatch on the entity and each layer's own `shift`
+        // places the art within the hatch, so both apply. The shadow layer is
+        // what settles that: only `offset + shift` lands it in the band the
+        // bay's own shadow occupies (x 1.88..4.50 against the picture's
+        // 1.09..4.38), where `offset` alone puts it on top of the bay body. It
+        // is also the placement that covers the hole, leaving 64 of its 663
+        // dark pixels where `offset` alone leaves 268.
+        const offset = hatch.offset ? util.vectorToTuple(hatch.offset) : ([0, 0] as const)
+        for (const layer of layersOf(hatch.hatch_graphics)) {
+            if (layer.draw_as_shadow) continue
+            layers.push(addToShift(offset, util.duplicate(layer)))
+        }
+    }
+    return layers
+}
+
+/**
+ * The landing pad and the platform hub cover their plain hatches with one big
+ * one, and it is the giga hatch that carries the graphics - every entry in
+ * their `hatch_definitions` has no `hatch_graphics` at all. See
+ * `cargoHatchLayers` for why frame 0 is the pose to draw.
+ *
+ * A `GigaCargoHatchDefinition` has no `offset`; each layer's `shift` is the
+ * whole placement. Back before front is both the definition order and the draw
+ * order - `hatch_render_layer_back` and `hatch_render_layer_front` are both
+ * `above-inserters` here, which is also the layer of the occluder the picture
+ * already ends with, so appending keeps the engine's order.
+ */
+function gigaCargoHatchLayers(
+    hatches: readonly GigaCargoHatchDefinition[] | undefined
+): readonly SpriteData[] {
+    if (!Array.isArray(hatches)) return []
+
+    const layers: SpriteData[] = []
+    for (const hatch of hatches) {
+        for (const animation of [hatch?.hatch_graphics_back, hatch?.hatch_graphics_front]) {
+            if (!animation) continue
+            for (const layer of layersOf(animation)) {
+                if (layer.draw_as_shadow) continue
+                layers.push(util.duplicate(layer))
+            }
+        }
+    }
+    return layers
+}
+
 function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const base = (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
@@ -1456,7 +1535,7 @@ function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly Spr
             data.position,
             data.positionGrid
         )
-        return [...connections, ...base]
+        return [...connections, ...base, ...cargoHatchLayers(e.hatch_definitions)]
     }
 }
 function draw_cargo_landing_pad(
@@ -1469,7 +1548,11 @@ function draw_cargo_landing_pad(
             data.position,
             data.positionGrid
         )
-        return [...connections, ...base]
+        return [
+            ...connections,
+            ...base,
+            ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
+        ]
     }
 }
 function draw_cargo_wagon(e: CargoWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -2529,7 +2612,10 @@ function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+    return () => [
+        ...(e as any).graphics_set.picture.flatMap((p: any) => p.layers),
+        ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
+    ]
 }
 function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
