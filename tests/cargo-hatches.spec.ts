@@ -39,12 +39,14 @@ const HATCHES = {
 } as const
 
 /*
-    A lone cargo bay draws the *most* connection sprites, not the fewest: with a
-    position grid and nothing adjacent, all four walls and all four outer
-    corners apply, which is 37 layers on top of the 7 below. So the counts above
-    are the grid-free ones, and the bay's grid-backed total is pinned separately.
+    A lone cargo bay draws more with a position grid than without, because
+    without one it draws no connection sprites at all. It is 2x2 cells, so alone
+    it is four outer corners and no walls - 19 layers on top of the 7 below. The
+    counts above are the grid-free ones, and the grid-backed total is pinned
+    separately. It was 44 until issue #378: every piece used to be drawn at the
+    entity centre, so a lone bay emitted all four walls as well.
 */
-const BAY_ALONE_WITH_GRID = 44
+const BAY_ALONE_WITH_GRID = 26
 
 /*
     Placed far enough apart that no footprint touches another, so every entity

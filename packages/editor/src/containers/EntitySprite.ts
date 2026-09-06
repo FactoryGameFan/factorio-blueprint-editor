@@ -23,6 +23,7 @@ import { BlendMode } from 'factorio:prototype'
 
 interface IEntityData {
     name: string
+    entityNumber?: number
     type?: string
     direction?: number
     position?: IPoint
@@ -174,6 +175,7 @@ export class EntitySprite extends Sprite {
             dir: entity.direction ?? 0,
 
             name: entity.name,
+            entityNumber: entity.entityNumber,
             positionGrid,
             /*
                 Only read behind a `data.positionGrid` guard, and a caller with a

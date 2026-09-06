@@ -241,8 +241,10 @@ export class EntityContainer {
                 updates: ['stone-wall', 'gate', 'legacy-straight-rail', 'straight-rail'],
             },
             {
-                is: ['cargo-bay', 'cargo-landing-pad'],
-                updates: ['cargo-bay', 'cargo-landing-pad'],
+                // A platform hub carries the same connection graphics and joins
+                // to a bay in game, so it has to redraw with them (issue #364).
+                is: ['cargo-bay', 'cargo-landing-pad', 'space-platform-hub'],
+                updates: ['cargo-bay', 'cargo-landing-pad', 'space-platform-hub'],
             },
         ]
 
