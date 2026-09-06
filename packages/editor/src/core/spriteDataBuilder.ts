@@ -154,6 +154,7 @@ import {
     ValvePrototype,
     WallPrototype,
     RailPrototype,
+    Vector3D,
 } from 'factorio:prototype'
 import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
@@ -984,10 +985,84 @@ function generateGraphics(e: EntityWithOwnerPrototype): (data: IDrawData) => rea
 function draw_accumulator(e: AccumulatorPrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => need(e, 'chargable_graphics', 'picture', 'layers')
 }
+/**
+ * Screen tiles of rise per tile of world height, used to place the crane's 3D
+ * origin. Fitted, not measured. Factorio projects the crane with a camera the
+ * prototype does not describe - `should_scale_for_perspective` names a
+ * perspective projection whose parameters appear nowhere in the data - so this
+ * is derived from `drawing_box_vertical_extension: 2.5` and checked by eye:
+ * 0.35 sinks the hub into the dome, 0.75 leaves a gap under it. The x half
+ * needs no factor and confirms the rest: `origin.x` of 0.5 tiles lands the hub
+ * 15.5 px right of the sprite centre against the base's mast at 15.0 px.
+ */
+const CRANE_HEIGHT_TO_SCREEN_TILES = 0.526
+
+/**
+ * Which of the hub's 128 yaw frames to park the crane at. A blueprint carries
+ * no crane state - the game poses the arm from `LuaEntity.crane_destination`,
+ * which is live entity state - so there is no resting orientation to read and
+ * this is a choice. Frame 0 is the no-information default the rest of the file
+ * already takes (`EntitySprite.getParts` falls back to `filenames[0]`), and it
+ * is also among the tightest poses: measured over all 128 frames it is 45 px
+ * wide against 140 px at the widest, so the hub stays inside the tower's 3x3
+ * footprint instead of overhanging its neighbours.
+ */
+const CRANE_RESTING_ORIENTATION = 0
+
+/**
+ * `Vector3D` is the 3D sibling of the `Vector` `util.vectorToTuple` handles, and
+ * the crane is the only thing in data.json that uses one. Same reasoning: the
+ * type is `Struct | [x, y, z]` and the runtime data is always the tuple.
+ */
+const vector3ToTuple = (v: Vector3D): readonly [number, number, number] =>
+    Array.isArray(v) ? [v[0], v[1], v[2]] : [v.x, v.y, v.z]
+
+/**
+ * The tower's mast ends in a flat cap because the crane on top of it is nine 3D
+ * parts the engine poses and projects itself. Most of them cannot be drawn from
+ * prototype data: `arm_central` and `arm_outer` are `is_contractible_by_cropping`
+ * booms whose sheets store axial roll rather than yaw, the telescope is
+ * `scale_to_fit_model`, and all of them need an arm pose that only exists at
+ * runtime.
+ *
+ * `parts[0]`, the hub, is the exception, and it is the part that closes the
+ * mast. It is the only part with `allow_sprite_rotation: false`, so its 128
+ * frames are true yaw and the engine never rotates it further - picking one
+ * frame and placing it is the whole job. Its shadow is deliberately not
+ * emitted: `EntitySprite.getParts` drops `draw_as_shadow` layers, so it would
+ * cost a fixture layer and draw nothing.
+ */
+function craneHubLayers(e: AgriculturalTowerPrototype): readonly SpriteData[] {
+    const hub = e.crane?.parts?.[0]?.rotated_sprite
+    if (!hub) return []
+    const { filenames, lines_per_file, line_length, width, height } = hub
+    if (!filenames || !lines_per_file || !line_length || !width || !height) return []
+
+    const perFile = line_length * lines_per_file
+    const file = Math.floor(CRANE_RESTING_ORIENTATION / perFile)
+    if (file >= filenames.length) return []
+    const cell = CRANE_RESTING_ORIENTATION % perFile
+
+    const [ox, oy, oz] = vector3ToTuple(e.crane.origin)
+    const [sx, sy] = hub.shift ? util.vectorToTuple(hub.shift) : [0, 0]
+
+    return [
+        {
+            filename: filenames[file],
+            x: (cell % line_length) * width,
+            y: Math.floor(cell / line_length) * height,
+            width,
+            height,
+            scale: hub.scale,
+            shift: [ox + sx, oy - oz * CRANE_HEIGHT_TO_SCREEN_TILES + sy],
+        },
+    ]
+}
+
 function draw_agricultural_tower(
     e: AgriculturalTowerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => (e as any).graphics_set.animation.layers
+    return () => [...(e as any).graphics_set.animation.layers, ...craneHubLayers(e)]
 }
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [

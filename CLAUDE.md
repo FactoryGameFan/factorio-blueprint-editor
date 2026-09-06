@@ -400,5 +400,26 @@ against the CSP in `packages/website/public/_headers` that permits them.
   of the rail, because which cells it blocks depends on the size of the box
   asking, and #142 measured that the game's published `tile_width` does not
   help either. Both are closed. #183 is the live rail defect.
+- The agricultural tower's crane is nine 3D parts the engine poses from live
+  entity state (`LuaEntity.crane_destination`) and projects with a camera the
+  prototype never describes. Only `crane.parts[0]`, the hub, is drawable from
+  data, and it alone carries `allow_sprite_rotation: false`, so its 128 frames
+  are true yaw where the booms store axial roll. #365 draws that one part,
+  parked at frame 0, offset by a fitted 0.526 screen tiles per tile of world
+  height - fitted, because nothing in the data gives the factor. The booms also
+  need `is_contractible_by_cropping` and an arm pose that only exists at
+  runtime; measured, a naive chain walk renders a 12-tile mast through the
+  tower. `tests/agricultural-tower-crane.spec.ts` pins the hub, because all five
+  guards in `craneHubLayers` return an empty array and a drop would otherwise be
+  silent.
+- The same tower's two `always_draw` working visualisations are deliberately not
+  drawn, and #365's original suggestion to draw them was wrong on both. `wv[0]`
+  is byte-identical to the base layer already drawn - it exists only to carry a
+  `fog_mask` rect, and `G.getTexture`'s cache key would hand back the very same
+  `Texture`. `wv[1]` is an `apply_recipe_tint` + `tint_as_overlay` mask, and
+  `EntitySprite` reads neither field, so it would draw as a raw mask. Check a
+  candidate visualisation against the layers already emitted before adding it;
+  measured over all 155 entities, `agricultural-tower` and `big-mining-drill`
+  are the ones where an `always_draw` entry duplicates the main animation.
 - Logistic filters retain quality metadata but the UI has no quality picker.
 - Blueprint icons round-trip, but the UI has no icon picker.
