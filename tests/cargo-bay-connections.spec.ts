@@ -256,13 +256,20 @@ test('a bay joins to a landing pad and to a platform hub, not just to a bay', as
         to a bay against another bay on the same side, because nothing about the
         neighbour's own size reaches the bay's cells.
     */
+    /*
+        These two totals carry the `graphics_set.animation` layers issue #364
+        added - one turbine on the pad, 22 cockpit glows on the hub - so they
+        were 72 and 77 before that. What this test is about is the difference
+        each neighbour makes, and the animation is constant across every
+        arrangement below, so it shifts the baselines and nothing else.
+    */
     await loadBlueprint(page, bp([['cargo-landing-pad', 0, 0]]))
     const lonePad = (await tally(page))['cargo-landing-pad']
-    expect(countsOf(lonePad)).toEqual([72])
+    expect(countsOf(lonePad)).toEqual([73])
 
     await loadBlueprint(page, bp([['space-platform-hub', 0, 0]]))
     const loneHub = (await tally(page))['space-platform-hub']
-    expect(countsOf(loneHub)).toEqual([77])
+    expect(countsOf(loneHub)).toEqual([99])
 
     for (const big of ['cargo-landing-pad', 'space-platform-hub'] as const) {
         // bay to the east: the 8x8 entity is on the west side, so it draws the
@@ -312,7 +319,7 @@ test('a bay joins to a landing pad and to a platform hub, not just to a bay', as
         ])
     )
     const t = await tally(page)
-    expect(countsOf(t['cargo-landing-pad'])).toEqual([73])
+    expect(countsOf(t['cargo-landing-pad'])).toEqual([74])
     expect(countsOf(t['cargo-bay'])).toEqual([25, 22])
 
     expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
