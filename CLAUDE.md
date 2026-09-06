@@ -446,6 +446,21 @@ against the CSP in `packages/website/public/_headers` that permits them.
   `tests/cargo-hatches.spec.ts` pins all three by layer count, because every
   guard in both helpers returns an empty array and a drop would otherwise be
   silent.
+- `graphics_set.animation` sits beside `graphics_set.picture` on exactly two
+  entities, and a picture-only draw dropped it until #364. Swept over all 155,
+  `cargo-landing-pad` and `space-platform-hub` are the pair; the other 22 with
+  an `animation` have no `picture` next to it and already read it. The two are
+  not the same size of defect. The pad's single layer is the fan inside its
+  turbine cowling, which the picture draws empty, so the pad rendered a black
+  hole - the same class as the open hatches above. Scored against the game's own
+  render over the fan's pixels, mean per-channel error falls 30.7 -> 20.9, and
+  under the body instead of over it the score stays at 30.7, because the body
+  covers it. The hub's 22 layers are additive `draw_as_glow` screens in the
+  cockpit windows, not the cockpit body, which `picture` always drew - so the
+  issue's "the whole cockpit missing" overstates it at 3.4% of its pixels.
+  Appending is the game's order: `animation_render_layer` defaults to `object`,
+  neither prototype sets it, and drawing it there rather than last moves 0
+  pixels on either entity. `tests/cargo-hub-animation.spec.ts` pins the split.
 - Cargo bay connection pieces are placed per 2x2 cell and per shared edge, and
   both halves are measured against Factorio 2.0.77 rather than reasoned out
   (issues #378, #362 item 2). The cell rule is Factorio 2.1's `tileset_mapping`

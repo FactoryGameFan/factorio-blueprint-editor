@@ -32,11 +32,23 @@ import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 const HATCHES = {
     /** 5 picture layers + lid + emission. Without the hatch: 5. */
     'cargo-bay': 7,
-    /** 13 picture layers + back, back emission, front emission, front. Without: 13. */
-    'cargo-landing-pad': 17,
-    /** 15 picture layers + 7 across two giga hatches. Without: 15. */
-    'space-platform-hub': 22,
+    /**
+     * 13 picture layers + back, back emission, front emission, front, + the
+     * turbine of `graphics_set.animation`. Without the hatch: 14.
+     */
+    'cargo-landing-pad': 18,
+    /**
+     * 15 picture layers + 7 across two giga hatches + 22 cockpit glows from
+     * `graphics_set.animation`. Without the hatch: 37.
+     */
+    'space-platform-hub': 44,
 } as const
+
+/*
+    The two totals above carry the `graphics_set.animation` layers issue #364
+    added; `tests/cargo-hub-animation.spec.ts` pins that half on its own, so a
+    failure here names the hatch and a failure there names the animation.
+*/
 
 /*
     A lone cargo bay draws more with a position grid than without, because

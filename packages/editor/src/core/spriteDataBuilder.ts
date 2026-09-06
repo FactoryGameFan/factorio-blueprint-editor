@@ -1631,6 +1631,53 @@ function gigaCargoHatchLayers(
     return layers
 }
 
+/**
+ * `graphics_set.animation`, which sits beside `graphics_set.picture` and which
+ * neither draw function used to read (issue #364). Swept over every entity in
+ * `data.json`, `cargo-landing-pad` and `space-platform-hub` are the only two
+ * that carry both keys. The other 22 entities with an `animation` have no
+ * `picture` next to it, and their own draw functions already read it.
+ *
+ * On the landing pad this is one layer, `planet-hub-turbine.png`, and it is not
+ * a detail. The picture leaves an unfilled hole inside the turbine cowling and
+ * this is the fan that fills it, so the defect is the same shape as the open
+ * hatches of #377. Scored against Factorio 2.0.77's own render of the
+ * `pad-bays` arrangement, over the fan's own pixels, mean per-channel error
+ * falls from 30.7 with the picture alone to 20.9 at frame 0 - 10.8 at the frame
+ * the shot happened to catch, since the fan spins. A control patch the fan
+ * never touches reads 44.3 in every arm, so the gain is local to the fan.
+ *
+ * On the hub it is 22 tiny sprites, every one `blend_mode: "additive"` with
+ * `draw_as_glow`. They are the cockpit's lit screens, not the cockpit body,
+ * which `picture` already draws - so the issue's "the whole cockpit missing" is
+ * an overstatement. They move 3.4% of the hub's pixels by a mean of 9.2. They
+ * are kept rather than dropped the way the `agricultural-tower` visualisations
+ * were, because they pass the test those failed: none duplicates a layer
+ * already drawn, 0 of 22 by filename and 0 by frame-0 pixel digest, and
+ * `picture` already draws three `-emission-` layers under the same additive
+ * treatment.
+ *
+ * Frame 0 costs nothing to ask for. `EntitySprite.getParts` passes `data.x` and
+ * `data.y`, which default to 0, and nothing reads `frame_count` - the same
+ * reason `cargoHatchLayers` gets the lids shut.
+ *
+ * Appending is the game's own order. `animation_render_layer` defaults to
+ * `object` and neither prototype sets it, which puts the animation below the
+ * `cargo-hatch` and `above-inserters` occluder groups the picture ends with.
+ * Measured, drawing it there instead of last changes 0 pixels on either entity,
+ * because neither animation reaches an occluder. Order against the picture's
+ * own body does matter: under it the fan scores 30.7, exactly the same as not
+ * drawing it, because the body covers it completely.
+ */
+function graphicsSetAnimationLayers(animation: Animation | undefined): readonly SpriteData[] {
+    if (animation === undefined) return []
+    // `layers` is list-typed, so an empty one exports as `{}` rather than `[]`
+    // and survives a `!== undefined` guard. Read it through `Array.isArray`.
+    const layers = (animation as { layers?: unknown }).layers
+    if (Array.isArray(layers)) return (layers as readonly SpriteData[]).map(l => util.duplicate(l))
+    return 'filename' in animation ? [util.duplicate(animation as unknown as SpriteData)] : []
+}
+
 function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const base = (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
@@ -1659,6 +1706,7 @@ function draw_cargo_landing_pad(
         return [
             ...connections,
             ...base,
+            ...graphicsSetAnimationLayers(e.graphics_set?.animation),
             ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
         ]
     }
@@ -2733,6 +2781,7 @@ function draw_space_platform_hub(
         return [
             ...connections,
             ...(e as any).graphics_set.picture.flatMap((p: any) => p.layers),
+            ...graphicsSetAnimationLayers(e.graphics_set?.animation),
             ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
         ]
     }
