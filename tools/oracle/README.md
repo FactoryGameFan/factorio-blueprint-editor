@@ -54,6 +54,17 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-zoom-limits.mjs`              | What zoom range and what per-notch step the game uses (#206, #211)            |
 | `probe-blueprint-snapping.mjs`       | Which snapping mode carries `position-relative-to-grid` (#226, PR #222)       |
 | `probe-blueprint-grid-position.mjs`  | Whether setting a grid position moves the entities (PR #222)                  |
+| `probe-decider-else-outputs.mjs`     | How 2.1 serialises a decider's `else_outputs`, and whether it reimports       |
+
+| `probe-cargo-bay-render.mjs` | What cargo bay arrangements actually look like in the game (#378) |
+
+That last one is the only probe here that needs Factorio to **draw**. Every
+other probe runs `--create`, which loads mods and runs `on_init` but never
+renders, so `game.take_screenshot` silently produces nothing. It works around
+that by creating the map in one run and re-opening it with `--load-game` in a
+second, where the graphical client does render. That means it needs a GPU and a
+windowed session, which is a stronger requirement than the rest of this
+directory - and, like the rest, nothing in CI depends on it.
 
 One script here is not a probe and asks the game nothing:
 

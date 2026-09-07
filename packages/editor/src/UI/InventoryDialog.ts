@@ -87,11 +87,11 @@ export class InventoryDialog extends Dialog {
 
     /**
      * Widen the dialog if more group tabs need to fit than the 404px base
-     * layout was designed for. `DisplayPanelIcon` is the first caller whose
-     * filter (items + fluids + virtual signals) spans enough of
-     * `FD.inventoryLayout` to hit this - up to 7 tabs against Space Age data,
-     * where every other filtered caller stays within a handful of the base
-     * game's own groups.
+     * layout was designed for. `DisplayPanelIcon` and `BlueprintIconSlot` are
+     * the callers whose filter (items + fluids + virtual signals) spans
+     * enough of `FD.inventoryLayout` to hit this - up to 7 tabs against Space
+     * Age data, where every other filtered caller stays within a handful of
+     * the base game's own groups.
      */
     private static computeWidth(itemsFilter: string[] | undefined): number {
         let groupCount = 0
@@ -112,8 +112,9 @@ export class InventoryDialog extends Dialog {
         // five call sites pass one. Optional only made the invocation below a
         // type error, with nothing to do about it that was not a fiction.
         selectedCallBack: (selectedItem: string) => void,
-        // Off for DisplayPanelIcon: it picks from items/fluids/signals with no
-        // recipe, so the panel would only ever show as a permanently empty bar.
+        // Off for DisplayPanelIcon/BlueprintIconSlot: both pick from
+        // items/fluids/signals with no recipe, so the panel would only ever
+        // show as a permanently empty bar.
         showRecipePanel = true
     ) {
         super(InventoryDialog.computeWidth(itemsFilter), 442, title)

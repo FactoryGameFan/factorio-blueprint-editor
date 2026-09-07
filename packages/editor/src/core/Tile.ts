@@ -24,8 +24,8 @@ export class Tile extends EventEmitter<TileEvents> {
      * Matches `Entity.getItemName`, which answers the same question for entities
      * and had to widen for the 20 with no `minable.result` - that read used to
      * throw a TypeError and took blueprint icon generation down with it.
-     * `generateIcons` already accepts `(name: string) => string | undefined` for
-     * both and drops the ones with nothing to show.
+     * `computeAutoIcons` already accepts `(name: string) => string | undefined`
+     * for both and drops the ones with nothing to show.
      *
      * Every tile in data.json does have `minable.result` today, so this is the
      * type catching up with a shape the data has not exercised, not a fix.

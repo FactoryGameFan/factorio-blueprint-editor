@@ -1014,6 +1014,13 @@
                                                 "items": {
                                                     "$ref": "blueprintSchema.json#/definitions/DeciderCombinatorOutput"
                                                 }
+                                            },
+                                            "else_outputs": {
+                                                "$comment": "Factorio 2.1.9 and later. Written even when empty, so most 2.1 blueprints carry it as [].",
+                                                "type": "array",
+                                                "items": {
+                                                    "$ref": "blueprintSchema.json#/definitions/DeciderCombinatorOutput"
+                                                }
                                             }
                                         }
                                     },

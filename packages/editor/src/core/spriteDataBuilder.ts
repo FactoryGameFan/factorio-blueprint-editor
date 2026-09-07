@@ -90,6 +90,7 @@ import {
     BoilerPrototype,
     BurnerGeneratorPrototype,
     CargoBayPrototype,
+    CargoHatchDefinition,
     CargoLandingPadPrototype,
     CargoWagonPrototype,
     ConstantCombinatorPrototype,
@@ -143,6 +144,7 @@ import {
     RocketSiloPrototype,
     SelectorCombinatorPrototype,
     SolarPanelPrototype,
+    GigaCargoHatchDefinition,
     SpacePlatformHubPrototype,
     SplitterPrototype,
     StorageTankPrototype,
@@ -154,9 +156,17 @@ import {
     ValvePrototype,
     WallPrototype,
     RailPrototype,
+    Vector3D,
 } from 'factorio:prototype'
 import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
+import {
+    CARGO_BAY_CELL,
+    cargoBayBridges,
+    cargoBayCellPieces,
+    cargoBayCrossings,
+    type CargoBayBox,
+} from './cargoBayConnections'
 import { need } from './need'
 
 /**
@@ -181,6 +191,8 @@ export interface IDrawData {
     position: IPoint
     /** Defaulted to false by getDrawData. */
     generateConnector: boolean
+    /** Absent for the paint preview, which draws no entity from the blueprint. */
+    entityNumber: number | undefined
 
     displayPanelIcon: undefined | ISignal
     /** Defaulted to false by getDrawData. */
@@ -984,10 +996,84 @@ function generateGraphics(e: EntityWithOwnerPrototype): (data: IDrawData) => rea
 function draw_accumulator(e: AccumulatorPrototype): (data: IDrawData) => readonly SpriteData[] {
     return () => need(e, 'chargable_graphics', 'picture', 'layers')
 }
+/**
+ * Screen tiles of rise per tile of world height, used to place the crane's 3D
+ * origin. Fitted, not measured. Factorio projects the crane with a camera the
+ * prototype does not describe - `should_scale_for_perspective` names a
+ * perspective projection whose parameters appear nowhere in the data - so this
+ * is derived from `drawing_box_vertical_extension: 2.5` and checked by eye:
+ * 0.35 sinks the hub into the dome, 0.75 leaves a gap under it. The x half
+ * needs no factor and confirms the rest: `origin.x` of 0.5 tiles lands the hub
+ * 15.5 px right of the sprite centre against the base's mast at 15.0 px.
+ */
+const CRANE_HEIGHT_TO_SCREEN_TILES = 0.526
+
+/**
+ * Which of the hub's 128 yaw frames to park the crane at. A blueprint carries
+ * no crane state - the game poses the arm from `LuaEntity.crane_destination`,
+ * which is live entity state - so there is no resting orientation to read and
+ * this is a choice. Frame 0 is the no-information default the rest of the file
+ * already takes (`EntitySprite.getParts` falls back to `filenames[0]`), and it
+ * is also among the tightest poses: measured over all 128 frames it is 45 px
+ * wide against 140 px at the widest, so the hub stays inside the tower's 3x3
+ * footprint instead of overhanging its neighbours.
+ */
+const CRANE_RESTING_ORIENTATION = 0
+
+/**
+ * `Vector3D` is the 3D sibling of the `Vector` `util.vectorToTuple` handles, and
+ * the crane is the only thing in data.json that uses one. Same reasoning: the
+ * type is `Struct | [x, y, z]` and the runtime data is always the tuple.
+ */
+const vector3ToTuple = (v: Vector3D): readonly [number, number, number] =>
+    Array.isArray(v) ? [v[0], v[1], v[2]] : [v.x, v.y, v.z]
+
+/**
+ * The tower's mast ends in a flat cap because the crane on top of it is nine 3D
+ * parts the engine poses and projects itself. Most of them cannot be drawn from
+ * prototype data: `arm_central` and `arm_outer` are `is_contractible_by_cropping`
+ * booms whose sheets store axial roll rather than yaw, the telescope is
+ * `scale_to_fit_model`, and all of them need an arm pose that only exists at
+ * runtime.
+ *
+ * `parts[0]`, the hub, is the exception, and it is the part that closes the
+ * mast. It is the only part with `allow_sprite_rotation: false`, so its 128
+ * frames are true yaw and the engine never rotates it further - picking one
+ * frame and placing it is the whole job. Its shadow is deliberately not
+ * emitted: `EntitySprite.getParts` drops `draw_as_shadow` layers, so it would
+ * cost a fixture layer and draw nothing.
+ */
+function craneHubLayers(e: AgriculturalTowerPrototype): readonly SpriteData[] {
+    const hub = e.crane?.parts?.[0]?.rotated_sprite
+    if (!hub) return []
+    const { filenames, lines_per_file, line_length, width, height } = hub
+    if (!filenames || !lines_per_file || !line_length || !width || !height) return []
+
+    const perFile = line_length * lines_per_file
+    const file = Math.floor(CRANE_RESTING_ORIENTATION / perFile)
+    if (file >= filenames.length) return []
+    const cell = CRANE_RESTING_ORIENTATION % perFile
+
+    const [ox, oy, oz] = vector3ToTuple(e.crane.origin)
+    const [sx, sy] = hub.shift ? util.vectorToTuple(hub.shift) : [0, 0]
+
+    return [
+        {
+            filename: filenames[file],
+            x: (cell % line_length) * width,
+            y: Math.floor(cell / line_length) * height,
+            width,
+            height,
+            scale: hub.scale,
+            shift: [ox + sx, oy - oz * CRANE_HEIGHT_TO_SCREEN_TILES + sy],
+        },
+    ]
+}
+
 function draw_agricultural_tower(
     e: AgriculturalTowerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => (e as any).graphics_set.animation.layers
+    return () => [...(e as any).graphics_set.animation.layers, ...craneHubLayers(e)]
 }
 function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => [
@@ -996,12 +1082,29 @@ function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly
         duplicateAndSetPropertyUsing(layersOf(e.folded_animation)[1], 'y', 'height', data.dir / 4),
     ]
 }
+/**
+ * RotatedAnimation8Way / Sprite8Way direction keys, underscored - the shape
+ * railgun-turret's base_visualisation.animation and folded_animation use.
+ * util.getDirName8Way produces the un-underscored rail-picture keys instead,
+ * and util.getDirName throws outright on the four diagonal facings.
+ */
+const ROTATED_8WAY_KEYS = [
+    'north',
+    'north_east',
+    'east',
+    'south_east',
+    'south',
+    'south_west',
+    'west',
+    'north_west',
+] as const
+
 function draw_railgun_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const dirName = util.getDirName(data.dir)
-        const base = (e as any).graphics_set.base_visualisation.animation[dirName]?.layers || []
-        const folded = (e as any).folded_animation[dirName]?.layers || []
-        return [...base, ...folded]
+        const key = ROTATED_8WAY_KEYS[(data.dir >> 1) & 7]
+        const bv = need(e, 'graphics_set', 'base_visualisation')
+        const animation = (Array.isArray(bv) ? bv[0] : bv).animation
+        return [...dirLayers(animation, key), ...dirLayers(need(e, 'folded_animation'), key)]
     }
 }
 function draw_arithmetic_combinator(
@@ -1105,14 +1208,37 @@ function draw_artillery_wagon(
         return layers
     }
 }
+/**
+ * The electromagnetic plant's idle animation is only its shell - its core is a
+ * separate `working_visualisation` the draw never picked up, leaving a hole.
+ * Its one unconditional entry (`always_draw`, no `name`, no `enabled_by_name`)
+ * is that core.
+ *
+ * Only the electromagnetic plant. Other crafting machines' `always_draw`
+ * visualisations are `apply_runtime_tint` masks that read wrong without the
+ * base they tint (cryogenic-plant) or recipe-gated (`enabled_by_name`, foundry);
+ * folding those in is a wider change than fixing the hole this leaves.
+ */
+function restingCoreLayers(e: AssemblingMachinePrototype): readonly SpriteData[] {
+    if (e.name !== 'electromagnetic-plant') return []
+    const core = need(e, 'graphics_set').working_visualisations?.find(
+        wv => wv.always_draw && !wv.name && !wv.enabled_by_name && wv.animation
+    )
+    return core?.animation ? layersOf(core.animation) : []
+}
+
 function draw_assembling_machine(
     e: AssemblingMachinePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
+        const core = restingCoreLayers(e)
         if (need(e, 'graphics_set').always_draw_idle_animation) {
-            return layersOf(need(e, 'graphics_set', 'idle_animation'))
+            return [...layersOf(need(e, 'graphics_set', 'idle_animation')), ...core]
         } else {
-            const out = [...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir))]
+            const out = [
+                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
+                ...core,
+            ]
 
             const fbs = getFluidBoxes(
                 e,
@@ -1267,70 +1393,289 @@ function draw_burner_generator(
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => layersOf(getAnimation((e as any).animation, data.dir))
 }
+/**
+ * Cargo bays, landing pads and platform hubs all carry a
+ * `CargoBayConnectableGraphicsSet` and join into one structure when placed
+ * against each other, so all three count as neighbours for each other.
+ *
+ * This keys on the entity TYPE while `EntityContainer.generateUpdateGroups`
+ * keys on the NAME, and the two have to name the same set or a neighbour will
+ * not be redrawn. They do today because each of these three types has exactly
+ * one prototype of that name; a fourth would need adding in both places.
+ */
 function isCargoBayLike(entity: { type: string } | undefined): boolean {
     return (
-        entity !== undefined && (entity.type === 'cargo-bay' || entity.type === 'cargo-landing-pad')
+        entity !== undefined &&
+        (entity.type === 'cargo-bay' ||
+            entity.type === 'cargo-landing-pad' ||
+            entity.type === 'space-platform-hub')
     )
 }
 
+/*
+    `entityNumber` comes from the entity rather than from a grid lookup at its own
+    position. The grid keeps overlapping entities in one cell and hands back the
+    smallest, and blueprint loading creates entities without an availability
+    check, so an overlapping import could make a landing pad believe it was the
+    bay sitting inside it - and then both would draw the same crossing.
+*/
 function getCargoBayConnectionSprites(
     connections: any,
     position: IPoint,
-    positionGrid: PositionGrid | undefined
+    size: number,
+    positionGrid: PositionGrid | undefined,
+    entityNumber: number | undefined
 ): SpriteData[] {
     if (!connections || !positionGrid) return []
 
-    // Cargo bays are 4x4 tiles. Check tiles just outside the boundary for adjacent cargo bays.
-    const x0 = Math.round(position.x - 2)
-    const y0 = Math.round(position.y - 2)
+    const C = CARGO_BAY_CELL
+    const half = size / 2
+    /*
+        The footprint origin is not rounded, because the entity's own position is
+        not always on a tile. Loading a blueprint re-centres it, and a blueprint
+        whose extent is odd puts every entity in it on a half tile - measured, the
+        all-entities blueprint at four directions puts the landing pad at x
+        -73.5. Rounding there snapped the cells half a tile off the entity while
+        the sprites stayed put, so the same lone pad drew different sprites
+        depending on where it had been dropped.
+    */
+    const x0 = position.x - half
+    const y0 = position.y - half
 
-    const hasN = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 1, y: y0 - 1 }))
-    const hasS = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 1, y: y0 + 4 }))
-    const hasW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 + 1 }))
-    const hasE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 + 1 }))
+    /*
+        Occupancy is asked of the tile immediately across the edge in question,
+        never of the neighbouring cell's own middle.
 
-    const hasNW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 - 1 }))
-    const hasNE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 - 1 }))
-    const hasSW = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 - 1, y: y0 + 4 }))
-    const hasSE = isCargoBayLike(positionGrid.getEntityAtPosition({ x: x0 + 4, y: y0 + 4 }))
+        The difference matters because bay-like entities do NOT all share one
+        2-tile grid. Only `cargo-landing-pad` declares `build_grid_size = 2`;
+        `cargo-bay` and `space-platform-hub` declare none, so they snap to whole
+        tiles like any other even-sized entity and two bays can sit an odd number
+        of tiles apart. Sampling the far cell then reads across a 1-tile gap and
+        reports a join that is not there, and it does so asymmetrically - the two
+        entities disagree about whether they touch, which is also a gap
+        `getSurroundingEntities` is too narrow to redraw across.
+
+        `bayAt` therefore takes a point, not a cell, and every caller hands it a
+        point half a tile past the edge it is asking about. That lands inside the
+        adjacent tile whether or not the grid is aligned to whole tiles.
+    */
+    const bayAt = (x: number, y: number): Entity | undefined => {
+        const e = positionGrid.getEntityAtPosition({ x, y })
+        return isCargoBayLike(e) ? e : undefined
+    }
+    const ownerAt = (x: number, y: number): number | undefined => bayAt(x, y)?.entityNumber
 
     const sprites: SpriteData[] = []
-
-    const addConnectionSprites = (key: string): void => {
+    const emit = (key: string, offset: readonly [number, number]): void => {
         const variants = connections[key]
         if (!variants || variants.length === 0) return
-        const variant = variants[0]
-        for (const rendition of variant) {
+        // variants[0] throughout, as every other connection key here does. The
+        // game picks by tile position and measurably uses both - which variant
+        // wins differs from seam to seam - but reproducing that needs a position
+        // hash we would be inventing. Issue #362 item 4 tracks it for all keys.
+        for (const rendition of variants[0]) {
             if (rendition.layers) {
                 for (const layer of rendition.layers) {
-                    sprites.push(util.duplicate(layer))
+                    sprites.push(addToShift(offset, util.duplicate(layer)))
                 }
             } else {
                 const { render_layer: _render_layer, ...spriteData } = rendition
-                sprites.push(util.duplicate(spriteData))
+                sprites.push(addToShift(offset, util.duplicate(spriteData)))
             }
         }
     }
 
-    // Exterior walls: drawn on edges WITHOUT a neighbor
-    if (!hasN) addConnectionSprites('top_wall')
-    if (!hasS) addConnectionSprites('bottom_wall')
-    if (!hasW) addConnectionSprites('left_wall')
-    if (!hasE) addConnectionSprites('right_wall')
+    for (let dy = 0; dy < size; dy += C) {
+        for (let dx = 0; dx < size; dx += C) {
+            // the eight tiles that touch this cell: half a tile outside each
+            // edge, and level with the cell's own middle along the other axis
+            const w = x0 + dx - 0.5
+            const e = x0 + dx + C + 0.5
+            const n = y0 + dy - 0.5
+            const s = y0 + dy + C + 0.5
+            const mx = x0 + dx + C / 2
+            const my = y0 + dy + C / 2
+            const has = (x: number, y: number): boolean => bayAt(x, y) !== undefined
+            const keys = cargoBayCellPieces({
+                N: has(mx, n),
+                S: has(mx, s),
+                W: has(w, my),
+                E: has(e, my),
+                NW: has(w, n),
+                NE: has(e, n),
+                SW: has(w, s),
+                SE: has(e, s),
+            })
+            if (keys.length === 0) continue
 
-    // Outer corners: convex corners where two exterior walls meet
-    if (!hasN && !hasW) addConnectionSprites('top_left_outer_corner')
-    if (!hasN && !hasE) addConnectionSprites('top_right_outer_corner')
-    if (!hasS && !hasW) addConnectionSprites('bottom_left_outer_corner')
-    if (!hasS && !hasE) addConnectionSprites('bottom_right_outer_corner')
+            // the cell's centre, relative to the entity's own centre
+            const offset: readonly [number, number] = [dx + C / 2 - half, dy + C / 2 - half]
+            for (const key of keys) emit(key, offset)
+        }
+    }
 
-    // Inner corners: concave notch where two connected sides meet but diagonal is missing
-    if (hasN && hasW && !hasNW) addConnectionSprites('top_left_inner_corner')
-    if (hasN && hasE && !hasNE) addConnectionSprites('top_right_inner_corner')
-    if (hasS && hasW && !hasSW) addConnectionSprites('bottom_left_inner_corner')
-    if (hasS && hasE && !hasSE) addConnectionSprites('bottom_right_inner_corner')
+    /*
+        Bridges and crossings are anchored between entities rather than on a
+        cell, so they need the neighbours themselves and not just an occupancy
+        flag. `cargoBayBridges` draws each seam from its west or north side
+        only; the two entities of a pair are redrawn together, because
+        EntityContainer's update group covers all three bay-like names.
+    */
+    if (entityNumber === undefined) return sprites
+
+    /*
+        Every tile down each of the four sides, not every cell: two entities can
+        share as little as one tile of edge, and stepping by the cell size walks
+        straight past such a neighbour from one of the two sides.
+    */
+    const neighbours = new Map<number, CargoBayBox>()
+    for (let d = 0.5; d < size; d += 1) {
+        const ring: [number, number][] = [
+            [x0 - 0.5, y0 + d],
+            [x0 + size + 0.5, y0 + d],
+            [x0 + d, y0 - 0.5],
+            [x0 + d, y0 + size + 0.5],
+        ]
+        for (const [x, y] of ring) {
+            const e = bayAt(x, y)
+            if (e === undefined || e.entityNumber === entityNumber) continue
+            neighbours.set(e.entityNumber, { x: e.position.x, y: e.position.y, size: e.size.x })
+        }
+    }
+
+    const self: CargoBayBox = { x: position.x, y: position.y, size }
+    for (const piece of [
+        ...cargoBayBridges(self, [...neighbours.values()]),
+        ...cargoBayCrossings(self, entityNumber, ownerAt),
+    ]) {
+        emit(piece.key, [piece.x - position.x, piece.y - position.y])
+    }
 
     return sprites
+}
+
+/**
+ * A cargo hatch is an animation of a lid opening for an arriving pod, and the
+ * three entities that have one draw a hole under it that nothing else fills.
+ * Unfixed, `cargo-bay` renders a black 0.75 x 0.66 tile notch ringed with red
+ * indicator lights, and `cargo-landing-pad` and `space-platform-hub` render an
+ * open pit several tiles across - on those two it is the entity's dominant
+ * feature.
+ *
+ * Frame 0 is the lid shut, so no frame has to be asked for: the editor already
+ * draws frame 0 of every sheet, because `EntitySprite.getParts` passes `data.x`
+ * and `data.y`, which default to 0, and nothing reads `frame_count`. Measured
+ * against the 2.0.77 art, the bay lid's opaque pixel count falls monotonically
+ * from 2378 at frame 0 to 1843 at frame 20, and the Lua sets
+ * `run_mode = "forward-then-backward"`, which puts the resting pose at frame 0.
+ * The giga hatches agree: frame 0 is their brightest and most covered frame.
+ *
+ * `draw_as_shadow` layers are dropped for the reason `craneHubLayers` drops
+ * one - `EntitySprite.getParts` skips them, so each would cost a fixture layer
+ * and draw nothing. The emission layers are kept: they are `blend_mode:
+ * "additive"`, which `EntitySprite` maps to Pixi's `add`, and on the bay that
+ * is a red idle status light. This is not the `agricultural-tower` trap, where
+ * the unread field was `tint_as_overlay`.
+ */
+function cargoHatchLayers(
+    hatches: readonly CargoHatchDefinition[] | undefined
+): readonly SpriteData[] {
+    if (!Array.isArray(hatches)) return []
+
+    const layers: SpriteData[] = []
+    for (const hatch of hatches) {
+        if (!hatch?.hatch_graphics) continue
+        // `offset` places the hatch on the entity and each layer's own `shift`
+        // places the art within the hatch, so both apply. The shadow layer is
+        // what settles that: only `offset + shift` lands it in the band the
+        // bay's own shadow occupies (x 1.88..4.50 against the picture's
+        // 1.09..4.38), where `offset` alone puts it on top of the bay body. It
+        // is also the placement that covers the hole, leaving 64 of its 663
+        // dark pixels where `offset` alone leaves 268.
+        const offset = hatch.offset ? util.vectorToTuple(hatch.offset) : ([0, 0] as const)
+        for (const layer of layersOf(hatch.hatch_graphics)) {
+            if (layer.draw_as_shadow) continue
+            layers.push(addToShift(offset, util.duplicate(layer)))
+        }
+    }
+    return layers
+}
+
+/**
+ * The landing pad and the platform hub cover their plain hatches with one big
+ * one, and it is the giga hatch that carries the graphics - every entry in
+ * their `hatch_definitions` has no `hatch_graphics` at all. See
+ * `cargoHatchLayers` for why frame 0 is the pose to draw.
+ *
+ * A `GigaCargoHatchDefinition` has no `offset`; each layer's `shift` is the
+ * whole placement. Back before front is both the definition order and the draw
+ * order - `hatch_render_layer_back` and `hatch_render_layer_front` are both
+ * `above-inserters` here, which is also the layer of the occluder the picture
+ * already ends with, so appending keeps the engine's order.
+ */
+function gigaCargoHatchLayers(
+    hatches: readonly GigaCargoHatchDefinition[] | undefined
+): readonly SpriteData[] {
+    if (!Array.isArray(hatches)) return []
+
+    const layers: SpriteData[] = []
+    for (const hatch of hatches) {
+        for (const animation of [hatch?.hatch_graphics_back, hatch?.hatch_graphics_front]) {
+            if (!animation) continue
+            for (const layer of layersOf(animation)) {
+                if (layer.draw_as_shadow) continue
+                layers.push(util.duplicate(layer))
+            }
+        }
+    }
+    return layers
+}
+
+/**
+ * `graphics_set.animation`, which sits beside `graphics_set.picture` and which
+ * neither draw function used to read (issue #364). Swept over every entity in
+ * `data.json`, `cargo-landing-pad` and `space-platform-hub` are the only two
+ * that carry both keys. The other 22 entities with an `animation` have no
+ * `picture` next to it, and their own draw functions already read it.
+ *
+ * On the landing pad this is one layer, `planet-hub-turbine.png`, and it is not
+ * a detail. The picture leaves an unfilled hole inside the turbine cowling and
+ * this is the fan that fills it, so the defect is the same shape as the open
+ * hatches of #377. Scored against Factorio 2.0.77's own render of the
+ * `pad-bays` arrangement, over the fan's own pixels, mean per-channel error
+ * falls from 30.7 with the picture alone to 20.9 at frame 0 - 10.8 at the frame
+ * the shot happened to catch, since the fan spins. A control patch the fan
+ * never touches reads 44.3 in every arm, so the gain is local to the fan.
+ *
+ * On the hub it is 22 tiny sprites, every one `blend_mode: "additive"` with
+ * `draw_as_glow`. They are the cockpit's lit screens, not the cockpit body,
+ * which `picture` already draws - so the issue's "the whole cockpit missing" is
+ * an overstatement. They move 3.4% of the hub's pixels by a mean of 9.2. They
+ * are kept rather than dropped the way the `agricultural-tower` visualisations
+ * were, because they pass the test those failed: none duplicates a layer
+ * already drawn, 0 of 22 by filename and 0 by frame-0 pixel digest, and
+ * `picture` already draws three `-emission-` layers under the same additive
+ * treatment.
+ *
+ * Frame 0 costs nothing to ask for. `EntitySprite.getParts` passes `data.x` and
+ * `data.y`, which default to 0, and nothing reads `frame_count` - the same
+ * reason `cargoHatchLayers` gets the lids shut.
+ *
+ * Appending is the game's own order. `animation_render_layer` defaults to
+ * `object` and neither prototype sets it, which puts the animation below the
+ * `cargo-hatch` and `above-inserters` occluder groups the picture ends with.
+ * Measured, drawing it there instead of last changes 0 pixels on either entity,
+ * because neither animation reaches an occluder. Order against the picture's
+ * own body does matter: under it the fan scores 30.7, exactly the same as not
+ * drawing it, because the body covers it completely.
+ */
+function graphicsSetAnimationLayers(animation: Animation | undefined): readonly SpriteData[] {
+    if (animation === undefined) return []
+    // `layers` is list-typed, so an empty one exports as `{}` rather than `[]`
+    // and survives a `!== undefined` guard. Read it through `Array.isArray`.
+    const layers = (animation as { layers?: unknown }).layers
+    if (Array.isArray(layers)) return (layers as readonly SpriteData[]).map(l => util.duplicate(l))
+    return 'filename' in animation ? [util.duplicate(animation as unknown as SpriteData)] : []
 }
 
 function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -1339,9 +1684,11 @@ function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly Spr
         const connections = getCargoBayConnectionSprites(
             (e as any).graphics_set.connections,
             data.position,
-            data.positionGrid
+            4,
+            data.positionGrid,
+            data.entityNumber
         )
-        return [...connections, ...base]
+        return [...connections, ...base, ...cargoHatchLayers(e.hatch_definitions)]
     }
 }
 function draw_cargo_landing_pad(
@@ -1352,9 +1699,16 @@ function draw_cargo_landing_pad(
         const connections = getCargoBayConnectionSprites(
             (e as any).graphics_set.connections,
             data.position,
-            data.positionGrid
+            8,
+            data.positionGrid,
+            data.entityNumber
         )
-        return [...connections, ...base]
+        return [
+            ...connections,
+            ...base,
+            ...graphicsSetAnimationLayers(e.graphics_set?.animation),
+            ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
+        ]
     }
 }
 function draw_cargo_wagon(e: CargoWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
@@ -2414,7 +2768,23 @@ function draw_solar_panel(e: SolarPanelPrototype): (data: IDrawData) => readonly
 function draw_space_platform_hub(
     e: SpacePlatformHubPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+    return (data: IDrawData) => {
+        // The hub has all 17 `connections` keys and never drew any of them
+        // (issue #364), so a bay placed against one had nothing to join to.
+        const connections = getCargoBayConnectionSprites(
+            (e as any).graphics_set.connections,
+            data.position,
+            8,
+            data.positionGrid,
+            data.entityNumber
+        )
+        return [
+            ...connections,
+            ...(e as any).graphics_set.picture.flatMap((p: any) => p.layers),
+            ...graphicsSetAnimationLayers(e.graphics_set?.animation),
+            ...gigaCargoHatchLayers(e.cargo_station_parameters?.giga_hatch_definitions),
+        ]
+    }
 }
 function draw_splitter(e: SplitterPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {

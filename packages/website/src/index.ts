@@ -446,6 +446,15 @@ const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
     /**
+     * Opens BlueprintInfoEditor, whose persistent button has no keybind of
+     * its own. See tests/blueprint-grid-position.spec.ts.
+     */
+    openBlueprintInfoEditor: () => editor.openBlueprintInfoEditor(),
+    blueprintIcons: () => [1, 2, 3, 4].map(i => bp.getIcon(i as 1 | 2 | 3 | 4)),
+    createEntity: (name: string, x: number, y: number) => {
+        bp.createEntity({ name, position: { x, y } })
+    },
+    /**
      * Opens ImportDialog, ToolsPanel's Import slot with no keybind of its own
      * to reach it by. See tests/quick-actions.spec.ts.
      */
@@ -483,6 +492,18 @@ const testApi = {
         driving real pointer or keyboard input needs to assert on (issue #44).
     */
     editorMode: () => editor.mode,
+    /*
+        The persistent selection, its blocked tint, and the history revision.
+        Together the only way a spec can see a selection at all: it is not a
+        mode, its move-drag writes nothing until the drop, and whether that
+        drop was one undo step or two leaves the entities in the same place.
+    */
+    selectedEntityNumbers: () => editor.selectedEntityNumbers,
+    selectionHighlightBlocked: (entityNumber: number) =>
+        editor.selectionHighlightBlocked(entityNumber),
+    entityDragOffset: (entityNumber: number) => editor.entityDragOffset(entityNumber),
+    historyRevision: () => editor.historyRevision,
+    infoOverlayVisible: () => editor.infoOverlayVisible,
     /*
         Where an entity sits on screen, so a spec can put the pointer on it.
         Hovering is the only way into EDIT, and that is the entry point for

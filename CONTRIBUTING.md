@@ -120,6 +120,23 @@ convenience is: started by hand, Vite without `--strictPort` quietly falls back
 to 8081 and then proxies `/data` to itself, which presents as the sprite server
 failing rather than as a port clash.
 
+### Running the Worker locally
+
+To exercise the production asset routing, redirects, and `/corsproxy`, build the
+website and start the Worker from the repo root:
+
+```shell
+npm run build:website
+npm --workspace=fbeworkeyman run dev -- --local
+```
+
+Wrangler serves this at <http://localhost:8787>. The pinned Wrangler runtime
+supports the configured compatibility date; no `--compatibility-date` override
+is needed (#304). This serves the production build, so the development-only
+Playwright test hook is absent. Use `localpreview` for the existing browser suite.
+To test the legacy-host redirect locally, also pass
+`--host fbeworkeyman.wormeyman.workers.dev` to the dev command.
+
 ### Checks
 
 | Command               | What it does                                                                      |
@@ -169,13 +186,26 @@ set `FACTORIO_DIR` in `packages/exporter/.env`:
 FACTORIO_DIR=/path/to/your/factorio/installation
 ```
 
-| Platform        | Example path                                                               |
-| --------------- | -------------------------------------------------------------------------- |
-| macOS (Steam)   | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
-| Linux (Steam)   | `~/.steam/steam/steamapps/common/Factorio`                                 |
-| Windows (Steam) | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`                   |
+| Platform         | Example path                                                               |
+| ---------------- | -------------------------------------------------------------------------- |
+| macOS (Steam)    | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
+| macOS (download) | `/Users/<you>/Downloads/factorio_space_age_mac_2_0_77.app`                 |
+| Linux (Steam)    | `~/.steam/steam/steamapps/common/Factorio`                                 |
+| Windows (Steam)  | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`                   |
 
 When `FACTORIO_DIR` is set, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` are not needed.
+
+Each extraction uses a fresh temporary config, write-data directory and mod
+directory. It enables only the installed official modules (`base`, `quality`,
+`elevated-rails`, `space-age`) plus the export mod; it does not use your normal
+profile or its mod settings. Sprite padding writes separate scratch images,
+not the installation's PNGs. Temporary profiles, logs and padded images are
+retained at the printed paths; move them to Trash when finished inspecting them.
+
+Before regenerating committed data, follow the
+[exporter validation and dataset review checklist](packages/exporter/README.md).
+In particular, a game-version update is not a reason to re-record oracle
+fixtures wholesale.
 
 ### Option B: Download base game data (no DLC support)
 

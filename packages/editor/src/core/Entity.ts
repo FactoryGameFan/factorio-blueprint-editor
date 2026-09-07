@@ -29,6 +29,7 @@ import FD, {
     isLoader,
     isMiningDrill,
     isLogisticContainer,
+    itemThatPlaces,
     isModule,
     isRoboport,
     isUndergroundBelt,
@@ -39,6 +40,7 @@ import FD, {
     getModuleInventoryIndex,
     recipeIngredients,
     recipeResults,
+    acceptedSignalIcons,
 } from './factorioData'
 import { Blueprint } from './Blueprint'
 import { getBeltWireConnectionIndex } from './spriteDataBuilder'
@@ -204,9 +206,27 @@ export class Entity extends EventEmitter<EntityEvents> {
         return this.m_rawEntity
     }
 
-    /** undefined for entities that cannot be mined into an item, e.g. the dummy rails */
+    /**
+     * The item that places this entity, or undefined for one nothing places.
+     *
+     * `minable.result` first, then the item whose `place_result` is the entity.
+     * Measured against data.json, the two agree for 134 of the 155 entities and
+     * each side alone answers for some of the rest, which is why this is a
+     * fallback and not a swap (issue #367):
+     *
+     * - 9 rails - `curved-rail-a`, `half-diagonal-rail`, `legacy-straight-rail`
+     *   and the elevated ones - mine into `rail`, and no item places them
+     *   because the rail planner does. Only the mining side knows them.
+     * - `captive-biter-spawner` and `space-platform-hub` are `minable: null`
+     *   and placed by the item of the same name. Only the placing side knows
+     *   them, and reading the mining side alone left them unpaintable.
+     * - 18 have neither - the dummy rails, `red-chest`, the logo tiles - and
+     *   get undefined, which `generateIcons` and `pipette` both handle.
+     */
     public static getItemName(name: string): string | undefined {
-        return FD.entities[name]?.minable?.result
+        const entity = FD.entities[name]
+        if (entity === undefined) return undefined
+        return entity.minable?.result ?? itemThatPlaces(name)
     }
 
     public destroy(): void {
@@ -280,25 +300,77 @@ export class Entity extends EventEmitter<EntityEvents> {
             )
         if (G.BPC.limitWireReach && connectionsBreak) return
 
-        this.m_BP.history
-            .updateValue(this.m_rawEntity, 'position', position, 'Change position')
-            .onDone((newValue, oldValue) => {
-                /*
-                    History hands both values back as `| undefined` because undo
-                    swaps them and a key can be absent before its first write.
-                    `position` is a required field on the raw entity, so neither
-                    can be missing here - and if one were, the grid would be
-                    updated against the wrong tile and drift from the blueprint,
-                    which is the case entityAt() exists to catch loudly.
-                */
-                if (newValue === undefined || oldValue === undefined) {
-                    throw new Error('position changed to or from no position')
-                }
-                this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
-                this.m_BP.entityPositionGrid.setTileData(this, newValue)
-                this.emit('position', newValue, oldValue)
-            })
-            .commit()
+        this.relocate(position)
+    }
+
+    /**
+     * Moves the entity without the checks the `position` setter makes.
+     *
+     * For a caller that has already established the destination is free and
+     * every wire still reaches - for the **whole group at once**, through
+     * `PositionGrid.canGroupRelocate` and `BlueprintContainer`'s group wire
+     * check. The setter's own `canMoveTo` lifts only this entity out of the
+     * grid before asking, so a group whose members trade places, or shift as a
+     * block, is refused one member at a time even though the group as a whole
+     * fits: each member is blocked by a neighbour that is itself about to move
+     * out of the way. The setter still routes through here, so the history
+     * entry and the grid/emit bookkeeping are one piece of code either way.
+     *
+     * A `direction` is written in the same step, for a mirror. It cannot go
+     * through the `direction` setter beside a position write, because the
+     * setter never touches the grid and the grid sizes its cells from the
+     * direction the entity has *now*: a curved-rail-a is 2x6 at direction 2
+     * and 6x2 at 6, so whichever of the two writes runs first is sized
+     * wrongly - and undo runs them in the other order, so no ordering fixes
+     * it. The direction step below lifts the cells laid with the old
+     * footprint and lays the new one, and reads the old footprint from the
+     * value history hands back so it is right on undo as well.
+     */
+    public relocate(position: IPoint, direction: number = this.m_rawEntity.direction ?? 0): void {
+        // Raw on both sides: the `direction` getter answers for an electric pole
+        // from its wires, and a move must not write that onto the entity.
+        const moves = !util.areObjectsEquivalent(this.m_rawEntity.position, position)
+        const turns = (this.m_rawEntity.direction ?? 0) !== direction
+        if (!moves && !turns) return
+
+        this.m_BP.history.transaction(undefined, () => {
+            if (moves) {
+                this.m_BP.history
+                    .updateValue(this.m_rawEntity, 'position', position, 'Change position')
+                    .onDone((newValue, oldValue) => {
+                        /*
+                            History hands both values back as `| undefined` because undo
+                            swaps them and a key can be absent before its first write.
+                            `position` is a required field on the raw entity, so neither
+                            can be missing here - and if one were, the grid would be
+                            updated against the wrong tile and drift from the blueprint,
+                            which is the case entityAt() exists to catch loudly.
+                        */
+                        if (newValue === undefined || oldValue === undefined) {
+                            throw new Error('position changed to or from no position')
+                        }
+                        this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
+                        this.m_BP.entityPositionGrid.setTileData(this, newValue)
+                        this.emit('position', newValue, oldValue)
+                    })
+                    .commit()
+            }
+            if (turns) {
+                this.m_BP.history
+                    .updateValue(this.m_rawEntity, 'direction', direction, 'Change direction')
+                    .onDone((_newValue, oldValue) => {
+                        const grid = this.m_BP.entityPositionGrid
+                        grid.removeTileData(
+                            this,
+                            this.position,
+                            getEntitySize(this.entityData, oldValue ?? 0)
+                        )
+                        grid.setTileData(this)
+                        this.emit('direction')
+                    })
+                    .commit()
+            }
+        })
     }
 
     public get maxWireDistance(): number {
@@ -945,9 +1017,9 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (this.type === 'decider-combinator') {
             const decider_conditions = this.m_rawEntity.control_behavior?.decider_conditions
             return {
-                first_signal: decider_conditions?.conditions?.[0].first_signal,
-                second_signal: decider_conditions?.conditions?.[0].second_signal,
-                output_signal: decider_conditions?.outputs?.[0].signal,
+                first_signal: decider_conditions?.conditions?.[0]?.first_signal,
+                second_signal: decider_conditions?.conditions?.[0]?.second_signal,
+                output_signal: decider_conditions?.outputs?.[0]?.signal,
             }
         }
         if (this.type === 'arithmetic-combinator') {
@@ -1720,17 +1792,14 @@ export class Entity extends EventEmitter<EntityEvents> {
 
     /**
      * Names of everything a display panel's icon can be set to: items,
-     * fluids, and virtual signals. Unlike `acceptedRecipes`/`acceptedModules`
-     * this does not depend on `this` at all - the panel places no constraint
-     * on its own icon - but lives here rather than as a free function so
-     * `DisplayPanelIcon` can read it the same way it reads every other
-     * accepted-* list.
+     * fluids, and virtual signals - the same range `acceptedSignalIcons`
+     * already computes for a blueprint's own icon slots, since a display
+     * panel places no extra constraint of its own. Kept as a getter rather
+     * than read directly from `factorioData.ts` so `DisplayPanelIcon` can
+     * read it the same way it reads every other accepted-* list.
      */
     public get acceptedDisplayPanelIcons(): string[] {
-        const itemNames = FD.inventoryLayout.flatMap(group =>
-            group.subgroups.flatMap(subgroup => subgroup.items.map(item => item.name))
-        )
-        return [...itemNames, ...Object.keys(FD.fluids), ...Object.keys(FD.signals)]
+        return acceptedSignalIcons()
     }
 
     /** The `ISignal.type` a name from `acceptedDisplayPanelIcons` should be set with. */

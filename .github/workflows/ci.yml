@@ -151,6 +151,9 @@ jobs:
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
 
+      - name: Test
+        run: cargo test --locked --manifest-path packages/exporter/Cargo.toml
+
       - name: Format
         if: ${{ !cancelled() }}
         run: cargo fmt --check --manifest-path packages/exporter/Cargo.toml
@@ -191,6 +194,9 @@ jobs:
 
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
+
+      - name: Test
+        run: cargo test --locked --manifest-path packages/exporter/Cargo.toml
 
   e2e:
     name: Playwright ${{ matrix.shard }}/${{ strategy.job-total }}

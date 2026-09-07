@@ -42,6 +42,18 @@ export class OverlayContainer extends Container {
     private copyCursorBox: Container | undefined
     // Absent outside a selection drag, same as `copyCursorBox` above.
     private selectionAreaUpdateFn: ((endX: number, endY: number) => void) | undefined
+    /*
+        The box around each entity in the persistent selection, by entity
+        number. Its own map rather than `EntityContainer.cursorBox`: that is a
+        single slot per entity that hover (`regular`), the copy and delete
+        marquees (`copy`, `not_allowed`) and the settings-copy source all
+        already write, each destroying whatever was there. Routed through it,
+        hovering a selected entity would replace its selection box with the
+        hover box and the hover-out would then clear it rather than restore it.
+        Kept apart, a selected-and-hovered entity shows both, which is what the
+        game does for an entity another player has selected.
+    */
+    private readonly selectionHighlights = new Map<number, Container>()
 
     public constructor(bpc: BlueprintContainer) {
         super()
@@ -636,6 +648,59 @@ export class OverlayContainer extends Container {
                 return lineParts
             }
         }
+    }
+
+    /**
+     * Draws the persistent-selection box around an entity, replacing any it
+     * already has - so this is also how the box follows an entity that moved.
+     *
+     * `multiplayer_selection` is the box the game draws around an entity
+     * another player has selected. It is the one `CursorBoxSpecification`
+     * variant here that nothing else in this file uses, so it reads as
+     * "selected" and nothing else, and being a sprite it scales with the
+     * viewport for free where the hand-drawn `selectionArea` rectangle above
+     * has to correct its stroke width on every redraw.
+     */
+    public showSelectionHighlight(entityNumber: number, position: IPoint, size: IPoint): void {
+        this.hideSelectionHighlight(entityNumber)
+        this.selectionHighlights.set(
+            entityNumber,
+            this.createCursorBox(position, size, 'multiplayer_selection')
+        )
+    }
+
+    public hideSelectionHighlight(entityNumber: number): void {
+        const box = this.selectionHighlights.get(entityNumber)
+        if (box === undefined) return
+        box.destroy()
+        this.selectionHighlights.delete(entityNumber)
+    }
+
+    /** Slides the box without rebuilding it - the move-drag preview, once per tile. */
+    public moveSelectionHighlight(entityNumber: number, position: IPoint): void {
+        this.selectionHighlights.get(entityNumber)?.position.set(position.x, position.y)
+    }
+
+    /**
+     * The same red the paint preview turns when it cannot be placed
+     * (`PaintContainer.blocked`), on the selection boxes instead, since a
+     * move-drag previews with the real sprites and tinting those would have
+     * to be undone on cancel.
+     */
+    public setSelectionHighlightBlocked(entityNumber: number, blocked: boolean): void {
+        const box = this.selectionHighlights.get(entityNumber)
+        if (box === undefined) return
+        const tint = blocked ? F.rgbToColorSource(1, 0.4, 0.4) : 0xffffff
+        for (const child of box.children) {
+            if (child instanceof Sprite) child.tint = tint
+        }
+    }
+
+    /** Whether an entity's selection box is currently tinted as blocked. See tests/persistent-selection.spec.ts. */
+    public selectionHighlightBlocked(entityNumber: number): boolean {
+        const box = this.selectionHighlights.get(entityNumber)
+        const first = box?.children[0]
+        return first instanceof Sprite && first.tint !== 0xffffff
     }
 
     public showSelectionArea(color: number): void {
