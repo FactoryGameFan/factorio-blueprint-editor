@@ -29,6 +29,8 @@ const book = (entries: Record<string, unknown>[]) => ({
 const openBook = async (page: Page) => {
     await page.mouse.click(212, 24)
     await expect.poll(() => page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    // Hit-testing needs the newly added Pixi viewport to have rendered.
+    await page.screenshot()
     return page.evaluate(() => window.__fbe_test.topDialogBounds())
 }
 // Read actual rendered pixels, so a highlight hidden behind an opaque background fails.
@@ -161,7 +163,22 @@ test('blueprints hidden by the depth guard still count; null icons do not break 
     const bounds = await openBook(page)
     await page.mouse.move(bounds.x + 300, bounds.y + 340)
     await page.mouse.wheel(0, 100)
-    await page.waitForTimeout(50)
+    // The last row must actually reach this point before clicking it.
+    await page.mouse.move(bounds.x - 10, bounds.y)
+    await expect.poll(() => pixel(page, bounds.x + 290, bounds.y + 348)).toEqual([100, 100, 100])
     await page.mouse.click(bounds.x + 300, bounds.y + 348)
     await expect.poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount())).toBe(3)
+})
+
+test('book toggle preserves a dialog above it and closes only when topmost', async ({ page }) => {
+    await loadBlueprint(page, encodeBlueprintBook(book([{ blueprint: blueprint('First') }])))
+    await openBook(page)
+    await page.mouse.click(170, 24)
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(2)
+    await page.mouse.click(212, 24)
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(2)
+    await page.mouse.click(170, 24)
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    await page.mouse.click(212, 24)
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 })

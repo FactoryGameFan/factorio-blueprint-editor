@@ -64,7 +64,10 @@ export class UIContainer extends Container {
 
     public toggleBookDialog(): void {
         if (this.bookDialog) {
-            this.bookDialog.close()
+            const dialogs = this.dialogsContainer.children
+            if (dialogs[dialogs.length - 1] === this.bookDialog) {
+                this.bookDialog.close()
+            }
             return
         }
         const book = G.quickActions.getCurrentBook()
