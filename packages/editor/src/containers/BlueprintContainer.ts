@@ -1075,7 +1075,8 @@ export class BlueprintContainer extends Container {
         this.updateHoverContainer()
 
         for (const e of this.selectModeEntities) {
-            if (cancel) {
+            // Undo can destroy a swept entity without another pointer update.
+            if (cancel || !EntityContainer.mappings.has(e.entityNumber)) {
                 this.overlayContainer.hideSelectionHighlight(e.entityNumber)
             } else {
                 this.select(e)

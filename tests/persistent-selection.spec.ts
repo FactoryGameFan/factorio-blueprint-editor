@@ -175,6 +175,50 @@ test('Alt and a left drag sweep a selection that outlives the release', async ({
     expect(await selected(page)).toEqual([3])
 })
 
+for (const includeSurvivors of [false, true]) {
+    test(`undo during an Alt sweep discards destroyed entities (survivors: ${includeSurvivors})`, async ({
+        page,
+    }) => {
+        await openEditorWithChests(page)
+        const errors: string[] = []
+        page.on('pageerror', e => errors.push(String(e)))
+        const one = await screenOf(page, 1)
+        const three = await screenOf(page, 3)
+        const px = await tilePx(page)
+        const painted = { x: one.x - 2 * px, y: one.y }
+
+        await page.mouse.move(one.x, one.y)
+        await page.keyboard.press('KeyQ')
+        await page.mouse.click(painted.x, painted.y)
+        await page.keyboard.press('Escape')
+        expect(await containerCount(page)).toBe(4)
+
+        // The painted chest comes first in the sweep; undo it without moving again.
+        await page.mouse.move(painted.x - 4, painted.y - 4)
+        await page.keyboard.down('Alt')
+        await page.mouse.down()
+        const end = includeSurvivors ? three : painted
+        await page.mouse.move(end.x + 4, end.y + 4)
+        expect(await modeOf(page)).toBe('SELECT')
+        await page.keyboard.down('Control')
+        await page.keyboard.press('KeyZ')
+        await page.keyboard.up('Control')
+        expect(await containerCount(page)).toBe(3)
+        await page.mouse.up()
+        await page.keyboard.up('Alt')
+
+        expect(await modeOf(page)).not.toBe('SELECT')
+        expect(await selected(page)).toEqual(includeSurvivors ? [1, 2, 3] : [])
+        await page.keyboard.press('Shift+KeyF')
+        await page.keyboard.press('Shift+KeyG')
+        await page.keyboard.press('Escape')
+        expect(await selected(page)).toEqual([])
+        await altSelect(page, 1, 2)
+        expect(await selected(page)).toEqual([1, 2])
+        expect(errors).toEqual([])
+    })
+}
+
 test('dragging a selected chest moves the whole selection in one undo step', async ({ page }) => {
     await openEditorWithChests(page)
     await altSelect(page, 1, 2)
