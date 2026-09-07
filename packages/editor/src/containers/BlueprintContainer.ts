@@ -987,6 +987,29 @@ export class BlueprintContainer extends Container {
         this.selectionListeners.delete(entity)
         this.selectedEntities.delete(entity)
         this.overlayContainer.hideSelectionHighlight(entity.entityNumber)
+        /*
+            A drag in progress holds its own copy of the selection, taken at the
+            press. Undo is not gated on mode, so it can destroy a member while
+            that copy is live - and the copy would then name an entity with no
+            container, which throws on the next pointer move and again on the
+            release, before exitMoveMode ever reaches setMode(NONE). Every way
+            out of the selection comes through here, so this is where the copy
+            is kept honest.
+        */
+        if (this.moveDrag !== undefined) {
+            /*
+                exitMoveMode puts sprites back through drag.entities, so one
+                leaving the drag here has to be put back now or it stays drawn
+                where the drag left it. Q mid-drag is the path: pipette clears
+                the selection while the drag is live. `mappings.get` rather than
+                `containerOf`, because on the destroy path the container is
+                already gone.
+            */
+            if (this.moveDrag.entities.includes(entity)) {
+                EntityContainer.mappings.get(entity.entityNumber)?.setDragOffset({ x: 0, y: 0 })
+            }
+            this.moveDrag.entities = this.moveDrag.entities.filter(e => e !== entity)
+        }
     }
 
     /**
@@ -1278,10 +1301,8 @@ export class BlueprintContainer extends Container {
             () => {
                 for (let i = 0; i < flipped.length; i++) {
                     const { entity, copy } = flipped[i]
-                    entity.relocate(targets[i].position)
-                    if ((copy.rawEntity.direction ?? 0) !== (entity.rawEntity.direction ?? 0)) {
-                        entity.direction = copy.rawEntity.direction ?? 0
-                    }
+                    // position and direction together: the grid needs both (see relocate)
+                    entity.relocate(targets[i].position, targets[i].direction)
                     entity.splitterInputPriority = copy.splitterInputPriority
                     entity.splitterOutputPriority = copy.splitterOutputPriority
                 }

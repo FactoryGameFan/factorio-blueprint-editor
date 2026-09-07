@@ -46,6 +46,16 @@ beforeAll(() => {
                         [0.7, 0.7],
                     ],
                 },
+                // 1 wide, 3 tall at north; 3 wide, 1 tall at east - the one
+                // prototype here whose footprint depends on its direction
+                pump: {
+                    type: 'pump',
+                    name: 'pump',
+                    collision_box: [
+                        [-0.4, -1.4],
+                        [0.4, 1.4],
+                    ],
+                },
             },
             tiles: {},
             inventoryLayout: [],
@@ -151,9 +161,30 @@ describe('canGroupRelocate lifts the whole group before asking', () => {
     })
 
     it('reads the footprint at the target direction, not the current one', () => {
-        // A 2x2 furnace beside a chest: moving the furnace one tile towards the
-        // chest overlaps it whichever way the furnace faces, and the group form
-        // must see that through the direction it is handed.
+        // A 1x3 pump facing north, with a chest one tile to its right at the
+        // pump's middle row. Turned east in place the pump is 3x1 and covers
+        // that tile; kept north it does not. Only a check that sizes the
+        // footprint from the *target* direction can tell the two apart - the
+        // current direction is 0 either way. A square prototype cannot show
+        // this, since its footprint is the same at every direction.
+        const bp = blueprintOf(
+            { name: 'pump', x: 0.5, y: 1.5 },
+            { name: 'wooden-chest', x: 1.5, y: 1.5 }
+        )
+        const pump = entityOf(bp, 1)
+        expect(pump.direction).toBe(0)
+        const inPlace = (direction: number) =>
+            bp.entityPositionGrid.canGroupRelocate([
+                { entity: pump, position: { ...pump.position }, direction },
+            ])
+        expect(inPlace(4)).toBe(false)
+        expect(inPlace(0)).toBe(true)
+    })
+
+    it('a group member may leave a footprint its neighbour is about to take', () => {
+        // The furnace case the direction test used to carry: a 2x2 furnace
+        // beside a chest, moved one tile towards it, overlaps whichever way it
+        // faces - alone it is refused, and with the chest moving too it fits.
         const bp = blueprintOf(
             { name: 'steel-furnace', x: 1, y: 1 },
             { name: 'wooden-chest', x: 2.5, y: 0.5 }

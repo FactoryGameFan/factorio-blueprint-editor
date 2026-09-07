@@ -81,7 +81,19 @@ const THREE_CHESTS = encode({
     ],
 })
 
-async function openEditorWithChests(page: Page): Promise<void> {
+/*
+    One curved rail, for the mirror cases below: a curved-rail-a is a 2x6
+    rectangle on the position grid at direction 2 and a 6x2 one at direction
+    6, and a vertical flip maps 2 to 6. It is the smallest entity whose
+    footprint transposes under a flip, which a row of 1x1 chests cannot show.
+*/
+const ONE_CURVED_RAIL = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [{ entity_number: 1, name: 'curved-rail-a', position: { x: 0, y: 0 }, direction: 2 }],
+})
+
+async function openEditorWith(page: Page, source: string): Promise<void> {
     await suppressOverlays(page)
     await page.goto('/')
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
@@ -89,7 +101,32 @@ async function openEditorWithChests(page: Page): Promise<void> {
     await page.evaluate(async (src: string) => {
         const t = (window as any).__fbe_test
         await t.loadBp(await t.getBlueprintOrBookFromSource(src))
-    }, THREE_CHESTS)
+    }, source)
+}
+
+const openEditorWithChests = (page: Page): Promise<void> => openEditorWith(page, THREE_CHESTS)
+
+const containerCount = (page: Page): Promise<number> =>
+    page.evaluate(() => (window as any).__fbe_test.entityContainerCount())
+
+/** Alt+Left-drags a small box around one screen point and releases. */
+async function altSelectAround(page: Page, at: Point): Promise<void> {
+    await page.mouse.move(at.x - 4, at.y - 4)
+    await page.keyboard.down('Alt')
+    await page.mouse.down()
+    await page.mouse.move(at.x + 4, at.y + 4)
+    await page.mouse.up()
+    await page.keyboard.up('Alt')
+}
+
+/** Ctrl+Right-drags a small box around one screen point, the existing delete sweep. */
+async function deleteAround(page: Page, at: Point): Promise<void> {
+    await page.mouse.move(at.x, at.y)
+    await page.keyboard.down('Control')
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.move(at.x + 4, at.y + 4)
+    await page.mouse.up({ button: 'right' })
+    await page.keyboard.up('Control')
 }
 
 /** Alt+Left-drags from one chest to another and releases, then lets go of Alt. */
@@ -317,4 +354,120 @@ test('deleting a selected chest by other means drops it from the selection', asy
     await page.keyboard.up('Control')
 
     expect(await selected(page)).toEqual([1])
+})
+
+test('undo mid-drag that removes a member drops it from the drag and still exits MOVE', async ({
+    page,
+}) => {
+    await openEditorWithChests(page)
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+    const px = await tilePx(page)
+
+    // A fourth chest, painted by pipette, so undo has an entity creation to reverse.
+    const one = await screenOf(page, 1)
+    await page.mouse.move(one.x, one.y)
+    expect(await modeOf(page)).toBe('EDIT')
+    await page.keyboard.press('KeyQ')
+    expect(await modeOf(page)).toBe('PAINT')
+    await page.mouse.click(one.x, one.y + 2 * px)
+    await page.keyboard.press('Escape')
+    expect(await containerCount(page)).toBe(4)
+
+    // Sweep all four, then pick chest 1 up and undo the paint while holding.
+    const three = await screenOf(page, 3)
+    await page.mouse.move(one.x - 4, one.y - 4)
+    await page.keyboard.down('Alt')
+    await page.mouse.down()
+    await page.mouse.move(three.x + 4, one.y + 2 * px + 4)
+    await page.mouse.up()
+    await page.keyboard.up('Alt')
+    expect((await selected(page)).length).toBe(4)
+
+    const before = [await positionOf(page, 1), await positionOf(page, 2)]
+    await page.mouse.move(one.x, one.y)
+    await page.mouse.down()
+    await page.mouse.move(one.x, one.y + px, { steps: 2 })
+    expect(await modeOf(page)).toBe('MOVE')
+    await page.keyboard.down('Control')
+    await page.keyboard.press('KeyZ')
+    await page.keyboard.up('Control')
+    expect(await containerCount(page)).toBe(3)
+    expect(await selected(page)).toEqual([1, 2, 3])
+
+    // The drag carries on with the three that are left, and the drop commits them.
+    await page.mouse.move(one.x, one.y + 2 * px, { steps: 2 })
+    await page.mouse.up()
+    expect(await modeOf(page)).not.toBe('MOVE')
+    expect(await positionOf(page, 1)).toEqual({ x: before[0].x, y: before[0].y + 2 })
+    expect(await positionOf(page, 2)).toEqual({ x: before[1].x, y: before[1].y + 2 })
+
+    // And the editor is usable afterwards: Escape clears, a click on empty space is a click.
+    await page.keyboard.press('Escape')
+    expect(await selected(page)).toEqual([])
+    // three tiles left of where chest 1 started: empty, and inside the viewport
+    await page.mouse.click(one.x - 3 * px, one.y)
+    expect(await modeOf(page)).toBe('NONE')
+    expect(errors).toEqual([])
+})
+
+test('mirroring a curved rail keeps the position grid on its new footprint', async ({ page }) => {
+    await openEditorWith(page, ONE_CURVED_RAIL)
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+    const px = await tilePx(page)
+
+    const rail = await screenOf(page, 1)
+    await altSelectAround(page, rail)
+    expect(await selected(page)).toEqual([1])
+
+    // pointer off the rail so nothing is hovered or carried
+    await page.mouse.move(rail.x, rail.y + 300)
+    const rev = await revision(page)
+    await page.keyboard.down('Shift')
+    await page.keyboard.press('KeyG')
+    await page.keyboard.up('Shift')
+    // one committed step - the mirror really did write direction 2 -> 6
+    expect(await revision(page)).toBe(rev + 1)
+
+    // Delete the rail, then walk the pointer over the column its 2x6 footprint
+    // covered. If the grid still held those cells, each hover would throw
+    // "Position grid references entity 1, which is not in the blueprint".
+    await page.keyboard.press('Escape')
+    await deleteAround(page, rail)
+    expect(await containerCount(page)).toBe(0)
+    for (let dy = -3; dy <= 3; dy++) {
+        await page.mouse.move(rail.x, rail.y + dy * px, { steps: 2 })
+    }
+    // And along the row the 6x2 footprint covers, which the grid must have released too.
+    for (let dx = -3; dx <= 3; dx++) {
+        await page.mouse.move(rail.x + dx * px, rail.y, { steps: 2 })
+    }
+    expect(errors).toEqual([])
+})
+
+test('Q mid-drag puts every sprite back where its model is', async ({ page }) => {
+    await openEditorWithChests(page)
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+    await altSelect(page, 1, 2)
+    const px = await tilePx(page)
+    const dragOffset = (n: number) =>
+        page.evaluate((n: number) => (window as any).__fbe_test.entityDragOffset(n), n)
+
+    const at = await screenOf(page, 1)
+    await page.mouse.move(at.x, at.y)
+    await page.mouse.down()
+    await page.mouse.move(at.x, at.y + 2 * px, { steps: 2 })
+    expect(await modeOf(page)).toBe('MOVE')
+    expect(await dragOffset(1)).toEqual({ x: 0, y: 64 })
+
+    // Q clears the selection while the drag is live; whatever else it does, the
+    // sprites it drops from the drag must not stay displaced after the release.
+    await page.keyboard.press('KeyQ')
+    await page.mouse.up()
+    expect(await modeOf(page)).not.toBe('MOVE')
+    expect(await dragOffset(1)).toEqual({ x: 0, y: 0 })
+    expect(await dragOffset(2)).toEqual({ x: 0, y: 0 })
+    expect(errors).toEqual([])
 })

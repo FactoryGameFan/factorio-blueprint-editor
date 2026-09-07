@@ -316,6 +316,11 @@ export class EntityContainer {
      * position event the drop emits, so they catch up on commit rather than
      * following the drag.
      */
+    /** Where the sprites are drawn relative to the model, in pixels; zero outside a drag. See tests/persistent-selection.spec.ts. */
+    public get dragOffsetPx(): IPoint {
+        return { ...this.dragOffset }
+    }
+
     public setDragOffset(offset: IPoint): void {
         const dx = offset.x - this.dragOffset.x
         const dy = offset.y - this.dragOffset.y
