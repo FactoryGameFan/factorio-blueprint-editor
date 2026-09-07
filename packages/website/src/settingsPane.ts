@@ -19,9 +19,10 @@ export function initSettingsPane(
         autoPlace: false,
         hideable: false,
         closeOnTop: true,
-        closed: localStorage.getItem('dat.gui.closed') === 'true',
         width: 320,
     })
+    // Apply after construction: dat.gui creates its title after setting `closed`.
+    gui.closed = localStorage.getItem('dat.gui.closed') !== 'false'
 
     gui.domElement.style.overflowX = 'hidden'
     gui.domElement.style.overflowY = 'auto'
@@ -33,6 +34,11 @@ export function initSettingsPane(
     window.addEventListener('visibilitychange', () =>
         localStorage.setItem('dat.gui.closed', String(gui.closed))
     )
+    gui.domElement
+        .querySelector('.close-button')
+        ?.addEventListener('click', () =>
+            localStorage.setItem('dat.gui.closed', String(gui.closed))
+        )
 
     document.body.appendChild(gui.domElement)
 
