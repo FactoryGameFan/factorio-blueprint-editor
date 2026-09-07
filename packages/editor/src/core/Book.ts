@@ -1,4 +1,4 @@
-import { IBlueprint, IBlueprintBook, IBlueprintBookEntry, IIcon } from '../types'
+import { IBlueprint, IBlueprintBook, IBlueprintBookEntry, IIcon, IPoint } from '../types'
 import { Blueprint, getFactorioVersion } from './Blueprint'
 
 class Book {
@@ -11,6 +11,8 @@ class Book {
     private _active: Blueprint | undefined
     private _activeIndex: number
     private readonly blueprints: IBlueprintBookEntry[]
+    // Export bakes this into positions; re-importing recentres them and loses it.
+    private readonly gridPositionOffsets = new Map<number, IPoint>()
 
     private readonly label?: string
     private readonly description?: string
@@ -39,6 +41,7 @@ class Book {
 
     private saveActiveBlueprint(): number {
         if (this._active) {
+            this.gridPositionOffsets.set(this._activeIndex, { ...this._active.gridPositionOffset })
             const res = saveBlueprint(this.blueprints, this._activeIndex, this._active.serialize())
             // Not finding a slot used to answer undefined, which serialize() then
             // wrote into `active_index` - a required number - and JSON.stringify
@@ -58,6 +61,9 @@ class Book {
 
         const blueprint = getBlueprintAtFlattenedActiveIndex(this.blueprints, this._activeIndex)
         const bp = new Blueprint(blueprint)
+        bp.gridPositionOffset = this.gridPositionOffsets.get(this._activeIndex) ?? { x: 0, y: 0 }
+        // Restoring book state is not a user edit to undo.
+        bp.history.reset()
         this._active = bp
         return bp
     }
