@@ -2,6 +2,7 @@ import { Container, Text } from 'pixi.js'
 import EventEmitter from 'eventemitter3'
 import G from '../common/globals'
 import { Blueprint, BlueprintEvents } from '../core/Blueprint'
+import { IPoint } from '../types'
 import { Checkbox } from './controls/Checkbox'
 import { RadioButton } from './controls/RadioButton'
 import { TextInput } from './controls/TextInput'
@@ -143,10 +144,46 @@ export class BlueprintAlignment extends Container {
      * are not the same value to `Blueprint.serialize()` - see the "grid
      * position at origin is carried as it arrived" case in
      * tests/blueprint-snapping.spec.ts - so a commit with nothing typed is
-     * not a harmless no-op the way it is for Width/Height/Grid position,
-     * where the parsed value is always written idempotently either way.
+     * not a harmless no-op the way it is for Width/Height, where the
+     * parsed value is always written idempotently either way. Grid
+     * position has a flag of its own for a different reason, below.
      */
     private m_PositionDirty = false
+
+    /**
+     * Grid position's own flag, for the same reason as `m_PositionDirty`
+     * above but a different failure. `commitGridPosition` solves for the
+     * offset that makes the display read the typed target, and its comment
+     * used to argue an untouched field needs no flag because target equals
+     * current and the delta is 0. That holds only while the box mirrors the
+     * model, and a model-driven refresh deliberately leaves a focused box
+     * alone (`scheduleRefreshFromModel`): placement runs on pointerdown and
+     * the browser's focus move is mousedown's default action, dispatched
+     * after it, so a click on the canvas with this field focused changed
+     * the model first and blurred second. The blur then read the box's
+     * stale value as a fresh target against a live current and wrote an
+     * offset that shifted every exported coordinate, with an undo entry
+     * nobody asked for and the box rewritten to the same number a frame
+     * later - nothing on screen changed (#243 review). Same for a tile
+     * removal, an arrow-key move or a rotation, which reach no refresh at
+     * all. So the commit runs only after a keystroke, and an untouched blur
+     * re-reads the display instead.
+     */
+    private m_GridPositionDirty = false
+
+    /**
+     * The last grid size the blueprint actually had, kept across the
+     * checkbox turning snapping off. The model's `snapToGrid` is undefined
+     * while snapping is off, and `refreshFromBlueprint` used to write '1'
+     * into both Grid size boxes then - and the checkbox's on-branch reads
+     * the size straight back out of those boxes, which were the only
+     * carrier. So unticking and re-ticking replaced a 20x18 grid with 1x1,
+     * silently, on any of the 325 corpus blueprints that carry a size
+     * (#243 review). Absolute/Relative and Absolute X/Y survive the same
+     * toggle because their stores are untouched; this gives the size a
+     * carrier of its own too, and the boxes keep showing it while greyed.
+     */
+    private m_LastSize: IPoint
 
     /**
      * Whether a model-driven refresh is already queued for the next frame -
@@ -162,6 +199,7 @@ export class BlueprintAlignment extends Container {
         this.m_Blueprint = blueprint
 
         const size = blueprint.snapToGrid ?? { x: 1, y: 1 }
+        this.m_LastSize = size
         const position = blueprint.positionRelativeToGrid ?? { x: 0, y: 0 }
 
         this.m_SnapCheckbox = new Checkbox(blueprint.snapToGrid !== undefined, 'Snap to grid')
@@ -266,8 +304,8 @@ export class BlueprintAlignment extends Container {
             if (this.m_SnapCheckbox.checked) {
                 this.m_Blueprint.snapToGrid = {
                     // parseGridSize, not parseGridValue - Width/Height show
-                    // '1'/'1' while disabled (refreshFromBlueprint's own
-                    // fallback), but an emptied box still parses to 0
+                    // `m_LastSize` while disabled (refreshFromBlueprint's
+                    // own fallback), but an emptied box still parses to 0
                     // through parseGridValue, and writing that straight
                     // through is the exact `snap-to-grid: {"x":0,"y":4}` the
                     // game will not accept back that parseGridSize exists to
@@ -295,6 +333,12 @@ export class BlueprintAlignment extends Container {
         this.m_WidthInput.on('blur', () => this.commitSize())
         this.m_HeightInput.on('blur', () => this.commitSize())
 
+        this.m_GridPosXInput.on('changed', () => {
+            this.m_GridPositionDirty = true
+        })
+        this.m_GridPosYInput.on('changed', () => {
+            this.m_GridPositionDirty = true
+        })
         this.m_GridPosXInput.on('blur', () => this.commitGridPosition())
         this.m_GridPosYInput.on('blur', () => this.commitGridPosition())
 
@@ -334,13 +378,12 @@ export class BlueprintAlignment extends Container {
             value, and blurring it afterwards committed that stale reading
             as a fresh target (#243 review).
 
-            Two gaps are known and named rather than half-covered.
-            `'create-tile'` has no `'remove-tile'` counterpart to hook -
-            nothing in `Blueprint` emits one - so a tile deletion still goes
-            unnoticed here. And moving an entity emits `'position'` on the
+            One gap is known and named rather than half-covered: moving or
+            rotating an entity emits `'position'`/`'direction'` on the
             `Entity` itself (`Entity.ts`), not on the blueprint, so it would
-            take a per-entity subscription re-hooked on every create to see;
-            the display goes stale the same way a deletion used to.
+            take a per-entity subscription re-hooked on every create to see,
+            and the display goes stale until the next refresh. Display only:
+            a stale box no longer commits anything, see `m_GridPositionDirty`.
 
             Scheduled rather than run inline, unlike the four blueprint-level
             hooks above: each of these runs `getGridPositionDisplay()`, which
@@ -351,6 +394,7 @@ export class BlueprintAlignment extends Container {
         this.onBlueprintChange('create-entity', () => this.scheduleRefreshFromModel())
         this.onBlueprintChange('remove-entity', () => this.scheduleRefreshFromModel())
         this.onBlueprintChange('create-tile', () => this.scheduleRefreshFromModel())
+        this.onBlueprintChange('remove-tile', () => this.scheduleRefreshFromModel())
     }
 
     private commitSize(): void {
@@ -377,20 +421,31 @@ export class BlueprintAlignment extends Container {
      * `offset` has to move by exactly `current - target` from whatever it is
      * now, since increasing `offset` by 1 decreases the floored display by 1
      * (the same relationship `serialize()` and `getGridPositionDisplay()`
-     * both encode). Untouched-field commits are naturally idempotent from
-     * this - target equals current, delta is 0, `gridPositionOffset`'s own
-     * `pointsEqual` guard turns the write into a no-op - so unlike Absolute
-     * X/Y this needs no separate dirty flag.
+     * both encode).
+     *
+     * Only after a keystroke - see `m_GridPositionDirty` for the blur that
+     * committed a stale box as a target. Either way the boxes are rewritten
+     * from the model at the end: an untouched blur is how a box left stale
+     * by a model change catches up, and a typed `05` reads back as `5` the
+     * same way `commitSize` corrects its own boxes. When the offset did
+     * change, the setter's own event has already refreshed everything and
+     * this write is the same value twice.
      */
     private commitGridPosition(): void {
-        const target = {
-            x: parseGridValue(this.m_GridPosXInput.text),
-            y: parseGridValue(this.m_GridPosYInput.text),
+        if (this.m_GridPositionDirty) {
+            this.m_GridPositionDirty = false
+            const target = {
+                x: parseGridValue(this.m_GridPosXInput.text),
+                y: parseGridValue(this.m_GridPosYInput.text),
+            }
+            const current = this.m_Blueprint.getGridPositionDisplay()
+            const delta = { x: current.x - target.x, y: current.y - target.y }
+            const offset = this.m_Blueprint.gridPositionOffset
+            this.m_Blueprint.gridPositionOffset = { x: offset.x + delta.x, y: offset.y + delta.y }
         }
-        const current = this.m_Blueprint.getGridPositionDisplay()
-        const delta = { x: current.x - target.x, y: current.y - target.y }
-        const offset = this.m_Blueprint.gridPositionOffset
-        this.m_Blueprint.gridPositionOffset = { x: offset.x + delta.x, y: offset.y + delta.y }
+        const display = this.m_Blueprint.getGridPositionDisplay()
+        this.m_GridPosXInput.text = `${display.x}`
+        this.m_GridPosYInput.text = `${display.y}`
     }
 
     private commitPosition(): void {
@@ -444,8 +499,11 @@ export class BlueprintAlignment extends Container {
 
         const size = this.m_Blueprint.snapToGrid
         this.m_SnapCheckbox.checked = size !== undefined
-        write(this.m_WidthInput, `${size?.x ?? 1}`)
-        write(this.m_HeightInput, `${size?.y ?? 1}`)
+        // While snapping is off the boxes keep showing the size it had, and
+        // that is what ticking the checkbox reads back - see `m_LastSize`.
+        if (size !== undefined) this.m_LastSize = size
+        write(this.m_WidthInput, `${this.m_LastSize.x}`)
+        write(this.m_HeightInput, `${this.m_LastSize.y}`)
 
         this.m_AbsoluteRadio.checked = this.m_Blueprint.absoluteSnapping
         this.m_RelativeRadio.checked = !this.m_Blueprint.absoluteSnapping
@@ -479,6 +537,15 @@ export class BlueprintAlignment extends Container {
         */
         if (!(preserveFocused && (isFocused(this.m_XInput) || isFocused(this.m_YInput)))) {
             this.m_PositionDirty = false
+        }
+        // Same rule for Grid position's own flag, for the same reason.
+        if (
+            !(
+                preserveFocused &&
+                (isFocused(this.m_GridPosXInput) || isFocused(this.m_GridPosYInput))
+            )
+        ) {
+            this.m_GridPositionDirty = false
         }
 
         this.refreshEnabled()

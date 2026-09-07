@@ -504,3 +504,50 @@ test('an entity appearing while a field is being typed into leaves what was type
         y: 0,
     })
 })
+
+test('an untouched Grid position box does not commit its stale reading when the model changed under it (#243 review)', async ({
+    page,
+}) => {
+    /*
+        `commitGridPosition` had no dirty flag: its comment argued an
+        untouched field is idempotent because target equals current. That
+        holds only while the box mirrors the model, and a model-driven
+        refresh deliberately leaves a focused box alone (`preserveFocused`).
+        So: focus Grid position X, type nothing, let an entity appear that
+        moves the minimum corner - the box still shows the old value - and
+        blur. The old code read that stale value as a fresh target and wrote
+        an offset that shifted every exported coordinate, with an undo entry
+        the user never asked for and nothing on screen changing.
+
+        Reachable through the canvas too: placement runs on pointerdown and
+        the browser's focus move (the blur) is mousedown's default action,
+        which is dispatched after it. The hook just makes the order
+        deterministic.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+    const before = await gridPositionFields(page)
+
+    // Grid position X, focused and left untouched.
+    await page.mouse.click(align.x + COL1_X + FIELD_WIDTH / 2, align.y + ROW_HEIGHT * 2 + 4 + 10)
+    expect(await page.evaluate(() => (document.activeElement as HTMLInputElement).value)).toBe(
+        before.x
+    )
+
+    await page.evaluate(() => window.__fbe_test.createEntity('wooden-chest', -20.5, -20.5))
+    // Y refreshes on the next frame; X, being focused, is left showing its
+    // old value - which is exactly the stale state the blur must not commit.
+    await expect.poll(async () => (await gridPositionFields(page)).y).not.toBe(before.y)
+    const fresh = await gridPositionFields(page)
+    expect(fresh.x).toBe(before.x)
+    const revision = await page.evaluate(() => window.__fbe_test.historyRevision())
+    const exported = await exportedPositionsOf(page)
+
+    await blurToCanvas(page)
+
+    expect(await page.evaluate(() => window.__fbe_test.historyRevision())).toBe(revision)
+    expect(await exportedPositionsOf(page)).toEqual(exported)
+    // ...and the box catches up with the model instead of staying stale.
+    expect(await gridPositionFields(page)).toEqual({ x: fresh.y, y: fresh.y })
+})

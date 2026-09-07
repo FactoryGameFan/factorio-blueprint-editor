@@ -110,6 +110,18 @@ export abstract class Dialog extends Panel {
         }
     }
 
+    /** Whether `element` is the <input> of a TextInput somewhere in this dialog's tree - same walk as above. */
+    private static ownsDOMInput(container: Container, element: Element): boolean {
+        for (const child of container.children) {
+            if (child instanceof TextInput) {
+                if (child.htmlInput === element) return true
+            } else if (child instanceof Container && Dialog.ownsDOMInput(child, element)) {
+                return true
+            }
+        }
+        return false
+    }
+
     /** Closes last open dialog */
     public static closeLast(): void {
         if (Dialog.anyOpen()) {
@@ -152,6 +164,23 @@ export abstract class Dialog extends Panel {
     /** Close Dialog */
     public close(): void {
         Dialog.s_openDialogs = Dialog.s_openDialogs.filter(d => d !== this)
+
+        /*
+            Every TextInput commits on 'blur', and `destroy()` below removes
+            its <input> from the document rather than blurring it. Whether
+            removing the focused element fires 'blur' is engine-specific -
+            measured with a name typed and the dialog closed from its corner
+            button: Chromium fires it synchronously during removeChildren
+            (before `removeAllListeners`, so the commit lands), WebKit and
+            Firefox fire nothing and the edit was simply gone, with no toast
+            and no undo entry (#243 review). `blur()` on the element fires
+            the event synchronously on every engine, and it runs here while
+            the listeners are still attached. Only a field this dialog owns:
+            a focused field belonging to a dialog underneath, or a DOM
+            control outside the canvas, is not this dialog's to blur.
+        */
+        const active = document.activeElement
+        if (active instanceof HTMLElement && Dialog.ownsDOMInput(this, active)) active.blur()
 
         this.emit('close')
         this.destroy()

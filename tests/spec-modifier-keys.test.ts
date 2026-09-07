@@ -143,7 +143,9 @@ const ALLOWLIST: AllowedChord[] = [
             "drives the editor's own undo keybind through actions.ts, same as " +
             "chest-filters.spec.ts's entry above. Each press follows either a " +
             'checkbox click, a click on the dialog title bar away from any field, ' +
-            'or no dialog interaction at all, so no DOM input has focus by then.',
+            'closing the dialog (Dialog.close blurs its own field and hands the ' +
+            'focus to the canvas), or no dialog interaction at all, so no DOM ' +
+            'input has focus by then.',
     },
     {
         file: 'quick-actions.spec.ts',

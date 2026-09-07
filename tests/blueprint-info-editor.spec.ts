@@ -7,7 +7,11 @@ import {
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 import { suppressOverlays } from './helpers/overlays'
 import { ROW_HEIGHT, FIELD_WIDTH, COL1_X } from '../packages/editor/src/UI/BlueprintAlignment'
-import { openBlueprintInfo, enableSnapToGrid } from './helpers/blueprint-info-dialog'
+import {
+    openBlueprintInfo,
+    enableSnapToGrid,
+    toggleSnapToGrid,
+} from './helpers/blueprint-info-dialog'
 
 /*
     The rest of the PR #243 review that isn't specifically about "Grid
@@ -465,4 +469,87 @@ test('a keystroke the field rejects commits no grid position (#243 review)', asy
     expect(
         decodeBlueprintString(await encodeLoaded(page)).blueprint['position-relative-to-grid']
     ).toBeUndefined()
+})
+
+const SNAPPED_CHESTS = encode({
+    item: 'blueprint',
+    version: VERSION,
+    'snap-to-grid': { x: 20, y: 18 },
+    'absolute-snapping': true,
+    entities: [
+        { entity_number: 1, name: 'wooden-chest', position: { x: 0.5, y: 0.5 } },
+        { entity_number: 2, name: 'wooden-chest', position: { x: 8.5, y: 8.5 } },
+    ],
+})
+
+test('unticking and re-ticking Snap to grid keeps the grid size instead of replacing it with 1x1 (#243 review)', async ({
+    page,
+}) => {
+    /*
+        Turning snapping off used to make `refreshFromBlueprint` write '1'
+        into both Grid size boxes, because the model's size is undefined
+        while snapping is off - and turning it back on read the size straight
+        back out of those boxes. Nothing else held the old value, so a 20x18
+        grid became 1x1 with no warning. Absolute/Relative and Absolute X/Y
+        survive the same toggle, which is what made this look unintended.
+        325 of the 367 corpus blueprints carry a `snap-to-grid` and would
+        lose it this way.
+    */
+    await loadBlueprint(page, SNAPPED_CHESTS)
+    const align = await openBlueprintInfo(page)
+
+    await toggleSnapToGrid(page, align)
+    expect(
+        decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']
+    ).toBeUndefined()
+
+    await toggleSnapToGrid(page, align)
+    expect(decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']).toEqual({
+        x: 20,
+        y: 18,
+    })
+})
+
+test('closing the dialog with a field still focused commits that field on every engine (#243 review)', async ({
+    page,
+}) => {
+    /*
+        Every field commits on 'blur', and closing the dialog removes its
+        <input> from the document rather than blurring it. Whether removal
+        fires 'blur' is engine-specific - measured: Chromium fires it
+        synchronously during removeChildren, WebKit and Firefox fire nothing,
+        so on those two a typed name was lost on close with no undo entry.
+        `Dialog.close()` now blurs any of its own fields that holds the focus
+        before tearing the tree down, which fires 'blur' on every engine.
+
+        CI runs Chromium only, where removal already fired 'blur', so this
+        cannot fail there with the fix reverted - it pins the behaviour, and
+        the WebKit/Firefox measurement is in the commit that added the blur.
+
+        Closed through the same `toggleBlueprintInfoEditor` the corner button
+        calls, not by a click: a click on the canvas is itself a blur, which
+        is the one thing this test must not do.
+    */
+    await loadBlueprint(page, TWO_CHESTS)
+    const before = await exportedLabel(page)
+    await openBlueprintInfo(page)
+    const info = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+
+    await page.mouse.click(info.x + 12 + 30, info.y + 65 + 10)
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.type('Renamed On Close')
+    // The field holds the edit and the keyboard - a click that missed it
+    // would have sent those keystrokes to the app's keybinds instead.
+    expect(await page.evaluate(() => (document.activeElement as HTMLInputElement).value)).toBe(
+        'Renamed On Close'
+    )
+    expect((await exportedLabel(page)).label).toBe(before.label)
+
+    await page.evaluate(() => window.__fbe_test.openBlueprintInfoEditor())
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+    expect((await exportedLabel(page)).label).toBe('Renamed On Close')
+
+    // The canvas has the keyboard back, so the one commit is one undo step.
+    await page.keyboard.press('Control+KeyZ')
+    expect((await exportedLabel(page)).label).toBe(before.label)
 })

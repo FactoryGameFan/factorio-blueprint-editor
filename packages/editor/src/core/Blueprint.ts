@@ -121,6 +121,7 @@ export interface BlueprintEvents {
     'create-entity': [entity: Entity]
     'remove-entity': []
     'create-tile': [tile: Tile]
+    'remove-tile': []
     name: []
     description: []
     icon: [index: 1 | 2 | 3 | 4]
@@ -781,6 +782,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
         if (newValue) {
             this.emit('create-tile', newValue)
+        } else if (oldValue) {
+            // Mirrors onCreateOrRemoveEntity's 'remove-entity' - a tile
+            // deletion moves the blueprint's minimum corner just as an
+            // entity's does, and BlueprintAlignment's Grid position display
+            // reads that corner (#243 review).
+            this.emit('remove-tile')
         }
     }
 
@@ -1252,6 +1259,17 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
      * triggers - the value they just typed visibly reset in front of them,
      * with every entity placed afterwards still exporting shifted by it and
      * nothing on screen saying why (#243 review).
+     *
+     * Known limit: the footprint reading disagrees with the game for 9 rail
+     * prototypes - `curved-rail-a`/`-b` and their elevated and dummy forms,
+     * `legacy-curved-rail` and `rail-ramp` - which
+     * `tools/oracle/fixtures/entity-tile-size.json` records as the ones
+     * `getEntitySize` misses. A blueprint whose minimum corner is set by one
+     * of them displays 1-2 tiles off what the game shows, and since the
+     * commit solves for this display, typing a target there exports off by
+     * the same amount. `getEntitySize` is not the place to fix it:
+     * tests/rail-footprints.spec.ts records that the game footprints make
+     * occupancy worse in both directions. Tracked as #393.
      */
     public getGridPositionDisplay(): IPoint {
         const center = this.isEmpty() ? { x: 0, y: 0 } : this.computeExportCenter()

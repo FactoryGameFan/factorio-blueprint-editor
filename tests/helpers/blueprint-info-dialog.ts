@@ -47,3 +47,7 @@ export async function openBlueprintInfo(page: Page): Promise<{ x: number; y: num
 export async function enableSnapToGrid(page: Page, align: { x: number; y: number }): Promise<void> {
     await page.mouse.click(align.x + 8, align.y + 8)
 }
+
+/** The same click as `enableSnapToGrid` - the checkbox toggles, so a second
+ * click turns snapping back off. Named for the case where that is the point. */
+export const toggleSnapToGrid = enableSnapToGrid
