@@ -642,3 +642,34 @@ test('Alt-drag with the right Alt key does not eat the next left-Alt tap', async
     await page.keyboard.up('Alt')
     expect(await infoVisible(page)).toBe(initial)
 })
+
+for (const releaseOrder of [
+    ['AltLeft', 'AltRight'],
+    ['AltRight', 'AltLeft'],
+]) {
+    test(`a selection with both Alt keys consumes both taps (${releaseOrder.join(' then ')})`, async ({
+        page,
+    }) => {
+        await openEditorWithChests(page)
+        const initial = await infoVisible(page)
+        const a = await screenOf(page, 1)
+        const b = await screenOf(page, 2)
+        await page.mouse.move(a.x, a.y)
+        await page.keyboard.down('AltLeft')
+        await page.keyboard.down('AltRight')
+        await page.mouse.down()
+        await page.mouse.move(b.x, b.y)
+        await page.mouse.up()
+        for (const key of releaseOrder) {
+            await page.keyboard.up(key)
+            expect(await infoVisible(page)).toBe(initial)
+        }
+        expect(await selected(page)).toEqual([1, 2])
+        for (const key of releaseOrder) {
+            await page.keyboard.press(key)
+            expect(await infoVisible(page)).toBe(!initial)
+            await page.keyboard.press(key)
+            expect(await infoVisible(page)).toBe(initial)
+        }
+    })
+}

@@ -190,16 +190,6 @@ export class BlueprintContainer extends Container {
     */
     private readonly selectedEntities = new Set<Entity>()
     /*
-        Set by Editor.ts's `selectGroup` action, only when Alt is actually
-        part of its current binding, and consumed once by whichever physical
-        Alt key's own key-up fires next - see `markAltUsedForDrag` and
-        `consumeAltUsedForDrag`. What lets `showInfo`/`showInfoRight`
-        (also bound to the two Alt keys) tell a tap of Alt from an Alt held to
-        select: each defers its toggle to its own key-up and skips it exactly
-        when this is true.
-    */
-    private altUsedForDrag = false
-    /*
         Per member, the function that detaches the listeners keeping it
         selected: the ones that move its box when it moves and drop it from the
         set when it is destroyed by anything else - a delete drag, a mine. Every
@@ -932,30 +922,6 @@ export class BlueprintContainer extends Container {
     /** Whether the entity-info overlay is showing. See tests/persistent-selection.spec.ts. */
     public get infoOverlayVisible(): boolean {
         return this.overlayContainer.entityInfoVisible
-    }
-
-    /**
-     * Records that the selection sweep about to start is Alt's doing, for
-     * `consumeAltUsedForDrag` below. Called from `Editor.ts`'s `selectGroup`
-     * action, and only when Alt is actually part of that action's *current*
-     * binding - a rebind away from Alt must not leave this permanently true
-     * with nothing left to clear it (issue #389).
-     */
-    public markAltUsedForDrag(): void {
-        this.altUsedForDrag = true
-    }
-
-    /**
-     * Whether an Alt-drag selection sweep started since the last call - and
-     * resets it. `Editor.ts`'s `showInfo`/`showInfoRight` call this on
-     * their own Alt key's key-up rather than toggling on key-down, so a tap
-     * of Alt still shows the entity-info overlay but holding it to drag a
-     * selection does not.
-     */
-    public consumeAltUsedForDrag(): boolean {
-        const used = this.altUsedForDrag
-        this.altUsedForDrag = false
-        return used
     }
 
     /** Whether an entity's selection box is drawn as blocked. See tests/persistent-selection.spec.ts. */
