@@ -250,7 +250,16 @@ function readClipboardText(): Promise<string> {
     in the editor package has a one-click "copy the string" action to trigger
     it from (see QuickActions' own doc comment in common/globals.ts).
 */
+async function selectBookIndex(index: number): Promise<void> {
+    if (!book) throw new Error('No book loaded')
+    bp = book.selectBlueprint(index)
+    await editor.loadBlueprint(bp)
+    changeBookForIndexSelector(book)
+}
+
 const quickActions: QuickActions = {
+    getCurrentBook: () => book,
+    selectBookEntry: selectBookIndex,
     importReplace,
     importAppend,
     exportImage,
@@ -268,15 +277,7 @@ editor
 
         registerActions()
 
-        const changeBookIndex = async (index: number): Promise<void> => {
-            // The settings pane only shows a book index selector while a book is
-            // loaded, so this cannot fire without one - same check, and the same
-            // reason for it, as the selectBookIndex test hook below.
-            if (!book) throw new Error('No book loaded')
-            bp = book.selectBlueprint(index)
-            await editor.loadBlueprint(bp)
-        }
-        changeBookForIndexSelector = initSettingsPane(editor, changeBookIndex).changeBook
+        changeBookForIndexSelector = initSettingsPane(editor, selectBookIndex).changeBook
 
         getBlueprintOrBookFromSource(bpSource)
             .catch(error => createBPImportError(error))
@@ -564,11 +565,7 @@ const testApi = {
     },
     loadingScreen,
     getBook: () => book,
-    selectBookIndex: async (index: number) => {
-        if (!book) throw new Error('No book loaded')
-        bp = book.selectBlueprint(index)
-        await editor.loadBlueprint(bp)
-    },
+    selectBookIndex,
     /*
         The blueprint string a copy would put on the clipboard, which for a loaded
         book is Book.serialize(). Nothing else reaches that method: the round-trip

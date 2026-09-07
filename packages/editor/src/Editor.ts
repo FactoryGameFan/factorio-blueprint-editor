@@ -52,6 +52,8 @@ export interface EditorInitOptions {
 const missingQuickActionsMessage =
     'This embed has no import/export/clipboard actions configured (EditorInitOptions.quickActions was not supplied).'
 const noopQuickActions: QuickActions = {
+    getCurrentBook: () => undefined,
+    selectBookEntry: () => Promise.resolve(),
     importReplace: () => {
         G.logger({ text: missingQuickActionsMessage, type: 'error' })
         return Promise.resolve(false)
@@ -472,6 +474,7 @@ export class Editor {
         G.BPC = new BlueprintContainer(bp)
         G.BPC.initBP()
         Dialog.closeAll()
+        G.UI.updateBookButton()
         G.app.stage.addChildAt(G.BPC, i)
         if (last.parent) {
             last.destroy()

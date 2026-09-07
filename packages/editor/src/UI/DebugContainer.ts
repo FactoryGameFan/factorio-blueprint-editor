@@ -7,7 +7,7 @@ export class DebugContainer extends Container {
     public constructor() {
         super()
         this.x = 145
-        this.y = 5
+        this.y = 48
 
         const fpsGUIText = new Text({ text: '', style: styles.debug.text })
         this.addChild(fpsGUIText)

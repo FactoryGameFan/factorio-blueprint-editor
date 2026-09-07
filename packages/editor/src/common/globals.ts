@@ -1,4 +1,5 @@
 import { Application, Texture, Assets, Renderer } from 'pixi.js'
+import type { Book } from '../core/Book'
 import { Blueprint } from '../core/Blueprint'
 import { UIContainer } from '../UI/UIContainer'
 import { BlueprintContainer } from '../containers/BlueprintContainer'
@@ -29,6 +30,8 @@ export type Logger = (msg: ILogMessage) => void
  * member here that nothing in this package ever calls is a dead one.
  */
 export interface QuickActions {
+    getCurrentBook: () => Book | undefined
+    selectBookEntry: (index: number) => Promise<void>
     /**
      * Reads the OS clipboard when `source` is omitted - a key press or a
      * ToolsPanel button - or uses `source` directly, which is what
