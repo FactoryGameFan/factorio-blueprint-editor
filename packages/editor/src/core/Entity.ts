@@ -1016,9 +1016,9 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (this.type === 'decider-combinator') {
             const decider_conditions = this.m_rawEntity.control_behavior?.decider_conditions
             return {
-                first_signal: decider_conditions?.conditions?.[0].first_signal,
-                second_signal: decider_conditions?.conditions?.[0].second_signal,
-                output_signal: decider_conditions?.outputs?.[0].signal,
+                first_signal: decider_conditions?.conditions?.[0]?.first_signal,
+                second_signal: decider_conditions?.conditions?.[0]?.second_signal,
+                output_signal: decider_conditions?.outputs?.[0]?.signal,
             }
         }
         if (this.type === 'arithmetic-combinator') {
