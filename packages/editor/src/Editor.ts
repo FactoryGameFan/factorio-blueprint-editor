@@ -15,6 +15,7 @@ import G, { Logger, QuickActions } from './common/globals'
 import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
+import { EntityContainer } from './containers/EntityContainer'
 import { PaintTileContainer } from './containers/PaintTileContainer'
 import { UIContainer } from './UI/UIContainer'
 import { Dialog } from './UI/controls/Dialog'
@@ -210,6 +211,17 @@ export class Editor {
     /** Whether the entity's selection box is tinted as blocked. See tests/persistent-selection.spec.ts. */
     public selectionHighlightBlocked(entityNumber: number): boolean {
         return G.BPC.selectionHighlightBlocked(entityNumber)
+    }
+
+    /**
+     * How far the entity's sprites are drawn from where its model says it is,
+     * in pixels. A move-drag previews by displacing the sprites and nothing
+     * else can see that; a leaked offset leaves an entity drawn where it is
+     * not. Undefined for an entity with no container. See
+     * tests/persistent-selection.spec.ts.
+     */
+    public entityDragOffset(entityNumber: number): IPoint | undefined {
+        return EntityContainer.mappings.get(entityNumber)?.dragOffsetPx
     }
 
     /**

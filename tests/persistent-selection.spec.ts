@@ -423,10 +423,12 @@ test('mirroring a curved rail keeps the position grid on its new footprint', asy
 
     // pointer off the rail so nothing is hovered or carried
     await page.mouse.move(rail.x, rail.y + 300)
+    const rev = await revision(page)
     await page.keyboard.down('Shift')
     await page.keyboard.press('KeyG')
     await page.keyboard.up('Shift')
-    expect(await positionOf(page, 1)).toEqual(await positionOf(page, 1))
+    // one committed step - the mirror really did write direction 2 -> 6
+    expect(await revision(page)).toBe(rev + 1)
 
     // Delete the rail, then walk the pointer over the column its 2x6 footprint
     // covered. If the grid still held those cells, each hover would throw
@@ -441,5 +443,31 @@ test('mirroring a curved rail keeps the position grid on its new footprint', asy
     for (let dx = -3; dx <= 3; dx++) {
         await page.mouse.move(rail.x + dx * px, rail.y, { steps: 2 })
     }
+    expect(errors).toEqual([])
+})
+
+test('Q mid-drag puts every sprite back where its model is', async ({ page }) => {
+    await openEditorWithChests(page)
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+    await altSelect(page, 1, 2)
+    const px = await tilePx(page)
+    const dragOffset = (n: number) =>
+        page.evaluate((n: number) => (window as any).__fbe_test.entityDragOffset(n), n)
+
+    const at = await screenOf(page, 1)
+    await page.mouse.move(at.x, at.y)
+    await page.mouse.down()
+    await page.mouse.move(at.x, at.y + 2 * px, { steps: 2 })
+    expect(await modeOf(page)).toBe('MOVE')
+    expect(await dragOffset(1)).toEqual({ x: 0, y: 64 })
+
+    // Q clears the selection while the drag is live; whatever else it does, the
+    // sprites it drops from the drag must not stay displaced after the release.
+    await page.keyboard.press('KeyQ')
+    await page.mouse.up()
+    expect(await modeOf(page)).not.toBe('MOVE')
+    expect(await dragOffset(1)).toEqual({ x: 0, y: 0 })
+    expect(await dragOffset(2)).toEqual({ x: 0, y: 0 })
     expect(errors).toEqual([])
 })

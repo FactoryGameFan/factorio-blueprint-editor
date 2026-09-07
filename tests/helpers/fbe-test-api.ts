@@ -115,6 +115,12 @@ export interface FbeTestApi {
      */
     selectionHighlightBlocked: (entityNumber: number) => boolean
     /**
+     * How far the entity's sprites are drawn from its model position, in
+     * pixels - non-zero only during a move-drag. A leak here is an entity
+     * drawn where it is not. See tests/persistent-selection.spec.ts.
+     */
+    entityDragOffset: (entityNumber: number) => { x: number; y: number } | undefined
+    /**
      * `History.revision` - moves on every outermost commit. A group move must be
      * one undo step, and the entities end up in the same place whether it took
      * one transaction or two; only this can tell. See
