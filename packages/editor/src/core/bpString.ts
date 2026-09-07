@@ -83,6 +83,12 @@ class EmptyBlueprintStringError {
     public error = 'There was nothing to import.'
 }
 
+export class GitHubRateLimitError extends Error {
+    constructor() {
+        super('GitHub rate limit reached. Please try importing again later.')
+    }
+}
+
 const keywords: KeywordDefinition[] = [
     {
         keyword: 'entityName',
@@ -310,6 +316,14 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
             const fetchData = (url: string): Promise<Response> =>
                 fetch(`/corsproxy?url=${encodeURIComponent(url)}`).then(response => {
                     if (response.ok) return response
+                    if (
+                        new URL(url).hostname === 'api.github.com' &&
+                        (response.status === 429 ||
+                            (response.status === 403 &&
+                                response.headers.get('x-ratelimit-remaining') === '0'))
+                    ) {
+                        throw new GitHubRateLimitError()
+                    }
                     throw new Error('Network response was not ok.')
                 })
 

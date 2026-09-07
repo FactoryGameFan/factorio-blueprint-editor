@@ -6,6 +6,7 @@ import EDITOR, {
     Blueprint,
     Book,
     CorruptedBlueprintStringError,
+    GitHubRateLimitError,
     BookWithNoBlueprintsError,
     EmptyBlueprintStringError,
     encode,
@@ -1020,6 +1021,11 @@ function createBPImportError(
     */
     if (error instanceof EmptyBlueprintStringError) {
         createToast({ text: error.error, type: 'warning' })
+        return
+    }
+
+    if (error instanceof GitHubRateLimitError) {
+        createToast({ text: error.message, type: 'warning' })
         return
     }
 
