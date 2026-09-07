@@ -997,6 +997,17 @@ export class BlueprintContainer extends Container {
             is kept honest.
         */
         if (this.moveDrag !== undefined) {
+            /*
+                exitMoveMode puts sprites back through drag.entities, so one
+                leaving the drag here has to be put back now or it stays drawn
+                where the drag left it. Q mid-drag is the path: pipette clears
+                the selection while the drag is live. `mappings.get` rather than
+                `containerOf`, because on the destroy path the container is
+                already gone.
+            */
+            if (this.moveDrag.entities.includes(entity)) {
+                EntityContainer.mappings.get(entity.entityNumber)?.setDragOffset({ x: 0, y: 0 })
+            }
             this.moveDrag.entities = this.moveDrag.entities.filter(e => e !== entity)
         }
     }

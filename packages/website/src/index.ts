@@ -491,6 +491,7 @@ const testApi = {
     selectedEntityNumbers: () => editor.selectedEntityNumbers,
     selectionHighlightBlocked: (entityNumber: number) =>
         editor.selectionHighlightBlocked(entityNumber),
+    entityDragOffset: (entityNumber: number) => editor.entityDragOffset(entityNumber),
     historyRevision: () => editor.historyRevision,
     infoOverlayVisible: () => editor.infoOverlayVisible,
     /*
