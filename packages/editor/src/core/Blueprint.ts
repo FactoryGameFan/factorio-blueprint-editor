@@ -823,14 +823,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         return this.entities.isEmpty() && this.tiles.isEmpty()
     }
 
-    /** Every entity's and tile's own footprint, `w`/`h` being the full tile
-     * size rather than a half-extent - shared by `getCenter()` and
-     * `getGridPositionDisplay()` so the two can't independently drift on
-     * what "this blueprint's content" means. */
-    private footprintData(): { x: number; y: number; w: number; h: number }[] {
+    /** Full tile extents. Export centering keeps its existing occupancy sizes;
+     * the Grid position reading uses the game's measured tile sizes instead. */
+    private footprintData(gridPosition = false): { x: number; y: number; w: number; h: number }[] {
         return [
             ...this.entities.valuesArray().map(e => {
-                const size = getEntityGridSize(e.entityData, e.direction)
+                const size = gridPosition ? getEntityGridSize(e.entityData, e.direction) : e.size
                 return { x: e.position.x, y: e.position.y, w: size.x, h: size.y }
             }),
             ...this.tiles.valuesArray().map(t => ({ x: t.x, y: t.y, w: 1, h: 1 })),
@@ -1242,9 +1240,9 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
      * offsets `computeExportCenter()`'s result, so the two stay in lockstep
      * without duplicating that arithmetic.
      *
-     * Reads the minimum corner through `minCorner(footprintData())` - the
-     * same footprint-edge reading `getCenter()` uses - rather than each
-     * entity's own centre. The two used to disagree without anything here
+     * Reads the minimum corner through `minCorner(footprintData(true))`,
+     * using runtime tile edges rather than each entity's own centre.
+     * The two used to disagree without anything here
      * being able to tell: every case measured so far used 1x1 entities on a
      * half-integer centre, where centre-floor and edge-floor land on the
      * same tile by construction. `tools/oracle/fixtures/blueprint-grid-
@@ -1273,7 +1271,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     public getGridPositionDisplay(): IPoint {
         const center = this.isEmpty() ? { x: 0, y: 0 } : this.computeExportCenter()
         const offset = this.gridPositionOffset
-        const min = this.isEmpty() ? { x: 0, y: 0 } : this.minCorner(this.footprintData())
+        const min = this.isEmpty() ? { x: 0, y: 0 } : this.minCorner(this.footprintData(true))
 
         return {
             x: -Math.floor(min.x - center.x + offset.x),
