@@ -212,3 +212,54 @@ test('the combinator migration is shape-gated, not version-gated', async ({ page
     ])
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
+
+test('a pre-2.0 decider with no output signal still gets an info overlay', async ({ page }) => {
+    /*
+        A 1.1 decider exported with its output slot empty is the flat
+        `{ constant, comparator, copy_count_from_input }` and nothing else - no
+        first_signal, no output_signal. Blueprint.ts turns that into
+        `conditions: [{...}]` and `outputs: []`, and an empty `outputs` is what
+        Entity.combinatorConditions could not read: `outputs?.[0].signal` guards
+        the list, not the element, so it threw on the element.
+
+        The instance createEntityInfo swallows that into a console warning and
+        the combinator simply draws no overlay, which is how it showed up in the
+        wild: six deciders in a 838-entity 1.1 blueprint logging
+        "Failed to create entity info for decider-combinator". Both readings are
+        pinned - the console line the user saw, and the static call the tally
+        makes, which rethrows instead.
+    */
+    const failures: string[] = []
+    page.on('console', msg => {
+        if (msg.text().includes('Failed to create entity info')) failures.push(msg.text())
+    })
+
+    const errors = await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: version(1, 1, 110),
+            icons: [{ index: 1, signal: { type: 'item', name: 'decider-combinator' } }],
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'decider-combinator',
+                    position: { x: 0.5, y: 1 },
+                    control_behavior: {
+                        decider_conditions: {
+                            constant: 0,
+                            comparator: '≤',
+                            copy_count_from_input: true,
+                        },
+                    },
+                },
+            ],
+        })
+    )
+
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+    expect(failures, `overlay failures: ${failures.join(' | ')}`).toEqual([])
+
+    const tally = await page.evaluate(() => window.__fbe_test.overlayInfoTally())
+    expect(tally['decider-combinator']).toHaveLength(1)
+})

@@ -42,6 +42,18 @@ export class OverlayContainer extends Container {
     private copyCursorBox: Container | undefined
     // Absent outside a selection drag, same as `copyCursorBox` above.
     private selectionAreaUpdateFn: ((endX: number, endY: number) => void) | undefined
+    /*
+        The box around each entity in the persistent selection, by entity
+        number. Its own map rather than `EntityContainer.cursorBox`: that is a
+        single slot per entity that hover (`regular`), the copy and delete
+        marquees (`copy`, `not_allowed`) and the settings-copy source all
+        already write, each destroying whatever was there. Routed through it,
+        hovering a selected entity would replace its selection box with the
+        hover box and the hover-out would then clear it rather than restore it.
+        Kept apart, a selected-and-hovered entity shows both, which is what the
+        game does for an entity another player has selected.
+    */
+    private readonly selectionHighlights = new Map<number, Container>()
 
     public constructor(bpc: BlueprintContainer) {
         super()
@@ -555,9 +567,10 @@ export class OverlayContainer extends Container {
         searchDirection: number
         /*
             undefined whenever there is no line to draw: the entity is not an
-            underground, has no partner in range, or the partner faces the same
-            way. Every caller already stores the result in a `Container |
-            undefined` field and checks it.
+            underground, has no partner in range, the partner faces the same
+            way, or searchDirection is not one of the four 16-way cardinals and
+            so names no axis to draw along. Every caller already stores the
+            result in a `Container | undefined` field and checks it.
         */
     ): Container | undefined {
         const fd = FD.entities[name]
@@ -574,23 +587,32 @@ export class OverlayContainer extends Container {
                     ? undefined
                     : this.bpc.bp.entities.get(opposingEntityNumber)
 
-            if (otherEntity) {
-                // Return if directionTypes are the same
+            const step = util.getDirOffset(searchDirection)
+
+            if (otherEntity && step) {
+                /*
+                    Return if the two connections run the same way - two inputs
+                    or two outputs, which is not a pair.
+
+                    This read `otherEntity.direction + (8 % 16)` until #329. The
+                    misplaced bracket makes it `direction + 8`, which agrees
+                    with the intended `(direction + 8) % 16` only below 8: a
+                    south-facing output gave 16 and a west-facing one 20, and
+                    neither can equal a searchDirection, so the guard silently
+                    stopped firing on half the directions and a line was drawn
+                    between two entities that are not partners.
+                */
                 if (
                     fd.type === 'underground-belt' &&
-                    (otherEntity.directionType === 'input'
-                        ? otherEntity.direction
-                        : otherEntity.direction + (8 % 16)) === searchDirection
+                    otherEntity.undergroundSearchDirection === searchDirection
                 ) {
                     return
                 }
 
-                const searchingAlongY = searchDirection % 4 === 0
-                const distance = searchingAlongY
-                    ? Math.abs(otherEntity.position.y - position.y)
-                    : Math.abs(otherEntity.position.x - position.x)
-
-                const sign = searchDirection === 0 || searchDirection === 6 ? -1 : 1
+                const distance =
+                    step.x === 0
+                        ? Math.abs(otherEntity.position.y - position.y)
+                        : Math.abs(otherEntity.position.x - position.x)
 
                 const lineParts = new Container()
                 lineParts.x = position.x * 32
@@ -608,15 +630,15 @@ export class OverlayContainer extends Container {
                         s.scale.set(data.scale)
                     }
                     s.anchor.set(0.5)
-                    s.x = searchingAlongY ? 0 : sign * i * 32
-                    s.y = searchingAlongY ? sign * i * 32 : 0
+                    s.x = step.x * i * 32
+                    s.y = step.y * i * 32
                     lineParts.addChild(s)
                 }
 
                 const otherEntityCursorBox = this.createCursorBox(
                     {
-                        x: searchingAlongY ? 0 : sign * distance * 32,
-                        y: searchingAlongY ? sign * distance * 32 : 0,
+                        x: step.x * distance * 32,
+                        y: step.y * distance * 32,
                     },
                     otherEntity.size,
                     'pair'
@@ -626,6 +648,59 @@ export class OverlayContainer extends Container {
                 return lineParts
             }
         }
+    }
+
+    /**
+     * Draws the persistent-selection box around an entity, replacing any it
+     * already has - so this is also how the box follows an entity that moved.
+     *
+     * `multiplayer_selection` is the box the game draws around an entity
+     * another player has selected. It is the one `CursorBoxSpecification`
+     * variant here that nothing else in this file uses, so it reads as
+     * "selected" and nothing else, and being a sprite it scales with the
+     * viewport for free where the hand-drawn `selectionArea` rectangle above
+     * has to correct its stroke width on every redraw.
+     */
+    public showSelectionHighlight(entityNumber: number, position: IPoint, size: IPoint): void {
+        this.hideSelectionHighlight(entityNumber)
+        this.selectionHighlights.set(
+            entityNumber,
+            this.createCursorBox(position, size, 'multiplayer_selection')
+        )
+    }
+
+    public hideSelectionHighlight(entityNumber: number): void {
+        const box = this.selectionHighlights.get(entityNumber)
+        if (box === undefined) return
+        box.destroy()
+        this.selectionHighlights.delete(entityNumber)
+    }
+
+    /** Slides the box without rebuilding it - the move-drag preview, once per tile. */
+    public moveSelectionHighlight(entityNumber: number, position: IPoint): void {
+        this.selectionHighlights.get(entityNumber)?.position.set(position.x, position.y)
+    }
+
+    /**
+     * The same red the paint preview turns when it cannot be placed
+     * (`PaintContainer.blocked`), on the selection boxes instead, since a
+     * move-drag previews with the real sprites and tinting those would have
+     * to be undone on cancel.
+     */
+    public setSelectionHighlightBlocked(entityNumber: number, blocked: boolean): void {
+        const box = this.selectionHighlights.get(entityNumber)
+        if (box === undefined) return
+        const tint = blocked ? F.rgbToColorSource(1, 0.4, 0.4) : 0xffffff
+        for (const child of box.children) {
+            if (child instanceof Sprite) child.tint = tint
+        }
+    }
+
+    /** Whether an entity's selection box is currently tinted as blocked. See tests/persistent-selection.spec.ts. */
+    public selectionHighlightBlocked(entityNumber: number): boolean {
+        const box = this.selectionHighlights.get(entityNumber)
+        const first = box?.children[0]
+        return first instanceof Sprite && first.tint !== 0xffffff
     }
 
     public showSelectionArea(color: number): void {

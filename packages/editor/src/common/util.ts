@@ -93,6 +93,34 @@ const transformConnectionPosition = (position: IPoint, direction: number): IPoin
     return rotatePointBasedOnDir(position, direction)
 }
 
+/**
+ * One tile of movement along a 16-way cardinal direction.
+ *
+ * Factorio's Y axis grows downwards, so north (0) is -Y, east (4) is +X, south
+ * (8) is +Y and west (12) is -X - the same four values `getDirName` accepts.
+ *
+ * Answers undefined rather than throwing for anything else. Every caller is
+ * walking the grid looking for a partner entity, and a blueprint that stores a
+ * diagonal direction on an underground belt should cost that one entity its
+ * connection line, not the whole blueprint. Non-cardinals are unreachable
+ * through the UI: `getPossibleRotations` gives an underground belt, a loader
+ * and a pipe-to-ground [0, 4, 8, 12].
+ */
+const getDirOffset = (dir: number): IPoint | undefined => {
+    switch (dir) {
+        case 0:
+            return { x: 0, y: -1 }
+        case 4:
+            return { x: 1, y: 0 }
+        case 8:
+            return { x: 0, y: 1 }
+        case 12:
+            return { x: -1, y: 0 }
+        default:
+            return undefined
+    }
+}
+
 const getDirName = (dir: number): NamedDirection => {
     switch (dir) {
         case 0:
@@ -200,6 +228,7 @@ export default {
     getRelativeDirection,
     rotatePointBasedOnDir,
     transformConnectionPosition,
+    getDirOffset,
     getDirName,
     getDirName8Way,
     nearestPowerOf2,

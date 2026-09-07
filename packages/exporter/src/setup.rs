@@ -25,14 +25,18 @@ lazy_static! {
         Regex::new(r"^__(.+?)__/").unwrap();
 }
 
-/// Returns the path to the Factorio executable given the install root.
-/// - macOS: {dir}/factorio.app/Contents/MacOS/factorio
-/// - Linux: {dir}/bin/x64/factorio
-/// - Windows: {dir}\bin\x64\factorio.exe
+/// Accept a Steam install root or a directly selected .app bundle.
+fn macos_bundle_path(factorio_dir: &Path) -> PathBuf {
+    if factorio_dir.extension().is_some_and(|ext| ext == "app") {
+        factorio_dir.to_path_buf()
+    } else {
+        factorio_dir.join("factorio.app")
+    }
+}
+
 pub fn local_executable_path(factorio_dir: &Path) -> PathBuf {
     match std::env::consts::OS {
-        "macos" => factorio_dir
-            .join("factorio.app")
+        "macos" => macos_bundle_path(factorio_dir)
             .join("Contents")
             .join("MacOS")
             .join("factorio"),
@@ -48,37 +52,32 @@ pub fn local_executable_path(factorio_dir: &Path) -> PathBuf {
 /// - Windows: {dir}\data
 pub fn local_game_data_path(factorio_dir: &Path) -> PathBuf {
     match std::env::consts::OS {
-        "macos" => factorio_dir
-            .join("factorio.app")
+        "macos" => macos_bundle_path(factorio_dir)
             .join("Contents")
             .join("data"),
         _ => factorio_dir.join("data"),
     }
 }
 
-/// Returns the Factorio user data directory (where mods/ and script-output/ live).
-/// - macOS: ~/Library/Application Support/factorio
-/// - Linux: ~/.factorio
-/// - Windows: %APPDATA%\Factorio
-pub fn user_data_dir() -> Result<PathBuf, Box<dyn Error>> {
-    match std::env::consts::OS {
-        "macos" | "linux" => {
-            let home = get_env_var!("HOME")?;
-            let path = match std::env::consts::OS {
-                "macos" => PathBuf::from(home)
-                    .join("Library")
-                    .join("Application Support")
-                    .join("factorio"),
-                _ => PathBuf::from(home).join(".factorio"),
-            };
-            Ok(path)
+/// Atomically reserve a fresh workspace. Keep it for inspection on success and
+/// failure; callers print the location so it can be moved to Trash afterwards.
+fn new_work_dir(parent: &Path, prefix: &str) -> std::io::Result<PathBuf> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    for attempt in 0..100 {
+        let path = parent.join(format!("{prefix}-{}-{stamp}-{attempt}", std::process::id()));
+        match std::fs::create_dir(&path) {
+            Ok(()) => return Ok(path),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
         }
-        "windows" => {
-            let appdata = get_env_var!("APPDATA")?;
-            Ok(PathBuf::from(appdata).join("Factorio"))
-        }
-        os => Err(format!("unsupported OS: {}", os).into()),
     }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "could not reserve export workspace",
+    ))
 }
 
 /// Validates that FACTORIO_DIR points to a usable Factorio installation.
@@ -126,6 +125,10 @@ async fn get_info(path: &Path) -> Result<Info, Box<dyn Error>> {
     Ok(p)
 }
 
+#[cfg(test)]
+#[path = "setup_tests.rs"]
+mod tests;
+
 #[allow(clippy::needless_lifetimes)]
 async fn make_img_pow2<'a>(
     path: &'a Path,
@@ -152,8 +155,9 @@ async fn make_img_pow2<'a>(
         let mut buffer = std::io::Cursor::new(buffer);
         out.write_to(&mut buffer, format)?;
 
-        let tmp_path = tmp_dir.join(path);
-        tokio::fs::create_dir_all(tmp_path.parent().unwrap()).await?;
+        // An absolute path would discard tmp_dir and overwrite the original.
+        // Separate directories also prevent collisions between equal basenames.
+        let tmp_path = new_work_dir(tmp_dir, "image")?.join("padded.png");
         tokio::fs::write(&tmp_path, &buffer.into_inner()).await?;
         Ok(Cow::Owned(tmp_path))
     } else {
@@ -266,8 +270,8 @@ async fn compress_sprites(
     );
 
     let file_paths = Arc::new(Mutex::new(file_paths));
-    let tmp_dir = std::env::temp_dir().join("__FBE__");
-    tokio::fs::create_dir_all(&tmp_dir).await?;
+    let tmp_dir = new_work_dir(&std::env::temp_dir(), "fbe-sprites")?;
+    println!("Sprite scratch files retained at {}", tmp_dir.display());
     let available_parallelism =
         std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
 
@@ -285,108 +289,150 @@ async fn compress_sprites(
     let new_metadata = serde_json::to_vec(&*new_metadata.lock().unwrap())?;
     tokio::fs::write(metadata_path, new_metadata).await?;
     progress.finish();
-    tokio::fs::remove_dir_all(&tmp_dir).await?;
     Ok(())
 }
 
 pub async fn extract(output_dir: &Path, base_factorio_dir: &Path) -> Result<(), Box<dyn Error>> {
-    let factorio_data = base_factorio_dir.join("data");
-    let mod_dir = base_factorio_dir.join("mods/export-data");
+    extract_local(output_dir, base_factorio_dir).await
+}
+
+struct ExportWorkspace {
+    root: PathBuf,
+    mods: PathBuf,
+    config: PathBuf,
+    dump: PathBuf,
+}
+
+fn config_path(path: &Path) -> Result<String, Box<dyn Error>> {
+    let path = path.to_str().ok_or("Factorio config paths must be UTF-8")?;
+    if path.contains(['\r', '\n']) {
+        return Err("Factorio config paths cannot contain newlines".into());
+    }
+    // Windows canonicalize() produces verbatim paths; Factorio's INI expects
+    // ordinary drive/UNC paths rather than the \\?\ prefix.
+    let path = if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!("//{rest}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(path).to_string()
+    };
+    Ok(path.replace('\\', "/"))
+}
+
+async fn prepare_export(factorio_data: &Path) -> Result<ExportWorkspace, Box<dyn Error>> {
+    let factorio_data = tokio::fs::canonicalize(factorio_data).await?;
+    let version = get_info(&factorio_data.join("base/info.json"))
+        .await?
+        .version;
+    let series = version.split('.').take(2).collect::<Vec<_>>().join(".");
+    let root = new_work_dir(&std::env::temp_dir(), "fbe-export")?;
+    println!("Export profile and logs retained at {}", root.display());
+    let mods = root.join("mods");
+    let write_data = root.join("write-data");
+    let config = root.join("config.ini");
+    let mod_dir = mods.join("export-data");
     let scenario_dir = mod_dir.join("scenarios/export-data");
-    let extracted_data_path = base_factorio_dir.join("script-output/data.json");
-    let factorio_executable = base_factorio_dir.join("bin/x64/factorio");
-
-    let info = include_str!("export-data/info.json");
-    let script = include_str!("export-data/control.lua");
-    let data = include_str!("export-data/data-final-fixes.lua");
-    let locale = generate_locale(&factorio_data).await?;
-
     tokio::fs::create_dir_all(&scenario_dir).await?;
-    tokio::fs::write(mod_dir.join("info.json"), info).await?;
-    tokio::fs::write(mod_dir.join("locale.lua"), locale).await?;
-    tokio::fs::write(mod_dir.join("data-final-fixes.lua"), data).await?;
-    tokio::fs::write(scenario_dir.join("control.lua"), script).await?;
+    tokio::fs::create_dir_all(&write_data).await?;
 
-    println!("Generating defines.lua");
+    // Load only shipped vanilla/Space Age modules. Nothing is copied from the
+    // real profile, including its mod list, settings, saves, or credentials.
+    let mut mod_list = Vec::new();
+    let mut dependencies = vec!["base >= 2.0.0".to_string()];
+    for name in ["base", "quality", "elevated-rails", "space-age"] {
+        if factorio_data.join(name).join("info.json").is_file() {
+            mod_list.push(serde_json::json!({ "name": name, "enabled": true }));
+            if name != "base" {
+                // Run our data-final-fixes after the enabled DLC modules.
+                dependencies.push(format!("? {name}"));
+            }
+        }
+    }
+    mod_list.push(serde_json::json!({ "name": "export-data", "enabled": true }));
+    tokio::fs::write(
+        mods.join("mod-list.json"),
+        serde_json::to_vec(&serde_json::json!({ "mods": mod_list }))?,
+    )
+    .await?;
+    let mut info: serde_json::Value = serde_json::from_str(include_str!("export-data/info.json"))?;
+    info["factorio_version"] = series.into();
+    info["dependencies"] = serde_json::to_value(dependencies)?;
+    tokio::fs::write(mod_dir.join("info.json"), serde_json::to_vec(&info)?).await?;
+    tokio::fs::write(
+        mod_dir.join("locale.lua"),
+        generate_locale(&factorio_data).await?,
+    )
+    .await?;
+    tokio::fs::write(
+        mod_dir.join("data-final-fixes.lua"),
+        include_str!("export-data/data-final-fixes.lua"),
+    )
+    .await?;
+    tokio::fs::write(
+        scenario_dir.join("control.lua"),
+        include_str!("export-data/control.lua"),
+    )
+    .await?;
 
-    Command::new(factorio_executable)
+    // Absolute paths work for macOS bundles, Linux's bin/x64 layout and Windows.
+    tokio::fs::write(
+        &config,
+        format!(
+            "[path]\nread-data={}\nwrite-data={}\n[general]\n[other]\n",
+            config_path(&factorio_data)?,
+            config_path(&write_data)?
+        ),
+    )
+    .await?;
+    Ok(ExportWorkspace {
+        dump: write_data.join("script-output/data.json"),
+        root,
+        mods,
+        config,
+    })
+}
+
+async fn run_factorio_export(
+    factorio_executable: &Path,
+    work: &ExportWorkspace,
+) -> Result<String, Box<dyn Error>> {
+    println!("Running Factorio to generate data...");
+    let log_path = work.root.join("factorio-output.log");
+    let log = std::fs::File::create(&log_path)?;
+    let status = Command::new(tokio::fs::canonicalize(factorio_executable).await?)
+        .current_dir(&work.root)
+        .arg("--config")
+        .arg(&work.config)
+        .arg("--mod-directory")
+        .arg(&work.mods)
         .args(["--start-server-load-scenario", "export-data/export-data"])
-        .stdout(std::process::Stdio::null())
+        .stdout(log.try_clone()?)
+        .stderr(log)
+        .kill_on_drop(true)
         .spawn()?
         .wait()
         .await?;
 
-    let content = tokio::fs::read_to_string(&extracted_data_path).await?;
-    tokio::fs::create_dir_all(&output_dir).await?;
-    tokio::fs::write(output_dir.join("data.json"), &content).await?;
-
-    compress_sprites(output_dir, &factorio_data, &content).await?;
-    println!("DONE!");
-
-    Ok(())
+    // control.lua deliberately errors after writing the dump. A nonzero exit
+    // is expected; only a fresh, valid dump from this run is accepted.
+    let content = tokio::fs::read_to_string(&work.dump).await.map_err(|e| {
+        format!(
+            "Factorio produced no readable dump at {} ({status}): {e}. See {}",
+            work.dump.display(),
+            log_path.display()
+        )
+    })?;
+    serde_json::from_str::<serde_json::Value>(&content)?;
+    Ok(content)
 }
 
 pub async fn extract_local(output_dir: &Path, factorio_dir: &Path) -> Result<(), Box<dyn Error>> {
     let factorio_executable = local_executable_path(factorio_dir);
     let factorio_data = local_game_data_path(factorio_dir);
-    let user_data = user_data_dir()?;
-
-    let mod_dir = user_data.join("mods").join("export-data");
-    let scenario_dir = mod_dir.join("scenarios").join("export-data");
-    let extracted_data_path = user_data.join("script-output").join("data.json");
-
-    let info = include_str!("export-data/info.json");
-    let script = include_str!("export-data/control.lua");
-    let data = include_str!("export-data/data-final-fixes.lua");
-    let locale = generate_locale(&factorio_data).await?;
-
-    // Write export-data mod files
-    tokio::fs::create_dir_all(&mod_dir).await.map_err(|e| {
-        format!(
-            "Failed to write to mods directory \"{}\": {}. \
-             Check that the directory is writable.",
-            mod_dir.display(),
-            e
-        )
-    })?;
-    tokio::fs::create_dir_all(&scenario_dir).await?;
-
-    tokio::fs::write(mod_dir.join("info.json"), info).await?;
-    tokio::fs::write(mod_dir.join("locale.lua"), locale).await?;
-    tokio::fs::write(mod_dir.join("data-final-fixes.lua"), data).await?;
-    tokio::fs::write(scenario_dir.join("control.lua"), script).await?;
-
-    println!("Running Factorio to generate data...");
-
-    Command::new(&factorio_executable)
-        .args(["--start-server-load-scenario", "export-data/export-data"])
-        .stdout(std::process::Stdio::null())
-        .spawn()?
-        .wait()
-        .await?;
-
-    let content = tokio::fs::read_to_string(&extracted_data_path).await?;
-    tokio::fs::create_dir_all(&output_dir).await?;
+    let work = prepare_export(&factorio_data).await?;
+    let content = run_factorio_export(&factorio_executable, &work).await?;
+    tokio::fs::create_dir_all(output_dir).await?;
     tokio::fs::write(output_dir.join("data.json"), &content).await?;
-
     compress_sprites(output_dir, &factorio_data, &content).await?;
-
-    // Clean up export-data mod and scenario from user data dir
-    if let Err(e) = tokio::fs::remove_dir_all(&mod_dir).await {
-        eprintln!(
-            "Warning: failed to clean up mod directory \"{}\": {}",
-            mod_dir.display(),
-            e
-        );
-    }
-    if let Err(e) = tokio::fs::remove_dir_all(&scenario_dir).await {
-        eprintln!(
-            "Warning: failed to clean up scenario directory \"{}\": {}",
-            scenario_dir.display(),
-            e
-        );
-    }
-
     println!("DONE!");
     Ok(())
 }

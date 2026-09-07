@@ -4,7 +4,11 @@
     `declare global` blocks that give the same property different types, so any
     spec needing a new hook has to add it here.
 
-    The implementation lives in packages/website/src/index.ts.
+    The implementation lives in packages/website/src/index.ts, and since #292 it
+    is assigned only under `import.meta.env.DEV`. So the specs run against the
+    dev server `npm run localpreview` starts, never `vp preview` /
+    `preview:website`: a production bundle has no hook, and `waitForEditor` below
+    would then wait out its full 60s on every spec (#321).
 */
 
 /** Entity name -> info overlay child count per placement, -1 for no overlay. */
@@ -116,10 +120,41 @@ export interface FbeTestApi {
      */
     recipeShapeTally: (blueprint?: unknown) => RecipeShapeTally
     /**
-     * The interaction mode the canvas is in: NONE, EDIT, PAINT, PAN, COPY or
-     * DELETE. See tests/editor-mode-input.spec.ts.
+     * The interaction mode the canvas is in: NONE, EDIT, PAINT, PAN, COPY,
+     * DELETE, SELECT or MOVE. See tests/editor-mode-input.spec.ts.
      */
     editorMode: () => string
+    /**
+     * The entity numbers in the persistent selection. The selection is not a
+     * mode - `editorMode` reads NONE once an Alt-drag is released - so this is
+     * the only way to see what it holds. See tests/persistent-selection.spec.ts.
+     */
+    selectedEntityNumbers: () => number[]
+    /**
+     * Whether the entity's selection box is tinted as blocked, which a move-drag
+     * does while the group would not fit where it is. See
+     * tests/persistent-selection.spec.ts.
+     */
+    selectionHighlightBlocked: (entityNumber: number) => boolean
+    /**
+     * How far the entity's sprites are drawn from its model position, in
+     * pixels - non-zero only during a move-drag. A leak here is an entity
+     * drawn where it is not. See tests/persistent-selection.spec.ts.
+     */
+    entityDragOffset: (entityNumber: number) => { x: number; y: number } | undefined
+    /**
+     * `History.revision` - moves on every outermost commit. A group move must be
+     * one undo step, and the entities end up in the same place whether it took
+     * one transaction or two; only this can tell. See
+     * tests/persistent-selection.spec.ts.
+     */
+    historyRevision: () => number
+    /**
+     * Whether the entity-info overlay is showing - the AltLeft toggle, which
+     * has to defer to Alt's key-up so a tap still shows it while an Alt-drag
+     * selection sweep does not. See tests/persistent-selection.spec.ts.
+     */
+    infoOverlayVisible: () => boolean
     /**
      * Where the entity sits in client coordinates - the space a synthetic
      * pointer move takes - or undefined if the loaded blueprint has no such
@@ -285,7 +320,12 @@ declare global {
 
 type Page = import('@playwright/test').Page
 
-/** Load the editor and wait for the test hooks to be attached. */
+/**
+ * Load the editor and wait for the test hooks to be attached. A full 60s wait
+ * here almost always means the target has no hook to attach - a production
+ * bundle rather than the `npm run localpreview` dev server (see the file header
+ * and #321) - not a slow machine.
+ */
 export async function waitForEditor(page: Page): Promise<void> {
     await page.goto('/')
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })

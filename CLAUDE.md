@@ -19,13 +19,13 @@ closing references such as `Closes #123` in the pull request body.
 - `tests` - Playwright browser and blueprint-corpus tests
 - `test-blueprints` - committed real-world blueprint corpus
 - `tools/oracle` - probes that ask a local Factorio installation what it does
-- `docs/superpowers` - `plans` (9) and `specs` (6) for larger past changes
+- `docs/superpowers` - `specs` (6) for larger past changes
 - `.github/workflows` - CI and deploy; `README.md` holds the job rationale
 
 ## Setup and commands
 
-The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Put
-`~/.vite-plus/bin` on `PATH`; the root package requires npm 12.
+The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Prepend
+`~/.vite-plus/bin` to `PATH`; the root package requires npm 12.
 
 ```sh
 curl -fsSL https://vite.plus -o vp-install.sh
@@ -38,6 +38,32 @@ vp install
 layout and puts the binaries in `~/.local/share/vite-plus/bin`, so dropping it
 makes the `PATH` line above wrong and `vp` looks missing rather than misplaced.
 `.github/actions/setup-vp/action.yml` pins the same layout for the same reason.
+
+Prepend rather than append, because Vite+ works through shims. It installs
+`node`, `npm`, `npx` and `corepack` into that one directory, and each of them
+resolves a version per directory at the moment you run it. Any other `node` or
+`npm` earlier on `PATH` wins instead, and the shims are then never consulted.
+
+Node and npm are two separate pins, which is the part worth knowing. The Node
+version comes from `.node-version` (24.20.0). The npm version comes from
+`devEngines.packageManager` in the root `package.json`, and Vite+ keeps it in
+`~/.vite-plus/package_manager/npm/<version>/` rather than using the one inside
+the Node install. That matters because the npm bundled inside Node 24.20.0 is
+11.19.0. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
+satisfy this repo whichever Node it selects, because npm 12 comes from Vite+
+and from nowhere else.
+
+The symptom when something else's npm wins is `EBADDEVENGINES`:
+
+```
+npm error EBADDEVENGINES Invalid semver version "^12" does not match "11.19.0"
+```
+
+Every `npm` and `npx` command fails that way, including the `npx tsc` line
+below, which reads as a broken repository rather than a misordered `PATH`.
+`vp env doctor` identifies it - the PATH section marks each tool `(vp shim)` or
+`(not vp shim)` - but it reports the mismatch as a warning and still ends in
+`All checks passed`, so read that section rather than the verdict.
 
 Common commands:
 
@@ -90,10 +116,12 @@ over exact pins.
   consequence of `lockFileMaintenance: { enabled: false }` in `renovate.json5`.
 - Before acting on a transitive advisory, read the parent's declared range: an
   exact pin means it is not actionable, a range means it is.
-- `undici` has open advisories with no in-range fix. It is blocked upstream
-  behind two exact pins (`wrangler` → `miniflare` → `undici`) and is dev-only.
-  Do not run `npm audit fix`: measured, it does not fix `undici`, it pulls
-  `miniflare` to a major alpha, and `--force` downgrades `wrangler`.
+- Upgrade Wrangler and its pinned runtime dependencies together. Wrangler
+  4.126.0 brings workerd 1.20260825.1, Miniflare 5.20260825.0-alpha, and
+  undici 7.29.0; it accepts the configured 2026-08-25 compatibility date in
+  local development (#304). This also resolves the advisory reported against
+  the previous undici 7.28.0 pin. Do not use `npm audit fix --force` or override
+  Miniflare independently; validate the Worker with `wrangler dev --local`.
 - `ajv` is ~100 kB minified and nothing branches on its result; `bpString.ts`
   logs and loads whether validation passes or fails.
 
@@ -135,6 +163,12 @@ Key files:
   blueprints without a version. Do not treat a missing version as version zero.
 - Keep migrations conditional on the blueprint's declared version. Current
   Factorio can reuse an old prototype name.
+- A blueprint book's `active_index`, and the `index` on each of its entries,
+  are inventory **slots**, not positions in the `blueprints` array. A book with
+  empty slots exports a dense array with sparse `index` values, so
+  `blueprints[active_index]` is the wrong lookup and can be out of range
+  entirely. An active slot that holds nothing is legal and means the first
+  blueprint. Measured in the shipped binary; `Book.ts` carries the citation.
 - Entity accessors preserve the distinction between absent values and empty or
   zero values. Tests in `entity-accessors.spec.ts` pin this behavior.
 - Logistic filter writes must retain unknown sections and per-filter quality,
@@ -171,11 +205,33 @@ have more than one shape; read them through `localisedName()`.
 
 Unit tests cover pure model and rendering decisions. Playwright covers the
 decode → model → render/serialize path with loaded Factorio data and the real
-browser UI. The committed corpus is useful for modern blueprints but does not
-cover pre-2.0 migrations; create a synthetic blueprint at the required version
-with `tests/helpers/encode-blueprint.ts` for those branches.
+browser UI. The committed corpus is mostly modern blueprints and reaches only
+part of the pre-2.0 work: the `UPSTREAM-277` collection added two 1.1-era files
+that exercise the rename table in `nameMigrations.ts` and the combinator shape
+migration in `Blueprint.ts`, but no committed blueprint holds an array-shaped
+`request_filters`. For that branch, and for any version you need exactly,
+create a synthetic blueprint with `tests/helpers/encode-blueprint.ts`.
 
-Browser tests use `window.__fbe_test` to load sources without URL-length limits.
+Browser tests use `window.__fbe_test` to load sources without URL-length
+limits. That hook is assigned only under `import.meta.env.DEV` (#292), so the
+specs need the dev server `npm run localpreview` starts. Run against
+`vp preview` / `preview:website` - a production bundle, no hook - every spec
+instead burns its 60s wait on a function that never appears, and the only
+symptom is a timeout that names nothing (#321). `vp preview` binds 4173, not
+8080, so that mistake surfaces as a connection refused rather than a hang.
+
+A layer count is not a monotone function of neighbours, so it cannot express
+"this entity joined to something". A cargo bay that gains a west neighbour swaps
+its two left outer corners, 4 + 5 layers, for a top and a bottom wall, also
+4 + 5. Measured, a bay covered on its west or north stays at 26 while one
+covered on its east or south drops to 25. Compare the digest, not the count.
+
+An entity's own position is not always on a whole tile: loading a blueprint
+re-centres it, and a blueprint whose extent is odd puts everything in it on a
+half tile - the all-entities blueprint at four directions puts the landing pad
+at x -73.5. Anything deriving a tile grid from `position` must not round, or the
+same entity draws different sprites depending on where it was dropped.
+
 Tests that dispatch pointer input should call `suppressOverlays(page)` before
 navigation so toasts and the settings panel cannot intercept events. Do not
 edit files while a Playwright run is active: Vite reloads the page and destroys
@@ -183,6 +239,75 @@ the test's execution context.
 
 CI runs checks, Rust builds on Linux and Windows, four Playwright shards, and a
 Cloudflare deployment after both checks and browser tests pass.
+
+### Running the browser suite under WSL2
+
+Chromium's default settings destroy the whole WSL virtual machine, not just the
+browser process - `Wsl/Service/E_UNEXPECTED`, needing `wsl.exe --shutdown` to
+recover. It is not a missing-library fault: the binary starts and prints its
+version, then the VM dies when a page renders. The cause is the GPU
+paravirtualisation path, since WSLg is running and `/dev/dxg` is present, so
+Chromium crosses into the Windows GPU driver. Forcing software rendering keeps
+it inside the VM.
+
+`playwright.wsl.config.ts` spreads the committed config and adds those flags.
+CI is unaffected - it applies only when passed explicitly:
+
+```sh
+export DISPLAY= WAYLAND_DISPLAY=
+npx playwright test --config playwright.wsl.config.ts
+```
+
+Blanking those two variables is required, not cosmetic: they are what attaches
+Chromium to WSLg in the first place.
+
+`playwright install-deps` needs root, and on a machine where `sudo -n` fails the
+libraries can be unpacked into a private prefix instead - `apt-get download`
+needs no root:
+
+```sh
+apt-get download libnspr4 libnss3 libasound2t64
+for f in *.deb; do dpkg -x "$f" ~/pw-libs; done
+export LD_LIBRARY_PATH=~/pw-libs/usr/lib/x86_64-linux-gnu
+```
+
+Re-run `ldd` on the Chromium binary after a Playwright upgrade; the missing set
+can grow.
+
+**Software rendering does not reproduce every spec, so know which half you are
+in before recording a fixture from a local run.** Measured 2026-09-04 against a
+clean base branch that is green in CI:
+
+| Spec                               | Local under swiftshader |
+| ---------------------------------- | ----------------------- |
+| `blueprint-round-trip.spec.ts`     | passes                  |
+| `entity-accessors.spec.ts`         | passes                  |
+| `sprite-data.spec.ts` (both cases) | passes                  |
+| `overlay-container.spec.ts`        | **fails**               |
+| `sprite-generation.spec.ts`        | **fails**               |
+
+The two failures are the same page error, and it is the renderer rather than
+the model:
+
+```
+TypeError: Failed to execute 'drawImage' on 'CanvasRenderingContext2D':
+The provided value is not of type '(CSSImageValue or HTMLCanvasElement or ...)'
+```
+
+Both specs assert `pageErrors` is empty, so they fail on that line rather than
+on a value. The specs whose pins are model-level checksums and tallies are
+unaffected and can be recorded here; **`overlay-container` and
+`sprite-generation` must be recorded from CI.** Re-check this table rather than
+assuming it, because which specs touch a canvas can change.
+
+**Do not try removing `--disable-software-rasterizer` to fix those two.** It
+sits next to `--use-gl=swiftshader` and reads as a contradiction, because
+SwiftShader is the software rasterizer, so it looks like the cause of the
+`drawImage` failure. Measured on WSL2 at `ece449f5`, it is not. With that one
+flag dropped and every other flag kept, the two specs go from 2 of their 4 tests
+failing to all 4, `drawImage` disappears from the log entirely, and
+`waitForEditor` times out after 120 s because the editor never initialises. The
+flag is load-bearing in the opposite direction from the guess.
 
 Two rules the specs cannot enforce:
 
@@ -230,6 +355,33 @@ is `packages/worker/wrangler.jsonc`; GitHub Actions deploys after checks and e2e
 tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`.
 
+## Visitor counts
+
+Two counters measure the same thing from opposite sides, and they are meant to
+disagree.
+
+- Cloudflare Web Analytics. `packages/website/vite.config.js` injects the beacon
+  at build time when `CF_BEACON_TOKEN` is set, which only the deploy job does.
+  Unset, the tag is omitted and the build is otherwise identical. Read it in the
+  Cloudflare dashboard. It counts sessions that ran JavaScript, so ad blockers
+  and crawlers are missing from it.
+- A server-side count in the Worker. `packages/worker/src/visitorCount.ts` holds
+  the rules and the definition: one GET of `/` per IP + User-Agent +
+  Accept-Language per UTC day, deduped in the Cache API and written to the
+  `fbe_unique_visitors` Analytics Engine dataset. Nothing identifying is stored;
+  the fingerprint is a cache key and never reaches the dataset. Analytics Engine
+  has no dashboard, so read it over the SQL API with the query in the
+  `recordVisit` comment in `packages/worker/src/index.ts` - and note it has no
+  `uniq()` or `COUNT(DISTINCT)`, which is why deduplication happens at write
+  time and a query is a plain `SUM(_sample_interval)`.
+
+Neither number is exact. The Worker count runs high (per-colo dedupe, a
+check-then-act race inside that dedupe, and crawlers that send a browser's
+`Accept`); the beacon runs low. The gap between them is the useful part.
+
+`tests/visitor-count.test.ts` covers the pure rules and pins the beacon's hosts
+against the CSP in `packages/website/public/_headers` that permits them.
+
 ## Known limits
 
 - Mobile is a read-only viewer; editing remains desktop-only.
@@ -241,18 +393,98 @@ tests pass. Required secrets are `CLOUDFLARE_API_TOKEN` and
   with none it loses the whole blueprint. Serialization keeps the icon's signal
   (issue #264); drawing it is still open (issue #231).
 - `getDirName` throws on diagonal directions, so any `draw_*` that calls it
-  renders a placeholder for a diagonally-placed entity. `railgun-turret` calls
-  it. The hazard is latent, not pinned: no committed test reaches it. The public
-  corpus (#191) places the turret at direction 8 only, and the synthetic halves
-  of `sprite-data.spec.ts` sweep cardinals alone, so
-  `tests/__fixtures__/sprite-data.json` records it succeeding with 8 layers. It
-  was pinned failing against the private corpus this one replaced.
+  renders a placeholder for a diagonally-placed entity. Around 20 call sites
+  still reach it and have not been audited for which of their entities can face
+  a diagonal, so treat the hazard as live everywhere except the one case below.
+  `railgun-turret` was the known instance, being 8-way: #357 moved it onto the
+  underscored `RotatedAnimation8Way` keys and
+  `tests/railgun-turret-diagonal.spec.ts` now pins all four diagonals rendering
+  8 layers apiece. Measured against the pre-#357 draw, all four read `FAILED`,
+  so that spec fails if the fix is reverted. It is the only committed test that
+  reaches a diagonal at all: the public corpus (#191) places the turret at
+  direction 8 only, and the synthetic halves of `sprite-data.spec.ts` sweep
+  cardinals alone.
 - Rail placement models rails as integer tile rectangles where Factorio uses
   continuous collision geometry, so it is wrong in both directions - it accepts
   some arrangements the game refuses and refuses 24 measured cases the game
   accepts (an identical curved rail on an identical curved rail). Preserve the
-  measured exceptions and the `tools/oracle` fixtures; issue #133 tracks
-  closing the gap with per-rail collision shapes.
+  measured exceptions and the `tools/oracle` fixtures. Per-rail collision
+  shapes will not close it: #133 measured that occupancy is not a property
+  of the rail, because which cells it blocks depends on the size of the box
+  asking, and #142 measured that the game's published `tile_width` does not
+  help either. Both are closed. #183 is the live rail defect.
+- The agricultural tower's crane is nine 3D parts the engine poses from live
+  entity state (`LuaEntity.crane_destination`) and projects with a camera the
+  prototype never describes. Only `crane.parts[0]`, the hub, is drawable from
+  data, and it alone carries `allow_sprite_rotation: false`, so its 128 frames
+  are true yaw where the booms store axial roll. #365 draws that one part,
+  parked at frame 0, offset by a fitted 0.526 screen tiles per tile of world
+  height - fitted, because nothing in the data gives the factor. The booms also
+  need `is_contractible_by_cropping` and an arm pose that only exists at
+  runtime; measured, a naive chain walk renders a 12-tile mast through the
+  tower. `tests/agricultural-tower-crane.spec.ts` pins the hub, because all five
+  guards in `craneHubLayers` return an empty array and a drop would otherwise be
+  silent.
+- The same tower's two `always_draw` working visualisations are deliberately not
+  drawn, and #365's original suggestion to draw them was wrong on both. `wv[0]`
+  is byte-identical to the base layer already drawn - it exists only to carry a
+  `fog_mask` rect, and `G.getTexture`'s cache key would hand back the very same
+  `Texture`. `wv[1]` is an `apply_recipe_tint` + `tint_as_overlay` mask, and
+  `EntitySprite` reads neither field, so it would draw as a raw mask. Check a
+  candidate visualisation against the layers already emitted before adding it;
+  measured over all 155 entities, `agricultural-tower` and `big-mining-drill`
+  are the ones where an `always_draw` entry duplicates the main animation.
+- Cargo hatches are drawn parked shut, and that is frame 0 for free - the
+  editor draws frame 0 of every sheet and nothing reads `frame_count`. Three
+  entities have one, and each drew a hole until #362: `cargo-bay` through
+  `hatch_definitions`, `cargo-landing-pad` and `space-platform-hub` through
+  `cargo_station_parameters.giga_hatch_definitions`. Their plain hatches carry
+  no `hatch_graphics` at all, so the giga hatch is the only drawable one.
+  Placement differs between the two: a plain hatch needs `offset` plus each
+  layer's own `shift`, which the shadow layer settles - only that sum lands it
+  in the band the bay's own shadow occupies. A giga hatch has no `offset`.
+  `tests/cargo-hatches.spec.ts` pins all three by layer count, because every
+  guard in both helpers returns an empty array and a drop would otherwise be
+  silent.
+- `graphics_set.animation` sits beside `graphics_set.picture` on exactly two
+  entities, and a picture-only draw dropped it until #364. Swept over all 155,
+  `cargo-landing-pad` and `space-platform-hub` are the pair; the other 22 with
+  an `animation` have no `picture` next to it and already read it. The two are
+  not the same size of defect. The pad's single layer is the fan inside its
+  turbine cowling, which the picture draws empty, so the pad rendered a black
+  hole - the same class as the open hatches above. Scored against the game's own
+  render over the fan's pixels, mean per-channel error falls 30.7 -> 20.9, and
+  under the body instead of over it the score stays at 30.7, because the body
+  covers it. The hub's 22 layers are additive `draw_as_glow` screens in the
+  cockpit windows, not the cockpit body, which `picture` always drew - so the
+  issue's "the whole cockpit missing" overstates it at 3.4% of its pixels.
+  Appending is the game's order: `animation_render_layer` defaults to `object`,
+  neither prototype sets it, and drawing it there rather than last moves 0
+  pixels on either entity. `tests/cargo-hub-animation.spec.ts` pins the split.
+- Cargo bay connection pieces are placed per 2x2 cell and per shared edge, and
+  both halves are measured against Factorio 2.0.77 rather than reasoned out
+  (issues #378, #362 item 2). The cell rule is Factorio 2.1's `tileset_mapping`
+  written as code and agrees with it on 173 of its 175 mapped masks. The bridge
+  rule cannot come from that table at all, because a bridge is anchored on the
+  shared edge BETWEEN two entities and no cell mask can select one - which is
+  why 2.1 leaves the five `bridge_*` keys outside the mapping, and why reading
+  that silence as "unreachable" was wrong. The rule: the key names the direction
+  the bridge spans, so entities side by side take `bridge_horizontal_*` and
+  stacked ones take `bridge_vertical_*`; a 4-tile shared edge takes `_wide` and
+  a 2-tile one `_narrow`, with a longer edge split into 4-tile spans; and a cell
+  corner where the covering entity changes both left to right and top to bottom
+  takes `bridge_crossing`. Each piece is drawn once, by the entity west or north
+  of the seam and by the one north-west of a crossing. Nothing spans a gap - two
+  bays 2 tiles apart draw no join at all, which is the control.
+  `cargoBayConnections.ts` holds both rules, pure and unit tested;
+  `tests/cargo-bay-connections.spec.ts` pins the placement.
+- Two of #362's items remain open on the cargo bay. `render_layer` is
+  discarded, which reorders layers on 10 of the 14 corpus neighbour masks but
+  changes at most 684 pixels and none at all on the commonest one. And
+  `variants[0]` is taken unconditionally where the game picks by tile position -
+  measured on the bridges, which variant the game uses differs from seam to
+  seam, so reproducing it needs a position hash we would be inventing. That
+  applies to all 17 keys, not just the walls.
 - Logistic filters retain quality metadata but the UI has no quality picker.
 - Blueprint icons round-trip, and an auto icon is never stored.
   `BlueprintInfoEditor`'s four slots are the one place a blueprint's own

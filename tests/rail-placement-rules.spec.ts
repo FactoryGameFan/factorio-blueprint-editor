@@ -332,8 +332,10 @@ test('a rail is still refused where the game accepts nothing overlapping', async
         And the 24 rows left as refusals the game would allow: an identical
         curved rail at an identical direction. The game accepts four overlapping
         placements and this grid cannot say which cell holds the curve, so it
-        stays refused until #133 item 1 gives curved rails real occupancy
-        shapes. Pinned so that closing it is a decision.
+        stays refused. #133 item 1 closed without giving curved rails occupancy
+        shapes: PR #138 measured that no single shape can be right, because
+        which cells a rail blocks depends on the size of the box asking. Pinned
+        so that changing it stays a decision.
     */
     expect(
         await isAreaAvailable(page, [rail('curved-rail-a', 0)], rail('curved-rail-a', 0)),

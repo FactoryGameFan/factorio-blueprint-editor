@@ -189,6 +189,11 @@ export interface IDeciderCondition {
     conditions?: DeciderCombinatorCondition[]
     /** post 2.0 */
     outputs?: DeciderCombinatorOutput[]
+    /**
+     * The else branch, added in Factorio 2.1.9. The game writes the key whether
+     * or not it holds anything, so a 2.1 blueprint normally carries it as `[]`.
+     */
+    else_outputs?: DeciderCombinatorOutput[]
 }
 
 /** When not specified, defaults to "*". */

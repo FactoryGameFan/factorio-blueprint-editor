@@ -1,7 +1,24 @@
 import { checkProxyTarget, MAX_PROXY_BYTES } from './proxyTarget'
+import {
+    DEDUPE_WINDOW_SECONDS,
+    dedupeKey,
+    isPageView,
+    utcDay,
+    visitorFingerprint,
+} from './visitorCount'
 
 interface Env {
     ASSETS: Fetcher
+    /*
+        Optional, and that is the whole reason this counter can ship without a
+        dashboard visit first. An Analytics Engine dataset is created by its
+        first write, so the binding needs no id in wrangler.jsonc - but a
+        `wrangler dev` run started before the binding existed, or a future
+        deploy that drops it, then finds `undefined` here rather than throwing
+        on a page load. Optional plus the `?.` at the call site means the site
+        serves either way and only the count stops.
+    */
+    VISITS?: AnalyticsEngineDataset
 }
 
 const LEGACY_HOSTNAME = 'fbeworkeyman.wormeyman.workers.dev'
@@ -134,8 +151,93 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
     })
 }
 
+/*
+    Count this navigation, unless the visitor already counted today.
+
+    Runs inside ctx.waitUntil, so none of it is on the path to the response: the
+    Cache API lookup and the data point are work the runtime finishes after the
+    HTML has gone out. Nothing in here can fail the request either - the whole
+    body is wrapped, because an analytics counter that can take the site down
+    is a worse deal than no counter.
+
+    The two halves are deliberately different stores. Dedupe state goes in the
+    Cache API, which is per-colo, evictable and free; the count goes to Analytics
+    Engine, which is durable and queryable. visitorCount.ts explains what the
+    first of those costs in accuracy.
+
+    One place the dedupe does nothing at all: the Cache API is inert on
+    workers.dev, so a load of a versioned preview hostname counts on every
+    request rather than once a day. Production is a custom domain (`routes` in
+    wrangler.jsonc) and the bare legacy hostname 301s out above before reaching
+    here, so this affects preview traffic only - which is a handful of manual
+    loads, and worth knowing before reading a preview's numbers as real.
+
+    Reading the result. Analytics Engine has no dashboard view of its own - this
+    is the number the beacon in packages/website/index.html cannot see, and it
+    is read over the SQL API:
+
+        SELECT blob1 AS day, SUM(_sample_interval) AS uniques
+        FROM fbe_unique_visitors
+        WHERE timestamp > NOW() - INTERVAL '30' DAY
+        GROUP BY day ORDER BY day
+
+    posted to /accounts/<id>/analytics_engine/sql. One data point is one
+    deduped visitor-day, so that sum is the answer directly. It has to be
+    written that way round: Analytics Engine has no uniq() or COUNT(DISTINCT),
+    which is why the deduplication happens above at write time rather than in
+    the query.
+*/
+async function recordVisit(request: Request, url: URL, env: Env): Promise<void> {
+    try {
+        const day = utcDay(new Date())
+        const fingerprint = await visitorFingerprint({
+            ip: request.headers.get('cf-connecting-ip'),
+            userAgent: request.headers.get('user-agent'),
+            acceptLanguage: request.headers.get('accept-language'),
+            day,
+        })
+
+        const cache = caches.default
+        const key = new Request(dedupeKey(url.origin, day, fingerprint), { method: 'GET' })
+        if (await cache.match(key)) return
+
+        /*
+            A one-byte body rather than a bodiless 204. Only the presence of the
+            entry is read, and the byte costs nothing, but a cache that declines
+            to store an empty response would fail silently and count every
+            visitor on every load - the failure would look exactly like traffic.
+        */
+        await cache.put(
+            key,
+            new Response('1', {
+                status: 200,
+                headers: { 'cache-control': `max-age=${DEDUPE_WINDOW_SECONDS}` },
+            })
+        )
+
+        const country = typeof request.cf?.country === 'string' ? request.cf.country : 'XX'
+        env.VISITS?.writeDataPoint({
+            // The day is stored rather than derived from `timestamp` so a query
+            // groups on the same UTC boundary the dedupe window uses.
+            blobs: [day, country],
+            doubles: [1],
+            // Analytics Engine samples per index once a dataset gets busy, so
+            // this is what SUM(_sample_interval) scales back up. Country rather
+            // than the fingerprint: an index is a filter key, and putting a
+            // per-visitor value there would both store the identifier this
+            // design keeps out of the dataset and shard sampling per visitor.
+            indexes: [country],
+        })
+    } catch {
+        // Deliberately silent. Workers Logs is unsampled (wrangler.jsonc), and a
+        // counter that logs its own failure once per request would be the
+        // loudest thing in the log at exactly the moment something else is
+        // wrong.
+    }
+}
+
 export default {
-    async fetch(request: Request, env: Env): Promise<Response> {
+    async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const url = new URL(request.url)
 
         // Redirect the legacy workers.dev hostname to the custom domain,
@@ -147,6 +249,22 @@ export default {
         }
 
         if (url.pathname === '/corsproxy') return handleCorsProxy(request, url)
+
+        /*
+            Count the navigation, then serve the app. After the legacy-hostname
+            redirect above on purpose: a request that bounces to the custom
+            domain is followed by a request that lands on it, and counting both
+            would score one visitor twice.
+        */
+        if (
+            isPageView({
+                method: request.method,
+                pathname: url.pathname,
+                accept: request.headers.get('accept'),
+            })
+        ) {
+            ctx.waitUntil(recordVisit(request, url, env))
+        }
 
         // Serve static assets
         return env.ASSETS.fetch(request)

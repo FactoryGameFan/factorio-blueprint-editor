@@ -1,4 +1,4 @@
-import { Container, Rectangle, Text } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import FD, {
     getModule,
     isBeacon,
@@ -15,6 +15,7 @@ import { Entity } from '../core/Entity'
 import F from './controls/functions'
 import { Panel } from './controls/Panel'
 import { styles } from './style'
+import { suppliesEntity } from '../core/supplyArea'
 import { beltThroughput, inserterThroughput } from '../core/throughput'
 
 /*
@@ -360,25 +361,26 @@ export class EntityInfoPanel extends Panel {
         this.position.set(G.app.screen.width - this.width + 1, 0)
     }
 
+    /*
+        Which beacons reach this entity, so the panel can fold their modules into
+        the crafting speed and power figures it prints.
+
+        The geometry lives in `core/supplyArea.ts`, shared with the underlay that
+        draws the same square (#263). What stood here built the aura as
+        `Rectangle(beacon.position.x, beacon.position.y, 1, 1)` padded by
+        `supply_area_distance + 1` - 9 tiles wide, which is right, but hung off
+        the beacon's centre as though that were a top-left corner, so the whole
+        square sat half a tile south and east of the beacon. It also read
+        `FD.entities.beacon` rather than the beacon in hand, and tested four
+        corners for containment rather than testing the two footprints for
+        overlap.
+    */
     private findNearbyBeacons(entity: Entity): Entity[] {
-        const entityRect = new Rectangle(entity.position.x, entity.position.y)
-        entityRect.pad(entity.size.x / 2, entity.size.y / 2)
-
         return entity.Blueprint.entities.filter((beacon: Entity): boolean => {
-            if (beacon.type !== 'beacon') {
-                return false
-            }
+            const beaconData = beacon.entityData
+            if (!isBeacon(beaconData)) return false
 
-            const beaconAura = new Rectangle(beacon.position.x, beacon.position.y, 1, 1)
-            const beaconProto = FD.entities.beacon
-            beaconAura.pad((isBeacon(beaconProto) ? beaconProto.supply_area_distance : 0) + 1)
-
-            return (
-                beaconAura.contains(entityRect.left, entityRect.top) ||
-                beaconAura.contains(entityRect.right, entityRect.top) ||
-                beaconAura.contains(entityRect.left, entityRect.bottom) ||
-                beaconAura.contains(entityRect.right, entityRect.bottom)
-            )
+            return suppliesEntity(beaconData, beacon.position, entity.position, entity.size)
         })
     }
 }
