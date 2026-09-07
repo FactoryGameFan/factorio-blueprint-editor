@@ -98,10 +98,35 @@ export interface FbeTestApi {
      */
     recipeShapeTally: (blueprint?: unknown) => RecipeShapeTally
     /**
-     * The interaction mode the canvas is in: NONE, EDIT, PAINT, PAN, COPY or
-     * DELETE. See tests/editor-mode-input.spec.ts.
+     * The interaction mode the canvas is in: NONE, EDIT, PAINT, PAN, COPY,
+     * DELETE, SELECT or MOVE. See tests/editor-mode-input.spec.ts.
      */
     editorMode: () => string
+    /**
+     * The entity numbers in the persistent selection. The selection is not a
+     * mode - `editorMode` reads NONE once an Alt-drag is released - so this is
+     * the only way to see what it holds. See tests/persistent-selection.spec.ts.
+     */
+    selectedEntityNumbers: () => number[]
+    /**
+     * Whether the entity's selection box is tinted as blocked, which a move-drag
+     * does while the group would not fit where it is. See
+     * tests/persistent-selection.spec.ts.
+     */
+    selectionHighlightBlocked: (entityNumber: number) => boolean
+    /**
+     * `History.revision` - moves on every outermost commit. A group move must be
+     * one undo step, and the entities end up in the same place whether it took
+     * one transaction or two; only this can tell. See
+     * tests/persistent-selection.spec.ts.
+     */
+    historyRevision: () => number
+    /**
+     * Whether the entity-info overlay is showing - the AltLeft toggle, which
+     * has to defer to Alt's key-up so a tap still shows it while an Alt-drag
+     * selection sweep does not. See tests/persistent-selection.spec.ts.
+     */
+    infoOverlayVisible: () => boolean
     /**
      * Where the entity sits in client coordinates - the space a synthetic
      * pointer move takes - or undefined if the loaded blueprint has no such

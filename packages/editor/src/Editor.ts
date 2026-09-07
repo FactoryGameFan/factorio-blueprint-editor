@@ -188,12 +188,49 @@ export class Editor {
 
     /**
      * The interaction mode the canvas is in, by name - NONE, EDIT, PAINT, PAN,
-     * COPY or DELETE. Exposed for tests/editor-mode-input.spec.ts, which is the
-     * first spec to drive real pointer and keyboard input (issue #44); the name
-     * rather than the enum member so a test does not have to import it.
+     * COPY, DELETE, SELECT or MOVE. Exposed for tests/editor-mode-input.spec.ts,
+     * which is the first spec to drive real pointer and keyboard input (issue
+     * #44); the name rather than the enum member so a test does not have to
+     * import it.
      */
     public get mode(): string {
         return EditorMode[G.BPC.mode]
+    }
+
+    /**
+     * The entity numbers in the persistent selection, in insertion order. The
+     * only way a spec can see what an Alt-drag swept, since the selection is
+     * not a mode - `mode` reads NONE once the drag is released. See
+     * tests/persistent-selection.spec.ts.
+     */
+    public get selectedEntityNumbers(): number[] {
+        return G.BPC.selectedEntityNumbers
+    }
+
+    /** Whether the entity's selection box is tinted as blocked. See tests/persistent-selection.spec.ts. */
+    public selectionHighlightBlocked(entityNumber: number): boolean {
+        return G.BPC.selectionHighlightBlocked(entityNumber)
+    }
+
+    /**
+     * Whether the entity-info overlay (the AltLeft toggle) is showing. Needed
+     * to prove a tap of Alt still toggles it while an Alt-drag selection does
+     * not - see `BlueprintContainer.consumeAltUsedForDrag`. See
+     * tests/persistent-selection.spec.ts.
+     */
+    public get infoOverlayVisible(): boolean {
+        return G.BPC.infoOverlayVisible
+    }
+
+    /**
+     * `History.revision`. A group move or mirror has to be *one* undo step, and
+     * counting transactions is the only way a spec can tell one from two - the
+     * end state of the entities is the same either way. See
+     * tests/persistent-selection.spec.ts, and `revision`'s own doc comment for
+     * what this number does and does not promise.
+     */
+    public get historyRevision(): number {
+        return G.bp.history.revision
     }
 
     /**
@@ -515,6 +552,19 @@ export class Editor {
                     onRelease: () => G.BPC.exitDeleteMode(),
                 },
             },
+            // any -> SELECT; the swept entities stay selected after release
+            selectGroup: {
+                trigger: {
+                    button: MouseButton.Left,
+                },
+                modifiers: {
+                    alt: true,
+                },
+                callbacks: {
+                    onPress: () => G.BPC.enterSelectMode(),
+                    onRelease: () => G.BPC.exitSelectMode(),
+                },
+            },
 
             moveUp: {
                 trigger: {
@@ -552,14 +602,22 @@ export class Editor {
                     onRelease: () => G.BPC.moveEnd('right'),
                 },
             },
+            // A tap of Alt shows the overlay; holding it to Alt-drag a
+            // selection (selectGroup, below) must not also toggle it. Both
+            // bind plain AltLeft with no way to tell them apart at press time
+            // - `enterSelectMode` cannot know yet whether this Alt is headed
+            // for a drag - so the toggle itself waits for the key-up, and is
+            // skipped exactly when a selection sweep happened in between.
             showInfo: {
                 trigger: {
                     code: 'AltLeft',
                 },
                 callbacks: {
-                    onPress: () => {
-                        G.BPC.overlayContainer.toggleEntityInfoVisibility()
-                        return true
+                    onPress: () => true,
+                    onRelease: () => {
+                        if (!G.BPC.consumeAltUsedForDrag()) {
+                            G.BPC.overlayContainer.toggleEntityInfoVisibility()
+                        }
                     },
                 },
             },
@@ -569,7 +627,12 @@ export class Editor {
                 },
                 callbacks: {
                     onPress: () => {
-                        Dialog.closeLast()
+                        // A dialog is on top of the canvas, so it goes first.
+                        if (Dialog.anyOpen()) {
+                            Dialog.closeLast()
+                        } else {
+                            G.BPC.escape()
+                        }
                         return true
                     },
                 },
