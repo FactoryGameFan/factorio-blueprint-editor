@@ -6,8 +6,9 @@ import { suppressOverlays } from './helpers/overlays'
     The persistent selection: Alt+Left-drag sweeps a rectangle whose entities
     stay selected after release; a plain Left-drag that starts on one of them
     moves the whole group; Shift+F / Shift+G mirror it in place; Escape clears
-    it. Design and the reasons for each binding:
-    docs/superpowers/specs/2026-09-05-persistent-selection-design.md.
+    it. The bindings reuse what was already there: Alt+Left sits beside the
+    Ctrl+Left copy sweep and the Ctrl+Right delete sweep, Shift+F and Shift+G
+    are the keys that flip a paint container, and Escape is the usual way out.
 
     Everything below is real pointer and keyboard input, in the idiom of
     tests/editor-mode-input.spec.ts. Three things only a hook can see, and each
@@ -224,13 +225,18 @@ test('a click on a selected chest, without dragging, opens its editor too', asyn
     await openEditorWithChests(page)
     await altSelect(page, 1, 2)
 
+    const before = await positionOf(page, 1)
+    const rev = await revision(page)
+
     const chest = await screenOf(page, 1)
     await page.mouse.move(chest.x, chest.y)
     await page.mouse.down()
     expect(await modeOf(page)).toBe('MOVE')
     await page.mouse.up()
     expect(await dialogs(page)).toBe(1)
-    expect(await positionOf(page, 1)).toEqual(await positionOf(page, 1))
+    // a click is not a move: nothing moved and nothing was written
+    expect(await positionOf(page, 1)).toEqual(before)
+    expect(await revision(page)).toBe(rev)
 })
 
 test('Escape mid-drag puts everything back and writes nothing', async ({ page }) => {

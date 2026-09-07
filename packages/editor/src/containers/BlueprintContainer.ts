@@ -1094,8 +1094,10 @@ export class BlueprintContainer extends Container {
      * the drag previews by displacing the real sprites (`EntityContainer.
      * setDragOffset`) and the selection boxes, and a cancel just puts them
      * back. That is what makes cancelling a true no-op and a completed move a
-     * single undo step - the reasons a detach-and-carry design was rejected
-     * (docs/superpowers/specs/2026-09-05-persistent-selection-design.md).
+     * single undo step, and why the selection is not handed to a paint
+     * container the way a copy-mode sweep is: that route rebuilds entities,
+     * so a cancel would have to put them back and a move would be a delete
+     * and a paste in the history.
      */
     private enterMoveMode(): boolean {
         if (this.mode !== EditorMode.NONE && this.mode !== EditorMode.EDIT) return false
