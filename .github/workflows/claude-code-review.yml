@@ -44,6 +44,14 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Renovate and CodeRabbit both open pull requests here. The action
+          # refuses any non-human actor unless it is listed, so without this the
+          # job fails in about 18 seconds, before it ever reads the diff.
+          #
+          # Set the CLAUDE_ALLOWED_BOTS organization variable to change this
+          # list for every repo at once. The literal below is only the fallback
+          # used while that variable is unset.
+          allowed_bots: "${{ vars.CLAUDE_ALLOWED_BOTS || 'renovate[bot],coderabbitai[bot]' }}"
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
