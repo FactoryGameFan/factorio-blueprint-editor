@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Website in Chrome (dev servers must be running)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:8080",
+            "webRoot": "${workspaceFolder}/packages/website"
+        },
+        {
+            "name": "Debug unit tests",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "vp",
+            "runtimeArgs": ["test", "run", "--no-file-parallelism"],
+            "autoAttachChildProcesses": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug current test file",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "vp",
+            "runtimeArgs": ["test", "run", "--no-file-parallelism", "${file}"],
+            "autoAttachChildProcesses": true,
+            "console": "integratedTerminal"
+        }
+    ]
+}

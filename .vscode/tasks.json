@@ -1,0 +1,82 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Dev servers (npm run localpreview)",
+            "detail": "Vite on 8080 and the sprite data on 8081, in one terminal. Ctrl-C stops both.",
+            "type": "shell",
+            "command": "npm run localpreview",
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always"
+            },
+            "problemMatcher": {
+                "owner": "localpreview",
+                "fileLocation": "absolute",
+                "pattern": {
+                    "regexp": "^([^\\s].*):(\\d+):(\\d+):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "message": 4
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^Editor:\\s+http",
+                    "endsPattern": "\\[sprites\\].*Accepting connections"
+                }
+            }
+        },
+        {
+            "label": "Check (vp check --fix)",
+            "detail": "Format, lint and type check every package, applying the fixes it can. What CI runs.",
+            "type": "shell",
+            "command": "vp check --fix",
+            "problemMatcher": []
+        },
+        {
+            "label": "Unit tests (vp test run)",
+            "detail": "Editor unit tests plus the browser-free tests under tests/, scripts/ and tools/.",
+            "type": "shell",
+            "command": "vp test run",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Browser tests (npx playwright test)",
+            "detail": "Needs the dev servers task running first.",
+            "type": "shell",
+            "command": "npx playwright test",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build website (npm run build:website)",
+            "detail": "Production bundle into packages/website/dist.",
+            "type": "shell",
+            "command": "npm run build:website",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Worker (wrangler dev --local)",
+            "detail": "Serves the production build on 8787. Run the build task first.",
+            "type": "shell",
+            "command": "npm --workspace=fbeworkeyman run dev -- --local",
+            "isBackground": true,
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
