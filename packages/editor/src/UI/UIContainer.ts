@@ -156,14 +156,19 @@ export class UIContainer extends Container {
         return this.exportDialog?.encodeCount
     }
 
-    /** `ExportDialog.reencodePending` for the open one, false when none is. */
-    public get exportReencodePending(): boolean {
-        return this.exportDialog?.reencodePending ?? false
+    /** Pending export deadline, or undefined when none is armed. */
+    public get exportReencodeDueAt(): number | undefined {
+        return this.exportDialog?.reencodeDueAt
     }
 
-    /** `ExportDialog.flushPendingReencode` for the open one, false when none is. */
-    public flushExportReencode(): boolean {
-        return this.exportDialog?.flushPendingReencode() ?? false
+    /** `ExportDialog.reencodePending` for the open one, undefined when none is. */
+    public get exportReencodePending(): boolean | undefined {
+        return this.exportDialog?.reencodePending
+    }
+
+    /** `ExportDialog.flushPendingReencode` for the open one, undefined when none is. */
+    public flushExportReencode(): boolean | undefined {
+        return this.exportDialog?.flushPendingReencode()
     }
 
     /** Test-only; see `ExportDialog.setReencodeDebounceMsForTests`. */

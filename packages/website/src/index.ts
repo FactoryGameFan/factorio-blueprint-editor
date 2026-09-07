@@ -459,8 +459,8 @@ const testApi = {
     flushExportReencode: () => editor.flushExportReencode(),
     /** `Editor.setExportReencodeDebounceMs`. See tests/quick-actions.spec.ts. */
     setExportReencodeDebounceMs: (ms: number) => editor.setExportReencodeDebounceMs(ms),
-    /** `Editor.historyRevision`. See tests/quick-actions.spec.ts. */
-    historyRevision: () => editor.historyRevision,
+    /** Pending export deadline on the performance clock. */
+    exportReencodeDueAt: () => editor.exportReencodeDueAt,
     /**
      * `exportString`/`exportImage`'s own guard result, without running
      * either - `!bp.isEmpty()` is the exact condition both functions open

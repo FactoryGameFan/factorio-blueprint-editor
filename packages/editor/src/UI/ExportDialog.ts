@@ -30,8 +30,9 @@ export const PLACEHOLDER = 'The current blueprint is empty.'
 */
 let reencodeDebounceMs = 500
 
-/** See `reencodeDebounceMs`. Test-only; the app never calls this. */
+/** See `reencodeDebounceMs`. Page-global test override; restore 500 ms after use. The app never calls this. */
 export function setReencodeDebounceMsForTests(ms: number): void {
+    if (!Number.isFinite(ms) || ms < 0) throw new RangeError('Invalid debounce duration')
     reencodeDebounceMs = ms
 }
 
@@ -71,13 +72,14 @@ export class ExportDialog extends Dialog {
         return this.m_EncodeCount
     }
 
-    /**
-     * Whether a debounced re-encode is waiting for its window to elapse. See
-     * tests/quick-actions.spec.ts, which reads this to tell "the burst pushed
-     * the same pending encode out again" from "a second one got scheduled".
-     */
+    /** Whether a debounced re-encode is waiting for its window to elapse. */
     public get reencodePending(): boolean {
         return this.m_ReencodeDueAt !== undefined
+    }
+
+    /** Pending deadline on the performance clock, for debounce regression tests. */
+    public get reencodeDueAt(): number | undefined {
+        return this.m_ReencodeDueAt
     }
 
     /**
