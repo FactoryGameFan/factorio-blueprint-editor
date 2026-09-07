@@ -458,20 +458,6 @@ export class PositionGrid {
     }
 
     /**
-     * Whether every entity in the group may move by `delta` at once. See
-     * `canGroupRelocate`, which this is the translation-only form of.
-     */
-    public canGroupMoveTo(entities: readonly Entity[], delta: IPoint): boolean {
-        return this.canGroupRelocate(
-            entities.map(entity => ({
-                entity,
-                position: { x: entity.position.x + delta.x, y: entity.position.y + delta.y },
-                direction: entity.direction,
-            }))
-        )
-    }
-
-    /**
      * Whether every entity in the group may take its target at once.
      *
      * `canMoveTo` above answers for one entity by lifting only that entity out
@@ -479,32 +465,18 @@ export class PositionGrid {
      * moving together, it reports a member as blocked by a neighbour that is
      * itself about to move out of the way, and refuses a group whose members
      * trade places even though the group as a whole fits. Every member is
-     * lifted out first here, then every target is checked against what
-     * remains, and then every member is put back where it was.
-     *
-     * The put-back is in a `finally`: `isAreaAvailable` reads prototype data
-     * that a stale name could make throw, and a throw between the lifts and the
-     * restores would leave the grid missing entries for entities the blueprint
-     * still holds - the drift `entityAt` exists to catch, caused by the check
-     * that was meant to prevent a bad write.
+     * excluded here at once, via `isAreaAvailable`'s `ignore` set, rather than
+     * one at a time.
      *
      * A check only. Nothing is written; the caller commits through
      * `Entity.relocate`, which is what lets it skip the per-member check the
      * `position` setter would otherwise repeat one member at a time.
      */
     public canGroupRelocate(targets: readonly GroupRelocation[]): boolean {
-        for (const { entity } of targets) {
-            this.removeTileData(entity)
-        }
-        try {
-            return targets.every(({ entity, position, direction }) =>
-                this.isAreaAvailable(entity.name, position, direction)
-            )
-        } finally {
-            for (const { entity } of targets) {
-                this.setTileData(entity)
-            }
-        }
+        const group = new Set(targets.map(t => t.entity))
+        return targets.every(({ entity, position, direction }) =>
+            this.isAreaAvailable(entity.name, position, direction, group)
+        )
     }
 
     /**
@@ -544,8 +516,24 @@ export class PositionGrid {
      * `rail-signal/elevated` variant, and only Entity.railLayer knows which a
      * given signal is. This function is handed a name, so every signal is read
      * as a ground one and an elevated rail never blocks it.
+     *
+     * `ignore`, when given, drops the listed entities from consideration
+     * entirely - as if they were not on the grid - without touching the grid
+     * itself. `canGroupRelocate` is the one caller: a group's own members
+     * must not block each other's targets, and lifting every member out with
+     * `removeTileData` first and putting them back in a `finally` used to do
+     * the same job by mutating the grid for the length of the check, which
+     * cost a remove and a re-add per member on every tile a drag crossed and
+     * left a throw between the two a way to leave the grid missing entries
+     * the blueprint still holds (issue #390). Reading past them here needs
+     * neither.
      */
-    public isAreaAvailable(name: string, pos: IPoint, direction = 0): boolean {
+    public isAreaAvailable(
+        name: string,
+        pos: IPoint,
+        direction = 0,
+        ignore?: ReadonlySet<Entity>
+    ): boolean {
         const placed = { name, type: FD.entities[name].type }
         const size = getEntitySize(FD.entities[name], direction)
 
@@ -596,9 +584,9 @@ export class PositionGrid {
             the elevated layer *and* is not a rail, and no rail rule below fires
             for such a name.
         */
-        const entitiesInArea = this.getEntitiesInArea(area).filter(entity =>
-            canCollide(placed, entity)
-        )
+        const entitiesInArea = this.getEntitiesInArea(area)
+            .filter(entity => !ignore?.has(entity))
+            .filter(entity => canCollide(placed, entity))
         if (entitiesInArea.length === 0) return true
 
         for (const entity of entitiesInArea) {

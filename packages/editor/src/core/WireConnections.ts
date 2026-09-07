@@ -4,6 +4,9 @@ import FD, { getMaxWireDistance } from './factorioData'
 import U from './generators/util'
 import { Blueprint } from './Blueprint'
 import { WireConnectionMap } from './WireConnectionMap'
+// Type-only: a value-level import here would cycle back through Blueprint,
+// which this file already imports. Erased at compile time, so it does not.
+import type { Entity } from './Entity'
 
 const MAX_POLE_CONNECTION_COUNT = 5
 
@@ -212,6 +215,24 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                 },
             ],
         }
+    }
+
+    /**
+     * Whether a wire between `a` and `b` would still reach, given each one's
+     * position - hypothetical, or by default its current one. The one piece
+     * of arithmetic `Entity.position`'s setter, `Entity.connectionsReach` and
+     * `BlueprintContainer.canRelocateGroup` each had their own copy of -
+     * shared here rather than on `Entity` because it is symmetric in the two
+     * entities, where a method on one would have to pretend it belongs to
+     * only one of them (issue #390).
+     */
+    public static reaches(
+        a: Entity,
+        b: Entity,
+        aPosition = a.position,
+        bPosition = b.position
+    ): boolean {
+        return U.pointInCircle(bPosition, aPosition, Math.min(a.maxWireDistance, b.maxWireDistance))
     }
 
     public has(connection: IConnection): boolean {

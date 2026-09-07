@@ -575,6 +575,7 @@ export class Editor {
                 },
             },
             // any -> SELECT; the swept entities stay selected after release
+            // any -> SELECT; the swept entities stay selected after release
             selectGroup: {
                 trigger: {
                     button: MouseButton.Left,
@@ -583,7 +584,27 @@ export class Editor {
                     alt: true,
                 },
                 callbacks: {
-                    onPress: () => G.BPC.enterSelectMode(),
+                    onPress: () => {
+                        /*
+                            Marks the sweep as Alt's doing only when Alt is
+                            actually part of *this* action's own current
+                            binding - checked here, at the moment it fires,
+                            rather than unconditionally inside
+                            enterSelectMode, because a user can rebind
+                            selectGroup off Alt entirely (ToolsPanel's
+                            keybind UI, persisted through importKeybinds).
+                            Unconditional would leave the flag permanently
+                            true from then on: nothing bound to a key this
+                            rebind no longer uses would ever be there to
+                            consume it. `showInfoLeft`/`showInfoRight` below
+                            are what actually consume it, one per physical
+                            Alt key (issue #389).
+                        */
+                        if (G.actions.get('selectGroup')?.keyCombo.includes('Alt')) {
+                            G.BPC.markAltUsedForDrag()
+                        }
+                        return G.BPC.enterSelectMode()
+                    },
                     onRelease: () => G.BPC.exitSelectMode(),
                 },
             },
@@ -630,18 +651,32 @@ export class Editor {
             // - `enterSelectMode` cannot know yet whether this Alt is headed
             // for a drag - so the toggle itself waits for the key-up, and is
             // skipped exactly when a selection sweep happened in between.
-            showInfo: {
-                trigger: {
-                    code: 'AltLeft',
-                },
-                callbacks: {
-                    onPress: () => true,
-                    onRelease: () => {
-                        if (!G.BPC.consumeAltUsedForDrag()) {
-                            G.BPC.overlayContainer.toggleEntityInfoVisibility()
-                        }
-                    },
-                },
+            /*
+                A tap of Alt shows the overlay; holding it to Alt-drag a
+                selection (selectGroup, above) must not also toggle it.
+                Neither key can know at press time whether this Alt is headed
+                for a drag, so the toggle waits for the key-up and is skipped
+                exactly when a sweep happened in between (`toggleInfoOverlay`,
+                declared below - referenced here by closure, the same pattern
+                `bindKeyToSlot` already uses in this object literal).
+
+                Bound twice, once per physical Alt key, rather than once on
+                the merged `modifiers.alt` ActionRegistry tracks: whichever
+                key actually started the drag is also the one whose own
+                key-up must consume the flag. `ActionRegistry.setModifiers`
+                cannot tell AltLeft from AltRight - both set the same
+                `modifiers.alt` - so a single binding on one code would leave
+                a drag done with the other key's flag stuck true, silently
+                eating whichever Alt tap the setter's own key next happened to
+                release (issue #389).
+            */
+            showInfoLeft: {
+                trigger: { code: 'AltLeft' },
+                callbacks: { onPress: () => true, onRelease: () => toggleInfoOverlay() },
+            },
+            showInfoRight: {
+                trigger: { code: 'AltRight' },
+                callbacks: { onPress: () => true, onRelease: () => toggleInfoOverlay() },
             },
             closeWindow: {
                 trigger: {
@@ -901,6 +936,12 @@ export class Editor {
         const bindKeyToSlot = (slot: number): boolean => {
             G.UI.quickbarPanel.bindKeyToSlot(slot)
             return true
+        }
+
+        const toggleInfoOverlay = (): void => {
+            if (!G.BPC.consumeAltUsedForDrag()) {
+                G.BPC.overlayContainer.toggleEntityInfoVisibility()
+            }
         }
 
         const pointerup = (e: PointerEvent): void => {

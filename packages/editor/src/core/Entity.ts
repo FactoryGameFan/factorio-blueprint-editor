@@ -43,8 +43,8 @@ import FD, {
     acceptedSignalIcons,
 } from './factorioData'
 import { Blueprint } from './Blueprint'
+import { WireConnections } from './WireConnections'
 import { getBeltWireConnectionIndex } from './spriteDataBuilder'
-import U from './generators/util'
 import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'factorio:prototype'
 
 export interface IFilter {
@@ -287,16 +287,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             .some(
                 e =>
                     // Make sure that a reaching connection is not broken
-                    U.pointInCircle(
-                        e.position,
-                        this.position,
-                        Math.min(e.maxWireDistance, this.maxWireDistance)
-                    ) &&
-                    !U.pointInCircle(
-                        e.position,
-                        position,
-                        Math.min(e.maxWireDistance, this.maxWireDistance)
-                    )
+                    WireConnections.reaches(this, e) && !WireConnections.reaches(this, e, position)
             )
         if (G.BPC.limitWireReach && connectionsBreak) return
 
@@ -387,13 +378,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             )
             .map(otherEntityNumer => this.m_BP.entities.get(otherEntityNumer))
             .filter(e => e !== undefined)
-            .every(e =>
-                U.pointInCircle(
-                    e.position,
-                    position ?? this.position,
-                    Math.min(e.maxWireDistance, this.maxWireDistance)
-                )
-            )
+            .every(e => WireConnections.reaches(this, e, position ?? this.position))
     }
 
     public moveBy(offset: IPoint): void {
@@ -1347,16 +1332,21 @@ export class Entity extends EventEmitter<EntityEvents> {
         const axisDir = vertical ? 12 : 8
         const direction = this.constrainDirection((axisDir * 2 - this.direction) % 16)
 
-        let input_priority = this.m_rawEntity.input_priority
-        let output_priority = this.m_rawEntity.output_priority
-
-        if (
-            (vertical && (direction === 4 || direction === 8)) ||
-            (!vertical && (direction === 0 || direction === 12))
-        ) {
-            input_priority = this.changePriority(input_priority)
-            output_priority = this.changePriority(output_priority)
-        }
+        /*
+            Unconditional: a reflection always reverses chirality, so "left"
+            and "right" always trade places, regardless of which way the
+            entity ends up facing. The old guard only swapped when the new
+            direction landed in one specific pair per axis ({4, 8} vertical,
+            {0, 12} horizontal) - true only when the *old* direction was 0 or
+            4, since the new one is `(axisDir * 2 - old) % 16`. A south-facing
+            splitter with priority "left" mirrored vertically lands on north
+            with the guard leaving it "left" too, when north's left lane is
+            south's right one - the mirror image of where it belongs. Flipping
+            twice must return to the start, and the old guard did not
+            (issue #387).
+        */
+        const input_priority = this.changePriority(this.m_rawEntity.input_priority)
+        const output_priority = this.changePriority(this.m_rawEntity.output_priority)
 
         const position = vertical
             ? { x: this.m_rawEntity.position.x, y: -this.m_rawEntity.position.y }
