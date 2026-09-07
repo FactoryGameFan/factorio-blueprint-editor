@@ -5,8 +5,7 @@ import { loadData } from './factorioData'
 
 /*
     PositionGrid.canGroupRelocate, the check behind moving or mirroring a
-    persistent selection as one unit
-    (docs/superpowers/specs/2026-09-05-persistent-selection-design.md).
+    persistent selection as one unit.
 
     canMoveTo lifts one entity out of the grid before asking whether its
     destination is free. Asked once per member of a group that is moving
