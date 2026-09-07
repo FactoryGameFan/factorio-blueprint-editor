@@ -292,9 +292,10 @@ editor
                 run (issue #109). It comes after the catch on purpose: a source
                 that fails to import is a state specs still need to drive.
 
-                `import.meta.env.DEV` gates the assignment so the test API never
-                reaches the production bundle at fbe.factorygamefan.com (issue
-                #292). Vite replaces it with `false` in a `vp build`, which drops
+                `import.meta.env.DEV` keeps the test API out of the executable
+                production JavaScript (issue #292). Public source maps retain
+                the original source for debugging, including this API (#328).
+                Vite replaces the guard with `false` in a `vp build`, which drops
                 this branch and lets Rolldown tree-shake `testApi` and everything
                 only it references. The e2e job serves the app with `vp dev`
                 (via `npm run localpreview`), where it is `true`, so every spec
