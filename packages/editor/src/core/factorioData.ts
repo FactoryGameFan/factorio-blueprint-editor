@@ -654,6 +654,31 @@ export function getEntitySize(e: EntityWithOwnerPrototype, dir: number = 0): IPo
     }
 }
 
+/** Runtime tile sizes measured in tools/oracle/fixtures/entity-tile-size.json.
+ * These describe blueprint grid alignment, not placement/selection occupancy. */
+export function getEntityGridSize(e: EntityWithOwnerPrototype, dir: number = 0): IPoint {
+    let size: [number, number]
+    switch (e.type) {
+        case 'curved-rail-a':
+        case 'elevated-curved-rail-a':
+            size = [2, 4]
+            break
+        case 'curved-rail-b':
+        case 'elevated-curved-rail-b':
+            size = [2, 2]
+            break
+        case 'legacy-curved-rail':
+            size = [4, 8]
+            break
+        case 'rail-ramp':
+            size = [2, 16]
+            break
+        default:
+            return getEntitySize(e, dir)
+    }
+    return getEntitySize({ ...e, tile_width: size[0], tile_height: size[1] }, dir)
+}
+
 export function getPossibleRotations(
     e: EntityWithOwnerPrototype,
     assemblingMachineHasFluidRecipe: boolean = false

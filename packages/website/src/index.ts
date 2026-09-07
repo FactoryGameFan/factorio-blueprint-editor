@@ -6,6 +6,7 @@ import EDITOR, {
     Blueprint,
     Book,
     CorruptedBlueprintStringError,
+    GitHubRateLimitError,
     BookWithNoBlueprintsError,
     EmptyBlueprintStringError,
     encode,
@@ -400,7 +401,7 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     // Fire-and-forget, same as before importReplace reported success/failure
     // to its callers - this one has nothing to do with the resolved value,
     // unlike ImportDialog's Replace button.
-    void importReplace()
+    void importReplace(e.clipboardData?.getData('text/plain') || undefined)
 })
 
 /*
@@ -1020,6 +1021,11 @@ function createBPImportError(
     */
     if (error instanceof EmptyBlueprintStringError) {
         createToast({ text: error.error, type: 'warning' })
+        return
+    }
+
+    if (error instanceof GitHubRateLimitError) {
+        createToast({ text: error.message, type: 'warning' })
         return
     }
 

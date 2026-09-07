@@ -306,6 +306,32 @@ test('picking an item in a filter slot sets the filter on the chest', async ({ p
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
 
+test('logistic filter pickers exclude used items and offer them again after clearing', async ({
+    page,
+}) => {
+    const errors = await loadChests(page)
+    await openEditorOn(page, 3)
+
+    for (const index of [0, 1]) {
+        const slot = await filterSlotAt(page, index)
+        await page.mouse.click(slot.x, slot.y)
+        const item = await firstInventoryItem(page)
+        await page.mouse.click(item.x, item.y)
+    }
+    const filters = (await filtersOf(page, 3)) as { index: number; name: string }[]
+    expect(errors).toEqual([])
+    expect(filters).toHaveLength(2)
+    expect(filters[1].name).not.toBe(filters[0].name)
+
+    const firstSlot = await filterSlotAt(page, 0)
+    await page.mouse.click(firstSlot.x, firstSlot.y, { button: 'right' })
+    await page.mouse.click(firstSlot.x, firstSlot.y)
+    const item = await firstInventoryItem(page)
+    await page.mouse.click(item.x, item.y)
+    expect(await filtersOf(page, 3)).toEqual(filters)
+    expect(errors).toEqual([])
+})
+
 test('right clicking a filled slot clears the filter', async ({ page }) => {
     /*
         The other half of `Filters.onSlotPointerDown`, and the cheaper one to

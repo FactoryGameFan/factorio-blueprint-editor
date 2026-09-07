@@ -92,6 +92,32 @@ const ONE_ASSEMBLER = encode({
 
 const EMPTY_BLUEPRINT = encode({ item: 'blueprint', version: VERSION })
 
+test('rail Grid position exports the measured tile edge at the typed target (#393)', async ({
+    page,
+}) => {
+    await loadBlueprint(
+        page,
+        encode({
+            item: 'blueprint',
+            version: VERSION,
+            entities: [
+                { entity_number: 1, name: 'curved-rail-b', position: { x: 4, y: 4 } },
+                { entity_number: 2, name: 'wooden-chest', position: { x: 10.5, y: 20.5 } },
+            ],
+        })
+    )
+    const align = await openBlueprintInfo(page)
+    await enableSnapToGrid(page, align)
+    await fillGridPositionField(page, align, 'x', '0')
+    await fillGridPositionField(page, align, 'y', '0')
+
+    // The game fixture gives curved-rail-b a 2x2 tile size. Read the floored
+    // tile edge from the export, independently of the editor's display helper.
+    const [rail, chest] = await exportedPositionsOf(page)
+    expect({ x: Math.floor(rail.x - 1), y: Math.floor(rail.y - 1) }).toEqual({ x: 0, y: 0 })
+    expect({ x: chest.x - rail.x, y: chest.y - rail.y }).toEqual({ x: 6.5, y: 16.5 })
+})
+
 /**
  * Types into one of "Grid position"'s two fields and commits on blur (Tab
  * away) - BlueprintAlignment wires those fields to `'blur'` specifically,

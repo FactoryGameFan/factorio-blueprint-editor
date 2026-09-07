@@ -193,7 +193,7 @@ export class BlueprintContainer extends Container {
         Set by Editor.ts's `selectGroup` action, only when Alt is actually
         part of its current binding, and consumed once by whichever physical
         Alt key's own key-up fires next - see `markAltUsedForDrag` and
-        `consumeAltUsedForDrag`. What lets `showInfoLeft`/`showInfoRight`
+        `consumeAltUsedForDrag`. What lets `showInfo`/`showInfoRight`
         (also bound to the two Alt keys) tell a tap of Alt from an Alt held to
         select: each defers its toggle to its own key-up and skips it exactly
         when this is true.
@@ -947,7 +947,7 @@ export class BlueprintContainer extends Container {
 
     /**
      * Whether an Alt-drag selection sweep started since the last call - and
-     * resets it. `Editor.ts`'s `showInfoLeft`/`showInfoRight` call this on
+     * resets it. `Editor.ts`'s `showInfo`/`showInfoRight` call this on
      * their own Alt key's key-up rather than toggling on key-down, so a tap
      * of Alt still shows the entity-info overlay but holding it to drag a
      * selection does not.
@@ -1090,18 +1090,10 @@ export class BlueprintContainer extends Container {
         this.updateHoverContainer()
 
         for (const e of this.selectModeEntities) {
-            if (cancel) {
+            // Undo can destroy a swept entity without another pointer update.
+            if (cancel || !EntityContainer.mappings.has(e.entityNumber)) {
                 this.overlayContainer.hideSelectionHighlight(e.entityNumber)
-            } else if (EntityContainer.mappings.has(e.entityNumber)) {
-                /*
-                    The mapping can be gone if something destroyed this entity
-                    (an undo, typically) since the last tile the pointer
-                    crossed - `selectModeEntities` is only ever recomputed on
-                    `update32`, so a release with no further movement still
-                    holds the stale reference. `select`'s own `redrawBox`
-                    would throw on it, which used to abort this loop and skip
-                    every entity still to come (issue #388).
-                */
+            } else {
                 this.select(e)
             }
         }

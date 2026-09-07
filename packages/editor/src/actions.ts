@@ -505,7 +505,7 @@ class Action {
         if (!this.hasModifier(modifier)) return false
         if (!this.hasModifiers(modifiers)) return false
 
-        // assert(this.activeModifierRelease === undefined)
+        this.forceReleaseM()
 
         const succeeded = this.modifierCallbacks.onPress()
         this.activeModifierRelease = succeeded ? this.modifierCallbacks.onRelease : undefined

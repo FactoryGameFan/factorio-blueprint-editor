@@ -575,7 +575,6 @@ export class Editor {
                 },
             },
             // any -> SELECT; the swept entities stay selected after release
-            // any -> SELECT; the swept entities stay selected after release
             selectGroup: {
                 trigger: {
                     button: MouseButton.Left,
@@ -596,7 +595,7 @@ export class Editor {
                             Unconditional would leave the flag permanently
                             true from then on: nothing bound to a key this
                             rebind no longer uses would ever be there to
-                            consume it. `showInfoLeft`/`showInfoRight` below
+                            consume it. `showInfo`/`showInfoRight` below
                             are what actually consume it, one per physical
                             Alt key (issue #389).
                         */
@@ -670,7 +669,7 @@ export class Editor {
                 eating whichever Alt tap the setter's own key next happened to
                 release (issue #389).
             */
-            showInfoLeft: {
+            showInfo: {
                 trigger: { code: 'AltLeft' },
                 callbacks: { onPress: () => true, onRelease: () => toggleInfoOverlay() },
             },

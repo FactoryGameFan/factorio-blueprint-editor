@@ -83,6 +83,12 @@ class EmptyBlueprintStringError {
     public error = 'There was nothing to import.'
 }
 
+export class GitHubRateLimitError extends Error {
+    constructor() {
+        super('GitHub rate limit reached. Please try importing again later.')
+    }
+}
+
 const keywords: KeywordDefinition[] = [
     {
         keyword: 'entityName',
@@ -202,6 +208,8 @@ function decode(str: string): Promise<Blueprint | Book> {
         try {
             const decodedStr = base64ToBytes(str.slice(1))
             const parsedData = JSON.parse(pako.inflate(decodedStr, { toText: true }))
+            // Factorio ignores a leftover book-slot index at the root (#383).
+            if (parsedData !== null && typeof parsedData === 'object') delete parsedData.index
             // Before validation, since the schema checks names against FD.
             migrateNames(parsedData)
             resolve(parsedData)
@@ -308,6 +316,14 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
             const fetchData = (url: string): Promise<Response> =>
                 fetch(`/corsproxy?url=${encodeURIComponent(url)}`).then(response => {
                     if (response.ok) return response
+                    if (
+                        new URL(url).hostname === 'api.github.com' &&
+                        (response.status === 429 ||
+                            (response.status === 403 &&
+                                response.headers.get('x-ratelimit-remaining') === '0'))
+                    ) {
+                        throw new GitHubRateLimitError()
+                    }
                     throw new Error('Network response was not ok.')
                 })
 

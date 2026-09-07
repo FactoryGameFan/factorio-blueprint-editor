@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
 import {
+    decodeBlueprintString,
     encodeBlueprint as encode,
     packVersion as version,
-    decodeBlueprintString,
 } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
 
@@ -98,26 +98,6 @@ const ONE_CURVED_RAIL = encode({
     entities: [{ entity_number: 1, name: 'curved-rail-a', position: { x: 0, y: 0 }, direction: 2 }],
 })
 
-/*
-    One south-facing splitter with a priority set, for the lane-priority case
-    below - `entityFlip.test.ts` covers `getFlippedCopy`'s maths directly, this
-    is the one committed-entity path (`mirrorSelection`) that actually writes
-    the result into a real blueprint string.
-*/
-const ONE_SOUTH_SPLITTER = encode({
-    item: 'blueprint',
-    version: version(2, 0, 55),
-    entities: [
-        {
-            entity_number: 1,
-            name: 'splitter',
-            position: { x: 0.5, y: 1 },
-            direction: 8,
-            output_priority: 'left',
-        },
-    ],
-})
-
 async function openEditorWith(page: Page, source: string): Promise<void> {
     await suppressOverlays(page)
     await page.goto('/')
@@ -194,6 +174,50 @@ test('Alt and a left drag sweep a selection that outlives the release', async ({
     await altSelect(page, 3, 3)
     expect(await selected(page)).toEqual([3])
 })
+
+for (const includeSurvivors of [false, true]) {
+    test(`undo during an Alt sweep discards destroyed entities (survivors: ${includeSurvivors})`, async ({
+        page,
+    }) => {
+        await openEditorWithChests(page)
+        const errors: string[] = []
+        page.on('pageerror', e => errors.push(String(e)))
+        const one = await screenOf(page, 1)
+        const three = await screenOf(page, 3)
+        const px = await tilePx(page)
+        const painted = { x: one.x - 2 * px, y: one.y }
+
+        await page.mouse.move(one.x, one.y)
+        await page.keyboard.press('KeyQ')
+        await page.mouse.click(painted.x, painted.y)
+        await page.keyboard.press('Escape')
+        expect(await containerCount(page)).toBe(4)
+
+        // The painted chest comes first in the sweep; undo it without moving again.
+        await page.mouse.move(painted.x - 4, painted.y - 4)
+        await page.keyboard.down('Alt')
+        await page.mouse.down()
+        const end = includeSurvivors ? three : painted
+        await page.mouse.move(end.x + 4, end.y + 4)
+        expect(await modeOf(page)).toBe('SELECT')
+        await page.keyboard.down('Control')
+        await page.keyboard.press('KeyZ')
+        await page.keyboard.up('Control')
+        expect(await containerCount(page)).toBe(3)
+        await page.mouse.up()
+        await page.keyboard.up('Alt')
+
+        expect(await modeOf(page)).not.toBe('SELECT')
+        expect(await selected(page)).toEqual(includeSurvivors ? [1, 2, 3] : [])
+        await page.keyboard.press('Shift+KeyF')
+        await page.keyboard.press('Shift+KeyG')
+        await page.keyboard.press('Escape')
+        expect(await selected(page)).toEqual([])
+        await altSelect(page, 1, 2)
+        expect(await selected(page)).toEqual([1, 2])
+        expect(errors).toEqual([])
+    })
+}
 
 test('dragging a selected chest moves the whole selection in one undo step', async ({ page }) => {
     await openEditorWithChests(page)
@@ -328,6 +352,51 @@ test('Shift+F mirrors the selection in place, in one undo step', async ({ page }
     expect(await positionOf(page, 2)).toEqual(one)
     expect(await revision(page)).toBe(rev + 1)
 })
+
+for (const [key, directions] of [
+    ['KeyG', [8, 4, 0, 12]],
+    ['KeyF', [0, 12, 8, 4]],
+] as const) {
+    for (const [index, direction] of [0, 4, 8, 12].entries()) {
+        test(`${key} mirrors splitter priorities at direction ${direction} and restores them on a second flip`, async ({
+            page,
+        }) => {
+            await openEditorWith(
+                page,
+                encode({
+                    item: 'blueprint',
+                    version: version(2, 0, 55),
+                    entities: [
+                        {
+                            entity_number: 1,
+                            name: 'splitter',
+                            position: { x: 0, y: 0 },
+                            direction,
+                            input_priority: 'right',
+                            output_priority: 'left',
+                        },
+                    ],
+                })
+            )
+            const exported = async () =>
+                decodeBlueprintString(
+                    await page.evaluate(() => (window as any).__fbe_test.encodeLoaded())
+                ).blueprint.entities[0]
+            const before = await exported()
+            await altSelectAround(page, await screenOf(page, 1))
+            expect(await selected(page)).toEqual([1])
+
+            await page.keyboard.press(`Shift+${key}`)
+            const mirrored = await exported()
+            expect(mirrored.direction ?? 0).toBe(directions[index])
+            expect(mirrored.input_priority).toBe('left')
+            expect(mirrored.output_priority).toBe('right')
+
+            await page.keyboard.press(`Shift+${key}`)
+            expect(await exported()).toEqual(before)
+        })
+    }
+}
 
 test('Escape with nothing in progress clears the selection', async ({ page }) => {
     await openEditorWithChests(page)
@@ -545,55 +614,6 @@ test('Q on a hovered entity that is not selected leaves an active selection alon
     expect(await selected(page)).toEqual([1, 2])
 })
 
-test('undo while sweeping destroys an entity in the rectangle without breaking the release', async ({
-    page,
-}) => {
-    await openEditorWithChests(page)
-    const errors: string[] = []
-    page.on('pageerror', e => errors.push(String(e)))
-    const px = await tilePx(page)
-
-    // A fourth chest, painted by pipette, well clear of the row so the sweep
-    // below cannot also catch chests 1-3.
-    const one = await screenOf(page, 1)
-    await page.mouse.move(one.x, one.y)
-    expect(await modeOf(page)).toBe('EDIT')
-    await page.keyboard.press('KeyQ')
-    expect(await modeOf(page)).toBe('PAINT')
-    const paintedAt = { x: one.x, y: one.y - 3 * px }
-    await page.mouse.click(paintedAt.x, paintedAt.y)
-    expect(await containerCount(page)).toBe(4)
-
-    // Start sweeping just the new chest, undo its creation while the rectangle
-    // still covers it (hasModifiers ignores the extra Alt, so undo fires), and
-    // release without moving further - selectModeEntities never gets a fresh
-    // update32 to drop the now-destroyed entity from before the release.
-    await page.mouse.move(paintedAt.x - 4, paintedAt.y - 4)
-    await page.keyboard.down('Alt')
-    await page.mouse.down()
-    await page.mouse.move(paintedAt.x + 4, paintedAt.y + 4)
-    expect(await modeOf(page)).toBe('SELECT')
-    await page.keyboard.down('Control')
-    await page.keyboard.press('KeyZ')
-    await page.keyboard.up('Control')
-    expect(await containerCount(page)).toBe(3)
-
-    await page.mouse.up()
-    await page.keyboard.up('Alt')
-    expect(await modeOf(page)).not.toBe('SELECT')
-    expect(await selected(page)).toEqual([])
-    expect(errors).toEqual([])
-
-    // Not wedged: a fresh sweep and mirror still work normally afterwards.
-    await altSelect(page, 1, 2)
-    const before = [await positionOf(page, 1), await positionOf(page, 2)]
-    await page.mouse.move(one.x, one.y + 240)
-    await page.keyboard.down('Shift')
-    await page.keyboard.press('KeyF')
-    await page.keyboard.up('Shift')
-    expect(await positionOf(page, 1)).not.toEqual(before[0])
-})
-
 test('Alt-drag with the right Alt key does not eat the next left-Alt tap', async ({ page }) => {
     await openEditorWithChests(page)
     const initial = await infoVisible(page)
@@ -621,26 +641,4 @@ test('Alt-drag with the right Alt key does not eat the next left-Alt tap', async
     await page.keyboard.down('Alt')
     await page.keyboard.up('Alt')
     expect(await infoVisible(page)).toBe(initial)
-})
-
-test('mirroring a south-facing splitter swaps its lane priority, not just its direction', async ({
-    page,
-}) => {
-    await openEditorWith(page, ONE_SOUTH_SPLITTER)
-    const splitter = await screenOf(page, 1)
-    await altSelectAround(page, splitter)
-    expect(await selected(page)).toEqual([1])
-
-    // pointer off the splitter so nothing is hovered or carried
-    await page.mouse.move(splitter.x, splitter.y + 300)
-    await page.keyboard.down('Shift')
-    await page.keyboard.press('KeyG')
-    await page.keyboard.up('Shift')
-
-    const encoded = await page.evaluate(() => (window as any).__fbe_test.encodeLoaded())
-    const decoded = decodeBlueprintString(encoded)
-    const entity = decoded.blueprint.entities[0]
-    // south (8) mirrors vertically to north (0, so the field is omitted)
-    expect(entity.direction ?? 0).toBe(0)
-    expect(entity.output_priority).toBe('right')
 })

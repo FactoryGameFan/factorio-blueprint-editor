@@ -1332,22 +1332,6 @@ export class Entity extends EventEmitter<EntityEvents> {
         const axisDir = vertical ? 12 : 8
         const direction = this.constrainDirection((axisDir * 2 - this.direction) % 16)
 
-        /*
-            Unconditional: a reflection always reverses chirality, so "left"
-            and "right" always trade places, regardless of which way the
-            entity ends up facing. The old guard only swapped when the new
-            direction landed in one specific pair per axis ({4, 8} vertical,
-            {0, 12} horizontal) - true only when the *old* direction was 0 or
-            4, since the new one is `(axisDir * 2 - old) % 16`. A south-facing
-            splitter with priority "left" mirrored vertically lands on north
-            with the guard leaving it "left" too, when north's left lane is
-            south's right one - the mirror image of where it belongs. Flipping
-            twice must return to the start, and the old guard did not
-            (issue #387).
-        */
-        const input_priority = this.changePriority(this.m_rawEntity.input_priority)
-        const output_priority = this.changePriority(this.m_rawEntity.output_priority)
-
         const position = vertical
             ? { x: this.m_rawEntity.position.x, y: -this.m_rawEntity.position.y }
             : { x: -this.m_rawEntity.position.x, y: this.m_rawEntity.position.y }
@@ -1355,8 +1339,8 @@ export class Entity extends EventEmitter<EntityEvents> {
             ...this.m_rawEntity,
             direction,
             position,
-            input_priority,
-            output_priority,
+            input_priority: this.changePriority(this.m_rawEntity.input_priority),
+            output_priority: this.changePriority(this.m_rawEntity.output_priority),
         }
         if (direction === 0) delete updatedRawEntity.direction
 

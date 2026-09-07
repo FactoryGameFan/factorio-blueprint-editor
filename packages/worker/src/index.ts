@@ -30,7 +30,7 @@ const CUSTOM_ORIGIN = 'https://fbe.factorygamefan.com'
     `new Headers(resp.headers)` and copied the lot, so a target's Set-Cookie
     landed on our origin and its caching directives spoke for our domain.
 */
-const PASSTHROUGH_RESPONSE_HEADERS = ['content-type']
+const PASSTHROUGH_RESPONSE_HEADERS = ['content-type', 'x-ratelimit-remaining']
 
 /*
     Sent on every outbound fetch, because GitHub's API refuses a request without
