@@ -1,3 +1,4 @@
+import G from '../common/globals'
 import { Container, isMobile } from 'pixi.js'
 import { Entity } from '../core/Entity'
 import type { Blueprint } from '../core/Blueprint'
@@ -7,6 +8,8 @@ import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { ImportDialog } from './ImportDialog'
 import { ExportDialog } from './ExportDialog'
+import { BookButton } from './BookButton'
+import { BookDialog } from './BookDialog'
 import { ToolsPanel } from './ToolsPanel'
 import { BlueprintInfoButton } from './BlueprintInfoButton'
 import { BlueprintInfoEditor } from './BlueprintInfoEditor'
@@ -15,6 +18,8 @@ import { createEditor } from './editors/factory'
 export class UIContainer extends Container {
     private debugContainer: DebugContainer
     public quickbarPanel: QuickbarPanel
+    private bookButton: BookButton
+    private bookDialog: BookDialog | undefined
     private toolsPanel: ToolsPanel
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
@@ -34,6 +39,7 @@ export class UIContainer extends Container {
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
         this.blueprintInfoButton = new BlueprintInfoButton()
+        this.bookButton = new BookButton()
 
         this.addChild(
             this.debugContainer,
@@ -43,8 +49,31 @@ export class UIContainer extends Container {
         )
 
         if (!isMobile.any) {
-            this.addChild(this.quickbarPanel, this.toolsPanel, this.blueprintInfoButton)
+            this.addChild(
+                this.quickbarPanel,
+                this.toolsPanel,
+                this.blueprintInfoButton,
+                this.bookButton
+            )
         }
+    }
+
+    public updateBookButton(): void {
+        this.bookButton.visible = G.quickActions.getCurrentBook() !== undefined
+    }
+
+    public toggleBookDialog(): void {
+        if (this.bookDialog) {
+            this.bookDialog.close()
+            return
+        }
+        const book = G.quickActions.getCurrentBook()
+        if (!book) return
+        this.bookDialog = new BookDialog(book)
+        this.bookDialog.once('destroyed', () => {
+            this.bookDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.bookDialog)
     }
 
     /** `undefined` hides the panel, which is what a hover-out sends. */
