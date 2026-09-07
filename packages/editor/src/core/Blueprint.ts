@@ -16,7 +16,12 @@ import {
 } from '../types'
 import G from '../common/globals'
 import util from '../common/util'
-import FD, { getEntitySize, getModuleInventoryIndex, hasModuleFunctionality } from './factorioData'
+import FD, {
+    getEntityGridSize,
+    getEntitySize,
+    getModuleInventoryIndex,
+    hasModuleFunctionality,
+} from './factorioData'
 import { Entity } from './Entity'
 import { WireConnections } from './WireConnections'
 import { PositionGrid } from './PositionGrid'
@@ -818,15 +823,14 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         return this.entities.isEmpty() && this.tiles.isEmpty()
     }
 
-    /** Every entity's and tile's own footprint, `w`/`h` being the full tile
-     * size rather than a half-extent - shared by `getCenter()` and
-     * `getGridPositionDisplay()` so the two can't independently drift on
-     * what "this blueprint's content" means. */
-    private footprintData(): { x: number; y: number; w: number; h: number }[] {
+    /** Full tile extents. Export centering keeps its existing occupancy sizes;
+     * the Grid position reading uses the game's measured tile sizes instead. */
+    private footprintData(gridPosition = false): { x: number; y: number; w: number; h: number }[] {
         return [
-            ...this.entities
-                .valuesArray()
-                .map(e => ({ x: e.position.x, y: e.position.y, w: e.size.x, h: e.size.y })),
+            ...this.entities.valuesArray().map(e => {
+                const size = gridPosition ? getEntityGridSize(e.entityData, e.direction) : e.size
+                return { x: e.position.x, y: e.position.y, w: size.x, h: size.y }
+            }),
             ...this.tiles.valuesArray().map(t => ({ x: t.x, y: t.y, w: 1, h: 1 })),
         ]
     }
@@ -1236,9 +1240,9 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
      * offsets `computeExportCenter()`'s result, so the two stay in lockstep
      * without duplicating that arithmetic.
      *
-     * Reads the minimum corner through `minCorner(footprintData())` - the
-     * same footprint-edge reading `getCenter()` uses - rather than each
-     * entity's own centre. The two used to disagree without anything here
+     * Reads the minimum corner through `minCorner(footprintData(true))`,
+     * using runtime tile edges rather than each entity's own centre.
+     * The two used to disagree without anything here
      * being able to tell: every case measured so far used 1x1 entities on a
      * half-integer centre, where centre-floor and edge-floor land on the
      * same tile by construction. `tools/oracle/fixtures/blueprint-grid-
@@ -1260,21 +1264,14 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
      * with every entity placed afterwards still exporting shifted by it and
      * nothing on screen saying why (#243 review).
      *
-     * Known limit: the footprint reading disagrees with the game for 9 rail
-     * prototypes - `curved-rail-a`/`-b` and their elevated and dummy forms,
-     * `legacy-curved-rail` and `rail-ramp` - which
-     * `tools/oracle/fixtures/entity-tile-size.json` records as the ones
-     * `getEntitySize` misses. A blueprint whose minimum corner is set by one
-     * of them displays 1-2 tiles off what the game shows, and since the
-     * commit solves for this display, typing a target there exports off by
-     * the same amount. `getEntitySize` is not the place to fix it:
-     * tests/rail-footprints.spec.ts records that the game footprints make
-     * occupancy worse in both directions. Tracked as #393.
+     * Rails use measured runtime tile sizes via `getEntityGridSize` (#393).
+     * Placement and selection keep their separate `getEntitySize` rectangles;
+     * tests/rail-footprints.spec.ts records why those must not change.
      */
     public getGridPositionDisplay(): IPoint {
         const center = this.isEmpty() ? { x: 0, y: 0 } : this.computeExportCenter()
         const offset = this.gridPositionOffset
-        const min = this.isEmpty() ? { x: 0, y: 0 } : this.minCorner(this.footprintData())
+        const min = this.isEmpty() ? { x: 0, y: 0 } : this.minCorner(this.footprintData(true))
 
         return {
             x: -Math.floor(min.x - center.x + offset.x),
