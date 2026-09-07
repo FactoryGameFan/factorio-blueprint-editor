@@ -570,3 +570,106 @@ test('Q mid-drag puts every sprite back where its model is', async ({ page }) =>
     expect(await dragOffset(2)).toEqual({ x: 0, y: 0 })
     expect(errors).toEqual([])
 })
+
+test('Q mid-drag cancels the move instead of letting a stationary release open an editor', async ({
+    page,
+}) => {
+    await openEditorWithChests(page)
+    await altSelect(page, 1, 2)
+
+    const before = await positionOf(page, 1)
+    const rev = await revision(page)
+    const at = await screenOf(page, 1)
+
+    await page.mouse.move(at.x, at.y)
+    await page.mouse.down()
+    expect(await modeOf(page)).toBe('MOVE')
+
+    // Q before crossing a tile - drag.moved is still false, the "stationary
+    // release" case: without exitMoveMode(true) at the top of pipette(), the
+    // release below still runs the click path and opens chest 1's editor.
+    await page.keyboard.press('KeyQ')
+    await page.mouse.up()
+
+    expect(await modeOf(page)).not.toBe('MOVE')
+    expect(await dialogs(page)).toBe(0)
+    expect(await positionOf(page, 1)).toEqual(before)
+    expect(await revision(page)).toBe(rev)
+})
+
+test('Q on a hovered entity that is not selected leaves an active selection alone', async ({
+    page,
+}) => {
+    await openEditorWithChests(page)
+    await altSelect(page, 1, 2)
+    expect(await selected(page)).toEqual([1, 2])
+
+    const chest3 = await screenOf(page, 3)
+    await page.mouse.move(chest3.x, chest3.y)
+    expect(await modeOf(page)).toBe('EDIT')
+    await page.keyboard.press('KeyQ')
+    // pipette still does its ordinary job...
+    expect(await modeOf(page)).toBe('PAINT')
+    // ...without wiping a selection that has nothing to do with it.
+    expect(await selected(page)).toEqual([1, 2])
+})
+
+test('Alt-drag with the right Alt key does not eat the next left-Alt tap', async ({ page }) => {
+    await openEditorWithChests(page)
+    const initial = await infoVisible(page)
+
+    const a = await screenOf(page, 1)
+    const b = await screenOf(page, 2)
+    await page.mouse.move(a.x, a.y)
+    await page.keyboard.down('AltRight')
+    await page.mouse.down()
+    expect(await modeOf(page)).toBe('SELECT')
+    await page.mouse.move(b.x, b.y)
+    await page.mouse.up()
+    await page.keyboard.up('AltRight')
+    expect(await selected(page)).toEqual([1, 2])
+
+    // The drag was done with the right Alt key; a later, unrelated tap of the
+    // *left* Alt key (plain 'Alt') must still toggle the overlay normally,
+    // not find the flag already-stuck-true from the right key's own release
+    // never having matched the old single AltLeft-only binding.
+    await page.keyboard.down('Alt')
+    await page.keyboard.up('Alt')
+    expect(await infoVisible(page)).toBe(!initial)
+
+    // back to the starting state
+    await page.keyboard.down('Alt')
+    await page.keyboard.up('Alt')
+    expect(await infoVisible(page)).toBe(initial)
+})
+
+for (const releaseOrder of [
+    ['AltLeft', 'AltRight'],
+    ['AltRight', 'AltLeft'],
+]) {
+    test(`a selection with both Alt keys consumes both taps (${releaseOrder.join(' then ')})`, async ({
+        page,
+    }) => {
+        await openEditorWithChests(page)
+        const initial = await infoVisible(page)
+        const a = await screenOf(page, 1)
+        const b = await screenOf(page, 2)
+        await page.mouse.move(a.x, a.y)
+        await page.keyboard.down('AltLeft')
+        await page.keyboard.down('AltRight')
+        await page.mouse.down()
+        await page.mouse.move(b.x, b.y)
+        await page.mouse.up()
+        for (const key of releaseOrder) {
+            await page.keyboard.up(key)
+            expect(await infoVisible(page)).toBe(initial)
+        }
+        expect(await selected(page)).toEqual([1, 2])
+        for (const key of releaseOrder) {
+            await page.keyboard.press(key)
+            expect(await infoVisible(page)).toBe(!initial)
+            await page.keyboard.press(key)
+            expect(await infoVisible(page)).toBe(initial)
+        }
+    })
+}

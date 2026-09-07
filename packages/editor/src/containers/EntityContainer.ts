@@ -495,7 +495,7 @@ export class EntityContainer {
         }
     }
 
-    public redraw(ignoreConnections?: boolean, sort?: boolean): void {
+    public redraw(ignoreConnections?: boolean, sort = !G.BPC.sortDeferred): void {
         for (const s of this.entitySprites) {
             s.destroy()
         }

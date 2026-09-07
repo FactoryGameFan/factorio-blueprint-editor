@@ -229,7 +229,7 @@ export class Editor {
     /**
      * Whether the entity-info overlay (the AltLeft toggle) is showing. Needed
      * to prove a tap of Alt still toggles it while an Alt-drag selection does
-     * not - see `BlueprintContainer.consumeAltUsedForDrag`. See
+     * not - each overlay action tracks its own pending tap. See
      * tests/persistent-selection.spec.ts.
      */
     public get infoOverlayVisible(): boolean {
@@ -586,7 +586,13 @@ export class Editor {
                     alt: true,
                 },
                 callbacks: {
-                    onPress: () => G.BPC.enterSelectMode(),
+                    onPress: () => {
+                        // A selection using Alt consumes every overlay tap held for that drag.
+                        if (G.actions.get('selectGroup')?.keyCombo.includes('Alt')) {
+                            infoOverlayTaps.clear()
+                        }
+                        return G.BPC.enterSelectMode()
+                    },
                     onRelease: () => G.BPC.exitSelectMode(),
                 },
             },
@@ -627,23 +633,19 @@ export class Editor {
                     onRelease: () => G.BPC.moveEnd('right'),
                 },
             },
-            // A tap of Alt shows the overlay; holding it to Alt-drag a
-            // selection (selectGroup, below) must not also toggle it. Both
-            // bind plain AltLeft with no way to tell them apart at press time
-            // - `enterSelectMode` cannot know yet whether this Alt is headed
-            // for a drag - so the toggle itself waits for the key-up, and is
-            // skipped exactly when a selection sweep happened in between.
+            // Each physical Alt key owns its tap; a selection consumes all held taps.
             showInfo: {
-                trigger: {
-                    code: 'AltLeft',
-                },
+                trigger: { code: 'AltLeft' },
                 callbacks: {
-                    onPress: () => true,
-                    onRelease: () => {
-                        if (!G.BPC.consumeAltUsedForDrag()) {
-                            G.BPC.overlayContainer.toggleEntityInfoVisibility()
-                        }
-                    },
+                    onPress: () => armInfoOverlay('showInfo'),
+                    onRelease: () => toggleInfoOverlay('showInfo'),
+                },
+            },
+            showInfoRight: {
+                trigger: { code: 'AltRight' },
+                callbacks: {
+                    onPress: () => armInfoOverlay('showInfoRight'),
+                    onRelease: () => toggleInfoOverlay('showInfoRight'),
                 },
             },
             closeWindow: {
@@ -904,6 +906,17 @@ export class Editor {
         const bindKeyToSlot = (slot: number): boolean => {
             G.UI.quickbarPanel.bindKeyToSlot(slot)
             return true
+        }
+
+        const infoOverlayTaps = new Set<string>()
+        const armInfoOverlay = (action: string): boolean => {
+            infoOverlayTaps.add(action)
+            return true
+        }
+        const toggleInfoOverlay = (action: string): void => {
+            if (infoOverlayTaps.delete(action)) {
+                G.BPC.overlayContainer.toggleEntityInfoVisibility()
+            }
         }
 
         const pointerup = (e: PointerEvent): void => {

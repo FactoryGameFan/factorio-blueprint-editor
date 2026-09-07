@@ -43,8 +43,8 @@ import FD, {
     acceptedSignalIcons,
 } from './factorioData'
 import { Blueprint } from './Blueprint'
+import { WireConnections } from './WireConnections'
 import { getBeltWireConnectionIndex } from './spriteDataBuilder'
-import U from './generators/util'
 import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'factorio:prototype'
 
 export interface IFilter {
@@ -287,16 +287,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             .some(
                 e =>
                     // Make sure that a reaching connection is not broken
-                    U.pointInCircle(
-                        e.position,
-                        this.position,
-                        Math.min(e.maxWireDistance, this.maxWireDistance)
-                    ) &&
-                    !U.pointInCircle(
-                        e.position,
-                        position,
-                        Math.min(e.maxWireDistance, this.maxWireDistance)
-                    )
+                    WireConnections.reaches(this, e) && !WireConnections.reaches(this, e, position)
             )
         if (G.BPC.limitWireReach && connectionsBreak) return
 
@@ -387,13 +378,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             )
             .map(otherEntityNumer => this.m_BP.entities.get(otherEntityNumer))
             .filter(e => e !== undefined)
-            .every(e =>
-                U.pointInCircle(
-                    e.position,
-                    position ?? this.position,
-                    Math.min(e.maxWireDistance, this.maxWireDistance)
-                )
-            )
+            .every(e => WireConnections.reaches(this, e, position ?? this.position))
     }
 
     public moveBy(offset: IPoint): void {

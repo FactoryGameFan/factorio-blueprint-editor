@@ -463,7 +463,17 @@ class Action {
         if (!this.triggerMatches(e)) return false
         if (!this.hasModifiers(modifiers)) return false
 
-        // assert(this.activeRelease === undefined)
+        /*
+            Normally `activeRelease` is already undefined here - the matching
+            up/keyup already ran `forceReleaseB`. It can survive when that
+            release was filtered instead of dispatched (Editor.ts's `keyup`
+            skips events targeted at an input or textarea), in which case the
+            line below would silently overwrite the pending callback and it
+            would never run at all. Firing it first is what a filtered
+            release owes it, rather than a bare assert that the filtering
+            cannot actually guarantee (issue #389).
+        */
+        this.forceReleaseB()
 
         const succeeded = this.callbacks.onPress()
         this.activeRelease = succeeded ? this.callbacks.onRelease : undefined
@@ -495,7 +505,7 @@ class Action {
         if (!this.hasModifier(modifier)) return false
         if (!this.hasModifiers(modifiers)) return false
 
-        // assert(this.activeModifierRelease === undefined)
+        this.forceReleaseM()
 
         const succeeded = this.modifierCallbacks.onPress()
         this.activeModifierRelease = succeeded ? this.modifierCallbacks.onRelease : undefined
