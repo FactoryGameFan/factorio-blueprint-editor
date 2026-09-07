@@ -62,7 +62,7 @@ const VERSION_2_1_12 = 2 * 2 ** 48 + 1 * 2 ** 32 + 12 * 2 ** 16
  * controls below need a key the model would be free to drop on its way through.
  */
 const sourceFor = (decider_conditions: Record<string, unknown>): string => {
-    const json = JSON.stringify({
+    return encodeRoot({
         blueprint: {
             item: 'blueprint',
             version: VERSION_2_1_12,
@@ -78,6 +78,10 @@ const sourceFor = (decider_conditions: Record<string, unknown>): string => {
             ],
         },
     })
+}
+
+const encodeRoot = (data: unknown): string => {
+    const json = JSON.stringify(data)
     let binary = ''
     for (const byte of pako.deflate(json)) binary += String.fromCharCode(byte)
     return `0${btoa(binary)}`
@@ -99,6 +103,41 @@ const CONDITIONS = [
 const OUTPUTS = [
     { signal: { type: 'virtual', name: 'signal-check' }, copy_count_from_input: false },
 ]
+
+describe('a leftover book-slot index at the root (#383)', () => {
+    const blueprint = {
+        item: 'blueprint',
+        version: VERSION_2_1_12,
+        label: 'Extracted blueprint',
+        icons: [{ index: 1, signal: { type: 'item', name: 'decider-combinator' } }],
+    }
+
+    it.each([
+        { blueprint },
+        {
+            blueprint_book: {
+                item: 'blueprint-book',
+                version: VERSION_2_1_12,
+                active_index: 5,
+                blueprints: [{ index: 5, blueprint }],
+            },
+        },
+    ])('ignores only the root index and preserves the loaded data: %j', async root => {
+        const original = await getBlueprintOrBookFromSource(encodeRoot(root))
+        expect(getAndClearLoadWarnings()).toEqual([])
+        const loaded = await getBlueprintOrBookFromSource(encodeRoot({ ...root, index: 5 }))
+        expect(getAndClearLoadWarnings()).toEqual([])
+        expect(loaded.serialize()).toEqual(original.serialize())
+        expect(loaded).toEqual(original)
+    })
+
+    it('still warns for another unknown root key alongside index', async () => {
+        await getBlueprintOrBookFromSource(encodeRoot({ blueprint, index: 5, unexpected: true }))
+        expect(getAndClearLoadWarnings()).toEqual([
+            'Blueprint had validation warnings (loaded anyway)',
+        ])
+    })
+})
 
 describe("a decider combinator's else-outputs (Factorio 2.1.9)", () => {
     /*

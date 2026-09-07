@@ -202,6 +202,8 @@ function decode(str: string): Promise<Blueprint | Book> {
         try {
             const decodedStr = base64ToBytes(str.slice(1))
             const parsedData = JSON.parse(pako.inflate(decodedStr, { toText: true }))
+            // Factorio ignores a leftover book-slot index at the root (#383).
+            if (parsedData !== null && typeof parsedData === 'object') delete parsedData.index
             // Before validation, since the schema checks names against FD.
             migrateNames(parsedData)
             resolve(parsedData)
