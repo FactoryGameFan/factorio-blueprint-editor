@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
+import * as fs from 'fs'
 import * as path from 'path'
 import { build } from 'vite-plus'
 
@@ -26,9 +27,13 @@ import { build } from 'vite-plus'
     `ThrowingDialog` - are module-local bindings that the minifier renames in
     every build, so a grep for them reads 0 whether or not the shake fired. The
     markers below are a `window` property and object keys; a minifier renames
-    neither, so a hit in executable JavaScript means the code shipped. The positive control in the first
-    test guards against the inverse false pass - a grep over an empty or partial
-    `dist` - by asserting a string that production code always emits is there.
+    neither, so a hit in executable JavaScript means the code shipped. The
+    positive control in the first test guards against the inverse false pass -
+    a grep over an empty or half-built set of chunks - by asserting a string
+    that production code always emits is there. A second guard reads
+    packages/website/src/index.ts and checks every marker is still spelled
+    that way there, so renaming one in the test API cannot leave this file
+    scanning for a name nothing emits any more.
 
     A vitest test under tests/ rather than a Playwright spec, same as
     tests/wire-switch-completeness.test.ts and for the reasons written there:
@@ -39,6 +44,7 @@ import { build } from 'vite-plus'
 */
 
 const websiteDir = path.resolve(process.cwd(), 'packages/website')
+const indexPath = path.join(websiteDir, 'src/index.ts')
 
 /*
     Strings that packages/website/src/index.ts uses only inside the test API or
@@ -98,8 +104,8 @@ describe('the production website bundle', () => {
     it('was actually built, so the scan below is looking at real output', () => {
         // The console banner index.ts logs at module top level - always in the
         // bundle, and a plain string a minifier keeps verbatim. Without this an
-        // empty or half-written dist would pass every assertion by having
-        // nothing in it to match.
+        // empty or half-built set of chunks would pass every assertion by
+        // having nothing in it to match.
         expect(bundledJs).toContain('Looking for the source?')
         expect(bundledJs.length).toBeGreaterThan(100_000)
     })
@@ -108,8 +114,31 @@ describe('the production website bundle', () => {
         const leaked = TEST_API_MARKERS.filter(marker => bundledJs.includes(marker))
         expect(
             leaked,
-            `test-API symbols found in packages/website/dist/assets/*.js: ${leaked.join(', ')}. ` +
+            `test-API symbols found in the production build's JavaScript chunks: ${leaked.join(', ')}. ` +
                 'The import.meta.env.DEV guard in packages/website/src/index.ts is not holding.'
+        ).toEqual([])
+    })
+
+    it('still names every marker in the file that defines the test API', async () => {
+        /*
+            The scan above reads 0 for a marker whether the guard held or the
+            marker was renamed out of index.ts, so this pins the spelling at the
+            source. Read from the one file rather than `mappedSource`: that is
+            `sourcesContent` from every chunk, and two of the markers are also
+            mentioned in editor comments, so a rename in index.ts alone left
+            every test here green (#323 review). Its own `it` rather than a line
+            in the source-map test, so it survives public maps being turned off.
+        */
+        const indexSource = await fs.promises.readFile(indexPath, 'utf8')
+        // Whole words, so `spriteDataTally` renamed to `spriteDataTallyV2` reads
+        // as missing rather than as a substring hit.
+        const missing = TEST_API_MARKERS.filter(
+            marker => !new RegExp(`\\b${marker}\\b`).test(indexSource)
+        )
+        expect(
+            missing,
+            `markers not found in ${indexPath}: ${missing.join(', ')}. ` +
+                'Either the test API renamed them or the guard above is scanning for the wrong names.'
         ).toEqual([])
     })
 
