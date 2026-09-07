@@ -105,8 +105,12 @@ specs - so a bare `tsc` against it compiles the whole tree under settings no
 package builds with. Measured, that reports 5 errors that neither a build nor
 `vp check` sees: four in editor code checked against node's fetch types
 (`r.json()` gives `unknown`), one in website code checked against node
-globals. Every package is at 0 under its own project. To check one, name it,
-for example:
+globals. Every package is at 0 under its own project. The root tsconfig does
+carry one `exclude`, `packages/worker`: its gitignored `worker-configuration.d.ts`
+merges Cloudflare's HTMLRewriter `Element` into the DOM's, which made
+`vp check` red on `document.body.append` in a Playwright spec on any machine
+that had run `wrangler types` while CI, which never has the file, stayed green.
+To check one package, name it, for example:
 
 ```sh
 npx tsc --noEmit -p packages/editor/tsconfig.json
