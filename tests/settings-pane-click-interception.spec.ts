@@ -169,3 +169,20 @@ test('fresh settings collapse to a title bar and toggles persist immediately', a
     await expect(toggle).toHaveText('Open Settings')
     await expect.poll(async () => (await pane.boundingBox())?.height).toBe(20)
 })
+
+test('the collapsed settings control opens and closes from the keyboard', async ({ page }) => {
+    await open(page)
+    const toggle = page.getByRole('button', { name: 'Open Settings', exact: true })
+    for (let step = 0; step < 5; step++) {
+        await page.keyboard.press('Tab')
+        if (await toggle.evaluate(el => el === document.activeElement)) break
+    }
+    await expect(toggle).toBeFocused()
+    await page.keyboard.press('Enter')
+    const close = page.getByRole('button', { name: 'Close Settings', exact: true })
+    await expect(close).toHaveAttribute('aria-expanded', 'true')
+    expect(await page.evaluate(() => localStorage.getItem('dat.gui.closed'))).toBe('false')
+    await page.keyboard.press('Space')
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(await page.evaluate(() => localStorage.getItem('dat.gui.closed'))).toBe('true')
+})

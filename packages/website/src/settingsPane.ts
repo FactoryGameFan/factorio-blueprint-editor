@@ -34,11 +34,22 @@ export function initSettingsPane(
     window.addEventListener('visibilitychange', () =>
         localStorage.setItem('dat.gui.closed', String(gui.closed))
     )
-    gui.domElement
-        .querySelector('.close-button')
-        ?.addEventListener('click', () =>
+    const toggle = gui.domElement.querySelector<HTMLElement>('.close-button')
+    if (toggle) {
+        toggle.tabIndex = 0
+        toggle.setAttribute('role', 'button')
+        toggle.setAttribute('aria-expanded', String(!gui.closed))
+        toggle.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                toggle.click()
+            }
+        })
+        toggle.addEventListener('click', () => {
             localStorage.setItem('dat.gui.closed', String(gui.closed))
-        )
+            toggle.setAttribute('aria-expanded', String(!gui.closed))
+        })
+    }
 
     document.body.appendChild(gui.domElement)
 
