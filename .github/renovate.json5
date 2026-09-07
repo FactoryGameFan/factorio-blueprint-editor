@@ -246,9 +246,18 @@
             //
             // The old reason for disabling was that a PR touching only the manifests
             // would leave .github/actions/setup-vp/action.yml behind, so CI would
-            // install a different vp than the lockfile pins - "green, and wrong". That
-            // failure is real, and the customManager at the bottom of this file closes
-            // it: VP_VERSION and the cache key now move in the same PR.
+            // install a different vp than the lockfile pins. That copy no longer
+            // exists: since 2026-09-07 the action reads the version out of the root
+            // package.json with jq, for both VP_VERSION and its cache key, so a
+            // manifest bump is the whole bump. Two regex customManagers used to chase
+            // the action's copies and were deleted with them.
+            //
+            // The mismatch was also less than it was described as. Measured
+            // 2026-09-07: a global vp 0.2.9 run inside this repo reports and drives the
+            // LOCAL 0.3.0 vite, vitest and oxlint, and `vp check` passes identically;
+            // outside a repo the same binary reports every tool as "Not found". The
+            // global CLI defers to the local package, so the action's version decides
+            // the shim and the managed Node, not what lints or tests.
             //
             // The old reason ALSO said Renovate cannot compute the installer sha256, so
             // the checksum would go stale. Two corrections, both measured on
@@ -258,8 +267,7 @@
             // all. Second, and this is the part that was backwards: a stale checksum
             // cannot be "green and wrong", because the action VERIFIES it
             // (`sha256sum -c -`) and a mismatch FAILS THE STEP. It is the one part of
-            // this that is self-guarding. The unguarded part was VP_VERSION, which is
-            // what the customManager now covers.
+            // this that is self-guarding.
             //
             // 24 hours rather than the 3-day default, by explicit decision: this is
             // developer tooling that never ships to users, the whole gate
@@ -270,10 +278,13 @@
             // The `@voidzero-dev/vite-plus-core` name is here because that is what
             // Renovate sees behind the `overrides` alias, not a second dependency.
             //
-            // STILL TRUE AND STILL THE REVIEWER'S JOB: all five sites must move as one,
-            // and CI cannot see a mismatch between the vp CLI and the local vite-plus.
-            // Read the diff before merging, and if the installer script itself changed,
-            // re-fetch and re-hash by hand.
+            // STILL THE REVIEWER'S JOB: the pin is written in two places, both in the
+            // root package.json - the devDependency and the `overrides` alias - and
+            // both must move. They cannot be one: npm rejects a `$vite-plus` reference
+            // inside an alias override with EINVALIDTAGNAME (measured 2026-09-07). The
+            // workspace packages carry no pin of their own; they resolve the hoisted
+            // root copy. Read the diff before merging, and if the installer script
+            // itself changed, re-fetch and re-hash by hand.
             matchPackageNames: ['vite-plus', '@voidzero-dev/vite-plus-core'],
             enabled: true,
             minimumReleaseAge: '24 hours',
@@ -281,8 +292,8 @@
             addLabels: ['toolchain'],
             prBodyNotes: [
                 'This is the ENTIRE toolchain (Vite, Rolldown, oxlint, oxfmt, Vitest). Nothing under it is independently upgradable.',
-                'Check `.github/actions/setup-vp/action.yml` moved too - `VP_VERSION` and the cache key are updated by a customManager, but **the installer sha256 is not**. Re-fetch https://vite.plus and re-hash if that script changed; a mismatch fails CI rather than passing silently.',
-                'CI runs the Playwright suite in the `e2e` job, so this bump is gated on it - this note said the opposite until 2026-09-01 and was wrong. What CI still cannot see is a mismatch between the `vp` CLI and the local vite-plus, so read the diff and confirm every pin site moved together.',
+                '`.github/actions/setup-vp/action.yml` reads the version from the root package.json, so nothing there needs to move. **The installer sha256 is not automated.** Re-fetch https://vite.plus and re-hash if that script changed; a mismatch fails CI rather than passing silently.',
+                'CI runs the Playwright suite in the `e2e` job, so this bump is gated on it - this note said the opposite until 2026-09-01 and was wrong. Confirm both sites in the root package.json moved: the `vite-plus` devDependency and the `overrides.vite` alias.',
             ],
         },
         {
@@ -376,45 +387,14 @@
         },
     ],
 
-    // The vite-plus pin does not live only in package.json. Two of its six
-    // occurrences are inside a composite action - a `VP_VERSION=` assignment in a
-    // shell `run:` block and an actions/cache key - and no built-in manager reads
-    // either. That is the specific hole that made this dependency worth disabling
-    // before: Renovate would bump the three manifests and the `overrides` alias,
-    // CI would still install the OLD vp, and the check would pass, because `vp
-    // install` reads the lockfile while the vp CLI itself comes from VP_VERSION.
-    // A CLI and a toolchain one release apart is exactly the kind of mismatch a
-    // green run does not surface.
-    //
-    // These two entries close it, so all six occurrences move in one PR. The
-    // `datasourceTemplate` is npm and the `depNameTemplate` is vite-plus, so
-    // Renovate treats them as the same dependency as the manifests and the
-    // packageRule above (cooldown, grouping, labels, prBodyNotes) applies to them
-    // too - that grouping is the point, not a nicety. Without it they would arrive
-    // as a separate PR and could merge apart from the manifests.
-    //
-    // NOT covered, deliberately: the installer sha256 on the line below
-    // VP_VERSION. It pins the bootstrap script at https://vite.plus, which is
-    // versioned separately from the toolchain and did not move across
-    // 0.2.6 -> 0.2.8. Renovate has no way to compute it, and it does not need one:
-    // the action runs `sha256sum -c -`, so a genuinely changed script fails the
-    // step loudly. Left to the human, and said so in prBodyNotes.
-    customManagers: [
-        {
-            customType: 'regex',
-            managerFilePatterns: ['/^\\.github/actions/setup-vp/action\\.yml$/'],
-            matchStrings: ['VP_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
-            depNameTemplate: 'vite-plus',
-            datasourceTemplate: 'npm',
-        },
-        {
-            customType: 'regex',
-            managerFilePatterns: ['/^\\.github/actions/setup-vp/action\\.yml$/'],
-            matchStrings: [
-                'key: vite-plus-\\$\\{\\{ runner\\.os \\}\\}-(?<currentValue>\\d+\\.\\d+\\.\\d+)',
-            ],
-            depNameTemplate: 'vite-plus',
-            datasourceTemplate: 'npm',
-        },
-    ],
+    // No customManagers. Two regex managers lived here from 2026-08-11 to
+    // 2026-09-07, chasing the two copies of the vite-plus version inside
+    // .github/actions/setup-vp/action.yml (a `VP_VERSION=` assignment and an
+    // actions/cache key). The action now reads the version from the root
+    // package.json with jq, so those copies are gone and the built-in npm manager
+    // covers every remaining site. The installer sha256 in that action is still
+    // deliberately not automated: it pins the bootstrap script at
+    // https://vite.plus, which is versioned separately from the toolchain, and the
+    // action verifies it with `sha256sum -c -`, so a changed script fails the step
+    // loudly. Left to the human, and said so in prBodyNotes.
 }
