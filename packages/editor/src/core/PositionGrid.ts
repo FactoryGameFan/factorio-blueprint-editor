@@ -405,13 +405,22 @@ export class PositionGrid {
         )
     }
 
-    public removeTileData(entity: Entity, position: IPoint = entity.position): void {
+    /**
+     * `size` is for the one caller whose entity has already turned: cells were
+     * laid with the footprint the entity had at the time, and `entity.size`
+     * reads the direction it has now. `Entity.relocate` passes the old one.
+     */
+    public removeTileData(
+        entity: Entity,
+        position: IPoint = entity.position,
+        size: IPoint = entity.size
+    ): void {
         this.tileDataAction(
             {
                 x: position.x,
                 y: position.y,
-                w: entity.size.x,
-                h: entity.size.y,
+                w: size.x,
+                h: size.y,
             },
             (key, cell) => {
                 if (typeof cell === 'number') {
