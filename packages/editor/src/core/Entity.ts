@@ -314,29 +314,62 @@ export class Entity extends EventEmitter<EntityEvents> {
      * fits: each member is blocked by a neighbour that is itself about to move
      * out of the way. The setter still routes through here, so the history
      * entry and the grid/emit bookkeeping are one piece of code either way.
+     *
+     * A `direction` is written in the same step, for a mirror. It cannot go
+     * through the `direction` setter beside a position write, because the
+     * setter never touches the grid and the grid sizes its cells from the
+     * direction the entity has *now*: a curved-rail-a is 2x6 at direction 2
+     * and 6x2 at 6, so whichever of the two writes runs first is sized
+     * wrongly - and undo runs them in the other order, so no ordering fixes
+     * it. The direction step below lifts the cells laid with the old
+     * footprint and lays the new one, and reads the old footprint from the
+     * value history hands back so it is right on undo as well.
      */
-    public relocate(position: IPoint): void {
-        if (util.areObjectsEquivalent(this.m_rawEntity.position, position)) return
+    public relocate(position: IPoint, direction: number = this.m_rawEntity.direction ?? 0): void {
+        // Raw on both sides: the `direction` getter answers for an electric pole
+        // from its wires, and a move must not write that onto the entity.
+        const moves = !util.areObjectsEquivalent(this.m_rawEntity.position, position)
+        const turns = (this.m_rawEntity.direction ?? 0) !== direction
+        if (!moves && !turns) return
 
-        this.m_BP.history
-            .updateValue(this.m_rawEntity, 'position', position, 'Change position')
-            .onDone((newValue, oldValue) => {
-                /*
-                    History hands both values back as `| undefined` because undo
-                    swaps them and a key can be absent before its first write.
-                    `position` is a required field on the raw entity, so neither
-                    can be missing here - and if one were, the grid would be
-                    updated against the wrong tile and drift from the blueprint,
-                    which is the case entityAt() exists to catch loudly.
-                */
-                if (newValue === undefined || oldValue === undefined) {
-                    throw new Error('position changed to or from no position')
-                }
-                this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
-                this.m_BP.entityPositionGrid.setTileData(this, newValue)
-                this.emit('position', newValue, oldValue)
-            })
-            .commit()
+        this.m_BP.history.transaction(undefined, () => {
+            if (moves) {
+                this.m_BP.history
+                    .updateValue(this.m_rawEntity, 'position', position, 'Change position')
+                    .onDone((newValue, oldValue) => {
+                        /*
+                            History hands both values back as `| undefined` because undo
+                            swaps them and a key can be absent before its first write.
+                            `position` is a required field on the raw entity, so neither
+                            can be missing here - and if one were, the grid would be
+                            updated against the wrong tile and drift from the blueprint,
+                            which is the case entityAt() exists to catch loudly.
+                        */
+                        if (newValue === undefined || oldValue === undefined) {
+                            throw new Error('position changed to or from no position')
+                        }
+                        this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
+                        this.m_BP.entityPositionGrid.setTileData(this, newValue)
+                        this.emit('position', newValue, oldValue)
+                    })
+                    .commit()
+            }
+            if (turns) {
+                this.m_BP.history
+                    .updateValue(this.m_rawEntity, 'direction', direction, 'Change direction')
+                    .onDone((_newValue, oldValue) => {
+                        const grid = this.m_BP.entityPositionGrid
+                        grid.removeTileData(
+                            this,
+                            this.position,
+                            getEntitySize(this.entityData, oldValue ?? 0)
+                        )
+                        grid.setTileData(this)
+                        this.emit('direction')
+                    })
+                    .commit()
+            }
+        })
     }
 
     public get maxWireDistance(): number {
