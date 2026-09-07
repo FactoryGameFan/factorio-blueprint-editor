@@ -24,20 +24,16 @@ closing references such as `Closes #123` in the pull request body.
 
 ## Setup and commands
 
-The pinned toolchain is Vite+ 0.3.0 with its managed Node/npm. Prepend
-`~/.vite-plus/bin` to `PATH`; the root package requires npm 12.
-
-```sh
-curl -fsSL https://vite.plus -o vp-install.sh
-VP_HOME="$HOME/.vite-plus" VP_VERSION=0.3.0 VP_NODE_MANAGER=yes bash vp-install.sh
-rm vp-install.sh
-vp install
-```
+The pinned toolchain is Vite+ with its managed Node/npm. The pin lives in one
+place, the `Install vp` step of `.github/actions/setup-vp/action.yml`; copy
+the three install lines from there rather than from a doc, then run
+`vp install`. Prepend `~/.vite-plus/bin` to `PATH`; the root package requires
+npm 12.
 
 `VP_HOME` is load-bearing from 0.3.0 on. A default install now follows the XDG
 layout and puts the binaries in `~/.local/share/vite-plus/bin`, so dropping it
 makes the `PATH` line above wrong and `vp` looks missing rather than misplaced.
-`.github/actions/setup-vp/action.yml` pins the same layout for the same reason.
+The action sets it for the same reason.
 
 Prepend rather than append, because Vite+ works through shims. It installs
 `node`, `npm`, `npx` and `corepack` into that one directory, and each of them
