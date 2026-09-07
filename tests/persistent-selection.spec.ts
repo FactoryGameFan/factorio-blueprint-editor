@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import {
+    decodeBlueprintString,
+    encodeBlueprint as encode,
+    packVersion as version,
+} from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
 
 /*
@@ -304,6 +308,51 @@ test('Shift+F mirrors the selection in place, in one undo step', async ({ page }
     expect(await positionOf(page, 2)).toEqual(one)
     expect(await revision(page)).toBe(rev + 1)
 })
+
+for (const [key, directions] of [
+    ['KeyG', [8, 4, 0, 12]],
+    ['KeyF', [0, 12, 8, 4]],
+] as const) {
+    for (const [index, direction] of [0, 4, 8, 12].entries()) {
+        test(`${key} mirrors splitter priorities at direction ${direction} and restores them on a second flip`, async ({
+            page,
+        }) => {
+            await openEditorWith(
+                page,
+                encode({
+                    item: 'blueprint',
+                    version: version(2, 0, 55),
+                    entities: [
+                        {
+                            entity_number: 1,
+                            name: 'splitter',
+                            position: { x: 0, y: 0 },
+                            direction,
+                            input_priority: 'right',
+                            output_priority: 'left',
+                        },
+                    ],
+                })
+            )
+            const exported = async () =>
+                decodeBlueprintString(
+                    await page.evaluate(() => (window as any).__fbe_test.encodeLoaded())
+                ).blueprint.entities[0]
+            const before = await exported()
+            await altSelectAround(page, await screenOf(page, 1))
+            expect(await selected(page)).toEqual([1])
+
+            await page.keyboard.press(`Shift+${key}`)
+            const mirrored = await exported()
+            expect(mirrored.direction ?? 0).toBe(directions[index])
+            expect(mirrored.input_priority).toBe('left')
+            expect(mirrored.output_priority).toBe('right')
+
+            await page.keyboard.press(`Shift+${key}`)
+            expect(await exported()).toEqual(before)
+        })
+    }
+}
 
 test('Escape with nothing in progress clears the selection', async ({ page }) => {
     await openEditorWithChests(page)

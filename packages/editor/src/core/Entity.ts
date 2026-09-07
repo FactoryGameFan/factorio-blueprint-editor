@@ -1347,17 +1347,6 @@ export class Entity extends EventEmitter<EntityEvents> {
         const axisDir = vertical ? 12 : 8
         const direction = this.constrainDirection((axisDir * 2 - this.direction) % 16)
 
-        let input_priority = this.m_rawEntity.input_priority
-        let output_priority = this.m_rawEntity.output_priority
-
-        if (
-            (vertical && (direction === 4 || direction === 8)) ||
-            (!vertical && (direction === 0 || direction === 12))
-        ) {
-            input_priority = this.changePriority(input_priority)
-            output_priority = this.changePriority(output_priority)
-        }
-
         const position = vertical
             ? { x: this.m_rawEntity.position.x, y: -this.m_rawEntity.position.y }
             : { x: -this.m_rawEntity.position.x, y: this.m_rawEntity.position.y }
@@ -1365,8 +1354,8 @@ export class Entity extends EventEmitter<EntityEvents> {
             ...this.m_rawEntity,
             direction,
             position,
-            input_priority,
-            output_priority,
+            input_priority: this.changePriority(this.m_rawEntity.input_priority),
+            output_priority: this.changePriority(this.m_rawEntity.output_priority),
         }
         if (direction === 0) delete updatedRawEntity.direction
 
