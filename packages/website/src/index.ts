@@ -400,7 +400,7 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     // Fire-and-forget, same as before importReplace reported success/failure
     // to its callers - this one has nothing to do with the resolved value,
     // unlike ImportDialog's Replace button.
-    void importReplace()
+    void importReplace(e.clipboardData?.getData('text/plain') || undefined)
 })
 
 /*
