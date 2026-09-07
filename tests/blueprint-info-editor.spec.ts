@@ -510,6 +510,38 @@ test('unticking and re-ticking Snap to grid keeps the grid size instead of repla
     })
 })
 
+test('typing a Grid size and clicking a radio before blur keeps what was typed (CodeRabbit on #243)', async ({
+    page,
+}) => {
+    /*
+        Same race as the Absolute X finding above, on the other pair of
+        fields: pixi's pointerdown on a radio runs `refreshFromBlueprint`
+        before the DOM blur, and that refresh rewrote Width from the model.
+        The blur's `commitSize` then read the box it had just been reset to,
+        so the typed size was lost and the model kept its old one. Absolute
+        X/Y already had a dirty flag that a refresh respects while the field
+        is focused; Width/Height did not.
+    */
+    await loadBlueprint(page, SNAPPED_CHESTS)
+    const align = await openBlueprintInfo(page)
+    const info = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+
+    // Width: row 1, first column.
+    await page.mouse.click(align.x + COL1_X + FIELD_WIDTH / 2, align.y + ROW_HEIGHT + 4 + 10)
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.type('25')
+    expect(await page.evaluate(() => (document.activeElement as HTMLInputElement).value)).toBe('25')
+
+    // A real change of radio - the blueprint loaded with absolute snapping.
+    await clickRadio(page, align, 'relative')
+    // Blur whatever the click left focused, by the dialog's own title bar.
+    await page.mouse.click(info.x + 30, info.y + 14)
+
+    const decoded = decodeBlueprintString(await encodeLoaded(page))
+    expect(decoded.blueprint['snap-to-grid']).toEqual({ x: 25, y: 18 })
+    expect(decoded.blueprint['absolute-snapping']).toBeUndefined()
+})
+
 test('closing the dialog with a field still focused commits that field on every engine (#243 review)', async ({
     page,
 }) => {

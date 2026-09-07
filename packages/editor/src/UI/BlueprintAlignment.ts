@@ -172,6 +172,20 @@ export class BlueprintAlignment extends Container {
     private m_GridPositionDirty = false
 
     /**
+     * Width/Height's own flag, for the refresh a radio click runs: pixi's
+     * pointerdown on Absolute/Relative calls `refreshFromBlueprint` before
+     * the DOM blur a click away from a focused field also triggers, and that
+     * refresh rewrote a half-typed Width from the model - so the blur's
+     * `commitSize` read back the value it had just been reset to, and the
+     * typed size was gone (CodeRabbit on #243). Absolute X/Y survive the
+     * same click through `m_PositionDirty`; this is the same guard for the
+     * size pair. Unlike that flag it does not gate the commit itself -
+     * `commitSize` is idempotent - only whether a refresh may overwrite a
+     * focused box.
+     */
+    private m_SizeDirty = false
+
+    /**
      * The last grid size the blueprint actually had, kept across the
      * checkbox turning snapping off. The model's `snapToGrid` is undefined
      * while snapping is off, and `refreshFromBlueprint` used to write '1'
@@ -330,6 +344,12 @@ export class BlueprintAlignment extends Container {
             this.refreshFromBlueprint()
         })
 
+        this.m_WidthInput.on('changed', () => {
+            this.m_SizeDirty = true
+        })
+        this.m_HeightInput.on('changed', () => {
+            this.m_SizeDirty = true
+        })
         this.m_WidthInput.on('blur', () => this.commitSize())
         this.m_HeightInput.on('blur', () => this.commitSize())
 
@@ -398,6 +418,7 @@ export class BlueprintAlignment extends Container {
     }
 
     private commitSize(): void {
+        this.m_SizeDirty = false
         if (this.m_Blueprint.snapToGrid === undefined) return
         this.m_Blueprint.snapToGrid = {
             x: parseGridSize(this.m_WidthInput.text),
@@ -502,8 +523,14 @@ export class BlueprintAlignment extends Container {
         // While snapping is off the boxes keep showing the size it had, and
         // that is what ticking the checkbox reads back - see `m_LastSize`.
         if (size !== undefined) this.m_LastSize = size
-        write(this.m_WidthInput, `${this.m_LastSize.x}`)
-        write(this.m_HeightInput, `${this.m_LastSize.y}`)
+        // A focused box with a typed size in it is left for its own blur to
+        // commit, whoever asked for this refresh - see `m_SizeDirty`.
+        const writeSize = (input: TextInput, text: string): void => {
+            if (this.m_SizeDirty && isFocused(input)) return
+            write(input, text)
+        }
+        writeSize(this.m_WidthInput, `${this.m_LastSize.x}`)
+        writeSize(this.m_HeightInput, `${this.m_LastSize.y}`)
 
         this.m_AbsoluteRadio.checked = this.m_Blueprint.absoluteSnapping
         this.m_RelativeRadio.checked = !this.m_Blueprint.absoluteSnapping

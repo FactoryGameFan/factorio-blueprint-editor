@@ -73,11 +73,14 @@ export abstract class ToggleControl extends Container {
         if (this.m_Checked === checked) return
         this.m_Checked = checked
 
-        this.removeChild(this.m_Graphic)
+        // destroy(), not just removeChild(): each Graphics owns the context
+        // it was drawn into, and a removed one that is never destroyed keeps
+        // it alive - one pair leaked per state change.
+        this.m_Graphic.destroy()
         this.m_Graphic = this.m_DrawGraphic(this.m_Checked, false, true)
         this.addChild(this.m_Graphic)
 
-        this.removeChild(this.m_Hover)
+        this.m_Hover.destroy()
         this.m_Hover = this.m_DrawGraphic(this.m_Checked, true, false)
         this.addChild(this.m_Hover)
     }

@@ -548,6 +548,9 @@ test('an untouched Grid position box does not commit its stale reading when the 
 
     expect(await page.evaluate(() => window.__fbe_test.historyRevision())).toBe(revision)
     expect(await exportedPositionsOf(page)).toEqual(exported)
-    // ...and the box catches up with the model instead of staying stale.
+    // ...and the box catches up with the model instead of staying stale. The
+    // layout is symmetric (both chests and the new one sit on the diagonal),
+    // so the fresh Y reading is also what a fresh X reading gives - and
+    // `fresh.x` is the one value this must not compare against, being stale.
     expect(await gridPositionFields(page)).toEqual({ x: fresh.y, y: fresh.y })
 })

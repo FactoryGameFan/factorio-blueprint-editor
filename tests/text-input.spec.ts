@@ -236,7 +236,7 @@ const textInputVisibility = (page: Page): Promise<{ value: string; shown: boolea
     A frame has to run before any of these reads. _onAdded hides the element and
     only onRender -> _updateDOMInput puts it back, so a read taken straight after
     the click that opened the dialog races the renderer: measured, 1 run in 6 came
-    back with all six fields hidden and the test failing on its first assertion.
+    back with all eight fields hidden and the test failing on its first assertion.
 
     Two frames rather than one, because the first callback can be queued ahead of
     pixi's own render. A timeout would also have worked and would have hidden the
@@ -256,8 +256,8 @@ test('a dialog opened on top hides the DOM fields of the one underneath', async 
         The one thing about TextInput that no pixi assertion can reach. Its
         element sits on document.body over the canvas, so a dialog drawn on top
         of the one that owns it cannot cover it: before this was handled, opening
-        the icon picker over Blueprint Info left six fields showing through it -
-        the name box printing "Blueprint" across the picker's slot row, and five
+        the icon picker over Blueprint Info left eight fields showing through it -
+        the name box printing "Blueprint" across the picker's slot row, and seven
         more invisible only because their background is none, all still answering
         elementFromPoint and so eating the clicks aimed at the slots underneath.
 
