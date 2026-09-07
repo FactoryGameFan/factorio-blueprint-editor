@@ -333,8 +333,17 @@ function fluidConnection(
     },
     entityDir: number
 ): { offset: IPoint; dir: number } {
-    // 2.1 alternate connections are defined at north-east, then rotate in quarter turns.
-    const diagonal = entityDir % 4 === 2
+    // 2.1 alternate connections are defined at north-east, then rotate in quarter
+    // turns. Gate on the prototype declaring them, not on the direction alone. A
+    // blueprint string can carry a diagonal direction on an entity that has no
+    // alternate connection, and that has to keep reaching the getDirName throw
+    // in generateCovers so getSpriteData logs it. Measured on the committed 2.0
+    // data, the bare direction test turned the diagonal placeholder into a silent
+    // cardinal render with misplaced covers on five entities: electromagnetic-plant,
+    // pumpjack, steam-engine, steam-turbine and storage-tank.
+    const diagonal =
+        entityDir % 4 === 2 &&
+        (connection.alt_position !== undefined || connection.alt_direction !== undefined)
     const rotation = diagonal ? entityDir - 2 : entityDir
     const position = diagonal
         ? (connection.alt_position ?? connection.position ?? need(connection, 'positions')[0])
@@ -1019,7 +1028,9 @@ function draw_ammo_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly
 }
 /**
  * RotatedAnimation8Way / Sprite8Way direction keys, underscored - the shape
- * railgun-turret's base_visualisation.animation and folded_animation use.
+ * railgun-turret's base_visualisation.animation and folded_animation use, and
+ * the one the 2.1 fluid turrets take (#366). Index with `(dir >> 1) & 7`, which
+ * is total; `dir / 2` is fractional for an odd direction and reads undefined.
  * util.getDirName8Way produces the un-underscored rail-picture keys instead,
  * and util.getDirName throws outright on the four diagonal facings.
  */
@@ -1037,9 +1048,10 @@ const ROTATED_8WAY_KEYS = [
 function draw_railgun_turret(e: AmmoTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
         const key = ROTATED_8WAY_KEYS[(data.dir >> 1) & 7]
-        const bv = need(e, 'graphics_set', 'base_visualisation')
-        const animation = (Array.isArray(bv) ? bv[0] : bv).animation
-        return [...dirLayers(animation, key), ...dirLayers(need(e, 'folded_animation'), key)]
+        return [
+            ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), key),
+            ...dirLayers(need(e, 'folded_animation'), key),
+        ]
     }
 }
 function draw_arithmetic_combinator(
@@ -1643,20 +1655,12 @@ function draw_elevated_straight_rail(
 }
 function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        // RotatedAnimation8Way uses underscores, unlike rail sprite directions.
-        const dir = [
-            'north',
-            'north_east',
-            'east',
-            'south_east',
-            'south',
-            'south_west',
-            'west',
-            'north_west',
-        ][data.dir / 2]
+        // Eight-way since Factorio 2.1 (#366). The committed 2.0 data carries four
+        // keys, so a diagonal there still throws in layersOf and getSpriteData logs it.
+        const key = ROTATED_8WAY_KEYS[(data.dir >> 1) & 7]
         return [
-            ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), dir),
-            ...dirLayers(e.folded_animation, dir),
+            ...baseVisualisationLayers(need(e, 'graphics_set', 'base_visualisation'), key),
+            ...dirLayers(e.folded_animation, key),
         ]
     }
 }
