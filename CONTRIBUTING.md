@@ -39,14 +39,21 @@ and filling out the issue template.
   enough to read that field will fetch a matching one; an older npm ignores it
   and runs anyway, which is the version to watch out for.
 - [Vite+](https://vite.plus) - the `vp` CLI this repo builds, lints, formats and
-  tests with. The version is pinned, and the install command lives in one
-  place: the `Install vp` step of
-  [`.github/actions/setup-vp/action.yml`](.github/actions/setup-vp/action.yml).
-  Copy the three lines from there rather than from a doc, so the version you
-  get is the one CI runs. Keep the `VP_HOME=…` part: it puts the toolchain in
-  `~/.vite-plus`, and without it the binaries land somewhere else and `vp`
-  looks missing. The variable assignments go on the `bash` line, not the
-  `curl` line - an assignment ahead of a command applies to that command alone.
+  tests with. Install the CLI once:
+
+    ```shell
+    curl -fsSL https://vite.plus -o vp-install.sh
+    VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
+    rm vp-install.sh
+    ```
+
+    You do not need a particular version of it. The project pins its own
+    `vite-plus` in the root `package.json`, `vp install` fetches that, and the
+    global `vp` defers to it for every tool. Keep the `VP_HOME=…` part: it puts
+    the toolchain in `~/.vite-plus`, and without it the binaries land somewhere
+    else and `vp` looks missing. The variable assignments go on the `bash`
+    line, not the `curl` line - an assignment ahead of a command applies to
+    that command alone.
 
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
     things need it there: `npm run localpreview` spawns `vp` directly, and

@@ -24,11 +24,27 @@ closing references such as `Closes #123` in the pull request body.
 
 ## Setup and commands
 
-The pinned toolchain is Vite+ with its managed Node/npm. The pin lives in one
-place, the `Install vp` step of `.github/actions/setup-vp/action.yml`; copy
-the three install lines from there rather than from a doc, then run
-`vp install`. Prepend `~/.vite-plus/bin` to `PATH`; the root package requires
-npm 12.
+The toolchain is Vite+ with its managed Node/npm. Its version is written in
+exactly one place, `devDependencies.vite-plus` in the root `package.json` (the
+`overrides.vite` alias beside it must carry the same number, because npm
+cannot express one as a reference to the other). The workspace packages carry
+no pin of their own, and `.github/actions/setup-vp/action.yml` reads that
+field with `jq` for both the version it installs and its cache key. Install the
+`vp` CLI, then let `vp install` fetch the pinned toolchain:
+
+```sh
+curl -fsSL https://vite.plus -o vp-install.sh
+VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
+rm vp-install.sh
+vp install
+```
+
+The global `vp` does not need to match the pin. It defers to the project's
+local `vite-plus` for every tool - measured, a global `vp` one release behind
+runs the local vite, vitest and oxlint and `vp check` passes identically, and
+outside a repo the same binary reports every tool as "Not found". CI pins it
+anyway, for reproducibility. Prepend `~/.vite-plus/bin` to `PATH`; the root
+package requires npm 12.
 
 `VP_HOME` is load-bearing from 0.3.0 on. A default install now follows the XDG
 layout and puts the binaries in `~/.local/share/vite-plus/bin`, so dropping it

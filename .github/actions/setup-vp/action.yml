@@ -2,16 +2,34 @@ name: Setup Vite+
 description: >-
   Install the pinned, checksum-verified Vite+ toolchain (vp) and prime the npm
   download cache. After this runs, vp is on PATH; the caller runs its own
-  vp install. Single source of truth for the vp version + installer checksum.
+  vp install. The version comes from devDependencies.vite-plus in the root
+  package.json; this file is the single source of truth for the installer
+  checksum only.
 
 runs:
   using: composite
   steps:
+    - name: Read the vite-plus pin
+      id: pin
+      shell: bash
+      run: |
+        # The one place the version is written is the root package.json. It is
+        # an exact version there, not a range, and the check below keeps it
+        # that way: a caret would install "whatever is newest" here while the
+        # lockfile pins something older, which is the drift this step exists
+        # to rule out.
+        version="$(jq -r '.devDependencies["vite-plus"]' package.json)"
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "devDependencies.vite-plus in package.json must be an exact version, got '$version'" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - name: Cache Vite+ toolchain
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.vite-plus
-        key: vite-plus-${{ runner.os }}-0.3.0
+        key: vite-plus-${{ runner.os }}-${{ steps.pin.outputs.version }}
 
     - name: Cache npm downloads
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -23,44 +41,48 @@ runs:
 
     - name: Install vp
       shell: bash
+      env:
+        VP_VERSION: ${{ steps.pin.outputs.version }}
       run: |
         # Pin + verify the installer instead of curl | bash. The vp binary and
-        # vite-plus package are already version-pinned (VP_VERSION) and immutable
-        # via the npm registry; this also pins the mutable bootstrap script.
+        # vite-plus package are already version-pinned (VP_VERSION, read from
+        # package.json above) and immutable via the npm registry; this also
+        # pins the mutable bootstrap script.
         #
-        # The two move independently, and this hash has now been bumped for each
-        # reason in turn. A toolchain upgrade bumps VP_VERSION (here + the cache
-        # key above) and usually leaves the hash alone - measured across
-        # 0.2.6 -> 0.2.8, where the script did not change at all. The other
-        # direction is what happened on 2026-08-25: the script rotated on its own
-        # with VP_VERSION untouched, so every job on every branch failed at this
-        # step until the hash was re-taken. That is the pin working, not breaking
-        # - a mismatch fails the step rather than running a script nobody read -
-        # but it does mean a red `Set up Vite+` is not necessarily the fault of
-        # the branch it appears on. Re-fetch, read the diff, then re-hash.
+        # The two move independently. A toolchain upgrade is a package.json
+        # bump and touches nothing in this file - measured across
+        # 0.2.6 -> 0.2.8, the script did not change at all. The other direction
+        # is what happened on 2026-08-25: the script rotated on its own with
+        # the version untouched, so every job on every branch failed at this
+        # step until the hash was re-taken. That is the pin working, not
+        # breaking - a mismatch fails the step rather than running a script
+        # nobody read - but it does mean a red `Set up Vite+` is not
+        # necessarily the fault of the branch it appears on. Re-fetch, read the
+        # diff, then re-hash.
+        #
+        # The global vp installed here defers to the project's local vite-plus
+        # for every tool. Measured 2026-09-07: a global vp 0.2.9 run inside
+        # this repo reports and drives the local 0.3.0 vite, vitest and oxlint,
+        # and `vp check` passes identically. So the version here decides the
+        # shim and the managed Node, and matching it to package.json is about
+        # reproducibility rather than correctness.
         #
         # VP_HOME pins the monolithic ~/.vite-plus layout, which the two lines
-        # below hardcode (the PATH entry, and the cache `path:` above). It is a
-        # no-op at 0.2.9 - that is already where the installer puts things - and
-        # it is here for 0.3.0, which moves a default install to XDG paths
-        # (~/.local/share/vite-plus/bin). Measured: with VP_VERSION=0.3.0 and no
-        # VP_HOME, a sandboxed-HOME install lands in XDG and both lines below are
-        # wrong, so every job fails with `vp: command not found` - which reads as
-        # a broken toolchain rather than a wrong path.
+        # below hardcode (the PATH entry, and the cache `path:` above). From
+        # 0.3.0 a default install follows XDG paths (~/.local/share/vite-plus/bin).
+        # Measured: without VP_HOME, a sandboxed-HOME install lands in XDG and
+        # both lines below are wrong, so every job fails with
+        # `vp: command not found` - which reads as a broken toolchain rather
+        # than a wrong path.
         #
         # The installer does have a compatibility shim for this, and it does not
         # cover us: it only fires when GITHUB_ACTION_REPOSITORY is
-        # voidzero-dev/setup-vp, and this is a hand-rolled composite action. What
-        # protects us today is only that a 0.2.9 payload cannot answer
-        # VP_DUMP_DIRS, so the installer falls back to the legacy layout. A 0.3.0
-        # payload can answer, so it will not fall back. And the vite-plus cache
-        # key carries the version with no restore-keys, so a bump is a guaranteed
-        # cache miss with no existing install to reuse - the break would be
-        # certain, not intermittent.
-        #
-        # So this line has to be here BEFORE VP_VERSION moves, not with it.
+        # voidzero-dev/setup-vp, and this is a hand-rolled composite action. And
+        # the vite-plus cache key carries the version with no restore-keys, so
+        # a bump is a guaranteed cache miss with no existing install to reuse -
+        # a layout break would be certain, not intermittent.
         curl -fsSL https://vite.plus -o vp-install.sh
         echo "3dd88cedb6d9b2665c305eda5413971417c8f183a819386148131b66a2cc6b2e  vp-install.sh" | sha256sum -c -
-        VP_HOME="$HOME/.vite-plus" VP_VERSION=0.3.0 VP_NODE_MANAGER=yes bash vp-install.sh
+        VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh
