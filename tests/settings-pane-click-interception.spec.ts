@@ -7,9 +7,8 @@ import { suppressOverlays } from './helpers/overlays'
 
     `packages/website/src/settingsPane.ts` builds a dat.gui panel and appends it
     to `document.body`; `packages/website/src/index.css` pins it with
-    `.dg.main { position: fixed; bottom: 0; left: 0; z-index: 5 }`. It is open by
-    default - `closed` reads `localStorage['dat.gui.closed']`, which a fresh
-    profile does not have - so it sits on top of the editor from the first frame.
+    `.dg.main { position: fixed; bottom: 0; left: 0; z-index: 5 }`. #159 defaults
+    it to closed; the interception controls explicitly restore the open state.
 
     Measured at the 1280x720 the config runs: the pane is 320x236 at (0, 484),
     the canvas is the full 1280x720, and `document.elementFromPoint` at the
@@ -103,6 +102,7 @@ const elementAt = (page: Page, at: { x: number; y: number }): Promise<string> =>
     test fails, which is what says it is doing work.
 */
 test('the settings pane takes a press that was meant for the canvas', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('dat.gui.closed', 'false'))
     await open(page)
 
     const at = await panePressPoint(page)
@@ -124,6 +124,7 @@ test('the settings pane takes a press that was meant for the canvas', async ({ p
 })
 
 test('with the pane suppressed the same press reaches the canvas instead', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('dat.gui.closed', 'false'))
     await suppressOverlays(page)
     await open(page)
 
@@ -144,4 +145,44 @@ test('with the pane suppressed the same press reaches the canvas instead', async
 
     await page.mouse.up()
     await page.keyboard.up('Control')
+})
+
+test('fresh settings collapse to a title bar and toggles persist immediately', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await open(page)
+    const pane = page.locator('.dg.main')
+    const toggle = pane.locator('.close-button')
+    await expect(toggle).toHaveText('Open Settings')
+    await expect.poll(async () => (await pane.boundingBox())?.height).toBe(20)
+    expect(await elementAt(page, { x: 160, y: 602 })).toContain('CANVAS#editor')
+
+    await toggle.click()
+    await expect(toggle).toHaveText('Close Settings')
+    expect(await page.evaluate(() => localStorage.getItem('dat.gui.closed'))).toBe('false')
+    await page.reload()
+    await expect(toggle).toHaveText('Close Settings')
+    await expect.poll(async () => (await pane.boundingBox())?.height).toBeGreaterThan(200)
+
+    await toggle.click()
+    expect(await page.evaluate(() => localStorage.getItem('dat.gui.closed'))).toBe('true')
+    await page.reload()
+    await expect(toggle).toHaveText('Open Settings')
+    await expect.poll(async () => (await pane.boundingBox())?.height).toBe(20)
+})
+
+test('the collapsed settings control opens and closes from the keyboard', async ({ page }) => {
+    await open(page)
+    const toggle = page.getByRole('button', { name: 'Open Settings', exact: true })
+    for (let step = 0; step < 5; step++) {
+        await page.keyboard.press('Tab')
+        if (await toggle.evaluate(el => el === document.activeElement)) break
+    }
+    await expect(toggle).toBeFocused()
+    await page.keyboard.press('Enter')
+    const close = page.getByRole('button', { name: 'Close Settings', exact: true })
+    await expect(close).toHaveAttribute('aria-expanded', 'true')
+    expect(await page.evaluate(() => localStorage.getItem('dat.gui.closed'))).toBe('false')
+    await page.keyboard.press('Space')
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(await page.evaluate(() => localStorage.getItem('dat.gui.closed'))).toBe('true')
 })

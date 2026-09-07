@@ -113,6 +113,7 @@ const waitForEntry = (page: Page, index: number): Promise<unknown> =>
 
 test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
+    await page.getByText('Open Settings', { exact: true }).click()
 })
 
 test('Grid position survives repeated book switches without changing exports or other entries', async ({
