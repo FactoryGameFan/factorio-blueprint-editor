@@ -56,16 +56,19 @@ export function fourWayAnimation(x: Animation4Way, dir: number): readonly Sprite
 
 /**
  * Resolve a turret base_visualisation (array or object form) to its animation
- * layers. Pass `dir` for the directional (fluid-turret) animation form;
+ * layers. Pass a cardinal number or resolved animation key as `dir` for the
+ * directional (fluid-turret) animation form, including 2.1 diagonal keys;
  * omit it for the flat (ammo/electric-turret) form.
  */
 export function baseVisualisationLayers(
     bv: TurretBaseVisualisation | readonly TurretBaseVisualisation[],
-    dir?: number
+    dir?: number | string
 ): readonly SpriteData[] {
     const base = Array.isArray(bv) ? bv[0] : (bv as TurretBaseVisualisation)
     const anim = base.animation
-    return dir === undefined ? layersOf(anim) : fourWayAnimation(anim, dir)
+    return dir === undefined
+        ? layersOf(anim)
+        : dirLayers(anim, typeof dir === 'number' ? util.getDirName(dir) : dir)
 }
 
 /**
