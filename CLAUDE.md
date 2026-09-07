@@ -30,21 +30,26 @@ exactly one place, `devDependencies.vite-plus` in the root `package.json` (the
 cannot express one as a reference to the other). The workspace packages carry
 no pin of their own, and `.github/actions/setup-vp/action.yml` reads that
 field with `jq` for both the version it installs and its cache key. Install the
-`vp` CLI, then let `vp install` fetch the pinned toolchain:
+`vp` CLI once:
 
 ```sh
 curl -fsSL https://vite.plus -o vp-install.sh
 VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
 rm vp-install.sh
-vp install
 ```
+
+The installer writes `~/.vite-plus/bin` into your shell's startup files for
+new shells; for the current one, prepend it to `PATH` yourself. Then
+`vp install` fetches the pinned toolchain. The action verifies the installer
+script against a sha256 before running it; to get the same guarantee, take the
+`sha256sum -c` line from the action rather than from a doc, because that digest
+rotates on its own and a copy here would go stale.
 
 The global `vp` does not need to match the pin. It defers to the project's
 local `vite-plus` for every tool - measured, a global `vp` one release behind
 runs the local vite, vitest and oxlint and `vp check` passes identically, and
 outside a repo the same binary reports every tool as "Not found". CI pins it
-anyway, for reproducibility. Prepend `~/.vite-plus/bin` to `PATH`; the root
-package requires npm 12.
+anyway, for reproducibility. The root package requires npm 12.
 
 `VP_HOME` is load-bearing from 0.3.0 on. A default install now follows the XDG
 layout and puts the binaries in `~/.local/share/vite-plus/bin`, so dropping it

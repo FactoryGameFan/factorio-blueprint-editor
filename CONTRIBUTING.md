@@ -53,7 +53,11 @@ and filling out the issue template.
     the toolchain in `~/.vite-plus`, and without it the binaries land somewhere
     else and `vp` looks missing. The variable assignments go on the `bash`
     line, not the `curl` line - an assignment ahead of a command applies to
-    that command alone.
+    that command alone. If you want to check the installer script before
+    running it, CI does: the `Install vp` step of
+    [`.github/actions/setup-vp/action.yml`](.github/actions/setup-vp/action.yml)
+    verifies it with `sha256sum -c` against a digest kept current there. Take
+    that line from the action, not from a doc - the digest changes on its own.
 
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
     things need it there: `npm run localpreview` spawns `vp` directly, and
