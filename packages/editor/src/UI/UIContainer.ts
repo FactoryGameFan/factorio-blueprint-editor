@@ -1,23 +1,33 @@
+import G from '../common/globals'
 import { Container, isMobile } from 'pixi.js'
 import { Entity } from '../core/Entity'
+import type { Blueprint } from '../core/Blueprint'
 import { DebugContainer } from './DebugContainer'
 import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { ImportDialog } from './ImportDialog'
 import { ExportDialog, setReencodeDebounceMsForTests } from './ExportDialog'
+import { BookButton } from './BookButton'
+import { BookDialog } from './BookDialog'
 import { ToolsPanel } from './ToolsPanel'
+import { BlueprintInfoButton } from './BlueprintInfoButton'
+import { BlueprintInfoEditor } from './BlueprintInfoEditor'
 import { createEditor } from './editors/factory'
 
 export class UIContainer extends Container {
     private debugContainer: DebugContainer
     public quickbarPanel: QuickbarPanel
+    private bookButton: BookButton
+    private bookDialog: BookDialog | undefined
     private toolsPanel: ToolsPanel
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
     private importDialog: ImportDialog | undefined
     private exportDialog: ExportDialog | undefined
+    private blueprintInfoButton: BlueprintInfoButton
+    private blueprintInfoEditor: BlueprintInfoEditor | undefined
 
     public constructor() {
         super()
@@ -28,6 +38,8 @@ export class UIContainer extends Container {
         this.entityInfoPanel = new EntityInfoPanel()
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
+        this.blueprintInfoButton = new BlueprintInfoButton()
+        this.bookButton = new BookButton()
 
         this.addChild(
             this.debugContainer,
@@ -37,8 +49,34 @@ export class UIContainer extends Container {
         )
 
         if (!isMobile.any) {
-            this.addChild(this.quickbarPanel, this.toolsPanel)
+            this.addChild(
+                this.quickbarPanel,
+                this.toolsPanel,
+                this.blueprintInfoButton,
+                this.bookButton
+            )
         }
+    }
+
+    public updateBookButton(): void {
+        this.bookButton.visible = G.quickActions.getCurrentBook() !== undefined
+    }
+
+    public toggleBookDialog(): void {
+        if (this.bookDialog) {
+            const dialogs = this.dialogsContainer.children
+            if (dialogs[dialogs.length - 1] === this.bookDialog) {
+                this.bookDialog.close()
+            }
+            return
+        }
+        const book = G.quickActions.getCurrentBook()
+        if (!book) return
+        this.bookDialog = new BookDialog(book)
+        this.bookDialog.once('destroyed', () => {
+            this.bookDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.bookDialog)
     }
 
     /** `undefined` hides the panel, which is what a hover-out sends. */
@@ -185,6 +223,36 @@ export class UIContainer extends Container {
         const inv = new InventoryDialog(title, itemsFilter, selectedCallBack, showRecipePanel)
         this.dialogsContainer.addChild(inv)
         return inv
+    }
+
+    /**
+     * Opens BlueprintInfoEditor for `blueprint`, or closes it if already
+     * open - the corner button's click handler.
+     *
+     * The button itself is drawn outside `dialogsContainer` and stays
+     * clickable at its own fixed corner regardless of what dialog is on
+     * top, so a second click used to close `blueprintInfoEditor`
+     * unconditionally even with something stacked above it - opening
+     * Blueprint Info, then its icon picker, then clicking the corner button
+     * destroyed the info dialog out from under the still-open picker and
+     * orphaned it (#243 review). Only acts while the info editor is
+     * actually the topmost dialog; otherwise this is a no-op rather than
+     * reaching past whatever is stacked on it.
+     */
+    public toggleBlueprintInfoEditor(blueprint: Blueprint): void {
+        if (this.blueprintInfoEditor !== undefined) {
+            const dialogs = this.dialogsContainer.children
+            if (dialogs[dialogs.length - 1] === this.blueprintInfoEditor) {
+                this.blueprintInfoEditor.close()
+            }
+            return
+        }
+
+        this.blueprintInfoEditor = new BlueprintInfoEditor(blueprint)
+        this.blueprintInfoEditor.once('destroyed', () => {
+            this.blueprintInfoEditor = undefined
+        })
+        this.dialogsContainer.addChild(this.blueprintInfoEditor)
     }
 
     // public changeQuickbarRows(rows: number): void {

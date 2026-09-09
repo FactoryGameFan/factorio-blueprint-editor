@@ -1,9 +1,10 @@
-import { Container, Graphics, Text } from 'pixi.js'
-import { colors, styles } from '../style'
+import { Graphics } from 'pixi.js'
+import { colors } from '../style'
 import F from './functions'
+import { ToggleControl } from './ToggleControl'
 
 /** Base Checkbox */
-export class Checkbox extends Container {
+export class Checkbox extends ToggleControl {
     /** Checkmark Polygon */
     // prettier-ignore
     private static readonly CHECK_POLYGON = [
@@ -13,53 +14,8 @@ export class Checkbox extends Container {
         8, 28,  8, 24, 12, 20, 12, 16,  8, 12,
         8,  8]
 
-    /** Checkbox Graphic */
-    private m_Checkbox: Graphics
-
-    /** Checkbox Hover */
-    private m_Hover: Graphics
-
-    /** Data of Checkbox */
-    private m_Checked: boolean
-
     public constructor(checked = false, text?: string) {
-        super()
-
-        this.eventMode = 'static'
-
-        /*
-            Drawn here rather than by assigning `this.checked`, which is what this
-            used to do. That setter is guarded by `if (this.m_Checked !== checked)`
-            and only ran at all because `m_Checked` started undefined, so
-            `undefined !== false` was true. Initialising the field without also
-            moving the drawing out would have made `new Checkbox(false)` - the
-            default, and what every caller uses - take the early return and never
-            build either graphic, leaving `m_Hover.visible` in the pointerover
-            handler below to throw on undefined.
-        */
-        this.m_Checked = checked
-        this.m_Checkbox = Checkbox.drawGraphic(checked, false, true)
-        this.m_Hover = Checkbox.drawGraphic(checked, true, false)
-        this.addChild(this.m_Checkbox, this.m_Hover)
-
-        // Draw text
-        if (text !== undefined) {
-            const label = new Text({ text, style: styles.controls.checkbox })
-            label.position.set(24, 0)
-            this.addChild(label)
-        }
-
-        // Attach events
-        this.on('pointerdown', () => {
-            this.checked = !this.checked
-            this.emit('changed')
-        })
-        this.on('pointerover', () => {
-            this.m_Hover.visible = true
-        })
-        this.on('pointerout', () => {
-            this.m_Hover.visible = false
-        })
+        super(checked, text, Checkbox.drawGraphic, current => !current)
     }
 
     /**
@@ -108,27 +64,5 @@ export class Checkbox extends Container {
         graphic.position.set(0, 0)
         graphic.visible = visible
         return graphic
-    }
-
-    /** Is checkbox checked */
-    public get checked(): boolean {
-        return this.m_Checked
-    }
-    public set checked(checked: boolean) {
-        if (this.m_Checked !== checked) {
-            this.m_Checked = checked
-
-            // Both guards this replaces (`if (this.m_Checkbox !== undefined)`)
-            // covered exactly one case: the first call, made by the constructor
-            // before either graphic existed. The constructor draws them itself
-            // now, so there is no longer a call that finds them absent.
-            this.removeChild(this.m_Checkbox)
-            this.m_Checkbox = Checkbox.drawGraphic(this.m_Checked, false, true)
-            this.addChild(this.m_Checkbox)
-
-            this.removeChild(this.m_Hover)
-            this.m_Hover = Checkbox.drawGraphic(this.m_Checked, true, false)
-            this.addChild(this.m_Hover)
-        }
     }
 }

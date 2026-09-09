@@ -84,3 +84,13 @@ test('the stale entry is named in a warning rather than dropped silently', async
 
     expect(warnings.join(' | ')).toContain('no-such-action-anymore')
 })
+
+test('the existing showInfo binding survives adding right Alt support', async ({ page }) => {
+    await withStoredKeybinds(page, { showInfo: 'KeyT' })
+    expect(await keyCombos(page)).toEqual({ showInfo: 'KeyT' })
+    const visible = await page.evaluate(() => (window as any).__fbe_test.infoOverlayVisible())
+    await page.keyboard.press('KeyT')
+    expect(await page.evaluate(() => (window as any).__fbe_test.infoOverlayVisible())).toBe(
+        !visible
+    )
+})

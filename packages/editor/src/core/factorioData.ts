@@ -155,6 +155,19 @@ export function localisedName(proto: { localised_name?: LocalisedString }): stri
     return String(name)
 }
 
+/**
+ * Names of everything that can be picked as a signal-like icon: items, fluids,
+ * and virtual signals. Used by `BlueprintIcon`, for one of a blueprint's own
+ * four icon slots - Factorio allows the same range there as for any other
+ * signal picker.
+ */
+export function acceptedSignalIcons(): string[] {
+    const itemNames = FD.inventoryLayout.flatMap(group =>
+        group.subgroups.flatMap(subgroup => subgroup.items.map(item => item.name))
+    )
+    return [...itemNames, ...Object.keys(FD.fluids), ...Object.keys(FD.signals)]
+}
+
 export function recipeSupportsModule(recipe: string, module: ModulePrototype): boolean {
     const r = FD.recipes[recipe]
     if (r.allowed_module_categories && !r.allowed_module_categories.includes(module.category))
@@ -641,6 +654,31 @@ export function getEntitySize(e: EntityWithOwnerPrototype, dir: number = 0): IPo
     }
 }
 
+/** Runtime tile sizes measured in tools/oracle/fixtures/entity-tile-size.json.
+ * These describe blueprint grid alignment, not placement/selection occupancy. */
+export function getEntityGridSize(e: EntityWithOwnerPrototype, dir: number = 0): IPoint {
+    let size: [number, number]
+    switch (e.type) {
+        case 'curved-rail-a':
+        case 'elevated-curved-rail-a':
+            size = [2, 4]
+            break
+        case 'curved-rail-b':
+        case 'elevated-curved-rail-b':
+            size = [2, 2]
+            break
+        case 'legacy-curved-rail':
+            size = [4, 8]
+            break
+        case 'rail-ramp':
+            size = [2, 16]
+            break
+        default:
+            return getEntitySize(e, dir)
+    }
+    return getEntitySize({ ...e, tile_width: size[0], tile_height: size[1] }, dir)
+}
+
 export function getPossibleRotations(
     e: EntityWithOwnerPrototype,
     assemblingMachineHasFluidRecipe: boolean = false
@@ -958,10 +996,37 @@ for (const key of Object.keys(FD_KEYS) as (keyof FactorioData)[]) {
     })
 }
 
+/*
+    Entity name -> the item whose `place_result` is that entity, built once by
+    `loadData` rather than scanned per call. Measured against the committed
+    data.json (issue #367): 340 items, 136 of them place an entity, and no two
+    place the same one, so a Map holds the whole relation. 8 items point at
+    things the exporter does not carry - `car`, `spidertron`, the robots, the
+    plants - and those keys are simply never asked for.
+*/
+let placedBy = new Map<string, string>()
+
+/**
+ * The item that places an entity, or undefined for one no item places.
+ *
+ * This is the placing relation, where `minable.result` is the mining one. They
+ * agree for most entities, which is why `Entity.getItemName` got away with
+ * reading only the mining side for so long. Two entities are `minable: null`
+ * and placeable - `captive-biter-spawner` and `space-platform-hub` - and only
+ * this side knows their item (issue #367).
+ */
+export function itemThatPlaces(entityName: string): string | undefined {
+    return placedBy.get(entityName)
+}
+
 export function loadData(str: string): void {
     const data = JSON.parse(str)
     console.log(data)
     FD.items = data.items
+    placedBy = new Map()
+    for (const [itemName, item] of Object.entries(FD.items)) {
+        if (item.place_result !== undefined) placedBy.set(item.place_result, itemName)
+    }
     FD.fluids = data.fluids
     FD.signals = data.signals
     FD.recipes = data.recipes

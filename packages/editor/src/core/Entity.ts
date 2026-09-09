@@ -29,6 +29,7 @@ import FD, {
     isLoader,
     isMiningDrill,
     isLogisticContainer,
+    itemThatPlaces,
     isModule,
     isRoboport,
     isUndergroundBelt,
@@ -39,10 +40,11 @@ import FD, {
     getModuleInventoryIndex,
     recipeIngredients,
     recipeResults,
+    acceptedSignalIcons,
 } from './factorioData'
 import { Blueprint } from './Blueprint'
+import { WireConnections } from './WireConnections'
 import { getBeltWireConnectionIndex } from './spriteDataBuilder'
-import U from './generators/util'
 import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'factorio:prototype'
 
 export interface IFilter {
@@ -204,9 +206,27 @@ export class Entity extends EventEmitter<EntityEvents> {
         return this.m_rawEntity
     }
 
-    /** undefined for entities that cannot be mined into an item, e.g. the dummy rails */
+    /**
+     * The item that places this entity, or undefined for one nothing places.
+     *
+     * `minable.result` first, then the item whose `place_result` is the entity.
+     * Measured against data.json, the two agree for 134 of the 155 entities and
+     * each side alone answers for some of the rest, which is why this is a
+     * fallback and not a swap (issue #367):
+     *
+     * - 9 rails - `curved-rail-a`, `half-diagonal-rail`, `legacy-straight-rail`
+     *   and the elevated ones - mine into `rail`, and no item places them
+     *   because the rail planner does. Only the mining side knows them.
+     * - `captive-biter-spawner` and `space-platform-hub` are `minable: null`
+     *   and placed by the item of the same name. Only the placing side knows
+     *   them, and reading the mining side alone left them unpaintable.
+     * - 18 have neither - the dummy rails, `red-chest`, the logo tiles - and
+     *   get undefined, which `generateIcons` and `pipette` both handle.
+     */
     public static getItemName(name: string): string | undefined {
-        return FD.entities[name]?.minable?.result
+        const entity = FD.entities[name]
+        if (entity === undefined) return undefined
+        return entity.minable?.result ?? itemThatPlaces(name)
     }
 
     public destroy(): void {
@@ -267,38 +287,81 @@ export class Entity extends EventEmitter<EntityEvents> {
             .some(
                 e =>
                     // Make sure that a reaching connection is not broken
-                    U.pointInCircle(
-                        e.position,
-                        this.position,
-                        Math.min(e.maxWireDistance, this.maxWireDistance)
-                    ) &&
-                    !U.pointInCircle(
-                        e.position,
-                        position,
-                        Math.min(e.maxWireDistance, this.maxWireDistance)
-                    )
+                    WireConnections.reaches(this, e) && !WireConnections.reaches(this, e, position)
             )
         if (G.BPC.limitWireReach && connectionsBreak) return
 
-        this.m_BP.history
-            .updateValue(this.m_rawEntity, 'position', position, 'Change position')
-            .onDone((newValue, oldValue) => {
-                /*
-                    History hands both values back as `| undefined` because undo
-                    swaps them and a key can be absent before its first write.
-                    `position` is a required field on the raw entity, so neither
-                    can be missing here - and if one were, the grid would be
-                    updated against the wrong tile and drift from the blueprint,
-                    which is the case entityAt() exists to catch loudly.
-                */
-                if (newValue === undefined || oldValue === undefined) {
-                    throw new Error('position changed to or from no position')
-                }
-                this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
-                this.m_BP.entityPositionGrid.setTileData(this, newValue)
-                this.emit('position', newValue, oldValue)
-            })
-            .commit()
+        this.relocate(position)
+    }
+
+    /**
+     * Moves the entity without the checks the `position` setter makes.
+     *
+     * For a caller that has already established the destination is free and
+     * every wire still reaches - for the **whole group at once**, through
+     * `PositionGrid.canGroupRelocate` and `BlueprintContainer`'s group wire
+     * check. The setter's own `canMoveTo` lifts only this entity out of the
+     * grid before asking, so a group whose members trade places, or shift as a
+     * block, is refused one member at a time even though the group as a whole
+     * fits: each member is blocked by a neighbour that is itself about to move
+     * out of the way. The setter still routes through here, so the history
+     * entry and the grid/emit bookkeeping are one piece of code either way.
+     *
+     * A `direction` is written in the same step, for a mirror. It cannot go
+     * through the `direction` setter beside a position write, because the
+     * setter never touches the grid and the grid sizes its cells from the
+     * direction the entity has *now*: a curved-rail-a is 2x6 at direction 2
+     * and 6x2 at 6, so whichever of the two writes runs first is sized
+     * wrongly - and undo runs them in the other order, so no ordering fixes
+     * it. The direction step below lifts the cells laid with the old
+     * footprint and lays the new one, and reads the old footprint from the
+     * value history hands back so it is right on undo as well.
+     */
+    public relocate(position: IPoint, direction: number = this.m_rawEntity.direction ?? 0): void {
+        // Raw on both sides: the `direction` getter answers for an electric pole
+        // from its wires, and a move must not write that onto the entity.
+        const moves = !util.areObjectsEquivalent(this.m_rawEntity.position, position)
+        const turns = (this.m_rawEntity.direction ?? 0) !== direction
+        if (!moves && !turns) return
+
+        this.m_BP.history.transaction(undefined, () => {
+            if (moves) {
+                this.m_BP.history
+                    .updateValue(this.m_rawEntity, 'position', position, 'Change position')
+                    .onDone((newValue, oldValue) => {
+                        /*
+                            History hands both values back as `| undefined` because undo
+                            swaps them and a key can be absent before its first write.
+                            `position` is a required field on the raw entity, so neither
+                            can be missing here - and if one were, the grid would be
+                            updated against the wrong tile and drift from the blueprint,
+                            which is the case entityAt() exists to catch loudly.
+                        */
+                        if (newValue === undefined || oldValue === undefined) {
+                            throw new Error('position changed to or from no position')
+                        }
+                        this.m_BP.entityPositionGrid.removeTileData(this, oldValue)
+                        this.m_BP.entityPositionGrid.setTileData(this, newValue)
+                        this.emit('position', newValue, oldValue)
+                    })
+                    .commit()
+            }
+            if (turns) {
+                this.m_BP.history
+                    .updateValue(this.m_rawEntity, 'direction', direction, 'Change direction')
+                    .onDone((_newValue, oldValue) => {
+                        const grid = this.m_BP.entityPositionGrid
+                        grid.removeTileData(
+                            this,
+                            this.position,
+                            getEntitySize(this.entityData, oldValue ?? 0)
+                        )
+                        grid.setTileData(this)
+                        this.emit('direction')
+                    })
+                    .commit()
+            }
+        })
     }
 
     public get maxWireDistance(): number {
@@ -315,13 +378,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             )
             .map(otherEntityNumer => this.m_BP.entities.get(otherEntityNumer))
             .filter(e => e !== undefined)
-            .every(e =>
-                U.pointInCircle(
-                    e.position,
-                    position ?? this.position,
-                    Math.min(e.maxWireDistance, this.maxWireDistance)
-                )
-            )
+            .every(e => WireConnections.reaches(this, e, position ?? this.position))
     }
 
     public moveBy(offset: IPoint): void {
@@ -360,6 +417,19 @@ export class Entity extends EventEmitter<EntityEvents> {
             .updateValue(this.m_rawEntity, 'type', type, 'Change direction type')
             .onDone(() => this.emit('directionType'))
             .commit()
+    }
+
+    /**
+     * The 16-way direction this entity's hidden underground connection runs in,
+     * which is also the direction its partner has to be searched for in.
+     *
+     * An input faces the way it points; an output's connection comes from
+     * behind it. Anything without a directionType - a pipe-to-ground, which
+     * stores none - takes the output form, which is the convention every caller
+     * already used before this getter collected them.
+     */
+    public get undergroundSearchDirection(): number {
+        return this.directionType === 'input' ? this.direction : (this.direction + 8) % 16
     }
 
     /** Entity recipe */
@@ -932,9 +1002,9 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (this.type === 'decider-combinator') {
             const decider_conditions = this.m_rawEntity.control_behavior?.decider_conditions
             return {
-                first_signal: decider_conditions?.conditions?.[0].first_signal,
-                second_signal: decider_conditions?.conditions?.[0].second_signal,
-                output_signal: decider_conditions?.outputs?.[0].signal,
+                first_signal: decider_conditions?.conditions?.[0]?.first_signal,
+                second_signal: decider_conditions?.conditions?.[0]?.second_signal,
+                output_signal: decider_conditions?.outputs?.[0]?.signal,
             }
         }
         if (this.type === 'arithmetic-combinator') {
@@ -1262,17 +1332,6 @@ export class Entity extends EventEmitter<EntityEvents> {
         const axisDir = vertical ? 12 : 8
         const direction = this.constrainDirection((axisDir * 2 - this.direction) % 16)
 
-        let input_priority = this.m_rawEntity.input_priority
-        let output_priority = this.m_rawEntity.output_priority
-
-        if (
-            (vertical && (direction === 4 || direction === 8)) ||
-            (!vertical && (direction === 0 || direction === 12))
-        ) {
-            input_priority = this.changePriority(input_priority)
-            output_priority = this.changePriority(output_priority)
-        }
-
         const position = vertical
             ? { x: this.m_rawEntity.position.x, y: -this.m_rawEntity.position.y }
             : { x: -this.m_rawEntity.position.x, y: this.m_rawEntity.position.y }
@@ -1280,8 +1339,8 @@ export class Entity extends EventEmitter<EntityEvents> {
             ...this.m_rawEntity,
             direction,
             position,
-            input_priority,
-            output_priority,
+            input_priority: this.changePriority(this.m_rawEntity.input_priority),
+            output_priority: this.changePriority(this.m_rawEntity.output_priority),
         }
         if (direction === 0) delete updatedRawEntity.direction
 
@@ -1311,7 +1370,7 @@ export class Entity extends EventEmitter<EntityEvents> {
                         this.name,
                         this.direction,
                         this.position,
-                        this.directionType === 'input' ? this.direction : (this.direction + 8) % 16,
+                        this.undergroundSearchDirection,
                         isUndergroundBelt(this.entityData)
                             ? this.entityData.max_distance
                             : undefined
@@ -1707,17 +1766,14 @@ export class Entity extends EventEmitter<EntityEvents> {
 
     /**
      * Names of everything a display panel's icon can be set to: items,
-     * fluids, and virtual signals. Unlike `acceptedRecipes`/`acceptedModules`
-     * this does not depend on `this` at all - the panel places no constraint
-     * on its own icon - but lives here rather than as a free function so
-     * `DisplayPanelIcon` can read it the same way it reads every other
-     * accepted-* list.
+     * fluids, and virtual signals - the same range `acceptedSignalIcons`
+     * already computes for a blueprint's own icon slots, since a display
+     * panel places no extra constraint of its own. Kept as a getter rather
+     * than read directly from `factorioData.ts` so `DisplayPanelIcon` can
+     * read it the same way it reads every other accepted-* list.
      */
     public get acceptedDisplayPanelIcons(): string[] {
-        const itemNames = FD.inventoryLayout.flatMap(group =>
-            group.subgroups.flatMap(subgroup => subgroup.items.map(item => item.name))
-        )
-        return [...itemNames, ...Object.keys(FD.fluids), ...Object.keys(FD.signals)]
+        return acceptedSignalIcons()
     }
 
     /** The `ISignal.type` a name from `acceptedDisplayPanelIcons` should be set with. */

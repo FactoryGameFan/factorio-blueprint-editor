@@ -6,6 +6,7 @@ import EDITOR, {
     Blueprint,
     Book,
     CorruptedBlueprintStringError,
+    GitHubRateLimitError,
     BookWithNoBlueprintsError,
     EmptyBlueprintStringError,
     encode,
@@ -249,7 +250,16 @@ function readClipboardText(): Promise<string> {
     in the editor package has a one-click "copy the string" action to trigger
     it from (see QuickActions' own doc comment in common/globals.ts).
 */
+async function selectBookIndex(index: number): Promise<void> {
+    if (!book) throw new Error('No book loaded')
+    bp = book.selectBlueprint(index)
+    await editor.loadBlueprint(bp)
+    changeBookForIndexSelector(book)
+}
+
 const quickActions: QuickActions = {
+    getCurrentBook: () => book,
+    selectBookEntry: selectBookIndex,
     importReplace,
     importAppend,
     exportImage,
@@ -267,15 +277,7 @@ editor
 
         registerActions()
 
-        const changeBookIndex = async (index: number): Promise<void> => {
-            // The settings pane only shows a book index selector while a book is
-            // loaded, so this cannot fire without one - same check, and the same
-            // reason for it, as the selectBookIndex test hook below.
-            if (!book) throw new Error('No book loaded')
-            bp = book.selectBlueprint(index)
-            await editor.loadBlueprint(bp)
-        }
-        changeBookForIndexSelector = initSettingsPane(editor, changeBookIndex).changeBook
+        changeBookForIndexSelector = initSettingsPane(editor, selectBookIndex).changeBook
 
         getBlueprintOrBookFromSource(bpSource)
             .catch(error => createBPImportError(error))
@@ -292,9 +294,10 @@ editor
                 run (issue #109). It comes after the catch on purpose: a source
                 that fails to import is a state specs still need to drive.
 
-                `import.meta.env.DEV` gates the assignment so the test API never
-                reaches the production bundle at fbe.factorygamefan.com (issue
-                #292). Vite replaces it with `false` in a `vp build`, which drops
+                `import.meta.env.DEV` keeps the test API out of the executable
+                production JavaScript (issue #292). Public source maps retain
+                the original source for debugging, including this API (#328).
+                Vite replaces the guard with `false` in a `vp build`, which drops
                 this branch and lets Rolldown tree-shake `testApi` and everything
                 only it references. The e2e job serves the app with `vp dev`
                 (via `npm run localpreview`), where it is `true`, so every spec
@@ -399,7 +402,7 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
     // Fire-and-forget, same as before importReplace reported success/failure
     // to its callers - this one has nothing to do with the resolved value,
     // unlike ImportDialog's Replace button.
-    void importReplace()
+    void importReplace(e.clipboardData?.getData('text/plain') || undefined)
 })
 
 /*
@@ -444,6 +447,15 @@ class ThrowingDialog extends Dialog {
 const testApi = {
     getBlueprintOrBookFromSource,
     loadBp,
+    /**
+     * Opens BlueprintInfoEditor, whose persistent button has no keybind of
+     * its own. See tests/blueprint-grid-position.spec.ts.
+     */
+    openBlueprintInfoEditor: () => editor.openBlueprintInfoEditor(),
+    blueprintIcons: () => [1, 2, 3, 4].map(i => bp.getIcon(i as 1 | 2 | 3 | 4)),
+    createEntity: (name: string, x: number, y: number) => {
+        bp.createEntity({ name, position: { x, y } })
+    },
     /**
      * Opens ImportDialog, ToolsPanel's Import slot with no keybind of its own
      * to reach it by. See tests/quick-actions.spec.ts.
@@ -490,6 +502,18 @@ const testApi = {
         driving real pointer or keyboard input needs to assert on (issue #44).
     */
     editorMode: () => editor.mode,
+    /*
+        The persistent selection, its blocked tint, and the history revision.
+        Together the only way a spec can see a selection at all: it is not a
+        mode, its move-drag writes nothing until the drop, and whether that
+        drop was one undo step or two leaves the entities in the same place.
+    */
+    selectedEntityNumbers: () => editor.selectedEntityNumbers,
+    selectionHighlightBlocked: (entityNumber: number) =>
+        editor.selectionHighlightBlocked(entityNumber),
+    entityDragOffset: (entityNumber: number) => editor.entityDragOffset(entityNumber),
+    historyRevision: () => editor.historyRevision,
+    infoOverlayVisible: () => editor.infoOverlayVisible,
     /*
         Where an entity sits on screen, so a spec can put the pointer on it.
         Hovering is the only way into EDIT, and that is the entry point for
@@ -549,11 +573,7 @@ const testApi = {
     },
     loadingScreen,
     getBook: () => book,
-    selectBookIndex: async (index: number) => {
-        if (!book) throw new Error('No book loaded')
-        bp = book.selectBlueprint(index)
-        await editor.loadBlueprint(bp)
-    },
+    selectBookIndex,
     /*
         The blueprint string a copy would put on the clipboard, which for a loaded
         book is Book.serialize(). Nothing else reaches that method: the round-trip
@@ -1006,6 +1026,11 @@ function createBPImportError(
     */
     if (error instanceof EmptyBlueprintStringError) {
         createToast({ text: error.error, type: 'warning' })
+        return
+    }
+
+    if (error instanceof GitHubRateLimitError) {
+        createToast({ text: error.message, type: 'warning' })
         return
     }
 

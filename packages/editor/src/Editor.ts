@@ -15,6 +15,7 @@ import G, { Logger, QuickActions } from './common/globals'
 import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
+import { EntityContainer } from './containers/EntityContainer'
 import { PaintTileContainer } from './containers/PaintTileContainer'
 import { UIContainer } from './UI/UIContainer'
 import { Dialog } from './UI/controls/Dialog'
@@ -51,6 +52,8 @@ export interface EditorInitOptions {
 const missingQuickActionsMessage =
     'This embed has no import/export/clipboard actions configured (EditorInitOptions.quickActions was not supplied).'
 const noopQuickActions: QuickActions = {
+    getCurrentBook: () => undefined,
+    selectBookEntry: () => Promise.resolve(),
     importReplace: () => {
         G.logger({ text: missingQuickActionsMessage, type: 'error' })
         return Promise.resolve(false)
@@ -188,12 +191,60 @@ export class Editor {
 
     /**
      * The interaction mode the canvas is in, by name - NONE, EDIT, PAINT, PAN,
-     * COPY or DELETE. Exposed for tests/editor-mode-input.spec.ts, which is the
-     * first spec to drive real pointer and keyboard input (issue #44); the name
-     * rather than the enum member so a test does not have to import it.
+     * COPY, DELETE, SELECT or MOVE. Exposed for tests/editor-mode-input.spec.ts,
+     * which is the first spec to drive real pointer and keyboard input (issue
+     * #44); the name rather than the enum member so a test does not have to
+     * import it.
      */
     public get mode(): string {
         return EditorMode[G.BPC.mode]
+    }
+
+    /**
+     * The entity numbers in the persistent selection, in insertion order. The
+     * only way a spec can see what an Alt-drag swept, since the selection is
+     * not a mode - `mode` reads NONE once the drag is released. See
+     * tests/persistent-selection.spec.ts.
+     */
+    public get selectedEntityNumbers(): number[] {
+        return G.BPC.selectedEntityNumbers
+    }
+
+    /** Whether the entity's selection box is tinted as blocked. See tests/persistent-selection.spec.ts. */
+    public selectionHighlightBlocked(entityNumber: number): boolean {
+        return G.BPC.selectionHighlightBlocked(entityNumber)
+    }
+
+    /**
+     * How far the entity's sprites are drawn from where its model says it is,
+     * in pixels. A move-drag previews by displacing the sprites and nothing
+     * else can see that; a leaked offset leaves an entity drawn where it is
+     * not. Undefined for an entity with no container. See
+     * tests/persistent-selection.spec.ts.
+     */
+    public entityDragOffset(entityNumber: number): IPoint | undefined {
+        return EntityContainer.mappings.get(entityNumber)?.dragOffsetPx
+    }
+
+    /**
+     * Whether the entity-info overlay (the AltLeft toggle) is showing. Needed
+     * to prove a tap of Alt still toggles it while an Alt-drag selection does
+     * not - each overlay action tracks its own pending tap. See
+     * tests/persistent-selection.spec.ts.
+     */
+    public get infoOverlayVisible(): boolean {
+        return G.BPC.infoOverlayVisible
+    }
+
+    /**
+     * `History.revision`. A group move or mirror has to be *one* undo step, and
+     * counting transactions is the only way a spec can tell one from two - the
+     * end state of the entities is the same either way. See
+     * tests/persistent-selection.spec.ts, and `revision`'s own doc comment for
+     * what this number does and does not promise.
+     */
+    public get historyRevision(): number {
+        return G.bp.history.revision
     }
 
     /**
@@ -349,6 +400,16 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
+    /**
+     * Opens BlueprintInfoEditor, the same as clicking its persistent
+     * top-left button - which sits at a fixed screen position a spec could
+     * click directly, but this avoids hardcoding that position in a second
+     * place. See tests/blueprint-grid-position.spec.ts.
+     */
+    public openBlueprintInfoEditor(): void {
+        G.UI.toggleBlueprintInfoEditor(G.bp)
+    }
+
     /** Where ToolsPanel sits in client coordinates. See tests/tools-panel.spec.ts. */
     public get toolsPanelBounds(): { x: number; y: number; width: number; height: number } {
         return G.UI.toolsPanelBounds
@@ -433,6 +494,7 @@ export class Editor {
         G.BPC = new BlueprintContainer(bp)
         G.BPC.initBP()
         Dialog.closeAll()
+        G.UI.updateBookButton()
         G.app.stage.addChildAt(G.BPC, i)
         if (last.parent) {
             last.destroy()
@@ -535,6 +597,25 @@ export class Editor {
                     onRelease: () => G.BPC.exitDeleteMode(),
                 },
             },
+            // any -> SELECT; the swept entities stay selected after release
+            selectGroup: {
+                trigger: {
+                    button: MouseButton.Left,
+                },
+                modifiers: {
+                    alt: true,
+                },
+                callbacks: {
+                    onPress: () => {
+                        // A selection using Alt consumes every overlay tap held for that drag.
+                        if (G.actions.get('selectGroup')?.keyCombo.includes('Alt')) {
+                            infoOverlayTaps.clear()
+                        }
+                        return G.BPC.enterSelectMode()
+                    },
+                    onRelease: () => G.BPC.exitSelectMode(),
+                },
+            },
 
             moveUp: {
                 trigger: {
@@ -572,15 +653,19 @@ export class Editor {
                     onRelease: () => G.BPC.moveEnd('right'),
                 },
             },
+            // Each physical Alt key owns its tap; a selection consumes all held taps.
             showInfo: {
-                trigger: {
-                    code: 'AltLeft',
-                },
+                trigger: { code: 'AltLeft' },
                 callbacks: {
-                    onPress: () => {
-                        G.BPC.overlayContainer.toggleEntityInfoVisibility()
-                        return true
-                    },
+                    onPress: () => armInfoOverlay('showInfo'),
+                    onRelease: () => toggleInfoOverlay('showInfo'),
+                },
+            },
+            showInfoRight: {
+                trigger: { code: 'AltRight' },
+                callbacks: {
+                    onPress: () => armInfoOverlay('showInfoRight'),
+                    onRelease: () => toggleInfoOverlay('showInfoRight'),
                 },
             },
             closeWindow: {
@@ -589,7 +674,12 @@ export class Editor {
                 },
                 callbacks: {
                     onPress: () => {
-                        Dialog.closeLast()
+                        // A dialog is on top of the canvas, so it goes first.
+                        if (Dialog.anyOpen()) {
+                            Dialog.closeLast()
+                        } else {
+                            G.BPC.escape()
+                        }
                         return true
                     },
                 },
@@ -836,6 +926,17 @@ export class Editor {
         const bindKeyToSlot = (slot: number): boolean => {
             G.UI.quickbarPanel.bindKeyToSlot(slot)
             return true
+        }
+
+        const infoOverlayTaps = new Set<string>()
+        const armInfoOverlay = (action: string): boolean => {
+            infoOverlayTaps.add(action)
+            return true
+        }
+        const toggleInfoOverlay = (action: string): void => {
+            if (infoOverlayTaps.delete(action)) {
+                G.BPC.overlayContainer.toggleEntityInfoVisibility()
+            }
         }
 
         const pointerup = (e: PointerEvent): void => {

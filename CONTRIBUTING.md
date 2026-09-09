@@ -39,32 +39,38 @@ and filling out the issue template.
   enough to read that field will fetch a matching one; an older npm ignores it
   and runs anyway, which is the version to watch out for.
 - [Vite+](https://vite.plus) - the `vp` CLI this repo builds, lints, formats and
-  tests with. The version is pinned, and CI installs the same one via
-  `.github/actions/setup-vp`:
+  tests with. Install the CLI once:
 
     ```shell
     curl -fsSL https://vite.plus -o vp-install.sh
-    VP_HOME="$HOME/.vite-plus" VP_VERSION=0.2.9 VP_NODE_MANAGER=yes bash vp-install.sh
+    VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
     rm vp-install.sh
     ```
 
-    The variable assignments must come before `bash`, not before `curl`: an
-    assignment ahead of a command applies to that command alone, so the piped
-    form (`VP_VERSION=… curl … | bash`) hands the version to `curl` and the
-    `bash` on the far side reads an empty string, installing whatever the
-    bootstrap script defaults to.
+    You do not need a particular version of it. The project pins its own
+    `vite-plus` in the root `package.json`, `vp install` fetches that, and the
+    global `vp` defers to it for every tool. Keep the `VP_HOME=…` part: it puts
+    the toolchain in `~/.vite-plus`, and without it the binaries land somewhere
+    else and `vp` looks missing. The variable assignments go on the `bash`
+    line, not the `curl` line - an assignment ahead of a command applies to
+    that command alone. If you want to check the installer script before
+    running it, CI does: the `Install vp` step of
+    [`.github/actions/setup-vp/action.yml`](.github/actions/setup-vp/action.yml)
+    verifies it with `sha256sum -c` against a digest kept current there. Take
+    that line from the action, not from a doc - the digest changes on its own.
 
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
     things need it there: `npm run localpreview` spawns `vp` directly, and
     `VP_NODE_MANAGER=yes` puts vp's managed node and npm on that path, which is
-    what the scripts calling bare `npm`/`npx` expect to resolve to.
+    what the scripts calling bare `npm`/`npx` expect to resolve to. VS Code's
+    tasks and debug configurations need it there too, for the same reason.
 
 - [rust](https://rust-lang.org) - **only** if you want to regenerate the sprite
   data. The generated data is committed to the repo, so you do not need rust,
   a Factorio install, or a factorio.com account to work on the editor itself.
   See [Regenerating the sprite data](#regenerating-the-sprite-data-optional).
 - [vscode](https://code.visualstudio.com/) - optional, but the repo ships
-  workspace settings for it.
+  workspace settings, tasks and debug configurations for it.
 
 ### Note
 
@@ -77,6 +83,20 @@ cloning the repo. `.vscode/extensions.json` asks for `oxc.oxc-vscode` (the
 formatter and linter), plus `rust-lang.rust-analyzer` and `sumneko.lua` for the
 exporter. The committed workspace settings already format and autofix on save
 once that first one is installed.
+
+The repo also ships `.vscode/tasks.json` and `.vscode/launch.json`, so the
+commands below have a menu entry:
+
+- **Run Build Task** (`Ctrl+Shift+B` / `Cmd+Shift+B`) starts both dev servers
+  in one terminal. **Run Test Task** runs the unit tests. The other tasks under
+  **Terminal > Run Task…** are `vp check --fix`, the Playwright suite, the
+  website build, and the Worker.
+- **Run and Debug** has three configurations. _Website in Chrome_ opens the
+  editor at <http://localhost:8080> with breakpoints in the TypeScript sources;
+  start the dev servers task first, since it does not start them for you.
+  _Debug unit tests_ and _Debug current test file_ run `vp test` under the
+  node debugger, so a breakpoint in a `.test.ts` file or in the code it calls
+  stops there.
 
 ## Steps
 
@@ -120,14 +140,31 @@ convenience is: started by hand, Vite without `--strictPort` quietly falls back
 to 8081 and then proxies `/data` to itself, which presents as the sprite server
 failing rather than as a port clash.
 
+### Running the Worker locally
+
+To exercise the production asset routing, redirects, and `/corsproxy`, build the
+website and start the Worker from the repo root:
+
+```shell
+npm run build:website
+npm --workspace=fbeworkeyman run dev -- --local
+```
+
+Wrangler serves this at <http://localhost:8787>. The pinned Wrangler runtime
+supports the configured compatibility date; no `--compatibility-date` override
+is needed (#304). This serves the production build, so the development-only
+Playwright test hook is absent. Use `localpreview` for the existing browser suite.
+To test the legacy-host redirect locally, also pass
+`--host fbeworkeyman.wormeyman.workers.dev` to the dev command.
+
 ### Checks
 
-| Command               | What it does                                                                      |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `vp check`            | format + lint + type check, every package. This is the one to run before pushing. |
-| `vp check --fix`      | the same, applying the format and lint fixes it can                               |
-| `vp test`             | editor unit tests                                                                 |
-| `npx playwright test` | browser tests - needs `npm run localpreview` running first                        |
+| Command               | What it does                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| `vp check`            | format + lint + type check, every package. This is the one to run before pushing.   |
+| `vp check --fix`      | the same, applying the format and lint fixes it can                                 |
+| `vp test`             | editor unit tests, plus the browser-free tests under `tests/`, `scripts/`, `tools/` |
+| `npx playwright test` | browser tests - needs `npm run localpreview` running first                          |
 
 Two things about the Playwright suite. Run `npx playwright install` after any
 `@playwright/test` bump, or every spec fails on a missing browser executable.
@@ -169,13 +206,26 @@ set `FACTORIO_DIR` in `packages/exporter/.env`:
 FACTORIO_DIR=/path/to/your/factorio/installation
 ```
 
-| Platform        | Example path                                                               |
-| --------------- | -------------------------------------------------------------------------- |
-| macOS (Steam)   | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
-| Linux (Steam)   | `~/.steam/steam/steamapps/common/Factorio`                                 |
-| Windows (Steam) | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`                   |
+| Platform         | Example path                                                               |
+| ---------------- | -------------------------------------------------------------------------- |
+| macOS (Steam)    | `/Users/<you>/Library/Application Support/Steam/steamapps/common/Factorio` |
+| macOS (download) | `/Users/<you>/Downloads/factorio_space_age_mac_2_0_77.app`                 |
+| Linux (Steam)    | `~/.steam/steam/steamapps/common/Factorio`                                 |
+| Windows (Steam)  | `C:\Program Files (x86)\Steam\steamapps\common\Factorio`                   |
 
 When `FACTORIO_DIR` is set, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` are not needed.
+
+Each extraction uses a fresh temporary config, write-data directory and mod
+directory. It enables only the installed official modules (`base`, `quality`,
+`elevated-rails`, `space-age`) plus the export mod; it does not use your normal
+profile or its mod settings. Sprite padding writes separate scratch images,
+not the installation's PNGs. Temporary profiles, logs and padded images are
+retained at the printed paths; move them to Trash when finished inspecting them.
+
+Before regenerating committed data, follow the
+[exporter validation and dataset review checklist](packages/exporter/README.md).
+In particular, a game-version update is not a reason to re-record oracle
+fixtures wholesale.
 
 ### Option B: Download base game data (no DLC support)
 
@@ -184,9 +234,33 @@ Add your `FACTORIO_USERNAME` and `FACTORIO_TOKEN` to `packages/exporter/.env`
 The exporter will download the base game data automatically.
 This option only supports base game items.
 
+## Working with AI agents
+
+Three bots run on this repository. None of them can merge anything.
+
+- **Claude Code Review** comments on pull requests opened from branches in this
+  repository. On a pull request from a fork it shows as skipped, on purpose:
+  GitHub withholds the repository's secrets from fork events, so the workflow
+  cannot run there. A skipped check on your fork PR is not a failure and needs
+  nothing from you.
+- **`@claude`** in an issue or pull request comment asks Claude to act on it.
+  The workflow only answers people with write access to this repository.
+- **CodeRabbit** reviews pull requests once they leave draft. Marking a draft
+  ready is what triggers it.
+
+If you use an agent to write or change code for a pull request, the bar is the
+same as for any other pull request: you have read what you are submitting,
+`vp check` and `vp test` pass, and you have run the change in the editor when
+it touches something visible. Point the agent at
+[`CLAUDE.md`](./CLAUDE.md) before it starts. That file is the project guide for
+both people and agents - setup, architecture, the invariants to keep, and the
+traps that have already cost a session - and it is kept current on purpose.
+[`AGENTS.md`](./AGENTS.md) is a pointer to it for tools that look for that name.
+
 ## Working on your first Pull Request?
 
-Check out this [tutorial](https://github.com/firstcontributions/first-contributions/blob/master/github-windows-vs-code-tutorial.md)
+Check out this
+[tutorial](https://github.com/firstcontributions/first-contributions/blob/main/docs/gui-tool-tutorials/github-windows-vs-code-tutorial.md)
 
-Also, [How to Contribute to an Open Source Project on GitHub](https://egghead.io/series/how-to-contribute-to-an-open-source-project-on-github)
+Also, [How to Contribute to an Open Source Project on GitHub](https://egghead.io/courses/how-to-contribute-to-an-open-source-project-on-github)
 for a more in depth (video) tutorial

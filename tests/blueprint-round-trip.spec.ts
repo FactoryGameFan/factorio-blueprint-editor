@@ -203,13 +203,13 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
  * input carried none.
  */
 const EXPECTED = {
-    blueprints: 367,
-    entities: 347725,
+    blueprints: 372,
+    entities: 350862,
     tiles: 232815,
-    wires: 48869,
-    icons: 956,
+    wires: 49257,
+    icons: 970,
     threw: 0,
-    positionChecksum: -44031602,
-    modelPositionChecksum: -63968586,
-    serializedHash: -1735753444,
+    positionChecksum: -44088168,
+    modelPositionChecksum: -63922400,
+    serializedHash: 568918011,
 }

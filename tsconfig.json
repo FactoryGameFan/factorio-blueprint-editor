@@ -23,5 +23,16 @@
         // narrows this list back to typed-factorio only, so browser code cannot
         // reach node globals - see packages/editor/tsconfig.json.
         "types": ["vite-plus/client", "typed-factorio/prototype", "node"]
-    }
+    },
+
+    // This file has no `include`, so as the nearest tsconfig for tests/, scripts/
+    // and tools/ its program sweeps the whole tree. That sweep used to pick up
+    // packages/worker, whose gitignored, wrangler-generated
+    // worker-configuration.d.ts declares Cloudflare's HTMLRewriter `Element` -
+    // and TypeScript merges that into the DOM's `Element`, so
+    // `document.body.append(node)` in a Playwright spec fails to type (TS2345)
+    // on any machine that has run `wrangler types`. CI never has the file, so it
+    // stayed green while local `vp check` went red. The worker has its own
+    // tsconfig and is already outside the lint pass (vite.config.ts).
+    "exclude": ["node_modules", "packages/worker"]
 }

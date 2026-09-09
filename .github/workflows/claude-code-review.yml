@@ -44,6 +44,25 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Renovate and CodeRabbit can both trigger this workflow. The action
+          # refuses any non-human actor unless it is listed here, and it fails
+          # in seconds, before it ever reads the diff.
+          #
+          # coderabbitai[bot] is listed even though CodeRabbit has never OPENED
+          # a pull request in this org. The action checks the TRIGGERING actor,
+          # not the PR author (isAllowedBot in src/github/validation/actor.ts),
+          # and a CodeRabbit push to a PR fires `synchronize` with that actor.
+          # So do not delete this entry just because no PR lists it as author.
+          #
+          # Set the CLAUDE_ALLOWED_BOTS organization variable to change the list
+          # for every repo at once. The literal below is only the fallback while
+          # that variable is unset.
+          #
+          # NEVER set that variable to '*'. These repos are public, so '*' lets
+          # any external App invoke this action with a prompt it controls. Note
+          # the variable is the weaker spot: editing this line takes a PR, a
+          # diff and a review, while setting the variable takes none of them.
+          allowed_bots: "${{ vars.CLAUDE_ALLOWED_BOTS || 'renovate[bot],coderabbitai[bot]' }}"
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'

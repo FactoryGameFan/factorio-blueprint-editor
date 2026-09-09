@@ -14,7 +14,8 @@ import G from '../common/globals'
 import { Tile } from '../core/Tile'
 import { Entity } from '../core/Entity'
 import { Blueprint } from '../core/Blueprint'
-import { IConnection } from '../core/WireConnections'
+import { IConnection, WireConnections } from '../core/WireConnections'
+import { GroupRelocation } from '../core/PositionGrid'
 import { stepZoom, WheelZoom } from '../core/zoomLevels'
 import { IPoint } from '../types'
 import { Dialog } from '../UI/controls/Dialog'
@@ -38,6 +39,18 @@ export enum GridPattern {
     GRID = 'grid',
 }
 
+/**
+ * The item the user picked cannot be painted at all: `FD.items` has no entry
+ * for it, or it has one that places nothing (a science pack, a fluid barrel).
+ *
+ * Separate from the errors a `Paint*Container` constructor throws, which mean
+ * something different - the item *is* placeable and the editor failed to build
+ * a preview for it - and so earns a different message in `spawnPaintContainer`.
+ * A class rather than a message comparison because the messages carry the item
+ * name, and because `IllegalFlipError` next door already sets the pattern.
+ */
+export class UnplaceableItemError extends Error {}
+
 type MoveDirections = {
     up: boolean
     left: boolean
@@ -58,7 +71,14 @@ export enum EditorMode {
     COPY,
     /** Active when selecting multiple entities for deletion */
     DELETE,
+    /** Active while Alt+dragging the rectangle that becomes the persistent selection */
+    SELECT,
+    /** Active while dragging the persistent selection to a new place */
+    MOVE,
 }
+
+/** The live rectangle's colour in SELECT mode - not copy's green nor delete's red. */
+const SELECT_AREA_COLOR = 0x3399ff
 
 export class BlueprintContainer extends Container {
     private static _moveSpeed = 10
@@ -153,15 +173,42 @@ export class BlueprintContainer extends Container {
     private copyModeEntities: Entity[] = []
     private deleteModeEntities: Entity[] = []
     /*
-        Registered on gridData while COPY/DELETE mode is held and removed on the
-        way out, so they exist only for that span. Cleared on exit as well as
-        removed, which the listener alone did not do - each closure captures the
-        drag's start position and its entity list, and held one of each alive
-        until the next drag replaced it.
+        The unregister function `trackMarquee` hands back, held while
+        COPY/DELETE mode is active and called on the way out - so it exists
+        only for that span, same reason the entity lists above are cleared on
+        exit as well as this being called.
     */
-    private copyModeUpdateFn: ((endX: number, endY: number) => void) | undefined
-    private deleteModeUpdateFn: ((endX: number, endY: number) => void) | undefined
+    private copyMarqueeStop: (() => void) | undefined
+    private deleteMarqueeStop: (() => void) | undefined
     private copySettingsActive = false
+
+    /*
+        The persistent selection: what an Alt-drag swept, kept past the mouse-up
+        so it can be dragged somewhere else or mirrored. The only entity list
+        here that outlives a gesture - copyModeEntities and deleteModeEntities
+        above are emptied on the way out of their modes.
+    */
+    private readonly selectedEntities = new Set<Entity>()
+    /*
+        Per member, the function that detaches the listeners keeping it
+        selected: the ones that move its box when it moves and drop it from the
+        set when it is destroyed by anything else - a delete drag, a mine. Every
+        way out of the selection goes through deselect(), which runs and forgets
+        this.
+    */
+    private readonly selectionListeners = new Map<Entity, () => void>()
+    /* The SELECT-mode pair, same shape and lifetime as the copy/delete ones above. */
+    private selectModeEntities: Entity[] = []
+    private selectMarqueeStop: (() => void) | undefined
+    /*
+        Present only during a MOVE drag. `moved` flips on the first tile
+        crossed, and is what separates a drag from a click on a selected
+        entity: a click still opens the entity's editor, as it does anywhere.
+    */
+    private moveDrag:
+        | { entities: Entity[]; pressed: Entity; delta: IPoint; moved: boolean }
+        | undefined
+    private moveDragUpdateFn: ((endX: number, endY: number) => void) | undefined
 
     // PIXI properties
     public readonly eventMode = 'static'
@@ -275,6 +322,15 @@ export class BlueprintContainer extends Container {
                 this.viewport.translateBy(e.movement.x, e.movement.y)
             },
             panStart: (): boolean => {
+                /*
+                    First, because it cannot be a sibling action: `pan` is the
+                    first plain-Left, zero-modifier action registered, and
+                    ActionRegistry tries equal-modifier actions in registration
+                    order and stops at the first that answers true - which this
+                    does for every press in NONE. A "drag the selection" action
+                    registered anywhere else would never be reached.
+                */
+                if (this.enterMoveMode()) return true
                 if (this.mode === EditorMode.NONE) {
                     this.cursor = 'move'
                     this.setMode(EditorMode.PAN)
@@ -284,6 +340,10 @@ export class BlueprintContainer extends Container {
                 return false
             },
             panEnd: (): void => {
+                if (this.mode === EditorMode.MOVE) {
+                    this.exitMoveMode()
+                    return
+                }
                 if (this.mode === EditorMode.PAN) {
                     this.off('globalpointermove', panModule._onPan)
                     this.setMode(EditorMode.NONE)
@@ -392,6 +452,11 @@ export class BlueprintContainer extends Container {
 
         let remove = false
         this.mineStart = (): boolean => {
+            // A right-click mid-drag puts the selection back where it was.
+            if (this.mode === EditorMode.MOVE) {
+                this.exitMoveMode(true)
+                return true
+            }
             remove = true
             this.gridData.on('update32', mine)
             mine()
@@ -545,6 +610,17 @@ export class BlueprintContainer extends Container {
         this.on('destroyed', () => {
             this.removeEventListener('pointerdown', onPointerDown)
             G.actions.releaseAll()
+            /*
+                Detach only. The entities outlive this container (a blueprint
+                swap never destroys the outgoing one's entities, see
+                EntityContainer) and the overlay is already gone, so there are
+                no boxes left to hide - only listeners left to unhook.
+            */
+            for (const detach of this.selectionListeners.values()) {
+                detach()
+            }
+            this.selectionListeners.clear()
+            this.selectedEntities.clear()
         })
     }
 
@@ -645,6 +721,13 @@ export class BlueprintContainer extends Container {
     }
 
     public flip(vertical: boolean): void {
+        if (
+            (this.mode === EditorMode.NONE || this.mode === EditorMode.EDIT) &&
+            this.selectedEntities.size !== 0
+        ) {
+            this.mirrorSelection(vertical)
+            return
+        }
         if (this.mode === EditorMode.PAINT && this.painting.canFlipOrRotateByCopying()) {
             try {
                 const copies = this.painting.flippedEntities(vertical)
@@ -661,6 +744,18 @@ export class BlueprintContainer extends Container {
     }
 
     public pipette(): void {
+        /*
+            Mid-drag, Q means "put it back," same as right-click and Escape -
+            not "pipette whatever happens to be under the pointer," which
+            EDIT/PAINT below never see anyway since the mode is MOVE, and not
+            "clear the selection," which would leave the drag's own click-vs-
+            drag bookkeeping to run anyway: a stationary release after Q would
+            still open the pressed entity's editor (issue #389).
+        */
+        if (this.mode === EditorMode.MOVE) {
+            this.exitMoveMode(true)
+            return
+        }
         if (this.mode === EditorMode.EDIT) {
             const entity = this.hovered.entity
             const itemName = Entity.getItemName(entity.name)
@@ -673,14 +768,69 @@ export class BlueprintContainer extends Container {
             }
         } else if (this.mode === EditorMode.PAINT) {
             this.painting.destroy()
+        } else if (this.mode === EditorMode.NONE) {
+            /*
+                Nothing hovered and nothing carried: Q is a second way to
+                clear a settled selection, alongside Escape. Scoped to NONE
+                rather than unconditional - pipetting an entity that is not
+                selected (the EDIT branch above) must not wipe an unrelated
+                active selection as a side effect, which every other caller of
+                spawnPaintContainer (the quickbar, Ctrl+V) already leaves
+                alone (issue #389).
+            */
+            this.clearSelection()
         }
         this.exitCopyMode(true)
         this.exitDeleteMode(true)
+        this.exitSelectMode(true)
     }
 
     public moveEntity(offset: IPoint) {
         if (this.mode === EditorMode.EDIT) {
             this.hovered.entity.moveBy(offset)
+        }
+    }
+
+    /**
+     * The rectangle-drag mechanics COPY, DELETE and SELECT all share: track a
+     * marquee from the press tile to wherever the pointer goes, recomputing
+     * which entities it covers on every tile crossed and handing the fresh
+     * list to `onChange` - which owns storing it (each mode keeps its own
+     * field) and applying whatever per-entity visual that mode uses. The
+     * visual step stays the caller's rather than becoming a parameter: copy
+     * and delete use `EntityContainer.cursorBox`, SELECT uses
+     * `OverlayContainer.showSelectionHighlight` on a separate map so hovering
+     * a selected entity does not clobber its box, and those are not close
+     * enough to share one call shape (issue #390).
+     *
+     * Returns the function that undoes this - unregisters the listener and
+     * hides the rectangle - which the matching `exit*Mode` calls once.
+     */
+    private trackMarquee(color: number, onChange: (entities: Entity[]) => void): () => void {
+        this.overlayContainer.showSelectionArea(color)
+
+        const startPos = { x: this.gridData.x32, y: this.gridData.y32 }
+        const updateFn = (endX: number, endY: number): void => {
+            const X = Math.min(startPos.x, endX)
+            const Y = Math.min(startPos.y, endY)
+            const W = Math.abs(endX - startPos.x) + 1
+            const H = Math.abs(endY - startPos.y) + 1
+
+            onChange(
+                this.bp.entityPositionGrid.getEntitiesInArea({
+                    x: X + W / 2,
+                    y: Y + H / 2,
+                    w: W,
+                    h: H,
+                })
+            )
+        }
+        updateFn(startPos.x, startPos.y)
+        this.gridData.on('update32', updateFn, this)
+
+        return () => {
+            this.overlayContainer.hideSelectionArea()
+            this.gridData.off('update32', updateFn, this)
         }
     }
 
@@ -691,32 +841,15 @@ export class BlueprintContainer extends Container {
         this.updateHoverContainer(true)
         this.setMode(EditorMode.COPY)
 
-        this.overlayContainer.showSelectionArea(0x00d400)
-
-        const startPos = { x: this.gridData.x32, y: this.gridData.y32 }
-        this.copyModeUpdateFn = (endX: number, endY: number) => {
-            const X = Math.min(startPos.x, endX)
-            const Y = Math.min(startPos.y, endY)
-            const W = Math.abs(endX - startPos.x) + 1
-            const H = Math.abs(endY - startPos.y) + 1
-
+        this.copyMarqueeStop = this.trackMarquee(0x00d400, entities => {
             for (const e of this.copyModeEntities) {
                 EntityContainer.containerOf(e.entityNumber).cursorBox = undefined
             }
-
-            this.copyModeEntities = this.bp.entityPositionGrid.getEntitiesInArea({
-                x: X + W / 2,
-                y: Y + H / 2,
-                w: W,
-                h: H,
-            })
-
+            this.copyModeEntities = entities
             for (const e of this.copyModeEntities) {
                 EntityContainer.containerOf(e.entityNumber).cursorBox = 'copy'
             }
-        }
-        this.copyModeUpdateFn(startPos.x, startPos.y)
-        this.gridData.on('update32', this.copyModeUpdateFn, this)
+        })
 
         return true
     }
@@ -724,11 +857,8 @@ export class BlueprintContainer extends Container {
     public exitCopyMode(cancel = false): void {
         if (this.mode !== EditorMode.COPY) return
 
-        this.overlayContainer.hideSelectionArea()
-        if (this.copyModeUpdateFn !== undefined) {
-            this.gridData.off('update32', this.copyModeUpdateFn, this)
-            this.copyModeUpdateFn = undefined
-        }
+        this.copyMarqueeStop?.()
+        this.copyMarqueeStop = undefined
 
         this.setMode(EditorMode.NONE)
         this.updateHoverContainer()
@@ -749,32 +879,15 @@ export class BlueprintContainer extends Container {
         this.updateHoverContainer(true)
         this.setMode(EditorMode.DELETE)
 
-        this.overlayContainer.showSelectionArea(0xff3200)
-
-        const startPos = { x: this.gridData.x32, y: this.gridData.y32 }
-        this.deleteModeUpdateFn = (endX: number, endY: number) => {
-            const X = Math.min(startPos.x, endX)
-            const Y = Math.min(startPos.y, endY)
-            const W = Math.abs(endX - startPos.x) + 1
-            const H = Math.abs(endY - startPos.y) + 1
-
+        this.deleteMarqueeStop = this.trackMarquee(0xff3200, entities => {
             for (const e of this.deleteModeEntities) {
                 EntityContainer.containerOf(e.entityNumber).cursorBox = undefined
             }
-
-            this.deleteModeEntities = this.bp.entityPositionGrid.getEntitiesInArea({
-                x: X + W / 2,
-                y: Y + H / 2,
-                w: W,
-                h: H,
-            })
-
+            this.deleteModeEntities = entities
             for (const e of this.deleteModeEntities) {
                 EntityContainer.containerOf(e.entityNumber).cursorBox = 'not_allowed'
             }
-        }
-        this.deleteModeUpdateFn(startPos.x, startPos.y)
-        this.gridData.on('update32', this.deleteModeUpdateFn, this)
+        })
 
         return true
     }
@@ -782,11 +895,8 @@ export class BlueprintContainer extends Container {
     public exitDeleteMode(cancel = false): void {
         if (this.mode !== EditorMode.DELETE) return
 
-        this.overlayContainer.hideSelectionArea()
-        if (this.deleteModeUpdateFn !== undefined) {
-            this.gridData.off('update32', this.deleteModeUpdateFn, this)
-            this.deleteModeUpdateFn = undefined
-        }
+        this.deleteMarqueeStop?.()
+        this.deleteMarqueeStop = undefined
 
         this.setMode(EditorMode.NONE)
         this.updateHoverContainer()
@@ -800,6 +910,391 @@ export class BlueprintContainer extends Container {
         }
 
         this.deleteModeEntities = []
+    }
+
+    // Persistent selection --------------------------------------------------
+
+    /** The selection's entity numbers, for tests/persistent-selection.spec.ts. */
+    public get selectedEntityNumbers(): number[] {
+        return [...this.selectedEntities].map(e => e.entityNumber)
+    }
+
+    /** Whether the entity-info overlay is showing. See tests/persistent-selection.spec.ts. */
+    public get infoOverlayVisible(): boolean {
+        return this.overlayContainer.entityInfoVisible
+    }
+
+    /** Whether an entity's selection box is drawn as blocked. See tests/persistent-selection.spec.ts. */
+    public selectionHighlightBlocked(entityNumber: number): boolean {
+        return this.overlayContainer.selectionHighlightBlocked(entityNumber)
+    }
+
+    /**
+     * What Escape does on the canvas, innermost state first: a drag in progress
+     * is put back, a rectangle being swept is dropped, and only then does a
+     * settled selection clear. False when there was nothing of the kind to do.
+     */
+    public escape(): boolean {
+        if (this.mode === EditorMode.MOVE) {
+            this.exitMoveMode(true)
+            return true
+        }
+        if (this.mode === EditorMode.SELECT) {
+            this.exitSelectMode(true)
+            return true
+        }
+        if (this.selectedEntities.size !== 0) {
+            this.clearSelection()
+            return true
+        }
+        return false
+    }
+
+    public clearSelection(): void {
+        // Deleting the current member mid-iteration is safe for a Set.
+        for (const entity of this.selectedEntities) {
+            this.deselect(entity)
+        }
+    }
+
+    private select(entity: Entity): void {
+        if (this.selectedEntities.has(entity)) return
+        this.selectedEntities.add(entity)
+
+        const n = entity.entityNumber
+        const redrawBox = (): void => {
+            this.overlayContainer.showSelectionHighlight(
+                n,
+                EntityContainer.containerOf(n).position,
+                entity.size
+            )
+        }
+        const onDestroy = (): void => this.deselect(entity)
+        redrawBox()
+        entity.on('position', redrawBox)
+        // a rotation can change the footprint the box has to fit
+        entity.on('direction', redrawBox)
+        entity.on('destroy', onDestroy)
+        this.selectionListeners.set(entity, () => {
+            entity.off('position', redrawBox)
+            entity.off('direction', redrawBox)
+            entity.off('destroy', onDestroy)
+        })
+    }
+
+    private deselect(entity: Entity): void {
+        const detach = this.selectionListeners.get(entity)
+        if (detach === undefined) return
+        detach()
+        this.selectionListeners.delete(entity)
+        this.selectedEntities.delete(entity)
+        this.overlayContainer.hideSelectionHighlight(entity.entityNumber)
+        /*
+            A drag in progress holds its own copy of the selection, taken at the
+            press. Undo is not gated on mode, so it can destroy a member while
+            that copy is live - and the copy would then name an entity with no
+            container, which throws on the next pointer move and again on the
+            release, before exitMoveMode ever reaches setMode(NONE). Every way
+            out of the selection comes through here, so this is where the copy
+            is kept honest.
+        */
+        if (this.moveDrag !== undefined) {
+            /*
+                exitMoveMode puts sprites back through drag.entities, so one
+                leaving the drag here has to be put back now or it stays drawn
+                where the drag left it. Q mid-drag is the path: pipette clears
+                the selection while the drag is live. `mappings.get` rather than
+                `containerOf`, because on the destroy path the container is
+                already gone.
+            */
+            if (this.moveDrag.entities.includes(entity)) {
+                EntityContainer.mappings.get(entity.entityNumber)?.setDragOffset({ x: 0, y: 0 })
+            }
+            this.moveDrag.entities = this.moveDrag.entities.filter(e => e !== entity)
+        }
+    }
+
+    /**
+     * Alt+Left-drag: the copy-mode marquee, except that on release the swept
+     * entities *stay* selected instead of being handed to a paint container.
+     * The box each one gets while the rectangle covers it is the persistent
+     * one, so nothing changes visually on release - it simply stops being
+     * cleared. A new sweep replaces the previous selection outright.
+     */
+    public enterSelectMode(): boolean {
+        if (this.mode === EditorMode.SELECT) return false
+        if (this.mode === EditorMode.PAINT) this.painting.destroy()
+
+        this.clearSelection()
+        this.updateHoverContainer(true)
+        this.setMode(EditorMode.SELECT)
+
+        this.selectMarqueeStop = this.trackMarquee(SELECT_AREA_COLOR, entities => {
+            for (const e of this.selectModeEntities) {
+                this.overlayContainer.hideSelectionHighlight(e.entityNumber)
+            }
+            this.selectModeEntities = entities
+            for (const e of this.selectModeEntities) {
+                this.overlayContainer.showSelectionHighlight(
+                    e.entityNumber,
+                    EntityContainer.containerOf(e.entityNumber).position,
+                    e.size
+                )
+            }
+        })
+
+        return true
+    }
+
+    public exitSelectMode(cancel = false): void {
+        if (this.mode !== EditorMode.SELECT) return
+
+        this.selectMarqueeStop?.()
+        this.selectMarqueeStop = undefined
+
+        this.setMode(EditorMode.NONE)
+        this.updateHoverContainer()
+
+        for (const e of this.selectModeEntities) {
+            // Undo can destroy a swept entity without another pointer update.
+            if (cancel || !EntityContainer.mappings.has(e.entityNumber)) {
+                this.overlayContainer.hideSelectionHighlight(e.entityNumber)
+            } else {
+                this.select(e)
+            }
+        }
+        this.selectModeEntities = []
+    }
+
+    /**
+     * Picks the selection up, if a plain Left press landed on one of its
+     * members; false - and nothing done - otherwise, so `panStart` carries on
+     * to pan exactly as it did before selections existed. A press on the
+     * background or on an entity that is not selected is therefore still a pan.
+     *
+     * Nothing is written to the model from here until `exitMoveMode` commits:
+     * the drag previews by displacing the real sprites (`EntityContainer.
+     * setDragOffset`) and the selection boxes, and a cancel just puts them
+     * back. That is what makes cancelling a true no-op and a completed move a
+     * single undo step, and why the selection is not handed to a paint
+     * container the way a copy-mode sweep is: that route rebuilds entities,
+     * so a cancel would have to put them back and a move would be a delete
+     * and a paste in the history.
+     */
+    private enterMoveMode(): boolean {
+        if (this.mode !== EditorMode.NONE && this.mode !== EditorMode.EDIT) return false
+        if (this.selectedEntities.size === 0) return false
+
+        const pressed = this.bp.entityPositionGrid.getEntityAtPosition({
+            x: this.gridData.x32,
+            y: this.gridData.y32,
+        })
+        if (pressed === undefined || !this.selectedEntities.has(pressed)) return false
+
+        this.updateHoverContainer(true)
+        this.setMode(EditorMode.MOVE)
+        this.cursor = 'grabbing'
+
+        const start = { x: this.gridData.x32, y: this.gridData.y32 }
+        this.moveDrag = {
+            entities: [...this.selectedEntities],
+            pressed,
+            delta: { x: 0, y: 0 },
+            moved: false,
+        }
+        this.moveDragUpdateFn = (endX: number, endY: number) =>
+            this.previewMove({ x: endX - start.x, y: endY - start.y })
+        this.gridData.on('update32', this.moveDragUpdateFn, this)
+
+        return true
+    }
+
+    private previewMove(delta: IPoint): void {
+        const drag = this.moveDrag
+        if (drag === undefined) return
+
+        drag.delta = delta
+        drag.moved = drag.moved || delta.x !== 0 || delta.y !== 0
+
+        const blocked = !this.canRelocateGroup(this.translationsOf(drag.entities, delta))
+        const px = { x: delta.x * 32, y: delta.y * 32 }
+        for (const e of drag.entities) {
+            const container = EntityContainer.containerOf(e.entityNumber)
+            container.setDragOffset(px)
+            this.overlayContainer.moveSelectionHighlight(e.entityNumber, {
+                x: container.position.x + px.x,
+                y: container.position.y + px.y,
+            })
+            this.overlayContainer.setSelectionHighlightBlocked(e.entityNumber, blocked)
+        }
+    }
+
+    /**
+     * Drops the selection where the drag left it, or on `cancel` where it was.
+     *
+     * A press that never crossed a tile boundary is a click, not a drag, and a
+     * click on an entity opens its editor everywhere else on the canvas - so
+     * it does here too, rather than the selection making its members
+     * un-openable. `openEntityGUI` never saw the press (`panStart` consumed
+     * it), which is why this calls `openEditor` itself.
+     */
+    public exitMoveMode(cancel = false): void {
+        if (this.mode !== EditorMode.MOVE) return
+        const drag = this.moveDrag
+        this.moveDrag = undefined
+        if (this.moveDragUpdateFn !== undefined) {
+            this.gridData.off('update32', this.moveDragUpdateFn, this)
+            this.moveDragUpdateFn = undefined
+        }
+        if (drag === undefined) throw new Error('MOVE mode with no drag in progress')
+
+        for (const e of drag.entities) {
+            const container = EntityContainer.containerOf(e.entityNumber)
+            container.setDragOffset({ x: 0, y: 0 })
+            this.overlayContainer.moveSelectionHighlight(e.entityNumber, container.position)
+            this.overlayContainer.setSelectionHighlightBlocked(e.entityNumber, false)
+        }
+
+        this.setMode(EditorMode.NONE)
+        this.cursor = undefined
+        this.updateHoverContainer()
+
+        if (cancel) return
+        if (!drag.moved) {
+            // updateHoverContainer just re-hovered whatever is under the pointer
+            if (this.hoverContainer?.entity === drag.pressed) {
+                this.openEditor()
+            }
+            return
+        }
+
+        const targets = this.translationsOf(drag.entities, drag.delta)
+        if (!this.canRelocateGroup(targets)) return
+        this.bp.history.transaction('Move selection', () => {
+            this.withDeferredSort(() => {
+                for (const { entity, position } of targets) {
+                    entity.relocate(position)
+                }
+            })
+        })
+    }
+
+    private translationsOf(entities: readonly Entity[], delta: IPoint): GroupRelocation[] {
+        return entities.map(entity => ({
+            entity,
+            position: { x: entity.position.x + delta.x, y: entity.position.y + delta.y },
+            direction: entity.direction,
+        }))
+    }
+
+    /**
+     * Whether the group fits its targets and every wire that reaches now still
+     * reaches afterwards - the two checks `Entity.position`'s setter makes for
+     * one entity, made for the group at once so members do not block each
+     * other. The wire rule is the setter's exactly: a wire that already does
+     * not reach is not a reason to refuse, only one this move would break.
+     */
+    private canRelocateGroup(targets: readonly GroupRelocation[]): boolean {
+        if (!this.bp.entityPositionGrid.canGroupRelocate(targets)) return false
+        if (!this.limitWireReach) return true
+
+        const destination = new Map(targets.map(t => [t.entity, t.position]))
+        return targets.every(({ entity, position }) =>
+            this.bp.wireConnections.getEntityConnections(entity.entityNumber).every(c => {
+                const otherNumber =
+                    c.cps[0].entityNumber === entity.entityNumber
+                        ? c.cps[1].entityNumber
+                        : c.cps[0].entityNumber
+                const other = this.bp.entities.get(otherNumber)
+                if (other === undefined) return true
+                if (!WireConnections.reaches(entity, other)) return true
+                return WireConnections.reaches(
+                    entity,
+                    other,
+                    position,
+                    destination.get(other) ?? other.position
+                )
+            })
+        )
+    }
+
+    /**
+     * Mirrors the selection in place about its own bounding box centre, in one
+     * undo step.
+     *
+     * The per-entity maths - the direction constraint, the splitter priority
+     * swap, the refusal for train stops and rail signals - already lives in
+     * `Entity.getFlippedCopy`, which flips about (0, 0) and hands back a
+     * detached copy because its only other caller (PaintBlueprintContainer)
+     * holds a group already re-centred on the origin. So each member is fed
+     * through it as a throwaway re-centred on this selection's centre, and
+     * what comes back is applied to the live entity through its own setters.
+     * The bounding box's edges are whole tiles, so the centre is a whole or
+     * half tile and `2 * centre - position` keeps every member on the parity
+     * its footprint needs.
+     */
+    private mirrorSelection(vertical: boolean): void {
+        const entities = [...this.selectedEntities]
+
+        let minX = Infinity
+        let minY = Infinity
+        let maxX = -Infinity
+        let maxY = -Infinity
+        for (const e of entities) {
+            minX = Math.min(minX, e.position.x - e.size.x / 2)
+            minY = Math.min(minY, e.position.y - e.size.y / 2)
+            maxX = Math.max(maxX, e.position.x + e.size.x / 2)
+            maxY = Math.max(maxY, e.position.y + e.size.y / 2)
+        }
+        const centre = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+
+        let flipped: { entity: Entity; copy: Entity }[]
+        try {
+            flipped = entities.map(entity => ({
+                entity,
+                copy: new Entity(
+                    {
+                        ...entity.rawEntity,
+                        position: {
+                            x: entity.position.x - centre.x,
+                            y: entity.position.y - centre.y,
+                        },
+                    },
+                    this.bp
+                ).getFlippedCopy(vertical),
+            }))
+        } catch (e) {
+            if (e instanceof IllegalFlipError) {
+                G.logger({ text: e.message, type: 'warning' })
+                return
+            }
+            throw e
+        }
+
+        const targets: GroupRelocation[] = flipped.map(({ entity, copy }) => ({
+            entity,
+            position: { x: copy.position.x + centre.x, y: copy.position.y + centre.y },
+            direction: copy.rawEntity.direction ?? 0,
+        }))
+        if (!this.canRelocateGroup(targets)) {
+            G.logger({ text: 'The mirrored selection does not fit.', type: 'warning' })
+            return
+        }
+
+        this.bp.history.transaction(
+            vertical ? 'Mirror selection vertically' : 'Mirror selection horizontally',
+            () => {
+                this.withDeferredSort(() => {
+                    for (let i = 0; i < flipped.length; i++) {
+                        const { entity, copy } = flipped[i]
+                        // position and direction together: the grid needs both (see relocate)
+                        entity.relocate(targets[i].position, targets[i].direction)
+                        entity.splitterInputPriority = copy.splitterInputPriority
+                        entity.splitterOutputPriority = copy.splitterOutputPriority
+                    }
+                })
+            }
+        )
     }
 
     /**
@@ -1057,6 +1552,41 @@ export class BlueprintContainer extends Container {
         this.entitySprites.children.sort(EntitySprite.compareFn)
     }
 
+    /**
+     * True while a bulk operation is deliberately holding off the per-entity
+     * resort `EntityContainer`'s position/direction-change handlers would
+     * otherwise trigger on every single member - read by those handlers
+     * (`sort = !G.BPC.sortDeferred`), the same way `initBP` builds every
+     * `EntityContainer` with `sort = false` and sorts once at the end instead
+     * of once per entity (issue #390).
+     */
+    private deferringSort = false
+
+    public get sortDeferred(): boolean {
+        return this.deferringSort
+    }
+
+    /**
+     * Runs `fn` with the per-entity resort above suppressed, then sorts once
+     * at the end - `exitMoveMode` and `mirrorSelection` wrap their commit
+     * loops in this so relocating N entities costs one sort of the whole
+     * blueprint rather than N.
+     */
+    public withDeferredSort(fn: () => void): void {
+        if (this.deferringSort) {
+            // Already inside an outer deferral - let it own the eventual sort.
+            fn()
+            return
+        }
+        this.deferringSort = true
+        try {
+            fn()
+        } finally {
+            this.deferringSort = false
+            this.sortEntities()
+        }
+    }
+
     public transparentEntities(bool = true): void {
         const alpha = bool ? 0.5 : 1
         this.entitySprites.alpha = alpha
@@ -1151,14 +1681,18 @@ export class BlueprintContainer extends Container {
         try {
             if (typeof itemNameOrEntities === 'string') {
                 const itemData = FD.items[itemNameOrEntities]
-                if (!itemData) throw new Error(`Item data not found: ${itemNameOrEntities}`)
+                if (!itemData)
+                    throw new UnplaceableItemError(`Item data not found: ${itemNameOrEntities}`)
 
                 const wireResult =
                     ToolsPanel.Wires.includes(itemNameOrEntities) && itemNameOrEntities
                 const tileResult = itemData.place_as_tile && itemData.place_as_tile.result
                 const placeResult = itemData.place_result || tileResult || wireResult
 
-                if (!placeResult) throw new Error(`No place result for item: ${itemNameOrEntities}`)
+                if (!placeResult)
+                    throw new UnplaceableItemError(
+                        `No place result for item: ${itemNameOrEntities}`
+                    )
 
                 if (wireResult) {
                     this.paintContainer = this.wirePaintSlot.addChild(
@@ -1180,6 +1714,31 @@ export class BlueprintContainer extends Container {
             }
         } catch (e) {
             console.error('Failed to create paint container:', e)
+            /*
+                Without this the failure was completely silent: the console line
+                is not something a player sees, the mode drops straight back to
+                NONE, and clicking the item simply did nothing. Upstream PR #274
+                raised a toast here too, keyed off the message 'Not implemented!'
+                - a string this fork never produces, so the branch is on
+                UnplaceableItemError instead. That splits the two cases the way
+                they actually differ: an item that places nothing at all, versus
+                a placeable one whose paint preview could not be built (a missing
+                sprite field, getDirName on a diagonal, an unhandled prototype
+                shape).
+
+                `warning` rather than `error`, because nothing is broken and the
+                editor carries on. It also keeps this out of the persistent
+                class: both of the website's `timeout: Infinity` toasts are
+                `error`s that throw straight afterwards, and a mis-click must not
+                leave behind an overlay the user has to dismiss by hand.
+            */
+            G.logger({
+                text:
+                    e instanceof UnplaceableItemError
+                        ? 'Could not place this item.'
+                        : 'This entity is not supported yet.',
+                type: 'warning',
+            })
             this.setMode(EditorMode.NONE)
             this.cursor = 'inherit'
             return

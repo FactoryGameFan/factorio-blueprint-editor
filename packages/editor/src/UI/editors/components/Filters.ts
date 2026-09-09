@@ -272,9 +272,16 @@ export class Filters extends Container<Slot<number>> {
         if (e.button === 0) {
             if (!this.m_Amount || this.m_Filters[index].name === undefined) {
                 this.emit('selection-started')
+                const usedNames = new Set(
+                    this.m_Filters
+                        .filter(filter => filter.index !== index + 1)
+                        .map(filter => filter.name)
+                )
                 const inv = G.UI.createInventory(
                     'Select Filter',
-                    this.m_Entity.acceptedFilters,
+                    this.m_Entity.acceptedFilters.filter(
+                        name => this.m_Entity.type !== 'logistic-container' || !usedNames.has(name)
+                    ),
                     name => {
                         this.m_Filters[index].name = name
                         if (this.m_Amount) {

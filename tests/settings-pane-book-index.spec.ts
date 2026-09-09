@@ -2,8 +2,16 @@ import { test, expect } from '@playwright/test'
 import {
     encodeBlueprintBook as encodeBook,
     packVersion as version,
+    decodeBlueprintString,
 } from './helpers/encode-blueprint'
 import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
+import { openBlueprintInfo, enableSnapToGrid } from './helpers/blueprint-info-dialog'
+import {
+    COL1_X,
+    COL2_X,
+    FIELD_WIDTH,
+    ROW_HEIGHT,
+} from '../packages/editor/src/UI/BlueprintAlignment'
 
 /*
     The settings pane's BP Book Index box, and the first coverage its arrow
@@ -105,6 +113,64 @@ const waitForEntry = (page: Page, index: number): Promise<unknown> =>
 
 test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
+    await page.getByText('Open Settings', { exact: true }).click()
+})
+
+test('Grid position survives repeated book switches without changing exports or other entries', async ({
+    page,
+}) => {
+    await loadBlueprint(page, BOOK)
+    const input = bpIndexInput(page)
+    for (const [index, x, y] of [
+        [0, '10', '-6'],
+        [1, '-7', '12'],
+    ] as const) {
+        await input.blur()
+        const align = await openBlueprintInfo(page)
+        await enableSnapToGrid(page, align)
+        for (const [col, value] of [
+            [COL1_X, x],
+            [COL2_X, y],
+        ] as const) {
+            await page.mouse.click(align.x + col + FIELD_WIDTH / 2, align.y + ROW_HEIGHT * 2 + 14)
+            await page.keyboard.press('ControlOrMeta+A')
+            await page.keyboard.type(value)
+            await page.keyboard.press('Tab')
+        }
+        expect(
+            await page.evaluate(() =>
+                [...document.querySelectorAll('input')]
+                    .filter(el => el.style.cssText !== '')
+                    .map(el => el.value)
+                    .slice(3, 5)
+            )
+        ).toEqual([x, y])
+        await input.click()
+        await page.keyboard.press('ArrowUp')
+        await waitForEntry(page, index + 1)
+    }
+    const before = decodeBlueprintString(
+        await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    )
+    for (const index of [1, 0, 1, 0]) {
+        await input.click()
+        await page.keyboard.press(
+            index === 1 && (await input.inputValue()) === '0' ? 'ArrowUp' : 'ArrowDown'
+        )
+        await waitForEntry(page, index)
+        await input.blur()
+        await openBlueprintInfo(page)
+        const values = await page.evaluate(() =>
+            [...document.querySelectorAll('input')]
+                .filter(el => el.style.cssText !== '')
+                .map(el => el.value)
+        )
+        expect(values.slice(3, 5)).toEqual(index === 0 ? ['10', '-6'] : ['-7', '12'])
+        const after = decodeBlueprintString(
+            await page.evaluate(() => window.__fbe_test.encodeLoaded())
+        )
+        expect(after.blueprint_book.blueprints).toEqual(before.blueprint_book.blueprints)
+    }
 })
 
 test('CONTROL: the arrow keys step the book index twice over, with no dialog involved', async ({

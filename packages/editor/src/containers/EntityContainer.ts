@@ -51,6 +51,15 @@ export class EntityContainer {
     private undergroundLine: Container | undefined
 
     private readonly m_Entity: Entity
+    /*
+        Where the sprites are drawn relative to where the model says the entity
+        is, in pixels. Non-zero only while the entity is being dragged as part of
+        a selection: the drag previews with the real sprites and writes nothing
+        to the model until the drop, so this is the whole of the preview. Held
+        here rather than recomputed so a redraw mid-drag lands the fresh sprites
+        in the same displaced place.
+    */
+    private dragOffset: IPoint = { x: 0, y: 0 }
 
     public constructor(entity: Entity, sort = true) {
         this.m_Entity = entity
@@ -241,8 +250,10 @@ export class EntityContainer {
                 updates: ['stone-wall', 'gate', 'legacy-straight-rail', 'straight-rail'],
             },
             {
-                is: ['cargo-bay', 'cargo-landing-pad'],
-                updates: ['cargo-bay', 'cargo-landing-pad'],
+                // A platform hub carries the same connection graphics and joins
+                // to a bay in game, so it has to redraw with them (issue #364).
+                is: ['cargo-bay', 'cargo-landing-pad', 'space-platform-hub'],
+                updates: ['cargo-bay', 'cargo-landing-pad', 'space-platform-hub'],
             },
         ]
 
@@ -295,6 +306,35 @@ export class EntityContainer {
         return {
             x: this.m_Entity.position.x * 32,
             y: this.m_Entity.position.y * 32,
+        }
+    }
+
+    /**
+     * Shifts the drawn sprites and the info overlay without touching the model
+     * - the move-drag preview. Zero puts them back. The wires are not shifted:
+     * `WiresContainer` draws from model positions and re-reads them on the
+     * position event the drop emits, so they catch up on commit rather than
+     * following the drag.
+     */
+    /** Where the sprites are drawn relative to the model, in pixels; zero outside a drag. See tests/persistent-selection.spec.ts. */
+    public get dragOffsetPx(): IPoint {
+        return { ...this.dragOffset }
+    }
+
+    public setDragOffset(offset: IPoint): void {
+        const dx = offset.x - this.dragOffset.x
+        const dy = offset.y - this.dragOffset.y
+        this.dragOffset = offset
+        this.shiftDrawn(dx, dy)
+    }
+
+    private shiftDrawn(dx: number, dy: number): void {
+        if (dx === 0 && dy === 0) return
+        for (const s of this.entitySprites) {
+            s.position.set(s.x + dx, s.y + dy)
+        }
+        if (this.entityInfo !== undefined) {
+            this.entityInfo.position.set(this.entityInfo.x + dx, this.entityInfo.y + dy)
         }
     }
 
@@ -364,6 +404,12 @@ export class EntityContainer {
                 this.entityInfo.destroy()
             }
             this.entityInfo = G.BPC.overlayContainer.createEntityInfo(this.m_Entity, this.position)
+            if (this.entityInfo !== undefined) {
+                this.entityInfo.position.set(
+                    this.entityInfo.x + this.dragOffset.x,
+                    this.entityInfo.y + this.dragOffset.y
+                )
+            }
         }
 
         G.UI.updateEntityInfoPanel(this.m_Entity)
@@ -449,7 +495,7 @@ export class EntityContainer {
         }
     }
 
-    public redraw(ignoreConnections?: boolean, sort?: boolean): void {
+    public redraw(ignoreConnections?: boolean, sort = !G.BPC.sortDeferred): void {
         for (const s of this.entitySprites) {
             s.destroy()
         }
@@ -458,6 +504,9 @@ export class EntityContainer {
             this.position,
             ignoreConnections ? undefined : G.bp.entityPositionGrid
         )
+        for (const s of this.entitySprites) {
+            s.position.set(s.x + this.dragOffset.x, s.y + this.dragOffset.y)
+        }
         G.BPC.addEntitySprites(this.entitySprites, sort)
     }
 }

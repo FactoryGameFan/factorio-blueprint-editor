@@ -19,6 +19,13 @@ interface INeighbourData extends IPoint {
     entity: Entity | undefined
 }
 
+/** One member of a group move: where it is going and which way it will face there. */
+export interface GroupRelocation {
+    entity: Entity
+    position: IPoint
+    direction: number
+}
+
 /** Moves X and Y to top left corner from middle (anchor 0.5 0.5 => 0 0) */
 const processArea = (area: IArea): IArea => ({
     ...area,
@@ -91,7 +98,8 @@ const canHoldASignalOnItsTiles = (rail: Entity): boolean => {
  * straight and half-diagonal orientations, with `getPossibleRotations` giving a
  * gate [0, 4, 8, 12] and every rail [0, 2, 4, 6, 8, 10, 12, 14]. The only
  * remaining disagreement on a reachable direction is the gate-on-a-curved-rail
- * refusal, which is #133.
+ * refusal, which #133 item 3 costed and then closed as not worth doing: an
+ * exact gate table would remove almost nothing.
  *
  * They disagree on *un*reachable ones, and it is worth knowing why rather than
  * discovering it later: the caller compares `direction % 8`, where a gate has
@@ -228,8 +236,10 @@ const STRAIGHT_RAIL_NAMES = new Set([
  *
  * What stays refused and should not: an identical curved rail at an identical
  * direction, 24 rows of it, because a curved rail's rectangle holds a curve and
- * nothing on this grid can say which cells the curve uses. That is issue #133
- * item 1 and needs occupancy shapes, not another comparison here.
+ * nothing on this grid can say which cells the curve uses. That is #133 item
+ * 1, which PR #138 measured and closed as not implementable as written:
+ * occupancy is not a property of the rail, because which cells it blocks
+ * depends on the size of the box asking. Not another comparison here either.
  */
 const railOccupiesTheSameCells = (rail: Entity, name: string, direction: number): boolean => {
     const nd = normaliseRailDirection(name, direction)
@@ -398,13 +408,22 @@ export class PositionGrid {
         )
     }
 
-    public removeTileData(entity: Entity, position: IPoint = entity.position): void {
+    /**
+     * `size` is for the one caller whose entity has already turned: cells were
+     * laid with the footprint the entity had at the time, and `entity.size`
+     * reads the direction it has now. `Entity.relocate` passes the old one.
+     */
+    public removeTileData(
+        entity: Entity,
+        position: IPoint = entity.position,
+        size: IPoint = entity.size
+    ): void {
         this.tileDataAction(
             {
                 x: position.x,
                 y: position.y,
-                w: entity.size.x,
-                h: entity.size.y,
+                w: size.x,
+                h: size.y,
             },
             (key, cell) => {
                 if (typeof cell === 'number') {
@@ -439,6 +458,28 @@ export class PositionGrid {
     }
 
     /**
+     * Whether every entity in the group may take its target at once.
+     *
+     * `canMoveTo` above answers for one entity by lifting only that entity out
+     * of the grid before asking - so asked once per member of a group that is
+     * moving together, it reports a member as blocked by a neighbour that is
+     * itself about to move out of the way, and refuses a group whose members
+     * trade places even though the group as a whole fits. Every member is
+     * excluded here at once, via `isAreaAvailable`'s `ignore` set, rather than
+     * one at a time.
+     *
+     * A check only. Nothing is written; the caller commits through
+     * `Entity.relocate`, which is what lets it skip the per-member check the
+     * `position` setter would otherwise repeat one member at a time.
+     */
+    public canGroupRelocate(targets: readonly GroupRelocation[]): boolean {
+        const group = new Set(targets.map(t => t.entity))
+        return targets.every(({ entity, position, direction }) =>
+            this.isAreaAvailable(entity.name, position, direction, group)
+        )
+    }
+
+    /**
      * Whether an entity may be placed here - true means placeable.
      *
      * **The rail rules are permissive on purpose, and the exceptions are
@@ -446,7 +487,9 @@ export class PositionGrid {
      * not: a curved-rail-a is a 2x6 rectangle here holding a curve and a
      * half-diagonal-rail a 2x2 square against a collision box spanning roughly
      * 1.5x4.5. Modelling the real rules means per-rail collision shapes rather
-     * than rectangles, which is its own piece of work - issue #133.
+     * than rectangles, and #133 item 1 measured that no single such shape can
+     * be right: which cells a rail blocks depends on the size of the box
+     * asking. That item is closed.
      *
      * The four elevated-* rail types are on their own collision layer rather
      * than their own geometry, so they are handled here (also #133): everything
@@ -464,8 +507,8 @@ export class PositionGrid {
      * one.
      *
      * Known refusals the game would allow, left alone as annoyances rather than
-     * corruptions and tracked in #133: a half-diagonal or curved rail laid over
-     * a gate, and a gate on a curved rail.
+     * corruptions, and costed in #133 before it closed: a half-diagonal or
+     * curved rail laid over a gate, and a gate on a curved rail.
      *
      * One acceptance the layer filter cannot judge, and which stays permissive:
      * a rail signal on an elevated rail is the same **prototype** as one on the
@@ -473,8 +516,24 @@ export class PositionGrid {
      * `rail-signal/elevated` variant, and only Entity.railLayer knows which a
      * given signal is. This function is handed a name, so every signal is read
      * as a ground one and an elevated rail never blocks it.
+     *
+     * `ignore`, when given, drops the listed entities from consideration
+     * entirely - as if they were not on the grid - without touching the grid
+     * itself. `canGroupRelocate` is the one caller: a group's own members
+     * must not block each other's targets, and lifting every member out with
+     * `removeTileData` first and putting them back in a `finally` used to do
+     * the same job by mutating the grid for the length of the check, which
+     * cost a remove and a re-add per member on every tile a drag crossed and
+     * left a throw between the two a way to leave the grid missing entries
+     * the blueprint still holds (issue #390). Reading past them here needs
+     * neither.
      */
-    public isAreaAvailable(name: string, pos: IPoint, direction = 0): boolean {
+    public isAreaAvailable(
+        name: string,
+        pos: IPoint,
+        direction = 0,
+        ignore?: ReadonlySet<Entity>
+    ): boolean {
         const placed = { name, type: FD.entities[name].type }
         const size = getEntitySize(FD.entities[name], direction)
 
@@ -525,9 +584,9 @@ export class PositionGrid {
             the elevated layer *and* is not a rail, and no rail rule below fires
             for such a name.
         */
-        const entitiesInArea = this.getEntitiesInArea(area).filter(entity =>
-            canCollide(placed, entity)
-        )
+        const entitiesInArea = this.getEntitiesInArea(area)
+            .filter(entity => !ignore?.has(entity))
+            .filter(entity => canCollide(placed, entity))
         if (entitiesInArea.length === 0) return true
 
         for (const entity of entitiesInArea) {
@@ -725,6 +784,22 @@ export class PositionGrid {
         return entity
     }
 
+    /**
+     * The entity number of the underground partner of an entity, if it has one.
+     *
+     * Walks `searchDirection` one tile at a time out to `maxDistance`, and stops
+     * at the first entity of the same name it meets: that entity is the partner
+     * when it faces `direction`, and blocks the pair when it faces the opposite
+     * way, exactly as Factorio's own underground connections do.
+     *
+     * `searchDirection` is a 16-way direction (north 0, east 4, south 8, west
+     * 12), which is what all three callers pass. It used to be read as Factorio
+     * 1.1's 8-way scheme - `searchDirection % 4 !== 0` for a horizontal search
+     * and a negative step for 0 or 6 - and neither test survives the 16-way
+     * values: every cardinal is a multiple of 4, so an east or west underground
+     * searched along Y and could never find its partner, and 6 is not a
+     * direction at all, so west searched towards +X (issue #329).
+     */
     public getOpposingEntity(
         name: string,
         direction: number,
@@ -735,12 +810,13 @@ export class PositionGrid {
         // no reach to search along; the loop below already expressed this by not running
         if (maxDistance === undefined) return undefined
 
-        const horizontal = searchDirection % 4 !== 0
-        const sign = searchDirection === 0 || searchDirection === 6 ? -1 : 1
+        const step = util.getDirOffset(searchDirection)
+        // a diagonal has no axis to walk, so nothing can be its partner
+        if (step === undefined) return undefined
 
         for (let i = 1; i <= maxDistance; i++) {
-            const X = Math.floor(position.x) + (horizontal ? i * sign : 0)
-            const Y = Math.floor(position.y) + (horizontal ? 0 : i * sign)
+            const X = Math.floor(position.x) + step.x * i
+            const Y = Math.floor(position.y) + step.y * i
             const cell = this.grid.get(`${X},${Y}`)
 
             if (typeof cell === 'number') {
