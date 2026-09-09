@@ -73,6 +73,34 @@ Rust tests. Repeat with representative sprites from the intended installation
    data-only refresh separate from exporter changes and justify any sprite diff
    with source/output evidence.
 
+## 2.0.77 JSON refresh (2026-09-09)
+
+The committed `data.json` was extracted on Windows from Factorio 2.0.77 with
+`base`, `quality`, `elevated-rails`, `space-age` and the export mod enabled in
+the isolated profile. The normal profile's configuration, mod list/settings,
+blueprint storage and player-data hashes were unchanged; installation file
+sizes and modification times were unchanged.
+
+Compared with `1e19bf55`, all prototype counts and non-locale values are
+unchanged. Seven locale fields change: rail instructions include switching
+layers; space science describes asteroid processing; the landing pad, rocket
+silo and offshore pump use their Space Age descriptions; and the crash-site
+chest's name and description match the installed base locale. These values
+were checked against the installed English locale files. JSON object-key order
+also changes, with no semantic effect.
+
+All 439 unit tests and the 11 dataset-sensitive browser tests (round-trip,
+entity accessors, overlays, recipe shapes and sprite data) passed without
+changing expectations. The exporter isolation tests passed on Windows.
+
+Sprites remain at the previous baseline. Windows basisu 1.16.4 repeats its
+own output, including with `-no_sse`, but differs from the macOS samples above:
+the favicon is 6612 bytes and the preview 295437 bytes. Three real sprite
+samples also differed from committed encodes; one decoded identically, while
+two had different decoded slice CRCs. Without the original source hashes,
+encoder differences cannot be separated from game changes. A full sprite
+refresh still needs that review; this JSON-only step does not close #155.
+
 The [2.0.77 refresh (#155)](https://github.com/FactoryGameFan/factorio-blueprint-editor/issues/155)
 and [2.1 migration (#187)](https://github.com/FactoryGameFan/factorio-blueprint-editor/issues/187)
 remain separate efforts. The latter also requires the stable-release and type
