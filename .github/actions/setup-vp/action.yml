@@ -82,7 +82,7 @@ runs:
         # a bump is a guaranteed cache miss with no existing install to reuse -
         # a layout break would be certain, not intermittent.
         curl -fsSL https://vite.plus -o vp-install.sh
-        echo "3dd88cedb6d9b2665c305eda5413971417c8f183a819386148131b66a2cc6b2e  vp-install.sh" | sha256sum -c -
+        echo "d4a1ffa8245bdfcf39a786d545be6a43e231b771c32d7c02414bb96d4f5d9cdc  vp-install.sh" | sha256sum -c -
         VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh
