@@ -77,8 +77,8 @@ Rust tests. Repeat with representative sprites from the intended installation
 
 The committed `data.json` was extracted on Windows from Factorio 2.0.77 with
 `base`, `quality`, `elevated-rails`, `space-age` and the export mod enabled in
-the isolated profile. The normal profile's configuration, mod list/settings,
-blueprint storage and player-data hashes were unchanged; installation file
+the isolated profile. The normal profile's configuration, mod list/settings
+and player-data hashes were unchanged; installation file
 sizes and modification times were unchanged.
 
 Compared with `1e19bf55`, all prototype counts and non-locale values are
