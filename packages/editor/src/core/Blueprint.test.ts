@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
 import { Blueprint } from './Blueprint'
-import { ISignal } from '../types'
+import { Book } from './Book'
+import { IBlueprint, ISignal } from '../types'
 import { encode, getAndClearLoadWarnings, getBlueprintOrBookFromSource } from './bpString'
 import { loadData } from './factorioData'
 
@@ -69,6 +70,61 @@ beforeAll(() => {
             defines: {},
         })
     )
+})
+
+describe('Blueprint opaque metadata (issue #336)', () => {
+    const metadata = {
+        parameters: [{ type: 'id', id: 'parameter-0', name: 'Select the item to load' }],
+        stock_connections: [{ stock: 1, front: 2 }],
+    }
+
+    it.each([metadata, { parameters: [], stock_connections: [] }, {}])(
+        'preserves populated, empty and absent metadata through encode/decode: %j',
+        async (fields: Partial<IBlueprint>) => {
+            const blueprint = new Blueprint(fields)
+            const loaded = await getBlueprintOrBookFromSource(await encode(blueprint))
+            if (!(loaded instanceof Blueprint)) throw new Error('Expected a blueprint')
+            const serialized = loaded.serialize()
+            expect(serialized).toMatchObject(fields)
+            expect(JSON.parse(JSON.stringify(serialized))).toEqual(
+                JSON.parse(JSON.stringify(blueprint.serialize()))
+            )
+            for (const key of ['parameters', 'stock_connections'] as const) {
+                expect(serialized[key]).toEqual(fields[key])
+            }
+        }
+    )
+
+    it('keeps metadata on visited, revisited and untouched nested book entries', async () => {
+        const entries = [metadata, { parameters: [], stock_connections: [] }, metadata].map(
+            (fields, index) => ({ index, blueprint: new Blueprint(fields).serialize() })
+        )
+        const book = new Book({
+            item: 'blueprint-book',
+            version: entries[0].blueprint.version,
+            active_index: 0,
+            blueprints: [
+                {
+                    index: 0,
+                    blueprint_book: {
+                        item: 'blueprint-book',
+                        version: entries[0].blueprint.version,
+                        active_index: 0,
+                        blueprints: entries,
+                    },
+                },
+            ],
+        })
+        book.selectBlueprint(0)
+        book.selectBlueprint(1)
+        book.selectBlueprint(0)
+        const loaded = await getBlueprintOrBookFromSource(await encode(book))
+        if (!(loaded instanceof Book)) throw new Error('Expected a book')
+        expect(loaded.serialize().blueprints?.[0].blueprint_book?.blueprints).toEqual(entries)
+        expect(entries[0].blueprint).toMatchObject(metadata)
+        expect(entries[1].blueprint).toMatchObject({ parameters: [], stock_connections: [] })
+        expect(entries[2].blueprint).toMatchObject(metadata)
+    })
 })
 
 describe('Blueprint icon generation', () => {

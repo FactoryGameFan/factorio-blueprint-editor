@@ -90,6 +90,9 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
         let positionChecksum = 0
         let modelPositionChecksum = 0
         let serializedHash = 5381
+        let withoutMetadataHash = 5381
+        let parameterBlueprints = 0
+        let stockConnectionBlueprints = 0
 
         for (const str of strings) {
             const loaded = await api.getBlueprintOrBookFromSource(str)
@@ -140,6 +143,10 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
                 }
 
                 serializedHash = hashInto(serializedHash, JSON.stringify(obj))
+                const { parameters, stock_connections, ...withoutMetadata } = obj
+                if (parameters !== undefined) parameterBlueprints += 1
+                if (stock_connections !== undefined) stockConnectionBlueprints += 1
+                withoutMetadataHash = hashInto(withoutMetadataHash, JSON.stringify(withoutMetadata))
             }
         }
 
@@ -153,6 +160,9 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
             positionChecksum,
             modelPositionChecksum,
             serializedHash,
+            withoutMetadataHash,
+            parameterBlueprints,
+            stockConnectionBlueprints,
         }
     }, sources)
 
@@ -211,5 +221,10 @@ const EXPECTED = {
     threw: 0,
     positionChecksum: -44088168,
     modelPositionChecksum: -63922400,
-    serializedHash: 568918011,
+    // #336 preserves previously discarded metadata. Removing only those two
+    // fields reproduces the prior hash; all geometry and counts above hold.
+    serializedHash: 1944909146,
+    withoutMetadataHash: 568918011,
+    parameterBlueprints: 97,
+    stockConnectionBlueprints: 28,
 }
