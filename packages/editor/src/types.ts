@@ -722,6 +722,8 @@ export interface IBlueprint {
     entities?: IEntity[]
     tiles?: ITile[]
     schedules?: ISchedule[]
+    parameters?: unknown[]
+    stock_connections?: unknown[]
     'absolute-snapping'?: boolean
     'snap-to-grid'?: IPoint
     'position-relative-to-grid'?: IPoint

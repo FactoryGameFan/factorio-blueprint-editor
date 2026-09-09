@@ -168,6 +168,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
     public readonly history = new History()
 
     // unused blueprint properties
+    private readonly parameters?: unknown[]
+    private readonly stockConnections?: unknown[]
     /*
         Boxed, unlike its neighbours, because it is the one of them that changes:
         `setSchedule` rewrites it when a locomotive is pasted onto (issue #115),
@@ -483,6 +485,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             }
 
             this.description = data.description
+            this.parameters = data.parameters
+            this.stockConnections = data.stock_connections
             this.scheduleStore.schedules = data.schedules
             this.snapToGridStore.snapToGrid = data['snap-to-grid']
             this.absoluteSnappingStore.absoluteSnapping = data['absolute-snapping']
@@ -1366,6 +1370,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             label: this.name,
             description: this.description,
             schedules: this.scheduleStore.schedules,
+            parameters: this.parameters,
+            stock_connections: this.stockConnections,
             'absolute-snapping': snapToGrid && absoluteSnapping ? true : undefined,
             'snap-to-grid': snapToGrid,
             'position-relative-to-grid':
