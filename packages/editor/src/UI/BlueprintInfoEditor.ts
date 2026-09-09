@@ -37,25 +37,7 @@ class BlueprintIconSlot extends Slot<undefined> {
         if (name === undefined) {
             if (this.content !== undefined) this.content = undefined
         } else {
-            try {
-                this.content = F.CreateIcon(name)
-            } catch (error) {
-                /*
-                    `CreateIcon` only resolves item/fluid/recipe/signal/
-                    inventory-group names - nothing in `FD` covers the
-                    `space-location` icons (planet names: vulcanus, fulgora,
-                    gleba...) Space Age blueprints and books carry, since the
-                    exporter emits no such collection at all. Uncaught, this
-                    took the whole dialog constructor down with it (five
-                    corpus files hit it). A blank slot costs one icon; the
-                    warning names which one.
-                */
-                G.logger({
-                    text: `Could not build the "${name}" blueprint icon: ${String(error)}`,
-                    type: 'warning',
-                })
-                if (this.content !== undefined) this.content = undefined
-            }
+            this.content = F.SafeIcon(name, () => F.CreateIcon(name))
         }
         this.emit('changed')
     }

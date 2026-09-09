@@ -83,6 +83,31 @@ test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
 })
 
+test('planet blueprint icons warn without breaking the dialog or keyboard shortcuts (#231)', async ({
+    page,
+}) => {
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    const icons = ['vulcanus', 'fulgora', 'gleba', 'nauvis'].map((name, i) => ({
+        index: i + 1,
+        signal: { type: 'space-location', name },
+    }))
+    await loadBlueprint(page, encode({ item: 'blueprint', version: VERSION, icons }))
+
+    await openBlueprintInfo(page)
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    for (const { signal } of icons) {
+        await expect(page.locator('.toasts-warning', { hasText: signal.name })).toBeVisible()
+    }
+    expect(decodeBlueprintString(await encodeLoaded(page)).blueprint.icons).toEqual(icons)
+
+    await page.keyboard.press('Escape')
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+    await page.keyboard.press('e')
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    expect(errors).toEqual([])
+})
+
 test('typing into Absolute X and switching to Relative before blur does not commit a phantom origin position (#243 finding 2)', async ({
     page,
 }) => {
