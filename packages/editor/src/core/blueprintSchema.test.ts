@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
-import * as pako from 'pako'
 import { Blueprint } from './Blueprint'
 import { getAndClearLoadWarnings, getBlueprintOrBookFromSource } from './bpString'
 import { loadData } from './factorioData'
@@ -61,7 +60,7 @@ const VERSION_2_1_12 = 2 * 2 ** 48 + 1 * 2 ** 32 + 12 * 2 ** 16
  * out rather than reusing `encode()`, which serialises a `Blueprint` - the two
  * controls below need a key the model would be free to drop on its way through.
  */
-const sourceFor = (decider_conditions: Record<string, unknown>): string => {
+const sourceFor = (decider_conditions: Record<string, unknown>): Promise<string> => {
     return encodeRoot({
         blueprint: {
             item: 'blueprint',
@@ -80,15 +79,18 @@ const sourceFor = (decider_conditions: Record<string, unknown>): string => {
     })
 }
 
-const encodeRoot = (data: unknown): string => {
-    const json = JSON.stringify(data)
+const encodeRoot = async (data: unknown): Promise<string> => {
+    const compressed = new Blob([JSON.stringify(data)])
+        .stream()
+        .pipeThrough(new CompressionStream('deflate'))
     let binary = ''
-    for (const byte of pako.deflate(json)) binary += String.fromCharCode(byte)
+    for (const byte of new Uint8Array(await new Response(compressed).arrayBuffer()))
+        binary += String.fromCharCode(byte)
     return `0${btoa(binary)}`
 }
 
 const load = async (decider_conditions: Record<string, unknown>) => {
-    const bp = await getBlueprintOrBookFromSource(sourceFor(decider_conditions))
+    const bp = await getBlueprintOrBookFromSource(await sourceFor(decider_conditions))
     if (!(bp instanceof Blueprint)) throw new Error('expected a blueprint, got a book')
     return {
         warnings: getAndClearLoadWarnings(),
@@ -123,16 +125,18 @@ describe('a leftover book-slot index at the root (#383)', () => {
             },
         },
     ])('ignores only the root index and preserves the loaded data: %j', async root => {
-        const original = await getBlueprintOrBookFromSource(encodeRoot(root))
+        const original = await getBlueprintOrBookFromSource(await encodeRoot(root))
         expect(getAndClearLoadWarnings()).toEqual([])
-        const loaded = await getBlueprintOrBookFromSource(encodeRoot({ ...root, index: 5 }))
+        const loaded = await getBlueprintOrBookFromSource(await encodeRoot({ ...root, index: 5 }))
         expect(getAndClearLoadWarnings()).toEqual([])
         expect(loaded.serialize()).toEqual(original.serialize())
         expect(loaded).toEqual(original)
     })
 
     it('still warns for another unknown root key alongside index', async () => {
-        await getBlueprintOrBookFromSource(encodeRoot({ blueprint, index: 5, unexpected: true }))
+        await getBlueprintOrBookFromSource(
+            await encodeRoot({ blueprint, index: 5, unexpected: true })
+        )
         expect(getAndClearLoadWarnings()).toEqual([
             'Blueprint had validation warnings (loaded anyway)',
         ])
