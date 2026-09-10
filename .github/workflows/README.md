@@ -71,9 +71,10 @@ It fails open. Any error listing the files leaves both outputs true and the run
 does everything. A wasted run costs minutes. A gate that skips itself quietly
 costs a bad merge.
 
-`web` is the loose one. Anything at all outside `packages/exporter` turns it on,
-so a README-only change still runs Playwright. That wastes a few minutes and
-cannot miss a real change.
+`web` is the loose one. Anything outside `packages/exporter`, or inside its
+`data/output` directory, turns it on. The generated JSON and textures are web
+inputs, so a dataset-only PR must run Playwright too. A README-only change
+outside the exporter still runs Playwright.
 
 Anything that is not a pull request runs every job. `deploy` is gated on `checks`
 and `e2e`, so narrowing either one on a push would change when the site ships.

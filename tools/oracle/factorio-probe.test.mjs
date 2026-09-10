@@ -13,7 +13,7 @@ import { prepareProbe, runProbe } from './factorio-probe.mjs'
  * verdict - a probe signals success with a deliberate `error("DUMPED-OK")` - so
  * the fake writes a dump and returns cleanly.
  */
-function runAgainstFakeFactorio() {
+function runAgainstFakeFactorio(layout = 'bin/x64') {
     const probe = prepareProbe({
         name: 'runner_test',
         title: 'Runner test',
@@ -21,12 +21,20 @@ function runAgainstFakeFactorio() {
         dependencies: ['base'],
     })
     const expected = { ok: true }
+    const installation = join(probe.work, 'Factorio install')
+    const bin = join(installation, layout, 'factorio')
+    mkdirSync(join(installation, 'data', 'core'), { recursive: true })
     const { text } = runProbe({
         ...probe,
-        bin: 'factorio',
+        bin,
         dump: 'result.json',
         spawn: (_bin, _args, options) => {
             assert.equal(options.encoding, 'utf8')
+            assert.ok(
+                readFileSync(join(probe.work, 'config.ini'), 'utf8').includes(
+                    `read-data=${join(installation, 'data')}\n`
+                )
+            )
             const output = join(probe.writeData, 'script-output')
             mkdirSync(output, { recursive: true })
             writeFileSync(join(probe.work, 'spawned'), '')
@@ -40,6 +48,10 @@ function runAgainstFakeFactorio() {
 test('runProbe returns the dump the probe wrote', () => {
     const { expected, text } = runAgainstFakeFactorio()
     assert.deepEqual(JSON.parse(text), expected)
+})
+
+test('runProbe resolves data beside the macOS executable directory', () => {
+    runAgainstFakeFactorio('MacOS')
 })
 
 test('runProbe actually spawns Factorio', () => {

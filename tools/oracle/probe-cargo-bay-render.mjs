@@ -48,7 +48,7 @@
     (non-headless) install - the 2.0.77 build this editor targets is at
     ~/GitHub/factorio-oracle/installs/factorio-2.0.77.app.
 */
-import { prepareProbe } from './factorio-probe.mjs'
+import { factorioReadData, prepareProbe } from './factorio-probe.mjs'
 import { writeFileSync, existsSync, readdirSync, copyFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -271,7 +271,7 @@ end)
 const config = join(p.work, 'config.ini')
 writeFileSync(
     config,
-    `[path]\nread-data=__PATH__executable__/../data\nwrite-data=${p.writeData}\n[general]\n[graphics]\nfull-screen=false\nwindow-size=640x480\n[other]\n`
+    `[path]\nread-data=${factorioReadData(BIN)}\nwrite-data=${p.writeData}\n[general]\n[graphics]\nfull-screen=false\nwindow-size=640x480\n[other]\n`
 )
 const map = join(p.work, 'probe.zip')
 const common = ['--mod-directory', p.modDir, '--config', config]

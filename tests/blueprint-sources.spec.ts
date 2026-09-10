@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
 import { waitForEditor } from './helpers/fbe-test-api'
 
+// #420 timed out without a stack locating the stalled operation. Preserve the
+// browser/network timeline on failure without retries or a longer timeout.
+test.use({ trace: 'retain-on-failure' })
+
 /*
     The `?source=` handlers in bpString.ts - issue #124.
 

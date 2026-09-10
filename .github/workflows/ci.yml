@@ -88,10 +88,11 @@ jobs:
           fi
 
           # `web` is deliberately the loose one: anything at all outside the
-          # exporter turns it on. That runs `checks` and Playwright for a
-          # README-only change, which wastes a few minutes and cannot miss a
-          # real one.
-          if grep --quiet --invert-match '^packages/exporter/' <<< "$files"; then
+          # exporter, or its generated web assets, turns it on. That runs
+          # `checks` and Playwright for a README-only change, which wastes a
+          # few minutes and cannot miss a real one.
+          if grep --quiet --invert-match '^packages/exporter/' <<< "$files" ||
+             grep --quiet '^packages/exporter/data/output/' <<< "$files"; then
             web=true
           else
             web=false
@@ -122,7 +123,9 @@ jobs:
 
       - name: Unit tests
         if: ${{ !cancelled() }}
-        run: vp test
+        run: |
+          bash scripts/ci-changes.test.sh
+          vp test
 
   rust:
     name: Rust exporter
