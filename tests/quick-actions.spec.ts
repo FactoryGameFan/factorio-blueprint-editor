@@ -617,8 +617,9 @@ test('the export field re-encodes only when the blueprint actually changes, not 
         .poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount()), { timeout: 2000 })
         .toBe(2)
 
+    // encodeCount records invocation; native compression settles asynchronously.
+    await expect(exportTextarea(page)).not.toHaveValue(textBefore)
     const textAfter = await exportTextarea(page).inputValue()
-    expect(textAfter).not.toBe(textBefore)
     expect(decodeBlueprintString(textAfter).blueprint.entities).toHaveLength(1)
 })
 

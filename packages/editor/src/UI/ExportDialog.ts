@@ -56,7 +56,7 @@ export class ExportDialog extends Dialog {
      * How many times `refreshText` has been *called* this dialog's lifetime
      * - not how many times the `serialize` + `deflate` it starts has
      * actually finished, which this used to claim (#242 review):
-     * `m_EncodeCount += 1` is `refreshText`'s first line, so it moves
+     * The counter increments on `refreshText`'s first line, so it moves
      * synchronously, before `encodeCurrent()`'s promise resolves. That is
      * also why a caller does not need to poll for the value right after
      * `openExportDialog()` returns - it is already whatever it will be, the
@@ -182,10 +182,11 @@ export class ExportDialog extends Dialog {
     }
 
     private refreshText({ select }: { select: boolean }): void {
-        this.m_EncodeCount += 1
+        const encodeCount = ++this.m_EncodeCount
         G.quickActions
             .encodeCurrent()
             .then(source => {
+                if (this.destroyed || encodeCount !== this.m_EncodeCount) return
                 this.m_TextInput.text = source ?? ''
                 if (!select) return
                 /*
@@ -206,12 +207,16 @@ export class ExportDialog extends Dialog {
                     happened this tick.
                 */
                 G.app.ticker.addOnce(
-                    () => this.m_TextInput.select(),
+                    () => {
+                        if (!this.destroyed && encodeCount === this.m_EncodeCount)
+                            this.m_TextInput.select()
+                    },
                     undefined,
                     UPDATE_PRIORITY.UTILITY
                 )
             })
             .catch((error: unknown) => {
+                if (this.destroyed || encodeCount !== this.m_EncodeCount) return
                 G.logger({ text: String(error), type: 'error' })
             })
     }

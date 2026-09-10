@@ -1,5 +1,4 @@
 import Ajv, { KeywordDefinition } from 'ajv'
-import * as pako from 'pako'
 import { IBlueprint, IBlueprintBook, IBlueprintBookEntry } from '../types'
 import G from '../common/globals'
 import FD from './factorioData'
@@ -29,7 +28,7 @@ import { migrateNames } from './nameMigrations'
     in tests/blueprint-string-tolerance.spec.ts and leaves the whitespace ones
     passing.
 */
-const base64ToBytes = (s: string): Uint8Array => {
+const base64ToBytes = (s: string): Uint8Array<ArrayBuffer> => {
     const normalised = s
         .replace(/-/g, '+')
         .replace(/_/g, '/')
@@ -204,19 +203,22 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
 }
 
 function decode(str: string): Promise<Blueprint | Book> {
-    return new Promise((resolve, reject) => {
+    return (async () => {
         try {
             const decodedStr = base64ToBytes(str.slice(1))
-            const parsedData = JSON.parse(pako.inflate(decodedStr, { toText: true }))
+            const inflated = new Blob([decodedStr])
+                .stream()
+                .pipeThrough(new DecompressionStream('deflate'))
+            const parsedData = JSON.parse(await new Response(inflated).text())
             // Factorio ignores a leftover book-slot index at the root (#383).
             if (parsedData !== null && typeof parsedData === 'object') delete parsedData.index
             // Before validation, since the schema checks names against FD.
             migrateNames(parsedData)
-            resolve(parsedData)
+            return parsedData
         } catch (e) {
-            reject(new CorruptedBlueprintStringError(e))
+            throw new CorruptedBlueprintStringError(e)
         }
-    }).then(data => {
+    })().then(data => {
         if (G.debug) console.log(data)
         loadWarnings = []
         if (!validate(data)) {
@@ -261,17 +263,13 @@ function decode(str: string): Promise<Blueprint | Book> {
     })
 }
 
-function encode(bpOrBook: Blueprint | Book): Promise<string> {
-    return new Promise((resolve, reject) => {
-        try {
-            const keyName = bpOrBook instanceof Blueprint ? 'blueprint' : 'blueprint_book'
-            const data = { [keyName]: bpOrBook.serialize() }
-            const string = JSON.stringify(data)
-            resolve(`0${bytesToBase64(pako.deflate(string))}`)
-        } catch (e) {
-            reject(e)
-        }
-    })
+async function encode(bpOrBook: Blueprint | Book): Promise<string> {
+    const keyName = bpOrBook instanceof Blueprint ? 'blueprint' : 'blueprint_book'
+    const data = { [keyName]: bpOrBook.serialize() }
+    const deflated = new Blob([JSON.stringify(data)])
+        .stream()
+        .pipeThrough(new CompressionStream('deflate'))
+    return `0${bytesToBase64(new Uint8Array(await new Response(deflated).arrayBuffer()))}`
 }
 
 function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book> {
