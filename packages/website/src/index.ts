@@ -306,6 +306,7 @@ editor
             */
             .then(() => {
                 startupFinished = true
+                setTimeout(createStarMessage, 60000)
                 if (import.meta.env.DEV) {
                     ;(window as any).__fbe_test = testApi
                 }
@@ -974,6 +975,23 @@ function registerActions(): void {
         } else {
             localStorage.removeItem('keybinds2')
         }
+    })
+}
+
+function createStarMessage(): void {
+    try {
+        if (localStorage.getItem('starPromptShown')) return
+        localStorage.setItem('starPromptShown', 'true')
+    } catch {
+        // Storage can be disabled; the prompt still appears only once this visit.
+    }
+    createToast({
+        text:
+            '<span role="status">Enjoying the editor? We\'re open source!</span><br>' +
+            '<a class="star-prompt-action" href="https://github.com/FactoryGameFan/factorio-blueprint-editor" ' +
+            'target="_blank" rel="noopener noreferrer">★ Give us a star on GitHub</a> ' +
+            '<button class="star-prompt-action" type="button" aria-label="Dismiss star prompt">Dismiss</button>',
+        timeout: 30000,
     })
 }
 
