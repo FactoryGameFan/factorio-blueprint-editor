@@ -626,68 +626,68 @@ test('the export field re-encodes only when the blueprint actually changes, not 
 test('a burst of edits inside one debounce window collapses to a single re-encode (#242 review follow-up)', async ({
     page,
 }) => {
-    /*
-        The test above cannot tell a real debounce from firing on the very
-        next frame after a change - deleting the debounce delay entirely
-        (calling `refreshText` straight from `changeTick` instead of
-        scheduling it) still passed it in under three seconds, since all
-        that test checks is that *a* second encode eventually happens, not
-        that two edits close together produce exactly one (#242 review).
-        Two revision-changing operations inside the same 500 ms window is
-        what only a real debounce - restarting its timer on each further
-        change rather than firing once per change - collapses to a single
-        re-encode: settling at 2 (one open-time encode plus one for the
-        whole burst) rather than 3 (one per operation).
-
-        A delete followed by an undo, not two deletes: `History.revision`
-        moves on either kind of operation, and undo is a single keypress
-        with no drag-targeting of its own, which is what makes the second
-        operation reliable to land inside the window rather than depending
-        on a second precisely-timed pointer gesture.
-
-        No intermediate "still 1" check between the two operations - there
-        used to be one, reading `exportEncodeCount()` right after a 200 ms
-        wait and asserting it had not yet moved. That raced the same 500 ms
-        debounce it was trying to observe: `page.waitForTimeout` is a wall-
-        clock wait with no floor on how much *more* than 200 ms elapses
-        before the following `page.evaluate` round-trip actually runs, and
-        under enough system load (measured reproducibly as part of a full,
-        54-test shard, never in isolation) that slack alone was enough to
-        cross 500 ms - the debounce had genuinely already fired, and the
-        "bug" the assertion reported was the shard's own CPU contention.
-        The check added nothing a mutation the checks below cannot already
-        catch: with the debounce deleted entirely, the delete's own
-        re-encode already lands before the undo is even pressed, so the
-        final poll below is chasing 3 and never sees 2.
-    */
     await loadBlueprint(page, TWO_CHESTS)
+    expect(await page.evaluate(() => window.__fbe_test.exportReencodePending())).toBeUndefined()
+    expect(await page.evaluate(() => window.__fbe_test.flushExportReencode())).toBeUndefined()
     await openExportDialog(page)
-    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+    await expect(exportTextarea(page)).not.toHaveValue('')
+    const initialText = await exportTextarea(page).inputValue()
+    expect(decodeBlueprintString(initialText).blueprint.entities).toHaveLength(2)
 
-    await deleteEntity(page, 1)
+    for (const ms of [NaN, Infinity, -1]) {
+        await expect(
+            page.evaluate(value => window.__fbe_test.setExportReencodeDebounceMs(value), ms)
+        ).rejects.toThrow('Invalid debounce duration')
+    }
 
-    // Well inside the 500 ms window, so the delete's debounce timer is
-    // still pending when the undo below lands and restarts it.
-    await page.waitForTimeout(200)
+    // Longer than this test's timeout: browser round-trips cannot race the debounce (#313).
+    await page.evaluate(() => window.__fbe_test.setExportReencodeDebounceMs(240_000))
+    try {
+        expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+        await deleteEntity(page, 1)
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.entityScreenPosition(1)))
+            .toBeUndefined()
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.exportReencodeDueAt()))
+            .toBeGreaterThan(0)
+        const deleteDue = await page.evaluate(() => window.__fbe_test.exportReencodeDueAt())
+        expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
-    // The delete's own mousedown already blurred ExportDialog's read-only
-    // field (focused since open), so this reaches the undo keybind rather
-    // than being swallowed by Editor.ts's "ignore keys while an input has
-    // focus" guard.
-    await page.keyboard.press('Control+KeyZ')
+        // Deleting blurred the export field, so the undo/redo keybinds reach the canvas.
+        await page.keyboard.press('Control+KeyZ')
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.entityScreenPosition(1)))
+            .toBeDefined()
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.exportReencodeDueAt()))
+            .toBeGreaterThan(deleteDue as number)
+        const undoDue = await page.evaluate(() => window.__fbe_test.exportReencodeDueAt())
+        expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
 
-    await expect
-        .poll(() => page.evaluate(() => window.__fbe_test.exportEncodeCount()), { timeout: 2000 })
-        .toBe(2)
+        // End differently from open-time state so stale text cannot satisfy the output check.
+        await page.keyboard.press('Control+KeyY')
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.entityScreenPosition(1)))
+            .toBeUndefined()
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.exportReencodeDueAt()))
+            .toBeGreaterThan(undoDue as number)
+        expect(await page.evaluate(() => window.__fbe_test.exportReencodePending())).toBe(true)
+        expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(1)
+        await expect(exportTextarea(page)).toHaveValue(initialText)
 
-    // Long enough past the undo's own debounce window that an uncoalesced
-    // implementation's separate re-encode for it would already have
-    // landed - proves the count settles at 2 rather than merely reaching
-    // it on the way to 3.
-    await page.waitForTimeout(700)
-    expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(2)
-
-    // The undo put entity 1 back - the field should show both chests again.
-    const out = await exportTextarea(page).inputValue()
-    expect(decodeBlueprintString(out).blueprint.entities).toHaveLength(2)
+        expect(await page.evaluate(() => window.__fbe_test.flushExportReencode())).toBe(true)
+        expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(2)
+        expect(await page.evaluate(() => window.__fbe_test.flushExportReencode())).toBe(false)
+        expect(await page.evaluate(() => window.__fbe_test.exportReencodePending())).toBe(false)
+        expect(await page.evaluate(() => window.__fbe_test.exportReencodeDueAt())).toBeUndefined()
+        await expect(exportTextarea(page)).not.toHaveValue(initialText)
+        expect(
+            decodeBlueprintString(await exportTextarea(page).inputValue()).blueprint.entities
+        ).toHaveLength(1)
+        expect(await page.evaluate(() => window.__fbe_test.exportEncodeCount())).toBe(2)
+    } finally {
+        await page.evaluate(() => window.__fbe_test.setExportReencodeDebounceMs(500))
+    }
 })

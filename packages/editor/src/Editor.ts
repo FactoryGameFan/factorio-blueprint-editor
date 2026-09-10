@@ -435,6 +435,26 @@ export class Editor {
         return G.UI.exportEncodeCount
     }
 
+    /** Pending export deadline, or undefined when none is armed. */
+    public get exportReencodeDueAt(): number | undefined {
+        return G.UI.exportReencodeDueAt
+    }
+
+    /** `UIContainer.exportReencodePending`. See tests/quick-actions.spec.ts. */
+    public get exportReencodePending(): boolean | undefined {
+        return G.UI.exportReencodePending
+    }
+
+    /** `UIContainer.flushExportReencode`. See tests/quick-actions.spec.ts. */
+    public flushExportReencode(): boolean | undefined {
+        return G.UI.flushExportReencode()
+    }
+
+    /** `UIContainer.setExportReencodeDebounceMs`. See tests/quick-actions.spec.ts. */
+    public setExportReencodeDebounceMs(ms: number): void {
+        G.UI.setExportReencodeDebounceMs(ms)
+    }
+
     public get debug(): boolean {
         return G.debug
     }

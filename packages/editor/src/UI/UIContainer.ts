@@ -7,7 +7,7 @@ import { QuickbarPanel } from './QuickbarPanel'
 import { EntityInfoPanel } from './EntityInfoPanel'
 import { InventoryDialog } from './InventoryDialog'
 import { ImportDialog } from './ImportDialog'
-import { ExportDialog } from './ExportDialog'
+import { ExportDialog, setReencodeDebounceMsForTests } from './ExportDialog'
 import { BookButton } from './BookButton'
 import { BookDialog } from './BookDialog'
 import { ToolsPanel } from './ToolsPanel'
@@ -192,6 +192,26 @@ export class UIContainer extends Container {
      * when none is open - see that getter's own doc comment. */
     public get exportEncodeCount(): number | undefined {
         return this.exportDialog?.encodeCount
+    }
+
+    /** Pending export deadline, or undefined when none is armed. */
+    public get exportReencodeDueAt(): number | undefined {
+        return this.exportDialog?.reencodeDueAt
+    }
+
+    /** `ExportDialog.reencodePending` for the open one, undefined when none is. */
+    public get exportReencodePending(): boolean | undefined {
+        return this.exportDialog?.reencodePending
+    }
+
+    /** `ExportDialog.flushPendingReencode` for the open one, undefined when none is. */
+    public flushExportReencode(): boolean | undefined {
+        return this.exportDialog?.flushPendingReencode()
+    }
+
+    /** Test-only; see `ExportDialog.setReencodeDebounceMsForTests`. */
+    public setExportReencodeDebounceMs(ms: number): void {
+        setReencodeDebounceMsForTests(ms)
     }
 
     public createInventory(
