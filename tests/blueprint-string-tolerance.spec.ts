@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import {
+    encodeBlueprint as encode,
+    decodeBlueprintString,
+    packVersion as version,
+} from './helpers/encode-blueprint'
 
 /*
     What `decode` accepts around the edges of a blueprint string's base64.
@@ -138,4 +142,19 @@ test('a genuinely corrupt string is still rejected', async ({ page }) => {
         }
     }, truncated)
     expect(failed).toBe(true)
+})
+
+test('native compression exports zlib UTF-8 and rejects a truncated checksum', async ({ page }) => {
+    const label = 'Factory 工場 🚀'
+    const source = encode({ item: 'blueprint', version: V_2_0, label, entities: [] })
+    const exported = await page.evaluate(async (str: string) => {
+        const api = window.__fbe_test
+        await api.loadBp(await api.getBlueprintOrBookFromSource(str))
+        return api.encodeLoaded()
+    }, source)
+    // The helper uses Node zlib, independently of the browser codec.
+    expect(decodeBlueprintString(exported).blueprint.label).toBe(label)
+    const bytes = Buffer.from(source.slice(1), 'base64')
+    const truncated = `0${bytes.subarray(0, -1).toString('base64')}`
+    await expect(load(page, truncated)).rejects.toThrow()
 })
