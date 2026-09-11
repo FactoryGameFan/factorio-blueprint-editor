@@ -65,6 +65,53 @@ test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
 })
 
+test('ALT label is black on amber and white on grey (#429)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
+    const x = bounds.x + 12
+    const y = bounds.y + 12
+    const expectColors = async (foreground: number[], background: number[]) => {
+        await expect
+            .poll(async () => {
+                const png = await page.screenshot({
+                    clip: { x: x + 4, y: y + 8, width: 28, height: 20 },
+                })
+                return page.evaluate(
+                    async ({ data, foreground, background }) => {
+                        const image = new Image()
+                        image.src = `data:image/png;base64,${data}`
+                        await image.decode()
+                        const canvas = document.createElement('canvas')
+                        canvas.width = image.width
+                        canvas.height = image.height
+                        const context = canvas.getContext('2d')
+                        if (!context) throw new Error('2D canvas unavailable')
+                        context.drawImage(image, 0, 0)
+                        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+                        return [foreground, background].every(color => {
+                            for (let i = 0; i < pixels.length; i += 4) {
+                                if (color.every((channel, j) => pixels[i + j] === channel))
+                                    return true
+                            }
+                            return false
+                        })
+                    },
+                    { data: png.toString('base64'), foreground, background }
+                )
+            })
+            .toBe(true)
+    }
+
+    await expectColors([0, 0, 0], [241, 190, 100])
+    await page.keyboard.press('AltLeft')
+    await expectColors([255, 255, 255], [100, 100, 100])
+    await page.mouse.click(x + 18, y + 18)
+    await page.mouse.move(640, 360)
+    await expectColors([0, 0, 0], [241, 190, 100])
+    await page.keyboard.press('AltLeft')
+    await expectColors([255, 255, 255], [100, 100, 100])
+})
+
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
     page,
 }) => {

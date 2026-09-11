@@ -61,7 +61,8 @@ class ActionSlot extends Slot<undefined> {
  * icons that do exist).
  */
 function createTextIcon(text: string): Container {
-    const label = new Text({ text, style: styles.controls.checkbox })
+    const label = new Text({ text, style: styles.controls.checkbox.clone() })
+    label.style.fill = 0xffffff
     label.anchor.set(0.5)
     return label
 }
@@ -287,6 +288,9 @@ export class ToolsPanel extends Panel {
         const altHighlight = addToggleHighlight(altSlot, ALT_ACTIVE_COLOR)
         this.altHighlightTick = () => {
             altHighlight.visible = G.BPC.overlayContainer.entityInfoVisible
+            if (altSlot.content) {
+                altSlot.content.tint = altHighlight.visible ? 0x000000 : 0xffffff
+            }
         }
         G.app.ticker.add(this.altHighlightTick)
 
