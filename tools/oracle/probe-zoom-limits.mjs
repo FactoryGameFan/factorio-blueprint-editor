@@ -100,6 +100,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { factorioReadData } from './factorio-probe.mjs'
 
 const BIN =
     process.env.FACTORIO_BIN ??
@@ -394,7 +395,7 @@ end)
 
     writeFileSync(
         join(work, 'config.ini'),
-        `[path]\nread-data=__PATH__executable__/../data\nwrite-data=${writeData}\n[general]\n[other]\n`
+        `[path]\nread-data=${factorioReadData(BIN)}\nwrite-data=${writeData}\n[general]\n[other]\n`
     )
 
     console.log(`=== binary: ${binaryLine} (mod declared factorio_version ${MOD_FACTORIO_VERSION})`)

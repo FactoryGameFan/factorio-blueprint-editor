@@ -1,11 +1,20 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 export const factorioBin =
     process.env.FACTORIO_BIN ??
     `${process.env.HOME}/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio`
+
+export function factorioReadData(bin) {
+    // macOS uses Contents/MacOS; Windows and Linux use bin/x64.
+    for (const relative of ['../data', '../../data']) {
+        const data = resolve(dirname(bin), relative)
+        if (existsSync(join(data, 'core'))) return data
+    }
+    throw new Error(`Cannot find Factorio data/core relative to ${bin}`)
+}
 
 export function prepareProbe(info) {
     const work = mkdtempSync(join(tmpdir(), 'fbe-oracle-'))
@@ -33,7 +42,7 @@ export function runProbe({
     const config = join(work, 'config.ini')
     writeFileSync(
         config,
-        `[path]\nread-data=__PATH__executable__/../data\nwrite-data=${writeData}\n[general]\n[other]\n`
+        `[path]\nread-data=${factorioReadData(bin)}\nwrite-data=${writeData}\n[general]\n[other]\n`
     )
 
     const result = spawn(
