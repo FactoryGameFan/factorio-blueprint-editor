@@ -6,7 +6,7 @@ type Page = import('@playwright/test').Page
  * editor was displaying.
  */
 const CSS = `
-    .toasts-container, .toasts-persistent { pointer-events: none !important; }
+    .toasts-container, .toasts-persistent, .star-prompt-action { pointer-events: none !important; }
     .dg.main { pointer-events: none !important; }
 `
 

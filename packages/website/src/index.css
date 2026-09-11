@@ -264,7 +264,7 @@ html {
     pointer-events: none;
 }
 /*
-    The exception, and the only toast a click still reaches: one created with
+    The whole-toast exception: one created with
     `timeout: Infinity` has no other way to be dismissed. Applied by toasts.ts,
     which owns the class name - see PERSISTENT_TOAST_CLASS.
 */
@@ -301,6 +301,21 @@ html {
 .toasts-text {
     font-size: 14px;
     color: #fff;
+}
+.star-prompt-action {
+    /* Keep the rest of the toast click-through to the editor. */
+    pointer-events: auto;
+    color: #fff;
+    font: inherit;
+    text-decoration: underline;
+    background: none;
+    border: 0;
+    padding: 6px 0;
+    display: inline-block;
+    cursor: pointer;
+}
+.star-prompt-action + .star-prompt-action {
+    margin-left: 8px;
 }
 .toasts-success {
     border-bottom-color: #51c625;
