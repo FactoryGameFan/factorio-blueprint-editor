@@ -56,8 +56,10 @@ and filling out the issue template.
     that command alone. If you want to check the installer script before
     running it, CI does: the `Install vp` step of
     [`.github/actions/setup-vp/action.yml`](.github/actions/setup-vp/action.yml)
-    verifies it with `sha256sum -c` against a digest kept current there. Take
-    that line from the action, not from a doc - the digest changes on its own.
+    verifies it with `sha256sum -c` against digests kept current there. There
+    are two: the installer runs a second script, `install-legacy.sh`, and uses
+    a copy in its own directory if one is there. Take those lines from the
+    action, not from a doc - the digests change on their own.
 
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
     things need it there: `npm run localpreview` spawns `vp` directly, and
