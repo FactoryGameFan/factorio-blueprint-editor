@@ -292,7 +292,7 @@
             addLabels: ['toolchain'],
             prBodyNotes: [
                 'This is the ENTIRE toolchain (Vite, Rolldown, oxlint, oxfmt, Vitest). Nothing under it is independently upgradable.',
-                '`.github/actions/setup-vp/action.yml` reads the version from the root package.json, so nothing there needs to move. **The installer sha256 is not automated.** Re-fetch https://vite.plus and re-hash if that script changed; a mismatch fails CI rather than passing silently.',
+                '`.github/actions/setup-vp/action.yml` reads the version from the root package.json, so nothing there needs to move. **The installer sha256s are not automated.** Two scripts are pinned - https://vite.plus and the https://viteplus.dev/install-legacy.sh it sources. Re-fetch and re-hash whichever changed; a mismatch fails CI rather than passing silently.',
                 'CI runs the Playwright suite in the `e2e` job, so this bump is gated on it - this note said the opposite until 2026-09-01 and was wrong. Confirm both sites in the root package.json moved: the `vite-plus` devDependency and the `overrides.vite` alias.',
             ],
         },

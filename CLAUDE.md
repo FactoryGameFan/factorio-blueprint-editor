@@ -41,9 +41,12 @@ rm vp-install.sh
 The installer writes `~/.vite-plus/bin` into your shell's startup files for
 new shells; for the current one, prepend it to `PATH` yourself. Then
 `vp install` fetches the pinned toolchain. The action verifies the installer
-script against a sha256 before running it; to get the same guarantee, take the
-`sha256sum -c` line from the action rather than from a doc, because that digest
-rotates on its own and a copy here would go stale.
+against a sha256 before running it - two scripts, since the vite.plus script
+now sources a second one, `install-legacy.sh`, which it looks for beside
+itself before downloading it. To get the same guarantee, fetch both into the
+same directory and take the `sha256sum -c` lines from the action rather than
+from a doc, because those digests rotate on their own and a copy here would go
+stale.
 
 The global `vp` does not need to match the pin. It defers to the project's
 local `vite-plus` for every tool - measured, a global `vp` one release behind
