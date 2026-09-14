@@ -60,9 +60,11 @@ makes the `PATH` line above wrong and `vp` looks missing rather than misplaced.
 The action sets it for the same reason.
 
 Prepend rather than append, because Vite+ works through shims. It installs
-`node`, `npm`, `npx` and `corepack` into that one directory, and each of them
-resolves a version per directory at the moment you run it. Any other `node` or
-`npm` earlier on `PATH` wins instead, and the shims are then never consulted.
+`node`, `npm` and `npx` into that one directory, alongside `pnpm`, `yarn` and
+`bun`, and each of them resolves a version per directory at the moment you run
+it. There is no `corepack` shim: vite-plus 0.3.1 removed it and manages the
+package managers itself. Any other `node` or `npm` earlier on `PATH` wins
+instead, and the shims are then never consulted.
 
 Node and npm are two separate pins, which is the part worth knowing. The Node
 version comes from `.node-version` (24.20.0). The npm version comes from
