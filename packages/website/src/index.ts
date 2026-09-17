@@ -978,6 +978,23 @@ function registerActions(): void {
     })
 }
 
+/**
+ * The one-time "give us a star" prompt. Its own element in the left-hand
+ * chrome, under the GitHub tab, and deliberately not a toast (issue #430).
+ *
+ * A toast has to be click-through: the toast column sits on top of the
+ * ToolsPanel, and #228 made every expiring toast `pointer-events: none` so it
+ * stops taking clicks meant for the slots under it. This prompt needs a live
+ * link and a live Dismiss button, and as a toast those two opted back into
+ * pointer events - measured at 1280x720, five of the nine slots then lost part
+ * of their face for the prompt's thirty seconds, Redo 78% of it. The
+ * `.toasts-persistent` exception does not transfer either: its callers throw
+ * straight afterwards, so nothing is under those toasts to block. Here there
+ * is a live editor underneath, so the prompt goes where the chrome already
+ * takes clicks and no editor panel is drawn - `#buttons` and `#corner-panel`
+ * hold that corner. `tests/star-prompt.spec.ts` walks every slot face to pin
+ * it.
+ */
 function createStarMessage(): void {
     try {
         if (localStorage.getItem('starPromptShown')) return
@@ -985,14 +1002,23 @@ function createStarMessage(): void {
     } catch {
         // Storage can be disabled; the prompt still appears only once this visit.
     }
-    createToast({
-        text:
-            '<span role="status">Enjoying the editor? We\'re open source!</span><br>' +
-            '<a class="star-prompt-action" href="https://github.com/FactoryGameFan/factorio-blueprint-editor" ' +
-            'target="_blank" rel="noopener noreferrer">★ Give us a star on GitHub</a> ' +
-            '<button class="star-prompt-action" type="button" aria-label="Dismiss star prompt">Dismiss</button>',
-        timeout: 30000,
-    })
+    const prompt = document.createElement('div')
+    prompt.id = 'star-prompt'
+    prompt.innerHTML =
+        '<span role="status">Enjoying the editor? We\'re open source!</span>' +
+        '<a href="https://github.com/FactoryGameFan/factorio-blueprint-editor" ' +
+        'target="_blank" rel="noopener noreferrer">★ Give us a star on GitHub</a>' +
+        '<button type="button" aria-label="Dismiss star prompt">Dismiss</button>'
+
+    const dismiss = (): void => {
+        clearTimeout(timer)
+        prompt.remove()
+    }
+    const timer = setTimeout(dismiss, 30000)
+    // Following the link is an answer too, so the prompt goes with it.
+    prompt.querySelector('a')?.addEventListener('click', dismiss)
+    prompt.querySelector('button')?.addEventListener('click', dismiss)
+    document.body.appendChild(prompt)
 }
 
 function createWelcomeMessage(): void {

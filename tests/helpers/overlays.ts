@@ -6,13 +6,17 @@ type Page = import('@playwright/test').Page
  * editor was displaying.
  */
 const CSS = `
-    .toasts-container, .toasts-persistent, .star-prompt-action { pointer-events: none !important; }
+    .toasts-container, .toasts-persistent { pointer-events: none !important; }
     .dg.main { pointer-events: none !important; }
+    #star-prompt { pointer-events: none !important; }
 `
 
 /**
  * Stops the editor's DOM overlays swallowing clicks meant for the canvas -
- * issues #119 and #130.
+ * issues #119 and #130. `#star-prompt` is the one-time star prompt, which
+ * appears 60s in at the top left (issue #430 is why it is there and not in
+ * the toast column); a spec that outlives that timer would otherwise lose a
+ * click aimed under it.
  *
  * There are two, in opposite corners, and they are the same bug twice. This was
  * `suppressOverlays` and covered only the first; the second then kept

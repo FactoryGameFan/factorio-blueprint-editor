@@ -185,6 +185,46 @@ html {
 #buttons .github-button img {
     width: 20px;
 }
+/*
+    The one-time star prompt. It sits under #buttons' GitHub tab, in the
+    corner the chrome already owns, and not in the toast column: a toast is
+    click-through over the ToolsPanel (issue #228), and this one needs a live
+    link and button (issue #430). `top` is #buttons' 80px plus the 35px tab
+    and a 10px gap. Nothing of the editor's own UI is drawn here - the panels
+    sit along the bottom and top right.
+*/
+#star-prompt {
+    position: fixed;
+    top: 125px;
+    left: 0;
+    z-index: 5;
+    width: min(280px, 100vw);
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 14px;
+    background-color: #303030;
+    border-color: #888;
+    border-style: solid;
+    border-width: 1px 1px 1px 0;
+    border-radius: 0 5px 5px 0;
+}
+#star-prompt span {
+    display: block;
+}
+#star-prompt a,
+#star-prompt button {
+    color: #fff;
+    font: inherit;
+    text-decoration: underline;
+    background: none;
+    border: 0;
+    padding: 6px 0;
+    display: inline-block;
+    cursor: pointer;
+}
+#star-prompt a + button {
+    margin-left: 8px;
+}
 #info-panel {
     display: none;
     position: fixed;
@@ -301,21 +341,6 @@ html {
 .toasts-text {
     font-size: 14px;
     color: #fff;
-}
-.star-prompt-action {
-    /* Keep the rest of the toast click-through to the editor. */
-    pointer-events: auto;
-    color: #fff;
-    font: inherit;
-    text-decoration: underline;
-    background: none;
-    border: 0;
-    padding: 6px 0;
-    display: inline-block;
-    cursor: pointer;
-}
-.star-prompt-action + .star-prompt-action {
-    margin-left: 8px;
 }
 .toasts-success {
     border-bottom-color: #51c625;
