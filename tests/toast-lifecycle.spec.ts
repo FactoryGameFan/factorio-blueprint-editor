@@ -57,14 +57,26 @@ const running = (page: Page): Promise<string[]> =>
 
 /**
  * Every animation and transition that has started on any toast since the
- * page loaded, by name, in order. Recorded from `animationstart` and
- * `transitionrun` on the column, so a claim about what carried a toast out
- * can be checked after the toast is gone. Sampling `getAnimations()` after
- * the fact instead has a window the size of the 0.2s transition, which a
- * slow shard can miss.
+ * page loaded, by name, in order, plus `cancel:` and `end:` entries for the
+ * animations. Recorded from the events on the column, so a claim about what
+ * carried a toast out can be checked after the toast is gone. Sampling
+ * `getAnimations()` after the fact instead has a window the size of the 0.2s
+ * transition, which a slow shard can miss. The log only grows, so a poll on
+ * it is monotone: an entry seen late is still seen.
  */
 const started = (page: Page): Promise<string[]> =>
     page.evaluate(() => (window as any).__toastEventsStarted as string[])
+
+/**
+ * Freezes the next slide-in at its first frame, from inside the page in
+ * the `animationstart` handler, so a dismissal after it is guaranteed to
+ * land mid slide-in however slow the machine. Waiting from the test side for
+ * the 300ms animation to be running is a race the test can lose.
+ */
+const holdNextSlideIn = (page: Page): Promise<void> =>
+    page.evaluate(() => {
+        ;(window as any).__toastHoldSlideIn = true
+    })
 
 test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
@@ -77,7 +89,26 @@ test.beforeEach(async ({ page }) => {
         ;(window as any).__toastEventsStarted = log
         container.addEventListener(
             'animationstart',
-            e => log.push((e as AnimationEvent).animationName),
+            e => {
+                const name = (e as AnimationEvent).animationName
+                log.push(name)
+                if (name === 'toastsFadeIn' && (window as any).__toastHoldSlideIn) {
+                    ;(window as any).__toastHoldSlideIn = false
+                    for (const a of (e.target as Element).getAnimations()) {
+                        if ((a as CSSAnimation).animationName === name) a.pause()
+                    }
+                }
+            },
+            true
+        )
+        container.addEventListener(
+            'animationcancel',
+            e => log.push(`cancel:${(e as AnimationEvent).animationName}`),
+            true
+        )
+        container.addEventListener(
+            'animationend',
+            e => log.push(`end:${(e as AnimationEvent).animationName}`),
             true
         )
         container.addEventListener(
@@ -116,13 +147,23 @@ test('a toast dismissed in the task that created it still leaves the DOM', async
 })
 
 test('a toast dismissed while sliding in still leaves the DOM', async ({ page }) => {
+    await holdNextSlideIn(page)
     await page.clock.fastForward(1000)
-    // A frame has rendered and the slide-in is under way; it lasts 300ms.
-    await expect.poll(() => running(page)).toEqual(['toastsFadeIn'])
+    // The slide-in has started and is now held at its first frame.
+    await expect.poll(() => started(page)).toContain('toastsFadeIn')
     await page.clock.fastForward(30000)
 
     await expect(welcome(page)).toHaveClass(/toasts-toast-fadeOut/)
     await expect(welcome(page), 'the toast was never removed').toHaveCount(0, { timeout: 5000 })
+    /*
+        The dismissal really did land mid slide-in: the fade-out class
+        replaced the animation, so the held slide-in was cancelled and never
+        ended. Without the hold, a fast machine can pass this by luck and a
+        slow one dismisses a settled toast and tests nothing new.
+    */
+    const log = await started(page)
+    expect(log).toContain('cancel:toastsFadeIn')
+    expect(log).not.toContain('end:toastsFadeIn')
 })
 
 test('a toast that expires after settling collapses through its transition', async ({ page }) => {
@@ -140,5 +181,9 @@ test('a toast that expires after settling collapses through its transition', asy
         than jump. Removing the toast on the fade-out's `animationend` instead
         would have passed the two tests above and lost this.
     */
-    expect(await started(page)).toEqual(expect.arrayContaining(['toastsFadeOut', 'max-height']))
+    const log = await started(page)
+    expect(log).toEqual(expect.arrayContaining(['toastsFadeOut', 'max-height']))
+    // The control for the test above: a settled toast's slide-in ended and was not cut short.
+    expect(log).toContain('end:toastsFadeIn')
+    expect(log).not.toContain('cancel:toastsFadeIn')
 })
