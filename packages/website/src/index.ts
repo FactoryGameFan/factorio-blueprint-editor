@@ -994,8 +994,38 @@ function registerActions(): void {
  * takes clicks and no editor panel is drawn - `#buttons` and `#corner-panel`
  * hold that corner. `tests/star-prompt.spec.ts` walks every slot face to pin
  * it.
+ *
+ * It only shows in a visible tab (issue #444). The 60s startup timer fires
+ * whether or not anyone is looking, so if the tab is hidden then, this waits
+ * for it to come back before it writes the one-time flag or builds anything.
+ * The 30s expiry starts when the prompt is actually on screen. The cases are
+ * spelled out inside.
  */
 function createStarMessage(): void {
+    /*
+        The one-time flag used to be written the moment the 60s timer fired,
+        and a user away from the tab across the prompt's 30s was then never
+        asked at all. So the flag, the element and the expiry all wait for a
+        visible tab:
+
+        (a) The tab is hidden when the timer fires. Nothing is written and
+            nothing is built. One listener waits for the next
+            `visibilitychange` and runs this function again from the top.
+        (b) The tab becomes visible later. That listener runs this whole
+            function, so the flag check, the flag write, the element and the
+            30s expiry all happen at that moment, and the 30s counts from
+            then. The state is re-read rather than assumed, because a change
+            that leaves the tab hidden must only re-arm the wait, not spend
+            the one-shot listener and drop the prompt for good.
+        (c) The tab goes hidden while the prompt is on screen. Nothing
+            changes: it was put on screen in a visible tab, so the flag is
+            rightly spent and the 30s keeps running. Pausing it would need
+            more state for a user who has already seen the prompt.
+    */
+    if (document.visibilityState === 'hidden') {
+        document.addEventListener('visibilitychange', createStarMessage, { once: true })
+        return
+    }
     try {
         if (localStorage.getItem('starPromptShown')) return
         localStorage.setItem('starPromptShown', 'true')
