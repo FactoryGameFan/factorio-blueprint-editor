@@ -55,10 +55,37 @@ const running = (page: Page): Promise<string[]> =>
                 )
         )
 
+/**
+ * Every animation and transition that has started on any toast since the
+ * page loaded, by name, in order. Recorded from `animationstart` and
+ * `transitionrun` on the column, so a claim about what carried a toast out
+ * can be checked after the toast is gone. Sampling `getAnimations()` after
+ * the fact instead has a window the size of the 0.2s transition, which a
+ * slow shard can miss.
+ */
+const started = (page: Page): Promise<string[]> =>
+    page.evaluate(() => (window as any).__toastEventsStarted as string[])
+
 test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
     await page.clock.install()
     await waitForEditor(page)
+    await page.evaluate(() => {
+        const container = document.querySelector('.toasts-container')
+        if (!container) throw new Error('no toasts container')
+        const log: string[] = []
+        ;(window as any).__toastEventsStarted = log
+        container.addEventListener(
+            'animationstart',
+            e => log.push((e as AnimationEvent).animationName),
+            true
+        )
+        container.addEventListener(
+            'transitionrun',
+            e => log.push((e as TransitionEvent).propertyName),
+            true
+        )
+    })
 })
 
 test('a toast dismissed in the task that created it still leaves the DOM', async ({ page }) => {
@@ -74,18 +101,18 @@ test('a toast dismissed in the task that created it still leaves the DOM', async
     // The click was delivered: the toast is on its way out, not merely present.
     await expect(welcome(page)).toHaveClass(/toasts-toast-fadeOut/)
     /*
-        And it is the max-height collapse that carries it out, which is what
-        toasts.ts's second offsetHeight read is for. Without that read the
-        recorded height is never committed, max-height goes `none` to 0 with
-        no transition, and only the padding and border transitions remain.
-    */
-    expect(await running(page)).toContain('max-height')
-    /*
         5s is ten times the 0.5s the collapse takes, and short enough that a
         regression fails here rather than at the 60s default. The old code
         never removes it: the toast stays with `style.maxHeight` at 0px.
     */
     await expect(welcome(page), 'the toast was never removed').toHaveCount(0, { timeout: 5000 })
+    /*
+        And it was the max-height collapse that carried it out, which is what
+        toasts.ts's second offsetHeight read is for. Without that read the
+        recorded height is never committed, max-height goes `none` to 0 with
+        no transition, and only the padding and border transitions remain.
+    */
+    expect(await started(page)).toContain('max-height')
 })
 
 test('a toast dismissed while sliding in still leaves the DOM', async ({ page }) => {
@@ -105,13 +132,13 @@ test('a toast that expires after settling collapses through its transition', asy
     expect(height).toBeGreaterThan(0)
 
     await page.clock.fastForward(30000)
+    await expect(welcome(page)).toHaveClass(/toasts-toast-fadeOut/)
+    await expect(welcome(page), 'the toast was never removed').toHaveCount(0, { timeout: 5000 })
     /*
         The fade-out is still a fade-out: the slide-out animation and the
-        max-height collapse are both running, so the toasts below it slide up
-        rather than jump. Removing the toast on the fade-out's `animationend`
-        instead would have passed the two tests above and lost this.
+        max-height collapse both ran, so the toasts below it slide up rather
+        than jump. Removing the toast on the fade-out's `animationend` instead
+        would have passed the two tests above and lost this.
     */
-    await expect(welcome(page)).toHaveClass(/toasts-toast-fadeOut/)
-    expect(await running(page)).toEqual(expect.arrayContaining(['toastsFadeOut', 'max-height']))
-    await expect(welcome(page), 'the toast was never removed').toHaveCount(0, { timeout: 5000 })
+    expect(await started(page)).toEqual(expect.arrayContaining(['toastsFadeOut', 'max-height']))
 })
