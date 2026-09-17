@@ -206,15 +206,16 @@ test.describe('in a visible tab', () => {
         on the way and the editor renders each one - measured, 56s of real
         time for 31s of fake.
 
-        The wait between the two jumps is for the welcome toast's slide-in to
-        finish, and it is not optional. toasts.ts records a toast's height on
-        `animationend` and collapses it through a transition on the way out;
-        expire it while it is still sliding in and the fade-out replaces that
-        animation, the recorded height is 0, no transition ever ends, and the
-        toast is never removed. Measured with the two jumps 1ms apart: one run
-        in two left the column holding a 0px toast for good, and the wait for
-        an empty column then timed out. `getAnimations()` is empty once the
-        slide-in has completed.
+        The wait between the two jumps lets the welcome toast's slide-in
+        finish before it is expired. It used to be load-bearing (issue #443):
+        toasts.ts recorded a toast's height on the slide-in's `animationend`,
+        so a toast expired mid slide-in recorded 0px, never transitioned and
+        was never removed - measured with the two jumps 1ms apart, one run in
+        two left a 0px toast in the column for good. Since #443 the height is
+        read at dismissal and that same timing was removed 6 of 6. The wait
+        stays so this test measures a settled column rather than the toast
+        fix; `tests/toast-lifecycle.spec.ts` owns that. `getAnimations()` is
+        empty once the slide-in has completed.
 
         And the prompt is given real time to settle in case it animates: the
         toast version slid in from off-screen right, and a measurement taken
