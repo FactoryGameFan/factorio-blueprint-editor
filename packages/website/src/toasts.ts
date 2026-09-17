@@ -42,14 +42,6 @@ export function initToasts(): (options: IToastsOptions) => void {
 
         toast.classList.add(`toasts-${options.type || 'info'}`)
 
-        toast.addEventListener(
-            'animationend',
-            () => {
-                toast.style.maxHeight = `${toast.offsetHeight}px`
-            },
-            { once: true }
-        )
-
         const promises = [
             new Promise(resolve => toast.addEventListener('click', resolve, { once: true })),
         ]
@@ -69,6 +61,32 @@ export function initToasts(): (options: IToastsOptions) => void {
 
         // Never rejects: both racers settle from a click listener or a timeout.
         void Promise.race(promises).then(() => {
+            /*
+                The collapse is a max-height transition, and the toast is
+                removed on its transitionend. A transition needs a computed
+                style to start from, and a toast dismissed in the same task
+                that created it has none yet - the first style it would ever
+                get already carries the fade-out class, so nothing changes, no
+                transition runs, and the toast used to sit in the column at
+                zero height for good (issue #443). Reading offsetHeight forces
+                that first style.
+
+                The second read is load-bearing on every path, not just that
+                one. The height is set and the class added in the same task,
+                so without a read between them the browser compares the class
+                against the last style it computed, where max-height is still
+                `none`, and `none` to 0 has no transition. Measured, dropping
+                the read leaves the padding and border transitions to carry
+                the removal, so the toast still leaves the DOM, but the
+                collapse snaps rather than slides.
+
+                Recorded here rather than on the slide-in's animationend, which
+                is what used to happen: when the fade-out cut the slide-in
+                short that listener fired for the fade-out instead and recorded
+                0px.
+            */
+            toast.style.maxHeight = `${toast.offsetHeight}px`
+            void toast.offsetHeight
             toast.classList.add('toasts-toast-fadeOut')
             toast.addEventListener(
                 'transitionend',
