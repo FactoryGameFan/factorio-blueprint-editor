@@ -198,7 +198,7 @@ html {
     top: 125px;
     left: 0;
     z-index: 5;
-    width: 280px;
+    width: min(280px, 100vw);
     padding: 10px 12px;
     color: #fff;
     font-size: 14px;
