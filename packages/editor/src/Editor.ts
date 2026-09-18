@@ -482,6 +482,7 @@ export class Editor {
 
     public async loadBlueprint(bp: Blueprint): Promise<void> {
         const last = G.BPC
+        const lastBp = G.bp
         let i: number
         try {
             i = G.app.stage.getChildIndex(last)
@@ -489,10 +490,46 @@ export class Editor {
             i = G.app.stage.children.length
         }
 
-        G.bp = bp
+        /*
+            Publish, then undo on failure - not build first and publish after.
+            Everything initBP builds reads the globals while it is being built:
+            EntityContainer's constructor takes G.BPC.underlayContainer and
+            G.BPC.overlayContainer, and TileContainer calls G.BPC.addTileSprites.
+            A container filled before G.BPC pointed at it would put every sprite
+            on the outgoing one.
 
-        G.BPC = new BlueprintContainer(bp)
-        G.BPC.initBP()
+            The undo has three parts, and the third is the one that is easy to
+            miss. EntityContainer.mappings is static and keyed by entity number,
+            so the new containers overwrite the outgoing blueprint's entries for
+            every number the two share - and when the half-built container is
+            destroyed, each of them deletes its own entry rather than putting the
+            old one back. Restoring G.bp and G.BPC alone would leave the
+            blueprint on screen with no containers in the index, and the next
+            selection or wire redraw would throw in containerOf.
+
+            Before this, a throw inside initBP - a wire naming an entity the
+            blueprint does not have is one - left G.bp and G.BPC pointing at a
+            blueprint that never reached the stage, while the stage kept drawing
+            the old one.
+        */
+        const lastMappings = new Map(EntityContainer.mappings)
+        let next: BlueprintContainer | undefined
+        G.bp = bp
+        try {
+            next = new BlueprintContainer(bp)
+            G.BPC = next
+            next.initBP()
+        } catch (error) {
+            next?.destroy()
+            G.bp = lastBp
+            G.BPC = last
+            EntityContainer.mappings.clear()
+            for (const [entityNumber, container] of lastMappings) {
+                EntityContainer.mappings.set(entityNumber, container)
+            }
+            throw error
+        }
+
         Dialog.closeAll()
         G.UI.updateBookButton()
         G.app.stage.addChildAt(G.BPC, i)

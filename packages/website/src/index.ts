@@ -252,8 +252,16 @@ function readClipboardText(): Promise<string> {
 */
 async function selectBookIndex(index: number): Promise<void> {
     if (!book) throw new Error('No book loaded')
+    const previous = bp
     bp = book.selectBlueprint(index)
-    await editor.loadBlueprint(bp)
+    // Put back on a throw, as loadBp does. Book.selectBlueprint has already
+    // moved the book's own active index by then, and that is not undone here.
+    try {
+        await editor.loadBlueprint(bp)
+    } catch (error) {
+        bp = previous
+        throw error
+    }
     changeBookForIndexSelector(book)
 }
 
@@ -282,10 +290,26 @@ editor
         getBlueprintOrBookFromSource(bpSource)
             .catch(error => createBPImportError(error))
 
-            .then(bpOrBook => loadBp(bpOrBook || new Blueprint()))
+            .then(bpOrBook =>
+                loadBp(bpOrBook || new Blueprint()).catch(error => {
+                    /*
+                        It decoded but did not load: initBP threw, and the editor
+                        rolled back to the empty blueprint it started with. Say
+                        so the way a failed fetch is said above, then load an
+                        empty Blueprint through loadBp, so the loading screen
+                        comes down and `bp` is set. Before, the overlay stayed up
+                        over an editor nobody could reach.
+                    */
+                    createBPImportError(error)
+                    return loadBp(new Blueprint())
+                })
+            )
 
             .then(() => createWelcomeMessage())
-            .catch(error => createBPImportError(error))
+            .catch(error => {
+                loadingScreen.hide()
+                createBPImportError(error)
+            })
 
             /*
                 Only now does the test hook go on `window`. It is the signal every
@@ -324,6 +348,7 @@ window.addEventListener('visibilitychange', () => {
 })
 
 async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
+    const previous = { bp, book }
     if (bpOrBook instanceof Book) {
         book = bpOrBook
         bp = book.selectBlueprint(bpIndex ? bpIndex : undefined)
@@ -332,7 +357,19 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
         bp = bpOrBook
     }
 
-    await editor.loadBlueprint(bp)
+    /*
+        Assigned before the load, not after, because loadBlueprint reads them:
+        its G.UI.updateBookButton() asks quickActions.getCurrentBook(), which is
+        `book`. So on a throw they go back, the same way loadBlueprint puts its
+        own globals back. Otherwise the screen shows the old blueprint while
+        Ctrl+C exports the one that failed to load.
+    */
+    try {
+        await editor.loadBlueprint(bp)
+    } catch (error) {
+        ;({ bp, book } = previous)
+        throw error
+    }
     changeBookForIndexSelector(bpOrBook)
 
     loadingScreen.hide()

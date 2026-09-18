@@ -1019,19 +1019,41 @@ export function itemThatPlaces(entityName: string): string | undefined {
     return placedBy.get(entityName)
 }
 
+/*
+    A copy of a prototype collection with no prototype of its own.
+
+    Every "is this a known prototype?" test in the editor is a bare index read -
+    `FD.entities[name]` in the strip filter and the schema keywords in
+    bpString.ts, in Blueprint.ts, in TileContainer - and on an object
+    JSON.parse made, that read is truthy for `constructor`, `toString`,
+    `__proto__` and nine other names every object inherits. So a blueprint whose
+    tiles were named `toString` and `__proto__` validated clean, lost nothing
+    to the strip filter, warned nobody, and threw later inside initBP. A null
+    prototype answers `undefined` for those names at every read site at once,
+    rather than asking each one to remember `Object.hasOwn`.
+
+    Nothing reads an Object.prototype method off one of these collections -
+    no `.hasOwnProperty`, no `in` - so there is nothing for this to break.
+    `Object.keys`, `Object.values`, `Object.entries` and `for...in` all work
+    unchanged on it.
+*/
+function withoutPrototype<T>(collection: Record<string, T>): Record<string, T> {
+    return Object.assign(Object.create(null) as Record<string, T>, collection)
+}
+
 export function loadData(str: string): void {
     const data = JSON.parse(str)
     console.log(data)
-    FD.items = data.items
+    FD.items = withoutPrototype(data.items)
     placedBy = new Map()
     for (const [itemName, item] of Object.entries(FD.items)) {
         if (item.place_result !== undefined) placedBy.set(item.place_result, itemName)
     }
-    FD.fluids = data.fluids
-    FD.signals = data.signals
-    FD.recipes = data.recipes
-    FD.entities = data.entities
-    FD.tiles = data.tiles
+    FD.fluids = withoutPrototype(data.fluids)
+    FD.signals = withoutPrototype(data.signals)
+    FD.recipes = withoutPrototype(data.recipes)
+    FD.entities = withoutPrototype(data.entities)
+    FD.tiles = withoutPrototype(data.tiles)
     FD.inventoryLayout = data.inventoryLayout
     FD.utilitySprites = data.utilitySprites
     FD.utilityConstants = data.utilityConstants
