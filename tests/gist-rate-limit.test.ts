@@ -24,14 +24,15 @@ it('refuses GitHub’s API without fetching it', async () => {
     expect(upstream).not.toHaveBeenCalled()
 })
 
-it('passes an upstream refusal through without forwarding unsafe headers', async () => {
+it('passes an upstream refusal through without any of its headers', async () => {
     vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue(
             new Response('rate limited', {
                 status: 429,
                 headers: {
-                    'content-type': 'application/json',
+                    'content-type': 'text/html',
+                    'x-ratelimit-remaining': '0',
                     'set-cookie': 'session=untrusted',
                     'cache-control': 'public, max-age=86400',
                     location: 'https://untrusted.example',
@@ -41,6 +42,8 @@ it('passes an upstream refusal through without forwarding unsafe headers', async
     )
     const response = await proxy('https://pastebin.com/raw/dead1234')
     expect(response.status).toBe(429)
+    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8')
+    expect(response.headers.get('x-ratelimit-remaining')).toBeNull()
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(response.headers.get('location')).toBeNull()
     expect(response.headers.get('cache-control')).toBe('no-store')
