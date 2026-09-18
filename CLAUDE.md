@@ -21,6 +21,7 @@ closing references such as `Closes #123` in the pull request body.
 - `tools/oracle` - probes that ask a local Factorio installation what it does
 - `docs/superpowers` - `specs` (6) for larger past changes
 - `.github/workflows` - CI and deploy; `README.md` holds the job rationale
+- `.devcontainer` - an opt-in Linux container; see "Devcontainer" below
 
 ## Setup and commands
 
@@ -133,6 +134,63 @@ FBE_BASE_URL=http://localhost:8090 npx playwright test
 
 The sprite server must stay on 8081 because Vite's development proxy targets
 that port. Run `npx playwright install` after changing `@playwright/test`.
+
+### Devcontainer
+
+`.devcontainer/devcontainer.json` builds a Linux container that runs
+everything above: `vp check`, `vp test`, `npm run localpreview`, the
+Playwright suite, and the exporter's cargo build, test, fmt and clippy. It
+starts from the Vite+ image, `ghcr.io/voidzero-dev/vite-plus`, so `vp` is
+already first on `PATH` inside it, and Node and npm come from the same two
+pins as on the host.
+
+Measured 2026-09-18 on three hosts: OrbStack on a Mac (linux/arm64), Docker
+Engine inside WSL2 on a Windows PC (linux/amd64), and rootless Podman on a
+CachyOS laptop (linux/amd64). On all three, `vp check` and `vp test` matched
+the host, and the Playwright suite passed, including the two canvas specs that
+fail under WSL (see below). The one exception came from memory, not from the
+container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
+Chromium's renderer, at about 1.5 GB, during the large-paste test in
+`tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
+chase.
+
+It does not do three things:
+
+- **Regenerate Factorio data.** `packages/exporter/basisu` is a macOS arm64
+  binary, with a Windows `basisu.exe` beside it, and on Linux the exporter
+  looks for an x86-64 `bin/x64/factorio`. Run `npm run start:exporter` on the
+  host.
+- **Run oracle probes.** They need a local Factorio.
+- **Reach Vite from the host by itself.** Vite binds `localhost`, which inside
+  the container is `[::1]` only. Measured with the bare `devcontainer` CLI, the
+  host is refused on `localhost`, on the container's IP, and on its OrbStack
+  `.orb.local` name. That CLI forwards no ports (devcontainers/cli#22). VS
+  Code's Dev Containers extension reads `forwardPorts`; that path has not been
+  measured here yet.
+
+`node_modules` is a named volume, not the bind-mounted folder. An install
+holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
+more), so a shared folder would leave whichever side installed last broken for
+the other. `CARGO_TARGET_DIR` moves the Rust build out of the bind mount for
+the same reason. The CLI writes `.devcontainer/devcontainer-lock.json`, which
+pins each feature by digest. It sits in the formatter's `ignorePatterns`
+because the CLI and oxfmt disagree on its layout.
+
+Two lines in the CLI's output look like faults and are not. `Error fetching
+image details: Could not parse image name` is the CLI failing to parse a tag
+plus a digest for a metadata lookup; the build carries on and succeeds. And
+under rootless Podman the container runs with `userns=private`, which reads as
+if the host user's files would show up root-owned inside. They do not: the CLI
+maps the user itself, the workspace shows as `vp` inside, and files written
+there land as the host user outside. Only the empty `node_modules` mountpoint
+on the host belongs to a subordinate UID, and nothing reads it.
+
+Run the CLI from a directory with no `package.json` above it. From the repo
+root, `pnx @devcontainers/cli` prints `The "workspaces" field in package.json
+is not supported by pnpm`, which is the host's pnpm reading the root
+`package.json`, not the container. And under a parent `package.json` whose
+`devEngines` names another package manager, `npx` stops with
+`EBADDEVENGINES` before the CLI starts.
 
 ## Dependencies
 
@@ -337,6 +395,15 @@ flag dropped and every other flag kept, the two specs go from 2 of their 4 tests
 failing to all 4, `drawImage` disappears from the log entirely, and
 `waitForEditor` times out after 120 s because the editor never initialises. The
 flag is load-bearing in the opposite direction from the guess.
+
+**The devcontainer avoids both problems, where Docker runs inside the WSL
+distro.** Measured 2026-09-18 on Menehune (Docker Engine 29.1.3 in
+Ubuntu 26.04): the full suite passed with the committed config and no extra
+flags, `overlay-container` and `sprite-generation` included, and the VM
+survived. The container has no `/dev/dxg`, no `/mnt/wslg`, and no `DISPLAY` or
+`WAYLAND_DISPLAY`, so Chromium never reaches the GPU path, and the canvas specs
+pass there as they do in CI. So a machine with Docker in WSL can record all five
+specs above.
 
 Two rules the specs cannot enforce:
 

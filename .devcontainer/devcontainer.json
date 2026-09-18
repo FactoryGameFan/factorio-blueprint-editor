@@ -1,0 +1,41 @@
+// A Linux container for the editor, the Worker, and the unit and browser tests.
+// CLAUDE.md's "Devcontainer" section says what it covers and what still needs
+// the host: regenerating Factorio data and the oracle probes.
+{
+    "name": "factorio-blueprint-editor",
+    // The Vite+ toolchain image: vp preinstalled, with Node and npm resolved
+    // from .node-version and devEngines on first install. The digest pins it the
+    // way setup-vp's sha256 lines pin the installer. Renovate moves it together
+    // with the vite-plus devDependency, in the "vite-plus toolchain" group.
+    "image": "ghcr.io/voidzero-dev/vite-plus:0.3.1@sha256:d3ce400c0155dbb2bb17e48bf4b549528cf6dbb6f837f0557acb162d97d4688e",
+    "features": {
+        "ghcr.io/devcontainers/features/rust:1": {}
+    },
+    "containerEnv": {
+        // Outside the bind mount, so a Linux build never lands in the host's
+        // packages/exporter/target.
+        "CARGO_TARGET_DIR": "/home/vp/.cache/cargo-target"
+    },
+    "mounts": [
+        // The host's node_modules holds native binaries for the host platform
+        // (esbuild, oxlint, workerd, sharp and more). Sharing it would leave
+        // whichever side installed last broken for the other.
+        {
+            "source": "fbe-node-modules-${devcontainerId}",
+            "target": "${containerWorkspaceFolder}/node_modules",
+            "type": "volume"
+        }
+    ],
+    "forwardPorts": [8080, 8081],
+    "portsAttributes": {
+        "8080": { "label": "Vite" },
+        "8081": { "label": "Sprite data" }
+    },
+    // A new volume is root-owned, hence the chown.
+    "postCreateCommand": "sudo chown vp:vp node_modules && vp install --frozen-lockfile && npx playwright install --with-deps chromium",
+    "customizations": {
+        "vscode": {
+            "extensions": ["oxc.oxc-vscode", "rust-lang.rust-analyzer", "sumneko.lua"]
+        }
+    }
+}
