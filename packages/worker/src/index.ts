@@ -139,12 +139,13 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
     Engine, which is durable and queryable. visitorCount.ts explains what the
     first of those costs in accuracy.
 
-    One place the dedupe does nothing at all: the Cache API is inert on
-    workers.dev, so a load of a versioned preview hostname counts on every
-    request rather than once a day. Production is a custom domain (`routes` in
-    wrangler.jsonc) and the bare legacy hostname 301s out above before reaching
-    here, so this affects preview traffic only - which is a handful of manual
-    loads, and worth knowing before reading a preview's numbers as real.
+    One place the dedupe would do nothing at all: the Cache API is inert on
+    workers.dev. Nothing on workers.dev reaches this point, though. Production
+    is a custom domain (`routes` in wrangler.jsonc), the bare legacy hostname
+    301s out above, and preview URLs are off. If they are ever turned back on,
+    a load of a versioned preview hostname counts on every request rather than
+    once a day, which is worth knowing before reading a preview's numbers as
+    real.
 
     Reading the result. Analytics Engine has no dashboard view of its own - this
     is the number the beacon in packages/website/index.html cannot see, and it
@@ -215,9 +216,9 @@ export default {
         const url = new URL(request.url)
 
         // Redirect the legacy workers.dev hostname to the custom domain,
-        // preserving the path and query string. Exact-match on purpose: the
-        // versioned preview hostnames (<version>-fbeworkeyman.workers.dev) are
-        // meant to serve the app rather than bounce to production.
+        // preserving the path and query string. It is the only workers.dev
+        // name that reaches this Worker: preview URLs are off in
+        // wrangler.jsonc, so no versioned hostname routes here at all.
         //
         // Built by hand rather than with Response.redirect, whose headers are
         // immutable: this is a Response the Worker returns itself, so it takes
