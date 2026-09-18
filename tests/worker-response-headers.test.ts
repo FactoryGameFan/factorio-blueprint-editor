@@ -4,7 +4,6 @@ import * as path from 'path'
 import {
     OWN_RESPONSE_HEADERS,
     ownHeaders,
-    PASSTHROUGH_RESPONSE_HEADERS,
     PROXIED_CONTENT_TYPE,
     proxyResponseHeaders,
 } from '../packages/worker/src/responseHeaders'
@@ -45,51 +44,37 @@ describe('ownHeaders - the policy on every Worker-built Response', () => {
     })
 })
 
-describe('proxyResponseHeaders - what an upstream may say through the proxy', () => {
-    const upstream = new Headers({
-        'content-type': 'text/html; charset=utf-8',
-        'x-ratelimit-remaining': '17',
-        'set-cookie': 'session=abc',
-        'cache-control': 'public, max-age=31536000',
-        'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'self'",
-    })
-
-    it('emits a fixed non-executable content type whatever the upstream declared', () => {
-        const headers = proxyResponseHeaders(upstream, ORIGIN)
+/*
+    What the proxy says about a body it relays. None of it comes from the
+    upstream: proxyResponseHeaders is not handed the upstream's headers, so an
+    upstream content-type - the finding - has no way back in short of changing
+    its signature. tests/gist-rate-limit.test.ts and
+    tests/corsproxy-redirects.test.ts drive the handler with upstream headers
+    and check that none of them arrive.
+*/
+describe('proxyResponseHeaders - what the proxy says about a relayed body', () => {
+    it('emits a fixed non-executable content type', () => {
+        const headers = proxyResponseHeaders(ORIGIN)
         expect(headers.get('content-type')).toBe(PROXIED_CONTENT_TYPE)
         expect(PROXIED_CONTENT_TYPE).toMatch(/^text\/plain/)
-    })
-
-    it('emits one even when the upstream sent none - the case a browser would sniff', () => {
-        const headers = proxyResponseHeaders(new Headers(), ORIGIN)
-        expect(headers.get('content-type')).toBe(PROXIED_CONTENT_TYPE)
         expect(headers.get('x-content-type-options')).toBe('nosniff')
     })
 
     it('marks the body as an attachment so a navigation downloads rather than renders', () => {
-        expect(proxyResponseHeaders(upstream, ORIGIN).get('content-disposition')).toBe('attachment')
+        expect(proxyResponseHeaders(ORIGIN).get('content-disposition')).toBe('attachment')
     })
 
     it('carries the policy every Worker-built Response has', () => {
-        const headers = proxyResponseHeaders(upstream, ORIGIN)
+        const headers = proxyResponseHeaders(ORIGIN)
         for (const [name, value] of OWN_RESPONSE_HEADERS) {
             expect(headers.get(name), name).toBe(value)
         }
     })
 
-    it('passes through only the rate-limit header bpString.ts reads', () => {
-        const headers = proxyResponseHeaders(upstream, ORIGIN)
-        expect(headers.get('x-ratelimit-remaining')).toBe('17')
-        expect(headers.get('set-cookie')).toBeNull()
+    it('names only this origin, and is not cached', () => {
+        const headers = proxyResponseHeaders(ORIGIN)
         expect(headers.get('cache-control')).toBe('no-store')
         expect(headers.get('access-control-allow-origin')).toBe(ORIGIN)
-    })
-
-    // Pinned as a set rather than by example: putting content-type back on the
-    // list is a one-word change, and it was the finding.
-    it('never re-emits an upstream content-type', () => {
-        expect([...PASSTHROUGH_RESPONSE_HEADERS]).not.toContain('content-type')
     })
 })
 

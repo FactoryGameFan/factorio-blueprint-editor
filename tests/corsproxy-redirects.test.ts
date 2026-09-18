@@ -121,7 +121,7 @@ describe('/corsproxy follows an allowed redirect chain', () => {
         expect(response.headers.get('content-disposition')).toBe('attachment')
         expect(response.headers.get('x-content-type-options')).toBe('nosniff')
         expect(response.headers.get('content-security-policy')).toMatch(/sandbox/)
-        expect(response.headers.get('x-ratelimit-remaining')).toBe('41')
+        expect(response.headers.get('x-ratelimit-remaining')).toBeNull()
         expect(response.headers.get('set-cookie')).toBeNull()
         expect(calls.map(call => call.url)).toEqual([
             'https://factorio.school/api/blueprint/x',

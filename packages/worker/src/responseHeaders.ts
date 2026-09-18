@@ -38,20 +38,22 @@ export function ownHeaders(init?: HeadersInit): Headers {
 }
 
 /*
-    Response headers the proxy re-emits from the upstream. Everything else it
-    sent is dropped, which was the change from the old handler: that one did
+    None of the upstream's own headers are re-emitted, which is why
+    proxyResponseHeaders below is not handed them. The old handler did
     `new Headers(resp.headers)` and copied the lot, so a target's Set-Cookie
     landed on our origin and its caching directives spoke for our domain.
 
-    `content-type` used to be on this list, and that was the hole. The
-    catch-all in proxyTarget.ts accepts any public https host, so the upstream
-    is whoever the link's author chose - and a visitor who navigated to a
-    crafted `/corsproxy?url=` got that upstream's bytes rendered as whatever
-    media type it declared, under this site's hostname. `Headers.set` refuses
-    CR, LF and NUL, so the header itself could not be split; the value was the
-    whole problem.
+    Two were relayed after that, and neither is now. `content-type` was the
+    hole: the catch-all in proxyTarget.ts accepts any public https host, so the
+    upstream is whoever the link's author chose - and a visitor who navigated
+    to a crafted `/corsproxy?url=` got that upstream's bytes rendered as
+    whatever media type it declared, under this site's hostname. `Headers.set`
+    refuses CR, LF and NUL, so the header itself could not be split; the value
+    was the whole problem. `x-ratelimit-remaining` was there so bpString.ts
+    could tell GitHub's rate limit apart from any other refusal, and it went
+    once the editor started asking api.github.com directly and this proxy
+    started refusing it.
 */
-export const PASSTHROUGH_RESPONSE_HEADERS: ReadonlySet<string> = new Set(['x-ratelimit-remaining'])
 
 /*
     A fixed type, whatever the upstream said. Every consumer in bpString.ts
@@ -67,13 +69,8 @@ export const PASSTHROUGH_RESPONSE_HEADERS: ReadonlySet<string> = new Set(['x-rat
 */
 export const PROXIED_CONTENT_TYPE = 'text/plain; charset=utf-8'
 
-export function proxyResponseHeaders(upstream: Headers, origin: string): Headers {
+export function proxyResponseHeaders(origin: string): Headers {
     const headers = ownHeaders()
-    for (const name of PASSTHROUGH_RESPONSE_HEADERS) {
-        const value = upstream.get(name)
-        if (value !== null) headers.set(name, value)
-    }
-
     headers.set('content-type', PROXIED_CONTENT_TYPE)
     headers.set('content-disposition', 'attachment')
 

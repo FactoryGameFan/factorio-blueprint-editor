@@ -129,9 +129,9 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]
     rather than that something upstream failed. The two cases that are not a
     rule - a Location missing or unparseable, and a chain past
     MAX_PROXY_REDIRECTS - are 502, the proxy's own answer for an upstream it
-    could not use. Relaying the 3xx instead would not help anyone: the
-    Location is not among the headers proxyResponseHeaders passes through, so
-    the editor would get a redirect with nowhere to go.
+    could not use. Relaying the 3xx instead would not help anyone:
+    proxyResponseHeaders passes no upstream header through, the Location
+    included, so the editor would get a redirect with nowhere to go.
 
     Only GET and HEAD reach this far, so a 303's switch to GET never changes
     the method, and it is passed along unchanged.
@@ -195,7 +195,7 @@ async function proxyHop(
     return new Response(upstream.body === null ? null : capBody(upstream.body, MAX_PROXY_BYTES), {
         status: upstream.status,
         statusText: upstream.statusText,
-        headers: proxyResponseHeaders(upstream.headers, requestUrl.origin),
+        headers: proxyResponseHeaders(requestUrl.origin),
     })
 }
 
