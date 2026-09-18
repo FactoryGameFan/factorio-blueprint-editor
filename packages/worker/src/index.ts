@@ -1,4 +1,4 @@
-import { checkProxyTarget, MAX_PROXY_BYTES } from './proxyTarget'
+import { checkProxyTarget, MAX_PROXY_BYTES, MAX_PROXY_REDIRECTS } from './proxyTarget'
 import { ownHeaders, proxyResponseHeaders } from './responseHeaders'
 import {
     DEDUPE_WINDOW_SECONDS,
@@ -99,15 +99,83 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
     const verdict = checkProxyTarget(requestUrl.searchParams.get('url'), requestUrl.hostname)
     if (!verdict.ok) return textResponse(verdict.status, verdict.reason)
 
+    return proxyHop(request.method, verdict.url, requestUrl, 0)
+}
+
+// The statuses the fetch standard follows. Any other 3xx is relayed as-is,
+// as it was when the runtime did the following.
+const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308])
+
+/*
+    One hop of a proxied request, and the next one if it redirects.
+
+    Redirects are followed here rather than by the runtime, so that every URL
+    this Worker fetches has passed checkProxyTarget - the first one in
+    handleCorsProxy, and each Location below. With `redirect: 'follow'` the
+    check bound the caller's URL only, and the runtime went wherever the
+    target sent it next: measured under `wrangler dev --local`, workerd
+    follows a 302 to another port without asking. `'manual'` hands back the
+    3xx itself, status and Location intact, and a relative Location exactly
+    as sent, which is why it is resolved against this hop's URL.
+
+    A refused hop gets the status and reason the rule gives, as a refused
+    first URL does: it is the same rule, and a 403 says the proxy refused
+    rather than that something upstream failed. The two cases that are not a
+    rule - a Location missing or unparseable, and a chain past
+    MAX_PROXY_REDIRECTS - are 502, the proxy's own answer for an upstream it
+    could not use. Relaying the 3xx instead would not help anyone: the
+    Location is not among the headers proxyResponseHeaders passes through, so
+    the editor would get a redirect with nowhere to go.
+
+    Only GET and HEAD reach this far, so a 303's switch to GET never changes
+    the method, and it is passed along unchanged.
+*/
+async function proxyHop(
+    method: string,
+    target: URL,
+    requestUrl: URL,
+    redirects: number
+): Promise<Response> {
     let upstream: Response
     try {
-        upstream = await fetch(verdict.url.href, {
-            method: request.method,
-            redirect: 'follow',
+        upstream = await fetch(target.href, {
+            method,
+            redirect: 'manual',
             headers: { 'user-agent': PROXY_USER_AGENT },
         })
     } catch {
         return textResponse(502, 'Could not reach the target')
+    }
+
+    if (REDIRECT_STATUSES.has(upstream.status)) {
+        // Not followed through the body, so release the connection now, as
+        // the 413 branch below does.
+        void upstream.body?.cancel()
+
+        const location = upstream.headers.get('location')
+        let next: URL | undefined
+        try {
+            if (location !== null) next = new URL(location, target)
+        } catch {
+            // Unparseable, and answered below the same way as missing.
+        }
+        if (next === undefined) {
+            return textResponse(502, 'The target redirected without a usable Location')
+        }
+
+        const verdict = checkProxyTarget(next.href, requestUrl.hostname)
+        if (!verdict.ok) {
+            return textResponse(
+                verdict.status,
+                `The target redirected to a URL that is not proxied: ${verdict.reason}`
+            )
+        }
+
+        if (redirects >= MAX_PROXY_REDIRECTS) {
+            return textResponse(502, 'The target redirected too many times')
+        }
+
+        return proxyHop(method, verdict.url, requestUrl, redirects + 1)
     }
 
     const declared = Number(upstream.headers.get('content-length'))
