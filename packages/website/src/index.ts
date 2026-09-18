@@ -25,6 +25,7 @@ import EDITOR, {
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
+import { readSourceParams } from './sourceParams'
 import { storedJson } from './storage'
 
 document.addEventListener('contextmenu', e => e.preventDefault())
@@ -142,25 +143,7 @@ if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'funct
     throw new Error('WEB_ASSEMBLY_NOT_SUPPORTED')
 }
 
-const params = window.location.search.slice(1).split('&')
-
-let bpSource: string
-let bpIndex = 0
-for (const p of params) {
-    if (p.includes('source')) {
-        const raw = p.split('=')[1]
-        // decodeURIComponent throws URIError on malformed input (e.g. ?source=%);
-        // fall back to the raw value so a bad param can't abort app init.
-        try {
-            bpSource = decodeURIComponent(raw)
-        } catch {
-            bpSource = raw
-        }
-    }
-    if (p.includes('index')) {
-        bpIndex = Number(p.split('=')[1])
-    }
-}
+const { source: bpSource, index: bpIndex } = readSourceParams(window.location.search)
 
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
