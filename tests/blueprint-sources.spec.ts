@@ -18,10 +18,11 @@ import { waitForEditor } from './helpers/fbe-test-api'
     Nor can a unit test. The function ends in `decode`, which validates against
     FD, and since #109 an unloaded FD throws by name - so reaching the switch
     means a browser with the editor initialised. What makes that cheap is that
-    every arm fetches through `/corsproxy?url=<encoded>`, which `page.route` can
-    intercept: the URL each host maps to is readable off the intercepted request
-    without the network, and `route.fulfill` supplies the body, which is the only
-    way to exercise the three arms that pluck a field out of JSON.
+    every arm but gist fetches through `/corsproxy?url=<encoded>`, and gist asks
+    api.github.com directly, and `page.route` can intercept both: the URL each
+    host maps to is readable off the intercepted request without the network,
+    and `route.fulfill` supplies the body, which is the only way to exercise the
+    three arms that pluck a field out of JSON.
 
     Two things each case asserts, and both are needed. The rewritten URL is what
     a typo in a template literal would break. Loading the result is what a change
@@ -44,8 +45,10 @@ const BP = encode({
 })
 
 interface Fetched {
-    /** The URL the handler asked the proxy for, decoded from `?url=`. */
+    /** The URL the handler asked for: decoded from `?url=`, or as sent to GitHub. */
     target: string
+    /** Whether it went through the proxy or straight to GitHub's API. */
+    via: 'proxy' | 'github'
     /** How many entities reached the editor, so the parse step is covered too. */
     entities: number
 }
@@ -62,12 +65,22 @@ async function fetchThrough(
     body: string,
     contentType = 'text/plain'
 ): Promise<Fetched> {
-    const targets: string[] = []
+    const asked: Omit<Fetched, 'entities'>[] = []
 
     await page.route('**/corsproxy*', async route => {
         const url = new URL(route.request().url())
-        targets.push(url.searchParams.get('url') ?? '<no url param>')
+        asked.push({ target: url.searchParams.get('url') ?? '<no url param>', via: 'proxy' })
         await route.fulfill({ status: 200, contentType, body })
+    })
+    // Cross-origin, so it needs GitHub's own CORS header - see gist-rate-limit.spec.ts.
+    await page.route('https://api.github.com/**', async route => {
+        asked.push({ target: route.request().url(), via: 'github' })
+        await route.fulfill({
+            status: 200,
+            contentType,
+            body,
+            headers: { 'access-control-allow-origin': '*' },
+        })
     })
 
     const entities = await page.evaluate(async (src: string) => {
@@ -77,11 +90,12 @@ async function fetchThrough(
     }, source)
 
     await page.unroute('**/corsproxy*')
+    await page.unroute('https://api.github.com/**')
 
-    if (targets.length !== 1) {
-        throw new Error(`expected exactly one proxied request, saw ${targets.length}`)
+    if (asked.length !== 1) {
+        throw new Error(`expected exactly one request, saw ${asked.length}`)
     }
-    return { target: targets[0], entities }
+    return { ...asked[0], entities }
 }
 
 const gistBody = JSON.stringify({ files: { 'blueprint.txt': { content: BP } } })
@@ -95,6 +109,7 @@ test.beforeEach(async ({ page }) => {
 test('pastebin asks for the raw paste', async ({ page }) => {
     const r = await fetchThrough(page, 'https://pastebin.com/AbCd1234', BP)
     expect(r.target).toBe('https://pastebin.com/raw/AbCd1234')
+    expect(r.via).toBe('proxy')
     expect(r.entities).toBe(2)
 })
 
@@ -127,6 +142,7 @@ test('hastebin asks for the raw paste', async ({ page }) => {
 test('gist asks the API and takes the first file, whatever it is called', async ({ page }) => {
     const r = await fetchThrough(page, 'https://gist.github.com/someone/dead1234', gistBody)
     expect(r.target).toBe('https://api.github.com/gists/dead1234')
+    expect(r.via).toBe('github')
     expect(r.entities).toBe(2)
 })
 
@@ -249,6 +265,19 @@ test('an unrecognised host is fetched exactly as given', async ({ page }) => {
     const source = 'https://example.com/some/blueprint.txt'
     const r = await fetchThrough(page, source, BP)
     expect(r.target).toBe(source)
+    expect(r.entities).toBe(2)
+})
+
+/*
+    GitHub's API is asked directly in any spelling of its hostname. The proxy
+    strips trailing dots before it refuses `api.github.com`, so fetchData has to
+    strip them before it picks a route, or `api.github.com.` goes to a proxy
+    that refuses it. A pasted URL reaches it through the default arm above.
+*/
+test('a trailing-dot api.github.com is still asked directly', async ({ page }) => {
+    const r = await fetchThrough(page, 'https://api.github.com./gists/dead1234', BP)
+    expect(r.via).toBe('github')
+    expect(r.target).toBe('https://api.github.com/gists/dead1234')
     expect(r.entities).toBe(2)
 })
 

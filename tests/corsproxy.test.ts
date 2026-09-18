@@ -4,7 +4,7 @@ import * as path from 'path'
 import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTarget'
 
 /*
-    The only automated coverage the Cloudflare Worker has.
+    The Cloudflare Worker's proxy guard, where CI can run it.
 
     `packages/worker` is in `lint.ignorePatterns` (vite.config.ts) and no test
     project collects from it, so nothing in that package is linted, type-checked
@@ -12,11 +12,14 @@ import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTar
     reachable from here, where the `unit` project in vite.config.ts does collect
     it and CI runs it in seconds.
 
-    What is still uncovered, and it is most of the handler: the fetch, the
-    header rebuild, the Content-Length precheck and the streaming size cap all
-    live in index.ts and run nowhere but production. Testing those needs a
-    Workers runtime pool this repo does not have, and adding one means a new
-    dependency against a toolchain whose whole version story is "vite-plus pins
+    Less of the handler is uncovered than this comment once said, but not all of
+    it is covered. tests/gist-rate-limit.test.ts drives the real handler with a
+    stubbed fetch, and tests/worker-response-headers.test.ts calls the header
+    rebuild directly, both under Node rather than the Workers runtime. Nothing
+    drives the Content-Length precheck or the streaming size cap, and nothing
+    here can see what the runtime itself does differently. That needs a Workers
+    runtime pool this repo does not have, and adding one means a new dependency
+    against a toolchain whose whole version story is "vite-plus pins
     everything" (CLAUDE.md, Version Constraints). Worth knowing before reading a
     green run here as "the proxy is covered".
 
@@ -28,6 +31,13 @@ import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTar
 const SELF = 'fbe.factorygamefan.com'
 
 const allow = (target: string) => checkProxyTarget(target, SELF)
+
+/*
+    Hosts bpString.ts asks directly instead of through the proxy. They appear
+    in its source like every other host, so the scan below skips them, and the
+    proxy must refuse them rather than let the catch-all accept them.
+*/
+const ASKED_DIRECTLY = ['api.github.com']
 
 describe('checkProxyTarget - the editor’s own sources', () => {
     it('accepts every host on the allowlist', () => {
@@ -59,8 +69,45 @@ describe('checkProxyTarget - the editor’s own sources', () => {
         )
 
         expect(hosts.size).toBeGreaterThan(0)
+        for (const host of ASKED_DIRECTLY) {
+            expect(hosts.has(host), `${host} is no longer in bpString.ts`).toBe(true)
+        }
         for (const host of hosts) {
+            if (ASKED_DIRECTLY.includes(host)) continue
             expect(ALLOWED_HOSTS.has(host), `${host} is fetched but not allowlisted`).toBe(true)
+        }
+    })
+
+    /*
+        GitHub keys its anonymous allowance on the source address, and every
+        request from the proxy shares one. Refused in every spelling, because
+        the canonical form is what the rule compares.
+    */
+    it('refuses the hosts the editor asks directly', () => {
+        for (const host of ASKED_DIRECTLY) {
+            expect(ALLOWED_HOSTS.has(host), host).toBe(false)
+            for (const spelling of [host, host.toUpperCase(), `${host}.`, `${host}..`]) {
+                const target = `https://${spelling}/gists/dead1234`
+                expect(allow(target), target).toMatchObject({ ok: false, status: 403 })
+            }
+        }
+    })
+
+    /*
+        And the page may ask them. The dev server does not apply public/_headers,
+        so every Playwright spec passes without this, and production would block
+        the request with the CSP it serves.
+    */
+    it('lets the page ask them through connect-src', () => {
+        const headers = fs.readFileSync(
+            path.resolve(process.cwd(), 'packages/website/public/_headers'),
+            'utf-8'
+        )
+        const connectSrc = headers.match(/connect-src ([^;]*);/)
+        if (connectSrc === null) throw new Error('no connect-src directive in _headers')
+        const sources = connectSrc[1].split(/\s+/)
+        for (const host of ASKED_DIRECTLY) {
+            expect(sources, host).toContain(`https://${host}`)
         }
     })
 
@@ -193,11 +240,16 @@ describe('checkProxyTarget - refusals', () => {
     this guards.
 
     GitHub's API refuses a request with no User-Agent, and Cloudflare's fetch
-    sends none of its own, so dropping this header silently breaks the `gist`
-    source in bpString.ts - and breaks it in a way the whole suite stays green
+    sends none of its own, so dropping this header silently broke the `gist`
+    source in bpString.ts - and broke it in a way the whole suite stayed green
     for, because tests/blueprint-sources.spec.ts intercepts /corsproxy with
     page.route and never leaves the browser. That is exactly how it went
     unnoticed from March 2026 until it was probed against production.
+
+    Gists now go to GitHub directly and the proxy refuses api.github.com, so
+    that failure can no longer happen here. The guard stays for the second
+    test: the header must remain a fixed string rather than a copy of the
+    caller's, which would carry this site's cookies to the target.
 */
 describe('the outbound fetch identifies itself', () => {
     const worker = fs.readFileSync(
