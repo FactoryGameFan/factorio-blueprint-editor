@@ -67,11 +67,12 @@
         the binding constraint. Scoping `run_worker_first` above took
         invocations from 93.8/min to 9.9/min, measured per minute across the
         deploy on 2026-09-02: 199 in the minute before it landed, 21 in the
-        minute after. That minute was not the steady rate. Workers Logs over
-        2026-09-17 to 18 counted about 82,000 invocations a day, 57 a minute,
-        half of them /corsproxy - about 2.5 million log events a month against
-        20 million included. (Those counts come from a query that read about
-        one event in ten and scaled the result up, so they are estimates.)
+        minute after. Counted exactly one day at a time, Workers Logs gave
+        8,677 to 14,692 invocations a day over 2026-09-12 to 17, or 6.0 to
+        10.2 a minute, about half of them /corsproxy. That is roughly 350,000
+        log events a month against 20 million included. Count one day at a
+        time: a query over the whole 7-day log comes back sampled at about 1
+        in 10, and it was once read as a single day's total, 7 times too high.
 
         The number to watch is invocations, not this rate. Log events bill at
         $0.60 per million past the included 20 million, so this stays free
