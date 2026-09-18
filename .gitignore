@@ -7,6 +7,10 @@ packages/exporter/data/output/**/* 2.basis
 packages/exporter/data/output/**/* 3.basis
 packages/exporter/target
 .env
+.env.*
+!.env.example
+.dev.vars*
+!.dev.vars.example
 .DS_Store
 *.log
 diagnostic-reports/
