@@ -33,6 +33,12 @@ and filling out the issue template.
 
 ### Prerequisites
 
+If you have Docker and VS Code, you can skip the node and Vite+ items below.
+The repo ships a dev container with `vp`, Node, npm, Rust and Playwright's
+Chromium ready: run **Dev Containers: Reopen in Container**. It cannot
+regenerate the sprite data. The "Devcontainer" section of
+[CLAUDE.md](CLAUDE.md) says what it covers.
+
 - [git](https://git-scm.com/)
 - [node](https://nodejs.org/en/). The root `package.json` declares
   `devEngines.packageManager: npm ^12` with `onFail: download`, so an npm new
