@@ -67,15 +67,18 @@ package managers itself. Any other `node` or `npm` earlier on `PATH` wins
 instead, and the shims are then never consulted.
 
 Node and npm are two separate pins, which is the part worth knowing. The Node
-version comes from `.node-version` (24.20.0). The npm version comes from
+version comes from `.node-version`. The npm version comes from
 `devEngines.packageManager` in the root `package.json`, and Vite+ keeps it in
 `~/.vite-plus/package_manager/npm/<version>/` rather than using the one inside
-the Node install. That matters because the npm bundled inside Node 24.20.0 is
-11.19.0. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
-satisfy this repo whichever Node it selects, because npm 12 comes from Vite+
-and from nowhere else.
+the Node install. Read both files for the numbers; neither is repeated here,
+because a copy goes stale the day the pin moves. What matters is that the npm
+bundled inside the pinned Node is an older major than the range `devEngines`
+asks for. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
+satisfy this repo whichever Node it selects, because the npm it needs comes from
+Vite+ and from nowhere else.
 
-The symptom when something else's npm wins is `EBADDEVENGINES`:
+The symptom when something else's npm wins is `EBADDEVENGINES`. With a bundled
+npm 11 against a `^12` range, it reads:
 
 ```
 npm error EBADDEVENGINES Invalid semver version "^12" does not match "11.19.0"
