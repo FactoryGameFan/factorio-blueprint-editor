@@ -112,6 +112,21 @@ describe('checkProxyTarget - the catch-all stays open', () => {
     it('accepts a subdomain of an ordinary public host', () => {
         expect(allow('https://files.example.co.uk/a/b.txt')).toMatchObject({ ok: true })
     })
+
+    // A trailing dot is a legal spelling of a public name, so it is accepted -
+    // as the undotted name, so the guard and the fetch agree on what it is.
+    it('accepts a public host with a trailing dot, and fetches it without one', () => {
+        const verdict = allow('https://Example.com./blueprint.txt')
+        expect(verdict).toMatchObject({ ok: true, allowlisted: false })
+        if (verdict.ok) expect(verdict.url.href).toBe('https://example.com/blueprint.txt')
+    })
+
+    it('recognises an allowlisted host spelled with a trailing dot', () => {
+        expect(allow('https://pastebin.com./raw/abc')).toMatchObject({
+            ok: true,
+            allowlisted: true,
+        })
+    })
 })
 
 describe('checkProxyTarget - refusals', () => {
@@ -134,8 +149,32 @@ describe('checkProxyTarget - refusals', () => {
         ['a .local name', 'https://printer.local/x', 403],
         ['a .internal name', 'https://metadata.internal/x', 403],
         ['a non-default port on an unknown host', 'https://example.com:8080/x', 403],
+        /*
+            The same names with a trailing root label. The parser keeps it on a
+            name, so each of these used to compare unequal to its refused
+            spelling and pass. An IPv4-shaped host is different: the parser
+            removes exactly one trailing empty label, so `127.0.0.1.` was
+            already refused and it took two dots to get one past the literal
+            regexp.
+        */
+        ['localhost with a trailing dot', 'https://localhost./x', 403],
+        ['this deployment with a trailing dot', `https://${SELF}./corsproxy?url=x`, 403],
+        ['a .local name with a trailing dot', 'https://printer.local./x', 403],
+        ['a .internal name with a trailing dot', 'https://metadata.google.internal./x', 403],
+        ['an IPv4 literal with two trailing dots', 'https://127.0.0.1../x', 403],
+        ['the metadata address with two trailing dots', 'https://169.254.169.254../x', 403],
+        ['a hostname of nothing but a dot', 'https://./x', 403],
     ])('refuses %s', (_label, target, status) => {
         expect(checkProxyTarget(target, SELF)).toMatchObject({ ok: false, status })
+    })
+
+    // The arrival hostname comes from the client's Host header, so the trailing
+    // dot can be on that side of the comparison too.
+    it('refuses this deployment when the arrival hostname carries the dot', () => {
+        expect(checkProxyTarget(`https://${SELF}/corsproxy?url=x`, `${SELF}.`)).toMatchObject({
+            ok: false,
+            status: 403,
+        })
     })
 
     // The cloud-metadata address is the one refusal worth naming on its own:

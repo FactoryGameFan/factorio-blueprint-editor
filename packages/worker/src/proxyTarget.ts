@@ -77,6 +77,23 @@ function isAddressLiteralOrBareName(hostname: string): boolean {
 
 const INTERNAL_SUFFIXES = ['.local', '.internal', '.localhost', '.home.arpa']
 
+/*
+    The one spelling of a hostname every rule below compares against.
+
+    Lowercased, and with every trailing dot removed. The WHATWG parser keeps a
+    trailing root label on a name - `localhost.` stays `localhost.` - so every
+    string comparison here was one dot away from passing: `localhost.`,
+    `printer.local.` and `metadata.google.internal.` were all allowed where the
+    undotted form is refused. It also removes exactly one trailing empty label
+    from an IPv4-shaped host, so `127.0.0.1..` survives as `127.0.0.1..`, fails
+    the literal regexp, and reached the catch-all. Stripping every trailing dot
+    closes both at once, and the URL that is fetched is rewritten to the same
+    spelling so the guard and the request cannot disagree.
+*/
+function canonicalHostname(hostname: string): string {
+    return hostname.toLowerCase().replace(/\.+$/, '')
+}
+
 export function checkProxyTarget(raw: string | null, selfHostname: string): TargetVerdict {
     if (raw === null || raw === '') return deny(400, 'Missing url parameter')
 
@@ -97,11 +114,21 @@ export function checkProxyTarget(raw: string | null, selfHostname: string): Targ
         return deny(403, 'Targets may not carry credentials')
     }
 
+    const hostname = canonicalHostname(url.hostname)
+    // `https://./x` parses, and canonicalises to nothing. The setter below
+    // would silently ignore an empty name, so refuse it before it gets there.
+    if (hostname === '') return deny(403, 'Targets must be a public hostname')
+    if (hostname !== url.hostname) url.hostname = hostname
+
     // Without this the Worker will happily fetch itself, and /corsproxy?url=
     // pointing at /corsproxy?url= is a loop that costs a subrequest per hop.
-    if (url.hostname === selfHostname) return deny(403, 'Refusing to proxy this deployment')
+    // Both sides canonicalised: the arrival hostname is whatever the client
+    // put in its Host header, and a trailing dot there is as legal as here.
+    if (hostname === canonicalHostname(selfHostname)) {
+        return deny(403, 'Refusing to proxy this deployment')
+    }
 
-    if (ALLOWED_HOSTS.has(url.hostname)) return { ok: true, url, allowlisted: true }
+    if (ALLOWED_HOSTS.has(hostname)) return { ok: true, url, allowlisted: true }
 
     /*
         Everything below applies only to the catch-all. The editor's `default:`
@@ -109,8 +136,6 @@ export function checkProxyTarget(raw: string | null, selfHostname: string): Targ
         tests/blueprint-sources.spec.ts:168 pins it - so the answer here is to
         narrow what an arbitrary target may be, not to refuse one.
     */
-    const hostname = url.hostname.toLowerCase()
-
     if (hostname === 'localhost' || isAddressLiteralOrBareName(hostname)) {
         return deny(403, 'Targets must be a public hostname')
     }
