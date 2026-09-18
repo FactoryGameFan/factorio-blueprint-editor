@@ -1,4 +1,5 @@
 import { checkProxyTarget, MAX_PROXY_BYTES } from './proxyTarget'
+import { ownHeaders, proxyResponseHeaders } from './responseHeaders'
 import {
     DEDUPE_WINDOW_SECONDS,
     dedupeKey,
@@ -25,14 +26,6 @@ const LEGACY_HOSTNAME = 'fbeworkeyman.wormeyman.workers.dev'
 const CUSTOM_ORIGIN = 'https://fbe.factorygamefan.com'
 
 /*
-    Response headers the proxy re-emits. Everything else upstream sent is
-    dropped, which is the change from the old handler: that one did
-    `new Headers(resp.headers)` and copied the lot, so a target's Set-Cookie
-    landed on our origin and its caching directives spoke for our domain.
-*/
-const PASSTHROUGH_RESPONSE_HEADERS = ['content-type', 'x-ratelimit-remaining']
-
-/*
     Sent on every outbound fetch, because GitHub's API refuses a request without
     one: `api.github.com` answers 403 "Request forbidden by administrative rules.
     Please make sure your request has a User-Agent header." Cloudflare's fetch
@@ -57,10 +50,16 @@ const PASSTHROUGH_RESPONSE_HEADERS = ['content-type', 'x-ratelimit-remaining']
 */
 const PROXY_USER_AGENT = 'factorio-blueprint-editor (+https://fbe.factorygamefan.com)'
 
+/*
+    Every Response this Worker builds goes through here or through
+    proxyResponseHeaders, and nowhere else: the asset router applies
+    public/_headers to what it serves, but a Response the Worker returns
+    itself carries exactly the headers it was given. See responseHeaders.ts.
+*/
 const textResponse = (status: number, body: string): Response =>
     new Response(`${body}\n`, {
         status,
-        headers: { 'content-type': 'text/plain; charset=utf-8' },
+        headers: ownHeaders({ 'content-type': 'text/plain; charset=utf-8' }),
     })
 
 /*
@@ -113,41 +112,16 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
 
     const declared = Number(upstream.headers.get('content-length'))
     if (Number.isFinite(declared) && declared > MAX_PROXY_BYTES) {
+        // Not relaying it is not the same as not receiving it: an unread body
+        // holds the upstream connection open until the runtime gives up on it.
+        void upstream.body?.cancel()
         return textResponse(413, 'The target response is too large to proxy')
     }
-
-    const headers = new Headers()
-    for (const name of PASSTHROUGH_RESPONSE_HEADERS) {
-        const value = upstream.headers.get(name)
-        if (value !== null) headers.set(name, value)
-    }
-
-    /*
-        Scoped to this deployment's own origin rather than `*`.
-
-        The editor's own call is same-origin - bpString.ts fetches the relative
-        `/corsproxy?url=...` - so it needs no CORS header at all, and naming our
-        own origin is the narrowest value that still says out loud who the
-        endpoint is for. The old `*` handed every proxied body to any page on
-        the internet that cared to ask.
-
-        No Vary: Origin, deliberately, though the dead Pages handler carried one.
-        Vary earns its place when the header reflects the request's Origin; this
-        value is constant, so a shared cache cannot mix two callers up and the
-        header would only be cargo. There is no OPTIONS arm for the same reason:
-        a same-origin simple GET never preflights, and a cross-origin caller is
-        refused by the line below before a preflight would matter.
-    */
-    headers.set('access-control-allow-origin', requestUrl.origin)
-
-    // Third-party content served from our origin should not be cached as though
-    // we published it, and a blueprint is fetched once per load anyway.
-    headers.set('cache-control', 'no-store')
 
     return new Response(upstream.body === null ? null : capBody(upstream.body, MAX_PROXY_BYTES), {
         status: upstream.status,
         statusText: upstream.statusText,
-        headers,
+        headers: proxyResponseHeaders(upstream.headers, requestUrl.origin),
     })
 }
 
@@ -244,8 +218,15 @@ export default {
         // preserving the path and query string. Exact-match on purpose: the
         // versioned preview hostnames (<version>-fbeworkeyman.workers.dev) are
         // meant to serve the app rather than bounce to production.
+        //
+        // Built by hand rather than with Response.redirect, whose headers are
+        // immutable: this is a Response the Worker returns itself, so it takes
+        // the same policy as the rest.
         if (url.hostname === LEGACY_HOSTNAME) {
-            return Response.redirect(`${CUSTOM_ORIGIN}${url.pathname}${url.search}`, 301)
+            return new Response(null, {
+                status: 301,
+                headers: ownHeaders({ location: `${CUSTOM_ORIGIN}${url.pathname}${url.search}` }),
+            })
         }
 
         if (url.pathname === '/corsproxy') return handleCorsProxy(request, url)
