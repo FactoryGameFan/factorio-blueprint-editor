@@ -280,6 +280,25 @@ test('a bad blueprint string leaves the field intact and the dialog open, rather
     const pageErrors: string[] = []
     page.on('pageerror', err => pageErrors.push(err.message))
 
+    /*
+        A string that does not start with `0` is read as a source URL, so this
+        one reaches /corsproxy as `https://notablueprintstring/`. The dev server
+        forwards /corsproxy to the live site (packages/website/vite.config.js),
+        so without this route every run sent that request to
+        fbe.factorygamefan.com - 46 CI runs in the week to 2026-09-18, counted
+        in its Workers Logs. Answer it here the way the live Worker does, with
+        its 403 for a name that has no dot.
+    */
+    const proxied: (string | null)[] = []
+    await page.route('**/corsproxy*', route => {
+        proxied.push(new URL(route.request().url()).searchParams.get('url'))
+        return route.fulfill({
+            status: 403,
+            contentType: 'text/plain; charset=utf-8',
+            body: 'Targets must be a public hostname',
+        })
+    })
+
     await loadBlueprint(page, ONE_CHEST)
     await openImportDialog(page)
     await fillImportField(page, 'not a blueprint string')
@@ -294,6 +313,9 @@ test('a bad blueprint string leaves the field intact and the dialog open, rather
     // The loaded blueprint is untouched too, not left half-imported.
     const out = await page.evaluate(() => window.__fbe_test.encodeCurrentResult())
     expect(decodeBlueprintString(out as string).blueprint.entities[0].name).toBe('wooden-chest')
+
+    // The one proxy request was answered by the route above, not the live site.
+    await expect.poll(() => proxied).toEqual(['https://notablueprintstring/'])
 })
 
 test('Escape closes ImportDialog and ExportDialog even while the textarea has focus', async ({
