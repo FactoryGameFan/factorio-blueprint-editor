@@ -320,23 +320,30 @@ function getBlueprintOrBookFromSource(source: string | undefined): Promise<Bluep
                 address a request comes from, and through the proxy that was one
                 Cloudflare egress address shared by every visitor, so one caller
                 looping the proxy could stop gist imports for everyone.
+
+                Trailing dots are stripped before the comparison, as the proxy's
+                checkProxyTarget strips them before its refusal: the parser keeps
+                `api.github.com.` as written, and the two have to agree on what
+                the host is, or that spelling goes to a proxy that refuses it.
             */
             const fetchData = (url: string): Promise<Response> => {
-                const github = new URL(url).hostname === 'api.github.com'
-                return fetch(github ? url : `/corsproxy?url=${encodeURIComponent(url)}`).then(
-                    response => {
-                        if (response.ok) return response
-                        if (
-                            github &&
-                            (response.status === 429 ||
-                                (response.status === 403 &&
-                                    response.headers.get('x-ratelimit-remaining') === '0'))
-                        ) {
-                            throw new GitHubRateLimitError()
-                        }
-                        throw new Error('Network response was not ok.')
+                const target = new URL(url)
+                target.hostname = target.hostname.replace(/\.+$/, '')
+                const github = target.hostname === 'api.github.com'
+                return fetch(
+                    github ? target.href : `/corsproxy?url=${encodeURIComponent(url)}`
+                ).then(response => {
+                    if (response.ok) return response
+                    if (
+                        github &&
+                        (response.status === 429 ||
+                            (response.status === 403 &&
+                                response.headers.get('x-ratelimit-remaining') === '0'))
+                    ) {
+                        throw new GitHubRateLimitError()
                     }
-                )
+                    throw new Error('Network response was not ok.')
+                })
             }
 
             /*

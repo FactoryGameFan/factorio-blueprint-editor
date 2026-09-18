@@ -269,6 +269,19 @@ test('an unrecognised host is fetched exactly as given', async ({ page }) => {
 })
 
 /*
+    GitHub's API is asked directly in any spelling of its hostname. The proxy
+    strips trailing dots before it refuses `api.github.com`, so fetchData has to
+    strip them before it picks a route, or `api.github.com.` goes to a proxy
+    that refuses it. A pasted URL reaches it through the default arm above.
+*/
+test('a trailing-dot api.github.com is still asked directly', async ({ page }) => {
+    const r = await fetchThrough(page, 'https://api.github.com./gists/dead1234', BP)
+    expect(r.via).toBe('github')
+    expect(r.target).toBe('https://api.github.com/gists/dead1234')
+    expect(r.entities).toBe(2)
+})
+
+/*
     Not a happy path, and the reason this file asserts more than URLs.
 
     `fetchData` rejects on `!response.ok` and nothing else, so a host answering
