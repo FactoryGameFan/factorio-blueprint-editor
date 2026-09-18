@@ -133,7 +133,7 @@ if (isMobile.any) {
 if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'function') {
     createToast({
         text:
-            "Current browser doesn't support WebAssembly.<br>" +
+            "Current browser doesn't support WebAssembly.\n" +
             'If you think this is a mistake, feel free to report this bug on github.',
         type: 'error',
         timeout: Infinity,
@@ -1061,9 +1061,9 @@ function createWelcomeMessage(): void {
     setTimeout(() => {
         createToast({
             text:
-                '> To access the inventory and start building press E<br>' +
-                '> To import/export a blueprint string use ctrl/cmd + C/V<br>' +
-                '> For more info press I<br>' +
+                '> To access the inventory and start building press E\n' +
+                '> To import/export a blueprint string use ctrl/cmd + C/V\n' +
+                '> For more info press I\n' +
                 '> Also check out the settings area',
             timeout: 30000,
         })
@@ -1073,7 +1073,7 @@ function createErrorMessage(text: string, error: unknown, timeout = 10000): void
     console.error(error)
     createToast({
         text:
-            `${text}<br>` +
+            `${text}\n` +
             'Please check out the console (F12) for an error message and ' +
             'report this bug on github.',
         type: 'error',

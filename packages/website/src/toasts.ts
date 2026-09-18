@@ -37,7 +37,16 @@ export function initToasts(): (options: IToastsOptions) => void {
 
         const text = document.createElement('span')
         text.className = 'toasts-text'
-        text.innerHTML = options.text
+        /*
+            textContent, never innerHTML. Some of what gets toasted is chosen by
+            whoever wrote the blueprint: the "Skipped N unknown entities" warning
+            lists the names verbatim, and SafeIcon quotes the name of an icon it
+            could not build. A `?source=` link is enough to put a crafted string
+            in front of another user, so this is where markup in a blueprint
+            would have become script. Callers that want a line break use `\n`;
+            `.toasts-text` is `white-space: pre-line` for that.
+        */
+        text.textContent = options.text
         toast.appendChild(text)
 
         toast.classList.add(`toasts-${options.type || 'info'}`)
