@@ -1,6 +1,12 @@
 import { IBlueprint, IBlueprintBook, IBlueprintBookEntry, IIcon, IPoint } from '../types'
 import { Blueprint, getFactorioVersion } from './Blueprint'
 
+/** What `Book.selection` hands out and `Book.restoreSelection` takes back. */
+export interface BookSelection {
+    readonly index: number
+    readonly active: Blueprint | undefined
+}
+
 class Book {
     /*
         The blueprint currently open, absent until selectBlueprint has opened one.
@@ -62,18 +68,50 @@ class Book {
         return 0
     }
 
+    /**
+     * The page that is open and where, for `restoreSelection` to put back if
+     * the page `selectBlueprint` opens next cannot be drawn.
+     */
+    public get selection(): BookSelection {
+        return { index: this._activeIndex, active: this._active }
+    }
+
+    /*
+        Nothing is saved on the way back. The page being dropped never reached
+        the screen, so it holds no edits, and its slot still holds what the book
+        was given - selectBlueprint hands the constructor a copy of it.
+    */
+    public restoreSelection(selection: BookSelection): void {
+        this._activeIndex = selection.index
+        this._active = selection.active
+    }
+
     public selectBlueprint(index?: number): Blueprint {
         this.saveActiveBlueprint()
 
-        if (index !== undefined) {
-            this._activeIndex = index < 0 || index > this.lastBookIndex ? 0 : index
-        }
+        const next =
+            index === undefined
+                ? this._activeIndex
+                : index < 0 || index > this.lastBookIndex
+                  ? 0
+                  : index
 
-        const blueprint = getBlueprintAtFlattenedActiveIndex(this.blueprints, this._activeIndex)
-        const bp = new Blueprint(blueprint)
-        bp.gridPositionOffset = this.gridPositionOffsets.get(this._activeIndex) ?? { x: 0, y: 0 }
+        /*
+            Built before the book moves, and from a copy. The constructor can
+            throw on a page's own data (a wire whose two ends are different
+            colours), and moving the index first left the book pointing at that
+            page while `_active` was still the old one - so the next serialize
+            wrote the old page into the failed page's slot. The constructor also
+            edits what it is given (it deletes `wires`, and on a pre-2.0 page
+            each entity's `connections`), so reading the stored page directly
+            left a page that failed later, in initBP, without its wires.
+        */
+        const blueprint = getBlueprintAtFlattenedActiveIndex(this.blueprints, next)
+        const bp = new Blueprint(structuredClone(blueprint))
+        bp.gridPositionOffset = this.gridPositionOffsets.get(next) ?? { x: 0, y: 0 }
         // Restoring book state is not a user edit to undo.
         bp.history.reset()
+        this._activeIndex = next
         this._active = bp
         return bp
     }
