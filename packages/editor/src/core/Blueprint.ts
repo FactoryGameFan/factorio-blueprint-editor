@@ -313,28 +313,44 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                                 }
                                 items = []
                                 let stack = 0
+                                // `count` is attacker-controlled and unbounded - the schema types
+                                // it as an integer with no maximum and a schema failure is only a
+                                // warning - so a `?source=` link once drove this loop billions of
+                                // times at load time and hung or crashed the tab
+                                // (GHSA-2662-38w8-mv2c). Cap the total placed at the entity's module
+                                // slots, keeping the first ones in order and dropping the rest,
+                                // which is exactly what the game does on import: measured on
+                                // Factorio 2.0.77 (tools/oracle), a 1.1 assembling-machine-2 given
+                                // 3, 5 or 100 modules always keeps 2, its slot count. `stack` runs
+                                // across every module name, so the cap is on the total, not per name.
+                                const proto = FD.entities[e.name]
+                                const moduleSlots = hasModuleFunctionality(proto)
+                                    ? proto.module_slots || 0
+                                    : 0
                                 for (const [name, count] of Object.entries(e.items)) {
                                     const item = FD.items[name]
                                     if (!item) continue
                                     if (item.type === 'module') {
-                                        const inventory = getModuleInventoryIndex(
-                                            FD.entities[e.name]
-                                        )
+                                        const inventory = getModuleInventoryIndex(proto)
                                         if (!inventory) {
                                             throw new Error("Can't find inventory index!")
                                         }
                                         const in_inventory: InventoryPosition[] = []
-                                        for (let i = 0; i < count; i++) {
+                                        for (let i = 0; i < count && stack < moduleSlots; i++) {
                                             in_inventory.push({
                                                 inventory,
                                                 stack,
                                             })
                                             stack += 1
                                         }
-                                        items.push({
-                                            id: { name },
-                                            items: { in_inventory },
-                                        })
+                                        // Drop a name that got no slot, matching the game, which
+                                        // keeps only the names that fit rather than an empty entry.
+                                        if (in_inventory.length > 0) {
+                                            items.push({
+                                                id: { name },
+                                                items: { in_inventory },
+                                            })
+                                        }
                                     } else {
                                         throw new Error("Can't map item to new format!")
                                     }
