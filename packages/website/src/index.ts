@@ -235,17 +235,24 @@ function readClipboardText(): Promise<string> {
 */
 async function selectBookIndex(index: number): Promise<void> {
     if (!book) throw new Error('No book loaded')
-    const previous = bp
-    bp = book.selectBlueprint(index)
-    // Put back on a throw, as loadBp does. Book.selectBlueprint has already
-    // moved the book's own active index by then, and that is not undone here.
+    const current = book
+    const previous = { bp, selection: current.selection }
+    // A page whose own data is bad throws here, before anything has moved.
+    bp = current.selectBlueprint(index)
+    /*
+        One that fails to draw throws in loadBlueprint instead, by which time
+        the book has moved to it. Both go back, as loadBp's do: the editor puts
+        its own globals back, and a book left on the failed page would export
+        that page, not the one on screen, and take none of its later edits.
+    */
     try {
         await editor.loadBlueprint(bp)
     } catch (error) {
-        bp = previous
+        bp = previous.bp
+        current.restoreSelection(previous.selection)
         throw error
     }
-    changeBookForIndexSelector(book)
+    changeBookForIndexSelector(current)
 }
 
 const quickActions: QuickActions = {
