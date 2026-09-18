@@ -272,7 +272,7 @@ async function encode(bpOrBook: Blueprint | Book): Promise<string> {
     return `0${bytesToBase64(new Uint8Array(await new Response(deflated).arrayBuffer()))}`
 }
 
-function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book> {
+function getBlueprintOrBookFromSource(source: string | undefined): Promise<Blueprint | Book> {
     if (source === undefined) return Promise.resolve(new Blueprint())
 
     // trim whitespace
