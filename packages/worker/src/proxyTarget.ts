@@ -53,6 +53,23 @@ export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
 */
 export const MAX_PROXY_BYTES = 16 * 1024 * 1024
 
+/*
+    How many redirects one proxied request may follow. index.ts follows them
+    itself and puts every Location through checkProxyTarget, so each hop is a
+    subrequest judged by the same rules as the first; this bounds how many.
+
+    Measured 2026-09-18 by requesting each URL shape bpString.ts builds
+    directly, not through the proxy, with placeholder ids: `factorio.school`
+    answers 301 to `www.factorio.school`, a GitLab snippet that is missing or
+    private answers 302 to the sign-in page, and the other eight answer without
+    redirecting. One hop is the most any of them used. A real paste or a real
+    Google Doc was not measured, and the catch-all serves whatever host was
+    pasted, so 5 leaves room for an apex-to-www hop, a path fix-up and a CDN
+    hand-off in one chain while holding one request to six subrequests. The
+    fetch standard's own limit is 20.
+*/
+export const MAX_PROXY_REDIRECTS = 5
+
 export type TargetVerdict =
     | { ok: true; url: URL; allowlisted: boolean }
     | { ok: false; status: number; reason: string }
