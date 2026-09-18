@@ -241,6 +241,16 @@ describe('/corsproxy judges every Location by the same rules as the first URL', 
             `https://${SELF}/corsproxy?url=https://example.com/x`,
             'Refusing to proxy this deployment',
         ],
+        [
+            'names this deployment’s legacy workers.dev hostname',
+            'https://fbeworkeyman.wormeyman.workers.dev/corsproxy?url=https://example.com/x',
+            'Refusing to proxy this deployment',
+        ],
+        [
+            'names one of this deployment’s preview hostnames',
+            'https://1a2b3c4d-fbeworkeyman.wormeyman.workers.dev/corsproxy?url=https://example.com/x',
+            'Refusing to proxy this deployment',
+        ],
     ])('refuses a Location that %s, without fetching it', async (_label, location, reason) => {
         const calls = stubUpstreams({
             'https://example.com/start': { status: 302, location },

@@ -71,6 +71,22 @@ export const MAX_PROXY_BYTES = 16 * 1024 * 1024
 */
 export const MAX_PROXY_REDIRECTS = 5
 
+/*
+    The hostnames this Worker answers on, which are the ones it must never fetch.
+
+    The custom domain is `routes` in wrangler.jsonc. The legacy name is
+    `<name>.<account subdomain>.workers.dev`, and index.ts answers it with a
+    301 to the custom domain. Every version deployed also gets a preview
+    hostname, `<version prefix or alias>-fbeworkeyman.wormeyman.workers.dev`.
+    Those are off since `preview_urls: false`, but only a config line away. The
+    legacy name and every preview sit under the account's workers.dev
+    subdomain, so one suffix covers both, and any other Worker on this account
+    along with them.
+*/
+export const CUSTOM_HOSTNAME = 'fbe.factorygamefan.com'
+export const LEGACY_HOSTNAME = 'fbeworkeyman.wormeyman.workers.dev'
+const ACCOUNT_WORKERS_DEV = LEGACY_HOSTNAME.slice(LEGACY_HOSTNAME.indexOf('.'))
+
 export type TargetVerdict =
     | { ok: true; url: URL; allowlisted: boolean }
     | { ok: false; status: number; reason: string }
@@ -138,11 +154,22 @@ export function checkProxyTarget(raw: string | null, selfHostname: string): Targ
     if (hostname === '') return deny(403, 'Targets must be a public hostname')
     if (hostname !== url.hostname) url.hostname = hostname
 
-    // Without this the Worker will happily fetch itself, and /corsproxy?url=
-    // pointing at /corsproxy?url= is a loop that costs a subrequest per hop.
-    // Both sides canonicalised: the arrival hostname is whatever the client
-    // put in its Host header, and a trailing dot there is as legal as here.
-    if (hostname === canonicalHostname(selfHostname)) {
+    /*
+        Without this the Worker will happily fetch itself, and /corsproxy?url=
+        pointing at /corsproxy?url= is a loop that costs a subrequest per hop.
+        Every hostname it answers on, not only the one this request arrived on
+        (#456): a preview hostname runs its own copy of this proxy, so a chain
+        through different previews passed a same-hostname check at every level.
+        The arrival hostname is still compared too, for a name attached outside
+        wrangler.jsonc, such as a custom domain added in the dashboard.
+        Both sides canonicalised: the arrival hostname is whatever the client
+        put in its Host header, and a trailing dot there is as legal as here.
+    */
+    if (
+        hostname === canonicalHostname(selfHostname) ||
+        hostname === CUSTOM_HOSTNAME ||
+        hostname.endsWith(ACCOUNT_WORKERS_DEV)
+    ) {
         return deny(403, 'Refusing to proxy this deployment')
     }
 

@@ -1,4 +1,10 @@
-import { checkProxyTarget, MAX_PROXY_BYTES, MAX_PROXY_REDIRECTS } from './proxyTarget'
+import {
+    checkProxyTarget,
+    CUSTOM_HOSTNAME,
+    LEGACY_HOSTNAME,
+    MAX_PROXY_BYTES,
+    MAX_PROXY_REDIRECTS,
+} from './proxyTarget'
 import { ownHeaders, proxyResponseHeaders } from './responseHeaders'
 import {
     DEDUPE_WINDOW_SECONDS,
@@ -22,8 +28,7 @@ interface Env {
     VISITS?: AnalyticsEngineDataset
 }
 
-const LEGACY_HOSTNAME = 'fbeworkeyman.wormeyman.workers.dev'
-const CUSTOM_ORIGIN = 'https://fbe.factorygamefan.com'
+const CUSTOM_ORIGIN = `https://${CUSTOM_HOSTNAME}`
 
 /*
     Sent on every outbound fetch, because GitHub's API refuses a request without
