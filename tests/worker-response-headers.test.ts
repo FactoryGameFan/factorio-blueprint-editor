@@ -7,6 +7,7 @@ import {
     PROXIED_CONTENT_TYPE,
     proxyResponseHeaders,
 } from '../packages/worker/src/responseHeaders'
+import handler from '../packages/worker/src/index'
 
 /*
     The headers on the Responses the Worker builds itself. Same arrangement as
@@ -119,5 +120,24 @@ describe('index.ts builds every Response with the policy', () => {
         for (const construction of sent) {
             expect(construction).toMatch(/ownHeaders\(|proxyResponseHeaders\(/)
         }
+    })
+})
+
+/*
+    The legacy-hostname redirect, driven through the real handler. Nothing
+    else runs it, and both of its hostnames now come from proxyTarget.ts, so a
+    slip there would break every old link with the rest of the suite green.
+    Spelled out rather than imported, so the test pins the real names.
+*/
+describe('the legacy workers.dev hostname', () => {
+    it('redirects to the custom domain, keeping the path and query, under the policy', async () => {
+        const response = await handler.fetch(
+            new Request('https://fbeworkeyman.wormeyman.workers.dev/some/path?source=abc'),
+            {} as never,
+            {} as never
+        )
+        expect(response.status).toBe(301)
+        expect(response.headers.get('location')).toBe(`${ORIGIN}/some/path?source=abc`)
+        expect(response.headers.get('x-content-type-options')).toBe('nosniff')
     })
 })

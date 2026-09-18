@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test'
 import * as fs from 'fs'
 import * as path from 'path'
-import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTarget'
+import {
+    ALLOWED_HOSTS,
+    checkProxyTarget,
+    LEGACY_HOSTNAME,
+} from '../packages/worker/src/proxyTarget'
 
 /*
     The Cloudflare Worker's proxy guard, where CI can run it.
@@ -29,6 +33,9 @@ import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTar
 */
 
 const SELF = 'fbe.factorygamefan.com'
+// The other two kinds of hostname the same Worker answers on (#456).
+const LEGACY = 'fbeworkeyman.wormeyman.workers.dev'
+const PREVIEW = '1a2b3c4d-fbeworkeyman.wormeyman.workers.dev'
 
 const allow = (target: string) => checkProxyTarget(target, SELF)
 
@@ -187,6 +194,15 @@ describe('checkProxyTarget - refusals', () => {
         ['a data: URL', 'data:text/plain,hello', 403],
         ['credentials in the URL', 'https://user:pw@example.com/x', 403],
         ['this deployment itself', `https://${SELF}/corsproxy?url=x`, 403],
+        /*
+            The other hostnames this Worker answers on (#456). Comparing with
+            the arrival hostname alone let both through. The legacy name
+            re-enters the Worker and comes back as a 301 to /corsproxy, and a
+            preview hostname runs a whole copy of the proxy, so a chain of
+            different previews nests as deep as the URL allows.
+        */
+        ['the legacy workers.dev hostname', `https://${LEGACY}/corsproxy?url=x`, 403],
+        ['a preview hostname', `https://${PREVIEW}/corsproxy?url=x`, 403],
         ['localhost', 'https://localhost/x', 403],
         ['an IPv4 literal', 'https://127.0.0.1/x', 403],
         ['a private IPv4 literal', 'https://10.0.0.1/x', 403],
@@ -206,6 +222,8 @@ describe('checkProxyTarget - refusals', () => {
         */
         ['localhost with a trailing dot', 'https://localhost./x', 403],
         ['this deployment with a trailing dot', `https://${SELF}./corsproxy?url=x`, 403],
+        ['the legacy hostname with a trailing dot', `https://${LEGACY}./corsproxy?url=x`, 403],
+        ['a preview hostname with a trailing dot', `https://${PREVIEW}./corsproxy?url=x`, 403],
         ['a .local name with a trailing dot', 'https://printer.local./x', 403],
         ['a .internal name with a trailing dot', 'https://metadata.google.internal./x', 403],
         ['an IPv4 literal with two trailing dots', 'https://127.0.0.1../x', 403],
@@ -224,12 +242,78 @@ describe('checkProxyTarget - refusals', () => {
         })
     })
 
+    // `wrangler dev` arrives on localhost, so the refusal cannot depend on
+    // the request having arrived on the name it targets.
+    it.each([SELF, LEGACY, PREVIEW])('refuses %s whatever the arrival hostname', hostname => {
+        expect(checkProxyTarget(`https://${hostname}/corsproxy?url=x`, 'localhost')).toMatchObject({
+            ok: false,
+            status: 403,
+        })
+    })
+
+    // And the other way round: a hostname the list does not know is still
+    // refused when the request arrived on it, as a domain attached in the
+    // dashboard would be.
+    it('refuses the arrival hostname even when it is not on the list', () => {
+        expect(
+            checkProxyTarget(
+                'https://blueprints.example.org/corsproxy?url=x',
+                'blueprints.example.org'
+            )
+        ).toMatchObject({ ok: false, status: 403 })
+    })
+
+    /*
+        The arms deliberately left open. Only this account's workers.dev
+        subdomain is refused, so another account's Worker, a name that merely
+        ends in the same letters, and a host that only starts with ours are all
+        still ordinary public hosts.
+    */
+    it.each([
+        'https://someone.otheraccount.workers.dev/x',
+        'https://notwormeyman.workers.dev/x',
+        `https://${LEGACY}.example.com/x`,
+        `https://${SELF}.example.com/x`,
+    ])('still accepts %s', target => {
+        expect(checkProxyTarget(target, SELF)).toMatchObject({ ok: true, allowlisted: false })
+    })
+
     // The cloud-metadata address is the one refusal worth naming on its own:
     // it is the single most-requested target for an open relay, and it is a
     // plain IPv4 literal, so the blanket literal rule is what stops it.
     it('refuses the cloud metadata address specifically', () => {
         const verdict = checkProxyTarget('https://169.254.169.254/latest/meta-data/', SELF)
         expect(verdict.ok).toBe(false)
+    })
+})
+
+/*
+    proxyTarget.ts writes this Worker's hostnames down by hand, but
+    wrangler.jsonc is what decides them. A new route, or a renamed Worker,
+    would leave the guard refusing names nothing serves while a real one
+    passed, and no other test here would notice.
+*/
+describe('checkProxyTarget - agrees with wrangler.jsonc', () => {
+    const config = fs.readFileSync(
+        path.resolve(process.cwd(), 'packages/worker/wrangler.jsonc'),
+        'utf-8'
+    )
+
+    it('refuses every custom domain the Worker is routed on', () => {
+        const patterns = [...config.matchAll(/"pattern":\s*"([^"]+)"/g)].map(match => match[1])
+        expect(patterns).not.toHaveLength(0)
+        for (const pattern of patterns) {
+            expect(checkProxyTarget(`https://${pattern}/x`, 'localhost')).toMatchObject({
+                ok: false,
+                status: 403,
+            })
+        }
+    })
+
+    it('names the legacy hostname after the Worker', () => {
+        const name = config.match(/^ {4}"name":\s*"([^"]+)"/m)
+        if (name === null) throw new Error('wrangler.jsonc names no Worker')
+        expect(LEGACY_HOSTNAME.split('.')[0]).toBe(name[1])
     })
 })
 
