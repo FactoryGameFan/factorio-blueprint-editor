@@ -47,6 +47,12 @@ const CUSTOM_ORIGIN = 'https://fbe.factorygamefan.com'
 
     Measured 2026-08-25: of the eight allowlisted hosts, api.github.com is the
     only one that answers differently with and without this header.
+
+    Gists no longer come through here. The editor asks api.github.com directly,
+    and checkProxyTarget refuses it, so no host this proxy still fetches is
+    known to need the header. It stays because a fixed string is still the
+    right way for the proxy to name itself to a target, and the paragraph above
+    is why it must never become a copy of the caller's headers.
 */
 const PROXY_USER_AGENT = 'factorio-blueprint-editor (+https://fbe.factorygamefan.com)'
 

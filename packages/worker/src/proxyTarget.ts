@@ -21,8 +21,10 @@
 /*
     The hosts the editor itself asks for, which are the rewritten targets rather
     than the ones a user types: packages/editor/src/core/bpString.ts turns a
-    pastebin page URL into pastebin.com/raw/<id>, a gist URL into api.github.com,
-    and so on. Read them off the `switch` there, not off its doc comment.
+    pastebin page URL into pastebin.com/raw/<id>, and so on. Read them off the
+    `switch` there, not off its doc comment. A gist URL becomes api.github.com,
+    which is not here: the editor asks GitHub for it directly, and
+    checkProxyTarget refuses it below.
 
     `facorio-blueprints` is spelled that way upstream - it is the real Firebase
     project name behind factorioprints, typo included, and correcting it here
@@ -31,7 +33,6 @@
 export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
     'pastebin.com',
     'hastebin.com',
-    'api.github.com',
     'gitlab.com',
     'facorio-blueprints.firebaseio.com',
     'www.factorio.school',
@@ -126,6 +127,19 @@ export function checkProxyTarget(raw: string | null, selfHostname: string): Targ
     // put in its Host header, and a trailing dot there is as legal as here.
     if (hostname === canonicalHostname(selfHostname)) {
         return deny(403, 'Refusing to proxy this deployment')
+    }
+
+    /*
+        GitHub allows 60 anonymous API requests an hour per source address, and
+        every request from here leaves from Cloudflare's shared egress pool. So
+        through this proxy the allowance was one for the whole site, and anyone
+        looping it could stop gist imports for every visitor. The editor asks
+        GitHub directly now (bpString.ts, fetchData), where each visitor spends
+        their own. Refused rather than left to the catch-all, which would accept
+        it: an ordinary public host on port 443 passes every rule below.
+    */
+    if (hostname === 'api.github.com') {
+        return deny(403, 'api.github.com is asked directly by the editor, not through this proxy')
     }
 
     if (ALLOWED_HOSTS.has(hostname)) return { ok: true, url, allowlisted: true }

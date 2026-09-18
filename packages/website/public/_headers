@@ -1,4 +1,4 @@
 /*
     X-Content-Type-Options: nosniff
     Referrer-Policy: strict-origin
-    Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com; worker-src blob:; frame-ancestors 'none';
+    Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com https://api.github.com; worker-src blob:; frame-ancestors 'none';
