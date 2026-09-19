@@ -20,16 +20,51 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const SPRITE_PORT = 8081
 
-export function parseArgs(argv) {
-    const i = argv.indexOf('--port')
-    if (i === -1) return { port: 8080 }
+// Set by .devcontainer/devcontainer.json. See viteArgs below for what it is for.
+const WIDE_HOST_ENV = 'FBE_DEV_HOST'
 
-    const raw = argv[i + 1]
-    const port = Number(raw)
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        throw new Error(`--port wants an integer from 1 to 65535, got ${raw ?? '(nothing)'}`)
+export function parseArgs(argv) {
+    let port = 8080
+
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] !== '--port') {
+            throw new Error(
+                `Unknown argument ${argv[i]}. The only option is --port.\n` +
+                    `To reach Vite from outside its own loopback - which a container's port ` +
+                    `forwarder must - set ${WIDE_HOST_ENV}=1 instead of passing a host flag; ` +
+                    `nothing here forwards flags to Vite.`
+            )
+        }
+        const raw = argv[++i]
+        port = Number(raw)
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+            throw new Error(`--port wants an integer from 1 to 65535, got ${raw ?? '(nothing)'}`)
+        }
     }
     return { port }
+}
+
+/*
+    Vite's default host is `localhost`, and localhost resolves ::1 ahead of
+    127.0.0.1 on both macOS and Linux, so Vite ends up bound to [::1] alone.
+    A port forwarder dials 127.0.0.1, so from outside a container there is
+    nothing there. Measured in the devcontainer: VS Code forwards both ports,
+    8081 answers 200 because `npx serve` binds :: dual-stack, and 8080 times
+    out on an otherwise healthy Vite.
+
+    A bare --host, no value, is the fix - it leaves Vite on ::, which answers
+    on both families. --host 0.0.0.0 reads as the same thing and is not: it is
+    IPv4 only and refuses ::1, the address the Playwright specs reach through
+    playwright.config.ts's default baseURL of http://localhost:8080.
+
+    The container opts in through the environment rather than this being the
+    default, so a run on a laptop still serves loopback alone instead of
+    quietly appearing on whatever network the machine has joined.
+*/
+export function viteArgs(port, env = process.env) {
+    const args = ['dev', '--port', String(port), '--strictPort']
+    if (env[WIDE_HOST_ENV]) args.push('--host')
+    return args
 }
 
 // Probes by connecting rather than by binding, and checks both loopback
@@ -173,12 +208,7 @@ async function main() {
     // Vite first, matching the order in CLAUDE.md, and with --strictPort so a
     // clash that appears between the check above and the bind is still an error
     // rather than a silent fallback.
-    start(
-        'vite',
-        'vp',
-        ['dev', '--port', String(port), '--strictPort'],
-        join(repoRoot, 'packages/website')
-    )
+    start('vite', 'vp', viteArgs(port), join(repoRoot, 'packages/website'))
     // --yes so a machine without `serve` cached installs it instead of sitting
     // on an install prompt that never gets answered.
     start(

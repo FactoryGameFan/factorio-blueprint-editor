@@ -1,7 +1,7 @@
 import { test } from 'vite-plus/test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:net'
-import { parseArgs, isPortFree } from './localpreview.mjs'
+import { parseArgs, viteArgs, isPortFree } from './localpreview.mjs'
 
 /** Listens on one loopback family and resolves the port it got. */
 function listenOn(host) {
@@ -29,6 +29,17 @@ test('parseArgs rejects a non-port rather than silently defaulting', () => {
     assert.throws(() => parseArgs(['--port', 'lol']), /wants an integer/)
     assert.throws(() => parseArgs(['--port']), /wants an integer/)
     assert.throws(() => parseArgs(['--port', '70000']), /wants an integer/)
+})
+
+test('parseArgs rejects an argument it does not recognise', () => {
+    /*
+        Same class again, one step further out. Only --port was ever read, so
+        anything else was dropped and the run still reported success. --host is
+        the one that cost a test session: it reads like it would reach Vite,
+        it does not, and nothing said so.
+    */
+    assert.throws(() => parseArgs(['--host']), /Unknown argument/)
+    assert.throws(() => parseArgs(['--prot', '8090']), /Unknown argument/)
 })
 
 test('isPortFree is true for a port nothing is listening on', async () => {
@@ -61,4 +72,27 @@ test('isPortFree is false for an IPv6-only listener', async () => {
     } finally {
         await close(server)
     }
+})
+
+test('viteArgs leaves Vite on loopback for a run on the host', () => {
+    assert.deepEqual(viteArgs(8080, {}), ['dev', '--port', '8080', '--strictPort'])
+    assert.deepEqual(viteArgs(8090, {}), ['dev', '--port', '8090', '--strictPort'])
+})
+
+test('viteArgs adds a bare --host when the container asks for one', () => {
+    /*
+        Bare, with no value, and the assertion pins that. --host on its own
+        leaves Vite listening on ::, which answers on both loopback families.
+        --host 0.0.0.0 is IPv4 alone and refuses ::1 - and ::1 is what the
+        Playwright specs reach, since playwright.config.ts defaults baseURL to
+        http://localhost:8080 and localhost resolves ::1 first in the container.
+        So the value that looks more permissive would break the test suite.
+    */
+    assert.deepEqual(viteArgs(8080, { FBE_DEV_HOST: '1' }), [
+        'dev',
+        '--port',
+        '8080',
+        '--strictPort',
+        '--host',
+    ])
 })

@@ -154,19 +154,36 @@ Chromium's renderer, at about 1.5 GB, during the large-paste test in
 `tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
 chase.
 
-It does not do three things:
+It does not do two things:
 
 - **Regenerate Factorio data.** `packages/exporter/basisu` is a macOS arm64
   binary, with a Windows `basisu.exe` beside it, and on Linux the exporter
   looks for an x86-64 `bin/x64/factorio`. Run `npm run start:exporter` on the
   host.
 - **Run oracle probes.** They need a local Factorio.
-- **Reach Vite from the host by itself.** Vite binds `localhost`, which inside
-  the container is `[::1]` only. Measured with the bare `devcontainer` CLI, the
-  host is refused on `localhost`, on the container's IP, and on its OrbStack
-  `.orb.local` name. That CLI forwards no ports (devcontainers/cli#22). VS
-  Code's Dev Containers extension reads `forwardPorts`; that path has not been
-  measured here yet.
+
+Reaching Vite from the host needed a change to get right. Vite's default host
+is `localhost`, which resolves `::1` ahead of `127.0.0.1`, so Vite bound `[::1]`
+alone while a port forwarder dials `127.0.0.1`. Measured against VS Code's Dev
+Containers extension, which does read `forwardPorts`: it forwarded both ports
+correctly, 8081 answered 200 because `npx serve` binds `::` dual-stack, and 8080
+timed out on an otherwise healthy Vite. The editor's own Playwright specs never
+saw it, because they reach `::1` too.
+
+`containerEnv` now sets `FBE_DEV_HOST`, which makes `scripts/localpreview.mjs`
+add a bare `--host`, and both ports come up on `::`. Measured from the Mac
+afterwards: `localhost:8080` answers 200 through VS Code's forward, and the
+container's own address answers 200 directly - so on OrbStack the bare
+`devcontainer` CLI no longer needs the forwarding it does not do
+(devcontainers/cli#22). The container's `.orb.local` name connects and returns
+403, which is Vite's `allowedHosts` refusing an unfamiliar Host header rather
+than a networking fault, and the name is random anyway because VS Code passes
+no `--name`.
+
+Do not "fix" that bind with `--host 0.0.0.0`. It binds IPv4 alone and refuses
+`::1` - the address the Playwright specs reach, through
+`playwright.config.ts`'s default `baseURL` of `http://localhost:8080`. The
+value that reads as the more permissive one breaks the suite instead.
 
 `node_modules` is a named volume, not the bind-mounted folder. An install
 holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
