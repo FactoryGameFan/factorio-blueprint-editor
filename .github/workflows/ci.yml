@@ -159,44 +159,12 @@ jobs:
         run: cargo fmt --check --manifest-path packages/exporter/Cargo.toml
 
       # `-D warnings` is load-bearing: plain `cargo clippy` exits 0 with warnings.
-      # Gates on Linux deliberately - it reports 2 warnings on a Mac and the Mac
-      # is the one that is wrong. Do not silence them locally. See README.md.
+      # Every host agrees with this job, because `download()` compiles both of
+      # its extraction arms on every target. A `#[cfg(target_os)]` around either
+      # one brings back the macOS-only "unused variable" pair. See README.md.
       - name: Clippy
         if: ${{ !cancelled() }}
         run: cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
-
-  # A NATIVE runner, not `cargo check --target x86_64-pc-windows-msvc`, which
-  # fails: `zstd-sys` refuses the GNU compiler for an msvc target. The
-  # cross-check was committed and CI rejected it. See README.md.
-  rust-windows:
-    name: Rust exporter (Windows)
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    runs-on: windows-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Record toolchain
-        run: cargo --version && rustc --version
-
-      - name: Cache cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/exporter/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('packages/exporter/Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-
-
-      - name: Build
-        run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
-
-      - name: Test
-        run: cargo test --locked --manifest-path packages/exporter/Cargo.toml
 
   e2e:
     name: Playwright ${{ matrix.shard }}/${{ strategy.job-total }}

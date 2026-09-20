@@ -266,8 +266,12 @@ navigation so toasts and the settings panel cannot intercept events. Do not
 edit files while a Playwright run is active: Vite reloads the page and destroys
 the test's execution context.
 
-CI runs checks, Rust builds on Linux and Windows, four Playwright shards, and a
-Cloudflare deployment after both checks and browser tests pass.
+CI runs checks, a Rust build, four Playwright shards, and a Cloudflare
+deployment after both checks and browser tests pass. Every job is on
+`ubuntu-latest`; the Windows Rust job is gone, because `download()` no longer
+hides either extractor behind a `#[cfg(target_os)]` and Linux therefore
+type-checks both. `.github/workflows/README.md` records what that stopped
+covering.
 
 ### Running the browser suite under WSL2
 
@@ -369,13 +373,22 @@ Set `FACTORIO_DIR` in `packages/exporter/.env` to a local installation and run:
 npm run start:exporter
 ```
 
-Without a local installation, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` can
-download base-game data, but that path cannot export Space Age. Sprite
-compression invokes the repository's `basisu` binary, currently macOS ARM64.
+Without a local installation, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` download
+the game instead. That path asks for the `expansion` build, so it does carry
+Space Age, and the account behind the token has to own Space Age or the download
+returns a non-success status. It runs on Linux and Windows only; macOS panics on
+the unsupported-OS arm, because the macOS distribution is a DMG.
 
-The Rust exporter has two input paths - downloaded data and a local install -
-but both route sprite compression through the same implementation in
-`setup.rs`.
+The version is not written in the source. `resolve_version()` reads
+`stable.expansion` from <https://factorio.com/api/latest-releases>, and
+`FACTORIO_VERSION` pins a specific one. A number in the source went stale
+before: it read 2.0.68 while the oracle fixtures were recorded at 2.0.77.
+
+Sprite compression invokes the repository's `basisu` binary. Only macOS ARM64
+and Windows x86-64 builds are tracked, with no Linux one, which is why a Linux
+container cannot regenerate data even though it can build and run everything
+else. Both input paths, downloaded and local, route compression through the same
+implementation in `setup.rs`.
 
 ## Deployment
 
