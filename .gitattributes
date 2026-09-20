@@ -21,4 +21,4 @@
 *.wasm  binary
 *.woff  binary
 *.woff2 binary
-packages/exporter/basisu binary
+packages/exporter/basisu* binary
