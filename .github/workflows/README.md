@@ -161,6 +161,32 @@ the lockfile itself, and this is what checks that it did.
 Both are separate jobs rather than steps in `checks` so they run in parallel
 instead of adding to that job's wall clock.
 
+### The cache was most of this job
+
+Measured on run 35543940158, 2026-09-20. The Linux job took 90s, and 68s of that
+was the cache: 49s to restore and 19s in the post step. The work it protects,
+build plus test plus fmt plus clippy, was 13s. The cache itself was 1,884 MB.
+
+Debug info was the bulk of it. Measured locally the same day, a clean build
+directory for this crate is 1.7 GB, 1.2 GB of that in `target/debug/deps`, and
+building with `CARGO_PROFILE_DEV_DEBUG=false` and `CARGO_INCREMENTAL=0` gives
+506 MB instead. The build did not get slower, 15.6s against 20.3s on the same
+machine. Nothing in this job opens a debugger, so the information was being
+compressed, uploaded, downloaded and decompressed for nobody.
+
+Both are set as job-level `env:` rather than in `Cargo.toml`, so a developer
+building locally keeps backtraces with line numbers.
+
+**The cache key had to change with them, and that is the part worth
+remembering.** `actions/cache` does not re-save on a hit, so leaving the key
+alone would have restored the old 1.9 GB cache for its lockfile forever and
+never replaced it. The `v2` in `cargo-v2-...` exists for that, and any future
+change to how these artifacts are produced needs the same bump.
+
+Re-measure after this lands rather than trusting the estimate here. The numbers
+above are what the old cache cost and what the build directory now weighs; what
+the new restore costs on a runner has not been measured yet.
+
 ### `-D warnings` on clippy
 
 Plain `cargo clippy` exits 0 with warnings. Measured. Without `-D warnings` the
