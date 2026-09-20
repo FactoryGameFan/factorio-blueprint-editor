@@ -21,5 +21,10 @@ tokio-util = { version = "0.7.13", features = ["io"] }
 hyper-staticfile = "0.10.1"
 hyper = { version = "1.5.1", features = ["http1", "server"] }
 hyper-util = { version = "0.1.10", features = ["tokio"] }
-zip = "8.0.0"
+# Deflate only. Every one of the 8,069 entries in Factorio's Windows zip uses
+# it, read from the published archive's central directory. The default features
+# add zstd, bzip2 and aes, and zstd-sys is a C dependency that refuses a GNU
+# compiler when the target is windows-msvc - which is what stopped this crate
+# from being checked for Windows off a Linux host.
+zip = { version = "8.0.0", default-features = false, features = ["deflate"] }
 dotenvy = "0.15.7"

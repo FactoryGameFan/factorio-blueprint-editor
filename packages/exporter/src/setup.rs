@@ -503,7 +503,51 @@ async fn compress_next_img(
     Ok(())
 }
 
-// TODO: look into using https://wiki.factorio.com/Download_API
+/*
+    Which build to fetch from https://wiki.factorio.com/Download_API.
+
+    `alpha` is the base game. `expansion` is the same game with Space Age, which
+    is what this editor renders, and asking for `alpha` here is the whole reason
+    the download path could not produce Space Age data. The account behind
+    FACTORIO_TOKEN has to own Space Age; one that does not gets a non-success
+    status from the download below.
+*/
+const FACTORIO_BUILD: &str = "expansion";
+
+#[derive(Deserialize)]
+struct LatestReleases {
+    stable: HashMap<String, String>,
+}
+
+/// Which Factorio version to download.
+///
+/// `FACTORIO_VERSION` pins it, for reproducing an older export. Without it this
+/// asks factorio.com for the current stable release of [`FACTORIO_BUILD`],
+/// rather than carrying a number in the source that nothing updates - the
+/// hardcoded one read 2.0.68 while the oracle fixtures were recorded at 2.0.77.
+pub async fn resolve_version() -> Result<String, Box<dyn Error>> {
+    if let Ok(pinned) = env::var("FACTORIO_VERSION") {
+        println!("Using pinned Factorio version {pinned}");
+        return Ok(pinned);
+    }
+
+    let releases: LatestReleases = reqwest::Client::new()
+        .get("https://factorio.com/api/latest-releases")
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    let version = releases
+        .stable
+        .get(FACTORIO_BUILD)
+        .ok_or_else(|| format!("latest-releases reported no stable {FACTORIO_BUILD} release"))?;
+
+    println!("Latest stable {FACTORIO_BUILD} release is Factorio {version}");
+    Ok(version.clone())
+}
+
 pub async fn download_factorio(
     data_dir: &Path,
     base_factorio_dir: &Path,
@@ -546,7 +590,7 @@ async fn download(
         // "macos" => "osx",
         _ => panic!("unsupported OS"),
     };
-    let url = format!("https://www.factorio.com/get-download/{version}/alpha/{os}?username={username}&token={token}");
+    let url = format!("https://www.factorio.com/get-download/{version}/{FACTORIO_BUILD}/{os}?username={username}&token={token}");
 
     let client = reqwest::Client::new();
     let res = client.get(&url).send().await?;
@@ -574,40 +618,45 @@ async fn download(
     use futures::stream::TryStreamExt;
     let stream = res.bytes_stream().map_err(futures::io::Error::other);
 
-    /*
-        `stream` and `out_dir` are consumed only inside the cfg blocks below, so
-        on macOS - where neither is active, and where this function panics on the
-        unsupported-OS arm above anyway - both read as unused. That is a
-        false positive of the host, not a finding: `cargo clippy --fix` renamed
-        each to a leading-underscore form to silence it, which compiles on macOS
-        and BREAKS the Linux and Windows builds, where the cfg blocks reference
-        the original names. Caught by the ubuntu CI job. Do not "fix" them again.
-    */
     let stream = stream.inspect_ok(|chunk| {
         pb.inc(chunk.len() as u64);
     });
 
-    #[cfg(target_os = "windows")]
-    {
-        let mut bytes = if let Some(content_length) = content_length {
-            Vec::with_capacity(content_length.try_into()?)
-        } else {
-            Vec::new()
-        };
-        let mut stream = stream;
-        while let Some(chunk) = stream.try_next().await? {
-            bytes.extend(chunk);
-        }
-        let mut ar = zip::ZipArchive::new(std::io::Cursor::new(bytes))?;
-        ar.extract(out_dir)?;
-    }
-    #[cfg(target_os = "linux")]
-    {
-        let stream_reader = tokio_util::io::StreamReader::new(stream);
-        let decompressor = async_compression::tokio::bufread::LzmaDecoder::new(stream_reader);
+    /*
+        A runtime match rather than #[cfg(target_os)] blocks. The archive format
+        follows the build asked for above, not the machine asking, and both
+        extractors are ordinary cross-platform crates that every target already
+        compiles: `zip`, `tokio-tar` and `async-compression` are unconditional
+        entries in Cargo.toml.
 
-        let mut ar = tokio_tar::Archive::new(decompressor);
-        ar.unpack(out_dir).await?;
+        Keep it this way. Gating these arms hides the Windows one from every
+        Linux build, which is what forced CI to run a native windows-latest job
+        to type-check it at all, and it leaves `stream` and `out_dir` unused on
+        macOS, where `cargo clippy --fix` renames them to a leading-underscore
+        form that breaks the other two targets.
+    */
+    match std::env::consts::OS {
+        "windows" => {
+            let mut bytes = if let Some(content_length) = content_length {
+                Vec::with_capacity(content_length.try_into()?)
+            } else {
+                Vec::new()
+            };
+            let mut stream = stream;
+            while let Some(chunk) = stream.try_next().await? {
+                bytes.extend(chunk);
+            }
+            let mut ar = zip::ZipArchive::new(std::io::Cursor::new(bytes))?;
+            ar.extract(out_dir)?;
+        }
+        "linux" => {
+            let stream_reader = tokio_util::io::StreamReader::new(stream);
+            let decompressor = async_compression::tokio::bufread::LzmaDecoder::new(stream_reader);
+
+            let mut ar = tokio_tar::Archive::new(decompressor);
+            ar.unpack(out_dir).await?;
+        }
+        os => panic!("unsupported OS: {os}"),
     }
 
     pb.finish();
