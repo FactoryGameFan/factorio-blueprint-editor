@@ -148,11 +148,15 @@ broken crate bump or a breaking API change was invisible until somebody built it
 by hand on macOS.
 
 The job **compiles** the exporter. It cannot **run** it, and the difference
-matters before anyone extends it. Running it needs a Factorio install to
-extract from, and sprite encoding shells out to `./basisu` (in `src/setup.rs`,
-hardcoded with no `cfg(target_os)` switch) for which only a macOS ARM64 binary is
-tracked. Compiling needs neither: `basisu` is invoked through `Command::new` at
-run time, there is no `build.rs`, and no dependency is platform-gated.
+matters before anyone extends it. Running it needs a Factorio install to extract
+from, and sprite encoding shells out to a `basisu` binary picked by
+`basisu_for()` in `src/setup.rs`, one per platform. Compiling needs neither:
+`basisu` is invoked through `Command::new` at run time, there is no `build.rs`,
+and no dependency is platform-gated.
+
+Extending this job to run the exporter would be a bigger change than it looks.
+The Linux and macOS `basisu` builds encode the same PNG to different bytes, so a
+run here would not reproduce the committed textures. CLAUDE.md has the numbers.
 
 So a crate that changes runtime behaviour without breaking the build will pass.
 

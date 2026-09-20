@@ -384,11 +384,31 @@ The version is not written in the source. `resolve_version()` reads
 `FACTORIO_VERSION` pins a specific one. A number in the source went stale
 before: it read 2.0.68 while the oracle fixtures were recorded at 2.0.77.
 
-Sprite compression invokes the repository's `basisu` binary. Only macOS ARM64
-and Windows x86-64 builds are tracked, with no Linux one, which is why a Linux
-container cannot regenerate data even though it can build and run everything
-else. Both input paths, downloaded and local, route compression through the same
-implementation in `setup.rs`.
+Sprite compression invokes a tracked `basisu` binary, one per platform, chosen
+by `basisu_for()` in `setup.rs`: `basisu` on macOS ARM64, `basisu-linux` on
+Linux x86-64, `basisu.exe` on Windows. All three are v1.16.4, and the Windows
+and Linux ones are upstream's own builds from the 1.16.4 release, whose
+`basisu.exe` is byte-identical to the tracked one. Both input paths, downloaded
+and local, route compression through the same implementation.
+
+**The three are not interchangeable, and the committed textures came from the
+macOS build.** The same PNG encodes to different bytes on macOS and on Linux:
+measured 2026-09-20 on `accumulator-charge.png`, 139,208 bytes against 139,094,
+with 7 of 8 sprites differing. The pictures are the same to look at - alpha is
+bit-identical, transparent pixels match exactly, and the mean channel difference
+over the sheet is 0.226 of 255 - but the files are not.
+
+So regenerating on Linux rewrites all 3,060 `.basis` files, about 152 MB, with
+no visible change in any of them. That is a real cost on a `.git` already around
+700 MB, and it is why the Linux binary is tracked while the committed output was
+left alone. **Regenerate on macOS unless you intend that rewrite.** If you ever
+do intend it, the Linux output is reproducible: upstream's x86-64 build gives
+the identical sha256 on native x86-64 hardware and under emulation on an
+arm64 Mac, measured both ways on the same input.
+
+`tools/check-basisu-determinism.mjs` reads the macOS binary by name and answers
+a different question - whether one encoder repeats itself - so it cannot see
+this.
 
 ## Deployment
 

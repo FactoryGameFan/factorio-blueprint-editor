@@ -59,6 +59,29 @@ pub fn local_game_data_path(factorio_dir: &Path) -> PathBuf {
     }
 }
 
+/*
+    The sprite compressor, one tracked binary per platform.
+
+    They are basisu v1.16.4 in all three cases and they are NOT interchangeable.
+    The same PNG through the macOS build and the Linux build gives different
+    bytes: measured on accumulator-charge.png, 139,208 bytes against 139,094,
+    and 7 of 8 sprites differed. The pictures are the same to look at - alpha is
+    bit-identical and the mean channel difference is 0.226 of 255 - but the
+    files are not, and the committed textures under data/output were produced by
+    the macOS build. CLAUDE.md says what follows from that.
+
+    Windows would also find `basisu.exe` from a bare `./basisu`, because
+    CreateProcess appends the extension. It is named here anyway rather than
+    left to that rule, since the rule is easy to not know about.
+*/
+fn basisu_for(os: &str) -> &'static str {
+    match os {
+        "linux" => "./basisu-linux",
+        "windows" => "./basisu.exe",
+        _ => "./basisu",
+    }
+}
+
 /// Atomically reserve a fresh workspace. Keep it for inspection on success and
 /// failure; callers print the location so it can be moved to Trash afterwards.
 fn new_work_dir(parent: &Path, prefix: &str) -> std::io::Result<PathBuf> {
@@ -471,7 +494,7 @@ async fn compress_next_img(
 
             tokio::fs::create_dir_all(out_path.parent().unwrap()).await?;
 
-            let basisu_executable = "./basisu";
+            let basisu_executable = basisu_for(std::env::consts::OS);
             let status = Command::new(basisu_executable)
                 // .args(&["-comp_level", "2"])
                 .args(["-no_multithreading"])
