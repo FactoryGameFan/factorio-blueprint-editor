@@ -36,8 +36,12 @@ test('selectLabels drops a name that is not on the allowlist', () => {
     assert.deepEqual(selectLabels(['wontfix', 'renderer'], []), ['renderer'])
 })
 
-test('selectLabels drops a label the issue already carries', () => {
-    assert.deepEqual(selectLabels(['renderer', 'editor ui'], ['renderer']), ['editor ui'])
+test('selectLabels adds nothing once the issue says which area it is about', () => {
+    // The gate asks this a minute earlier, and a minute is long enough for
+    // someone to label the issue by hand while the model is still reading it.
+    // Asking again at the moment of writing is what closes that gap: an issue
+    // a person has already placed is not this workflow's to place.
+    assert.deepEqual(selectLabels(['editor ui'], ['bug', 'renderer']), [])
 })
 
 test('selectLabels drops a repeated proposal', () => {

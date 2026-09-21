@@ -71,18 +71,26 @@ export function needsTriage(currentLabels) {
 }
 
 /**
- * The labels worth adding: on the allowlist, not already there, no repeats,
- * capped. Everything else is dropped silently here and reported by `apply`.
+ * The labels worth adding: on the allowlist, no repeats, capped. Everything
+ * else is dropped silently here and reported by `apply`.
+ *
+ * The first line is the same question the gate asks, asked again at the moment
+ * of writing. A model run takes a minute or so, which is long enough for
+ * someone to label the issue by hand in between, and an issue a person has
+ * already placed is not this workflow's to place. Asking in one place only
+ * would leave that gap open; asking in both closes it - and it is why there is
+ * no separate "already carries this label" filter below. Once any domain label
+ * is present nothing is added at all, so that filter could never fire.
  */
 export function selectLabels(proposed, currentLabels) {
+    if (!needsTriage(currentLabels)) return []
+
     const allowed = new Set(DOMAIN_LABELS)
-    const current = new Set(currentLabels.map(normalize))
     const chosen = []
 
     for (const raw of proposed) {
         const label = normalize(raw)
         if (!allowed.has(label)) continue
-        if (current.has(label)) continue
         if (chosen.includes(label)) continue
         chosen.push(label)
         if (chosen.length === MAX_LABELS) break
@@ -135,7 +143,7 @@ export function summaryFor(issue, added, dropped, reasoning) {
     if (dropped.length > 0) {
         lines.push(
             '',
-            `**Dropped:** ${dropped.join(', ')} (not an allowed domain label, or already on the issue)`
+            `**Dropped:** ${dropped.join(', ')} (not an allowed domain label, or the issue already had its area set)`
         )
     }
     lines.push('', `**Reasoning:** ${reasoning || '_none given_'}`)
