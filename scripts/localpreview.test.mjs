@@ -79,6 +79,22 @@ test('viteArgs leaves Vite on loopback for a run on the host', () => {
     assert.deepEqual(viteArgs(8090, {}), ['dev', '--port', '8090', '--strictPort'])
 })
 
+test('viteArgs treats a falsey-looking value as off, not on', () => {
+    /*
+        The gate is `=== '1'`, not truthiness. Every non-empty string is truthy,
+        so a bare check made FBE_DEV_HOST=0 bind every interface - the value you
+        would pick to disable it. There is no off switch if the only off state is
+        "unset", because nothing documents that either.
+    */
+    for (const off of ['0', 'false', 'no', 'off', '']) {
+        assert.deepEqual(
+            viteArgs(8080, { FBE_DEV_HOST: off }),
+            ['dev', '--port', '8080', '--strictPort'],
+            `FBE_DEV_HOST=${JSON.stringify(off)} must not widen the bind`
+        )
+    }
+})
+
 test('viteArgs adds a bare --host when the container asks for one', () => {
     /*
         Bare, with no value, and the assertion pins that. --host on its own

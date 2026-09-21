@@ -8,6 +8,19 @@
     // way setup-vp's sha256 lines pin the installer. Renovate moves it together
     // with the vite-plus devDependency, in the "vite-plus toolchain" group.
     "image": "ghcr.io/voidzero-dev/vite-plus:0.3.1@sha256:d3ce400c0155dbb2bb17e48bf4b549528cf6dbb6f837f0557acb162d97d4688e",
+    // This feature does more than install Rust. Its own metadata contributes
+    // `capAdd: ["SYS_PTRACE"]` and `securityOpt: ["seccomp=unconfined"]` to the
+    // container, so it runs with Docker's default seccomp profile switched off.
+    // Measured: a top-level "securityOpt": [] or "capAdd": [] here does NOT
+    // remove them - the spec concatenates feature values rather than letting
+    // this file override them, so there is no key that takes them back.
+    // Note the usual justification does not apply: Docker's default profile
+    // already allows ptrace unconditionally on any kernel from 4.8, so turning
+    // seccomp off buys a debugger nothing. `devcontainer read-configuration
+    // --include-merged-configuration` prints the container's real profile.
+    // Options are empty, so the Rust version is the feature's own default,
+    // "latest". The digest in devcontainer-lock.json pins the installer, not
+    // the toolchain it downloads.
     "features": {
         "ghcr.io/devcontainers/features/rust:1": {}
     },

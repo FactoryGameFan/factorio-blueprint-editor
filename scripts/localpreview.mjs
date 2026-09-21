@@ -60,10 +60,15 @@ export function parseArgs(argv) {
     The container opts in through the environment rather than this being the
     default, so a run on a laptop still serves loopback alone instead of
     quietly appearing on whatever network the machine has joined.
+
+    The test is `=== '1'`, matching what devcontainer.json sets, and not a bare
+    truthiness check. Every non-empty string is truthy in JS, so `FBE_DEV_HOST=0`
+    and `=false` used to turn the wide bind ON - the four values a person reaches
+    for to switch something off were the four that switched it on, silently.
 */
 export function viteArgs(port, env = process.env) {
     const args = ['dev', '--port', String(port), '--strictPort']
-    if (env[WIDE_HOST_ENV]) args.push('--host')
+    if (env[WIDE_HOST_ENV] === '1') args.push('--host')
     return args
 }
 

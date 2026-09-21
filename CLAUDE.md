@@ -180,10 +180,35 @@ container's own address answers 200 directly - so on OrbStack the bare
 than a networking fault, and the name is random anyway because VS Code passes
 no `--name`.
 
+**That 403 is not what keeps the listener safe, and an earlier version of this
+section implied it was.** Measured against the pinned Vite:
+`isHostAllowedInternal` returns true for any Host header that parses as an IPv4
+or IPv6 literal, _before_ `allowedHosts` is consulted. Against the real dev
+server, `evil.example.com` and `fbe.factorygamefan.com` both got 403 while
+`10.1.2.3`, `192.168.1.50` and `[dead::beef]` all got 200. `allowedHosts`
+constrains names only, and a peer reaching the server by address sends no name.
+What actually keeps it contained is that `forwardPorts` is a VS Code-side
+forward and not a docker publish, so nothing puts the port on a real interface.
+Note also that `server.fs.deny` defaults do not cover `.dev.vars`, which
+`.gitignore` treats as secret.
+
 Do not "fix" that bind with `--host 0.0.0.0`. It binds IPv4 alone and refuses
 `::1` - the address the Playwright specs reach, through
 `playwright.config.ts`'s default `baseURL` of `http://localhost:8080`. The
 value that reads as the more permissive one breaks the suite instead.
+
+The `rust` feature contributes more than a toolchain. Its own metadata adds
+`capAdd: ["SYS_PTRACE"]` and `securityOpt: ["seccomp=unconfined"]`, so the
+container runs with Docker's default seccomp profile off - measured on a real
+built container, and none of it appears in `devcontainer.json`. A top-level
+`"securityOpt": []` does **not** take it back; the spec concatenates feature
+values. The ptrace rationale is obsolete anyway, because the default profile
+already allows `ptrace` unconditionally from kernel 4.8. The feature also
+installs two VS Code extensions the file does not list, and its empty options
+mean the Rust version is `latest`, so the digest pins the installer and not the
+toolchain. `devcontainer read-configuration --include-merged-configuration` is
+the only thing that shows the container's real profile; run it when
+`.devcontainer/` changes.
 
 `node_modules` is a named volume, not the bind-mounted folder. An install
 holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
