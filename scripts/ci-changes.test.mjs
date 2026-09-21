@@ -39,16 +39,20 @@ function classifier() {
 }
 
 /**
- * Runs the extracted predicate over a newline-separated file list. The list
- * travels in the environment rather than in the command, so no quoting of it
- * can change what the predicate sees.
+ * Runs the extracted predicate over a newline-separated file list.
+ *
+ * The list arrives on stdin, not in an argument or an environment variable,
+ * and that is load-bearing rather than tidy. Linux caps a single argv or envp
+ * string at 128 KiB, so a regeneration-sized list fails the exec itself with
+ * E2BIG - measured in CI, where the 6000-file case died while every smaller
+ * one passed, and not reproducible on macOS, which has no per-string cap. The
+ * workflow never meets this limit because it keeps `files` in the same shell
+ * process; only a test that spawns one does. Stdin is a pipe and has no such
+ * ceiling.
  */
 function web(files) {
-    const program = `set -euo pipefail\nfiles="$FILES"\n${classifier()}\nprintf '%s' "$web"\n`
-    return execFileSync('bash', ['-c', program], {
-        encoding: 'utf8',
-        env: { ...process.env, FILES: files },
-    })
+    const program = `set -euo pipefail\nfiles="$(cat)"\n${classifier()}\nprintf '%s' "$web"\n`
+    return execFileSync('bash', ['-c', program], { encoding: 'utf8', input: files })
 }
 
 test('generated exporter JSON runs the web jobs (#419)', () => {
