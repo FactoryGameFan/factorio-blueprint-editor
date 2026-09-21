@@ -44,6 +44,7 @@ export const DOMAIN_LABELS = [
     'test coverage',
     'test suite',
     'toolchain',
+    'website',
 ]
 
 // An issue is about one area, occasionally two. A run proposing more than this
