@@ -36,7 +36,12 @@
     "postCreateCommand": "sudo chown vp:vp node_modules && vp install --frozen-lockfile && npx playwright install --with-deps chromium",
     "customizations": {
         "vscode": {
-            "extensions": ["oxc.oxc-vscode", "rust-lang.rust-analyzer", "sumneko.lua"]
+            "extensions": [
+                "oxc.oxc-vscode",
+                "rust-lang.rust-analyzer",
+                "sumneko.lua",
+                "tamasfe.even-better-toml"
+            ]
         }
     }
 }

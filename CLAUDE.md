@@ -140,9 +140,13 @@ that port. Run `npx playwright install` after changing `@playwright/test`.
 `.devcontainer/devcontainer.json` builds a Linux container that runs
 everything above: `vp check`, `vp test`, `npm run localpreview`, the
 Playwright suite, and the exporter's cargo build, test, fmt and clippy. It
-starts from the Vite+ image, `ghcr.io/voidzero-dev/vite-plus`, so `vp` is
-already first on `PATH` inside it, and Node and npm come from the same two
-pins as on the host.
+starts from the Vite+ image, `ghcr.io/voidzero-dev/vite-plus`, so `vp`, `node`
+and `npm` all resolve to `/home/vp/.vite-plus/bin`, from the same two pins as
+on the host. That directory is second on `PATH`, not first: the Dockerfile
+prepends `/home/vp/.cargo/bin` for the Rust toolchain, and that directory holds
+no `node` or `npm`, so it shadows no shim. Measured 2026-09-21 in the built
+image on macOS arm64, `PATH` is
+`/home/vp/.cargo/bin:/home/vp/.vite-plus/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`.
 
 Measured 2026-09-18 on three hosts: OrbStack on a Mac (linux/arm64), Docker
 Engine inside WSL2 on a Windows PC (linux/amd64), and rootless Podman on a
@@ -152,7 +156,9 @@ fail under WSL (see below). The one exception came from memory, not from the
 container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
 Chromium's renderer, at about 1.5 GB, during the large-paste test in
 `tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
-chase.
+chase. That run used the features-based `devcontainer.json`; `c82ed87e`
+replaced the Rust feature with the Dockerfile on 2026-09-21, after the table
+was taken.
 
 It does not do two things:
 
