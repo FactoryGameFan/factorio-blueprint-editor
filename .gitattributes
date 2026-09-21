@@ -1,0 +1,24 @@
+# Every text file is LF, in the index and in the working tree.
+#
+# Git for Windows sets core.autocrlf=true in its system config, so without this
+# file an untouched Windows clone checks the tree out as CRLF and then fails the
+# repository's own checks. Measured in issue #415: `vp check` reports format
+# failures throughout a clone with no source changes, and the fixture test in
+# tools/oracle/analyze-rail-box-orientation.test.mjs compares the analyzer's LF
+# output against the fixture's 470 CRLF lines.
+#
+# `eol=lf` is the load-bearing half. `text=auto` on its own normalizes what goes
+# into the index but still checks out the platform's native ending, which is the
+# ending the tools break on.
+* text=auto eol=lf
+
+# Binaries, stated rather than left to inference. `text=auto` reaches the same
+# answer from their content, but packages/exporter/basisu has no extension to go
+# by, and a wrong guess on any of these corrupts the file on checkout.
+*.basis binary
+*.exe   binary
+*.png   binary
+*.wasm  binary
+*.woff  binary
+*.woff2 binary
+packages/exporter/basisu* binary
