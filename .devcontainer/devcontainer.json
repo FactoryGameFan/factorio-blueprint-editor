@@ -3,27 +3,9 @@
 // the host: regenerating Factorio data and the oracle probes.
 {
     "name": "factorio-blueprint-editor",
-    // The Vite+ toolchain image: vp preinstalled, with Node and npm resolved
-    // from .node-version and devEngines on first install. The digest pins it the
-    // way setup-vp's sha256 lines pin the installer. Renovate moves it together
-    // with the vite-plus devDependency, in the "vite-plus toolchain" group.
-    "image": "ghcr.io/voidzero-dev/vite-plus:0.3.1@sha256:d3ce400c0155dbb2bb17e48bf4b549528cf6dbb6f837f0557acb162d97d4688e",
-    // This feature does more than install Rust. Its own metadata contributes
-    // `capAdd: ["SYS_PTRACE"]` and `securityOpt: ["seccomp=unconfined"]` to the
-    // container, so it runs with Docker's default seccomp profile switched off.
-    // Measured: a top-level "securityOpt": [] or "capAdd": [] here does NOT
-    // remove them - the spec concatenates feature values rather than letting
-    // this file override them, so there is no key that takes them back.
-    // Note the usual justification does not apply: Docker's default profile
-    // already allows ptrace unconditionally on any kernel from 4.8, so turning
-    // seccomp off buys a debugger nothing. `devcontainer read-configuration
-    // --include-merged-configuration` prints the container's real profile.
-    // Options are empty, so the Rust version is the feature's own default,
-    // "latest". The digest in devcontainer-lock.json pins the installer, not
-    // the toolchain it downloads.
-    "features": {
-        "ghcr.io/devcontainers/features/rust:1": {}
-    },
+    // Install Rust without the upstream feature's SYS_PTRACE and
+    // seccomp=unconfined runtime settings. The Dockerfile pins the Vite+ image.
+    "build": { "dockerfile": "Dockerfile" },
     "containerEnv": {
         // Outside the bind mount, so a Linux build never lands in the host's
         // packages/exporter/target.

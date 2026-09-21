@@ -197,26 +197,24 @@ Do not "fix" that bind with `--host 0.0.0.0`. It binds IPv4 alone and refuses
 `playwright.config.ts`'s default `baseURL` of `http://localhost:8080`. The
 value that reads as the more permissive one breaks the suite instead.
 
-The `rust` feature contributes more than a toolchain. Its own metadata adds
-`capAdd: ["SYS_PTRACE"]` and `securityOpt: ["seccomp=unconfined"]`, so the
-container runs with Docker's default seccomp profile off - measured on a real
-built container, and none of it appears in `devcontainer.json`. A top-level
-`"securityOpt": []` does **not** take it back; the spec concatenates feature
-values. The ptrace rationale is obsolete anyway, because the default profile
-already allows `ptrace` unconditionally from kernel 4.8. The feature also
-installs two VS Code extensions the file does not list, and its empty options
-mean the Rust version is `latest`, so the digest pins the installer and not the
-toolchain. `devcontainer read-configuration --include-merged-configuration` is
-the only thing that shows the container's real profile; run it when
-`.devcontainer/` changes.
+`.devcontainer/Dockerfile` installs Rust with a checksum-verified rustup
+installer as the non-root `vp` user. It replaces the Rust feature, which added
+`SYS_PTRACE` and disabled seccomp through its metadata. No extra capabilities
+or security options are requested. The Devcontainer workflow builds the actual
+configuration, asserts seccomp is enabled and `SYS_PTRACE` is absent from the
+capability bounding set, checks Chromium can render, then runs cargo test, fmt
+and clippy.
+
+Rust still resolves to stable at build time, matching the previous feature's
+default. The installer checksum does not pin the toolchain; use a shared
+`rust-toolchain.toml` if the project adopts a Rust version policy. When the
+rustup installer changes, verify it and update its checksum in the Dockerfile.
 
 `node_modules` is a named volume, not the bind-mounted folder. An install
 holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
 more), so a shared folder would leave whichever side installed last broken for
 the other. `CARGO_TARGET_DIR` moves the Rust build out of the bind mount for
-the same reason. The CLI writes `.devcontainer/devcontainer-lock.json`, which
-pins each feature by digest. It sits in the formatter's `ignorePatterns`
-because the CLI and oxfmt disagree on its layout.
+the same reason. There are no devcontainer features or feature lockfile.
 
 Two lines in the CLI's output look like faults and are not. `Error fetching
 image details: Could not parse image name` is the CLI failing to parse a tag

@@ -214,9 +214,6 @@ export default defineConfig({
             // fixture to make something pass" applies to a formatter as much
             // as to a person, since a reformat is a diff no probe produced.
             'tools/oracle/fixtures',
-            // Written by the devcontainer CLI in its own 2-space layout
-            // whenever a feature resolves, so the same reasoning applies.
-            '.devcontainer/devcontainer-lock.json',
         ],
     },
     test: {
