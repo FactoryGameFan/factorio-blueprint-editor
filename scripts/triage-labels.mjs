@@ -216,6 +216,12 @@ function apply(issue) {
     console.log(`proposed: ${labels.join(', ') || '(none)'}`)
     console.log(`adding:   ${chosen.join(', ') || '(none)'}`)
     if (dropped.length > 0) console.log(`dropped:  ${dropped.join(', ')}`)
+    // Also to the log, not only to the job summary below. GitHub exposes a
+    // step summary in the web UI and through no API at all - not the checks
+    // API, which returns an empty `output.summary` for an Actions job - so
+    // without this line the only account of why a label was chosen cannot be
+    // read with `gh run view --log`.
+    console.log(`because:  ${reasoning || '(no reason given)'}`)
 
     if (chosen.length > 0) {
         gh(['issue', 'edit', String(issue), ...chosen.flatMap(l => ['--add-label', l])])
