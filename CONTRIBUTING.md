@@ -40,12 +40,14 @@ regenerate the sprite data. The "Devcontainer" section of
 [CLAUDE.md](CLAUDE.md) says what it covers.
 
 One thing to know before you use it on a branch you did not write. Opening a
-folder in the container runs that folder's `postCreateCommand`, taken from
-`.devcontainer/devcontainer.json` on the checked-out branch, inside a container
-that has root and a read-write mount of your checkout. That is normal for dev
-containers and is not specific to this repo, but it means reviewing a pull
-request by opening it in the container runs the author's command. Read
-`.devcontainer/` in the diff first, or review on the host.
+folder in the container first builds that branch's `.devcontainer/Dockerfile`,
+then runs that branch's `postCreateCommand`, taken from
+`.devcontainer/devcontainer.json`, inside a container that has root and a
+read-write mount of your checkout. Both steps run code the author wrote. That
+is normal for dev containers and is not specific to this repo, but it means
+reviewing a pull request by opening it in the container runs the author's build
+steps and command. Read `.devcontainer/` in the diff first, or review on the
+host.
 
 - [git](https://git-scm.com/)
 - [node](https://nodejs.org/en/). The root `package.json` declares

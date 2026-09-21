@@ -6,6 +6,15 @@ on:
     paths:
       - '.devcontainer/**'
       - '.github/workflows/devcontainer.yml'
+  # Weekly, so a rotated installer is caught by CI and not by a contributor.
+  # The Dockerfile pins https://sh.rustup.rs by sha256, and that script rotates
+  # on its own - the two vite-plus installer hashes did on 2026-08-25. A
+  # mismatch then fails the build for everyone who opens the container. The
+  # paths filter above cannot catch it, because nothing under .devcontainer/
+  # changes when the remote script does. Scheduled runs read the default
+  # branch, which is this workflow's own base branch.
+  schedule:
+    - cron: '17 12 * * 1'
   workflow_dispatch:
 
 permissions:
