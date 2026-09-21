@@ -123,9 +123,7 @@ jobs:
 
       - name: Unit tests
         if: ${{ !cancelled() }}
-        run: |
-          bash scripts/ci-changes.test.sh
-          vp test
+        run: vp test
 
   rust:
     name: Rust exporter

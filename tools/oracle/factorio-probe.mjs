@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+    existsSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    realpathSync,
+    writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -8,9 +15,17 @@ export const factorioBin =
     `${process.env.HOME}/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio`
 
 export function factorioReadData(bin) {
+    // Resolve first, because the search is relative to the executable's own
+    // directory and a symlink lives somewhere else entirely. A FACTORIO_BIN
+    // pointing at ~/bin/factorio would otherwise look for ~/data and throw
+    // while the install it points into has the data beside it. Left alone when
+    // the path does not exist, so the error below still names what was asked
+    // for rather than a realpath failure.
+    const executable = existsSync(bin) ? realpathSync(bin) : bin
+
     // macOS uses Contents/MacOS; Windows and Linux use bin/x64.
     for (const relative of ['../data', '../../data']) {
-        const data = resolve(dirname(bin), relative)
+        const data = resolve(dirname(executable), relative)
         if (existsSync(join(data, 'core'))) return data
     }
     throw new Error(`Cannot find Factorio data/core relative to ${bin}`)
