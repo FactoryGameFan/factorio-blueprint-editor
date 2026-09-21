@@ -64,6 +64,26 @@ jobs:
         id: gate
         run: node scripts/triage-labels.mjs gate --issue "$ISSUE"
 
+      # Everything after the model step runs with a token that can write to
+      # issues, so nothing after it may execute a file the model could have
+      # touched. The applier is copied out of the workspace first, and its
+      # checksum recorded, because the model's Write tool reaches the whole
+      # checkout: talked into rewriting scripts/triage-labels.mjs, it would
+      # otherwise have that rewrite executed by the last step.
+      #
+      # This replaced a `git diff --exit-code` between the two steps, which
+      # looked like the same guard and was not. `.git/config` is untracked, so
+      # a diff cannot see a change to it - and `diff.external` in that file
+      # names a program `git diff` itself then runs. The check was reachable by
+      # the thing it was meant to catch. A checksum of one file needs no
+      # configuration and reads nothing the model can write.
+      - name: Take the applier out of the model's reach
+        id: applier
+        if: steps.gate.outputs.needs-triage == 'true'
+        run: |
+          cp scripts/triage-labels.mjs "$RUNNER_TEMP/apply.mjs"
+          echo "sum=$(sha256sum "$RUNNER_TEMP/apply.mjs" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Choose the labels
         if: steps.gate.outputs.needs-triage == 'true'
         uses: anthropics/claude-code-action@v1
@@ -118,15 +138,12 @@ jobs:
               step that follows, so choosing it wastes the choice.
             - Write no other file, and change nothing in the checkout.
 
-      # The step above can write files, and the step below runs one of them.
-      # Left unchecked that is an escalation path: talk the model into
-      # rewriting scripts/triage-labels.mjs and the next step executes it with
-      # a token that can write to issues. So tracked files must be untouched
-      # here. The proposal and the issue dump are untracked and do not trip it.
-      - name: Nothing in the checkout was modified
-        if: steps.gate.outputs.needs-triage == 'true'
-        run: git diff --exit-code
-
       - name: Apply them
         if: steps.gate.outputs.needs-triage == 'true'
-        run: node scripts/triage-labels.mjs apply --issue "$ISSUE"
+        # Checked against the copy taken before the model ran, and run from
+        # there rather than from the checkout. `sha256sum --check` fails the
+        # step if they differ, so the file that executes is the file that was
+        # committed. See the applier step above for why that matters.
+        run: |
+          echo "${{ steps.applier.outputs.sum }}  $RUNNER_TEMP/apply.mjs" | sha256sum --check --status
+          node "$RUNNER_TEMP/apply.mjs" apply --issue "$ISSUE"
