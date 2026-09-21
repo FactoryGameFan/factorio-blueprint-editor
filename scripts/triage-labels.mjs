@@ -133,6 +133,42 @@ export function labelMenu(ghLabels) {
 }
 
 /**
+ * Flattens text that reached us from the model, and so at one remove from a
+ * stranger's issue, to a single line of printable characters.
+ *
+ * A step's stdout is parsed by the runner for workflow commands, and those are
+ * recognised only at the start of a line. Every line below is prefixed, so
+ * removing the newlines is what keeps injected text on the prefix's line where
+ * it can only be data. The same flattening stops an escape sequence reaching a
+ * terminal reading the log, and stops a heading forging one in the summary.
+ */
+export function oneLine(text, limit = 300) {
+    // \p{Cc} is the Unicode control category, which is every character a
+    // terminal or the runner would act on rather than print. Written this way
+    // there is no control character in this file for a reader or a linter to
+    // trip over, and it covers the C1 range an explicit \u0000-\u001f misses.
+    const flat = String(text)
+        .replaceAll(/\p{Cc}+/gu, ' ')
+        .trim()
+    return flat.length > limit ? `${flat.slice(0, limit)}...` : flat
+}
+
+/**
+ * What the run did, for the step log. `added` is already known to be on the
+ * allowlist; `proposed`, `dropped` and `reasoning` are not checked for shape
+ * anywhere, which is why every one of them goes through oneLine.
+ */
+export function logLines(proposed, added, dropped, reasoning) {
+    const lines = [
+        `proposed: ${oneLine(proposed.join(', ')) || '(none)'}`,
+        `adding:   ${oneLine(added.join(', ')) || '(none)'}`,
+    ]
+    if (dropped.length > 0) lines.push(`dropped:  ${oneLine(dropped.join(', '))}`)
+    lines.push(`because:  ${oneLine(reasoning) || '(no reason given)'}`)
+    return lines
+}
+
+/**
  * What the run did, for the job summary. This is the only record of why a
  * label was chosen, and of what was proposed and refused, so it is worth
  * reading: the blank lines are load-bearing, since markdown runs consecutive
@@ -143,10 +179,10 @@ export function summaryFor(issue, added, dropped, reasoning) {
     if (dropped.length > 0) {
         lines.push(
             '',
-            `**Dropped:** ${dropped.join(', ')} (not an allowed domain label, or the issue already had its area set)`
+            `**Dropped:** ${oneLine(dropped.join(', '))} (not an allowed domain label, or the issue already had its area set)`
         )
     }
-    lines.push('', `**Reasoning:** ${reasoning || '_none given_'}`)
+    lines.push('', `**Reasoning:** ${oneLine(reasoning) || '_none given_'}`)
     return lines.join('\n')
 }
 
@@ -213,9 +249,12 @@ function apply(issue) {
     const chosen = selectLabels(labels, current)
     const dropped = labels.filter(l => !chosen.includes(normalize(l)))
 
-    console.log(`proposed: ${labels.join(', ') || '(none)'}`)
-    console.log(`adding:   ${chosen.join(', ') || '(none)'}`)
-    if (dropped.length > 0) console.log(`dropped:  ${dropped.join(', ')}`)
+    // The `because:` line is here and not only in the job summary below.
+    // GitHub exposes a step summary in the web UI and through no API at all -
+    // not the checks API, which returns an empty `output.summary` for an
+    // Actions job - so without it the only account of why a label was chosen
+    // cannot be read with `gh run view --log`.
+    for (const line of logLines(labels, chosen, dropped, reasoning)) console.log(line)
 
     if (chosen.length > 0) {
         gh(['issue', 'edit', String(issue), ...chosen.flatMap(l => ['--add-label', l])])
