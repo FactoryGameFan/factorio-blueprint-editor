@@ -10,8 +10,6 @@ mod setup;
 #[macro_use]
 extern crate lazy_static;
 
-static FACTORIO_VERSION: &str = "2.0.68";
-
 lazy_static! {
     static ref DATA_DIR: PathBuf = PathBuf::from("./data");
 }
@@ -27,13 +25,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         setup::validate_local_install(&factorio_dir)?;
         setup::extract_local(&output_dir, &factorio_dir).await?;
     } else {
+        let version = setup::resolve_version().await?;
+        // The directory the archive unpacks into. Linux's tarball uses a bare
+        // `factorio`; the Windows zip names itself after the version, which the
+        // published archives confirm (factorio-demo_win_2.0.68.zip roots every
+        // entry at `Factorio_2.0.68/`).
         let factorio_dir_name = match std::env::consts::OS {
-            "linux" => "factorio",
-            "windows" => &format!("Factorio_{FACTORIO_VERSION}"),
-            _ => panic!("unsupported OS - set FACTORIO_DIR to use a local Factorio installation"),
+            "linux" => "factorio".to_string(),
+            "windows" => format!("Factorio_{version}"),
+            os => panic!(
+                "unsupported OS: {os} - set FACTORIO_DIR to use a local Factorio installation"
+            ),
         };
         let base_factorio_dir = DATA_DIR.join(factorio_dir_name);
-        setup::download_factorio(&DATA_DIR, &base_factorio_dir, FACTORIO_VERSION).await?;
+        setup::download_factorio(&DATA_DIR, &base_factorio_dir, &version).await?;
         setup::extract(&output_dir, &base_factorio_dir).await?;
     }
 

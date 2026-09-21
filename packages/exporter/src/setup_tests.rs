@@ -236,3 +236,26 @@ async fn rejects_an_invalid_dump_even_when_factorio_exits_successfully() {
     );
     assert!(run_factorio_export(&executable, &work).await.is_err());
 }
+
+/*
+    The three binaries are not interchangeable. basisu v1.16.4 built for macOS
+    and for Linux encode the same PNG to different bytes, so running the wrong
+    one is a silent rewrite of every committed texture rather than a crash.
+
+    This pins the mapping and checks each named file is actually tracked,
+    because a dropped binary fails only on the platform nobody happens to be
+    testing on.
+*/
+#[test]
+fn every_platform_has_its_own_tracked_basisu() {
+    assert_eq!(basisu_for("linux"), "./basisu-linux");
+    assert_eq!(basisu_for("windows"), "./basisu.exe");
+    assert_eq!(basisu_for("macos"), "./basisu");
+
+    let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for os in ["linux", "windows", "macos"] {
+        let name = basisu_for(os).trim_start_matches("./");
+        let path = crate_dir.join(name);
+        assert!(path.is_file(), "{os}: no binary at {}", path.display());
+    }
+}
