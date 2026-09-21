@@ -13,6 +13,16 @@ import {
     summaryFor,
 } from './triage-labels.mjs'
 
+test('the allowlist covers packages/website, not only packages/editor', () => {
+    // #446 is why this is asserted rather than assumed. A CSS defect in
+    // packages/website/src/index.css had no label that fitted: `editor ui` is
+    // scoped to packages/editor/src/UI, so the run correctly proposed nothing
+    // and the issue stayed unplaced. Dropping `website` from the list again
+    // would reopen that hole silently.
+    assert.ok(DOMAIN_LABELS.includes('website'))
+    assert.deepEqual(selectLabels(['website'], ['bug']), ['website'])
+})
+
 test('needsTriage is true for an issue carrying only a type label', () => {
     // What the bug template gives every contributor issue, and all this
     // workflow exists to finish.
