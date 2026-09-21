@@ -4,7 +4,7 @@ description: >-
   download cache. After this runs, vp is on PATH; the caller runs its own
   vp install. The version comes from devDependencies.vite-plus in the root
   package.json; this file is the single source of truth for the installer
-  checksum only.
+  checksums only.
 
 runs:
   using: composite
@@ -81,8 +81,29 @@ runs:
         # the vite-plus cache key carries the version with no restore-keys, so
         # a bump is a guaranteed cache miss with no existing install to reuse -
         # a layout break would be certain, not intermittent.
+        #
+        # TWO SCRIPTS ARE PINNED, not one, since 2026-09-14. Upstream #2611
+        # (install.sh at 40b9cb66) cut the vite.plus script down to a bootstrap:
+        # it downloads the vp binary, asks it whether it can set itself up, and
+        # if not it SOURCES a second script, install-legacy.sh. Measured: vp
+        # 0.3.0 and 0.3.1 both answer no, so both take that path. The bootstrap
+        # looks for install-legacy.sh beside itself first - here that is the
+        # working directory, because it runs as `bash vp-install.sh` - and only
+        # downloads it from viteplus.dev when no local copy exists. Hashing the
+        # bootstrap alone would therefore pin a script that runs an unpinned
+        # one. Fetching the legacy script here and checking it before the
+        # bootstrap runs keeps everything that executes covered by a hash.
+        #
+        # Once the pinned vp can set itself up, the legacy script is fetched and
+        # checked but never run. It can still rotate on its own and fail this
+        # step; re-hash it the same way. Both hashes below were matched against
+        # upstream packages/cli/install.sh and install-legacy.sh at 40b9cb66.
         curl -fsSL https://vite.plus -o vp-install.sh
-        echo "d4a1ffa8245bdfcf39a786d545be6a43e231b771c32d7c02414bb96d4f5d9cdc  vp-install.sh" | sha256sum -c -
+        curl -fsSL https://viteplus.dev/install-legacy.sh -o install-legacy.sh
+        printf '%s\n' \
+          "6ed2d2847e5b7f3d67b6f91f2d28200bdffcffcd91ef2a336cf764d02776fcc3  vp-install.sh" \
+          "a3825f5a48d6ac5ac523d79a33ef3eff954013b8af7e4208231ac3de66030514  install-legacy.sh" \
+          | sha256sum -c -
         VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
-        rm -f vp-install.sh
+        rm -f vp-install.sh install-legacy.sh

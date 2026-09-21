@@ -272,7 +272,7 @@ async function encode(bpOrBook: Blueprint | Book): Promise<string> {
     return `0${bytesToBase64(new Uint8Array(await new Response(deflated).arrayBuffer()))}`
 }
 
-function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book> {
+function getBlueprintOrBookFromSource(source: string | undefined): Promise<Blueprint | Book> {
     if (source === undefined) return Promise.resolve(new Blueprint())
 
     // trim whitespace
@@ -311,11 +311,31 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
             // "the host" is, and a second copy is a bound written down twice.
             const host = url.hostname.replace(/^www\./, '')
 
-            const fetchData = (url: string): Promise<Response> =>
-                fetch(`/corsproxy?url=${encodeURIComponent(url)}`).then(response => {
+            /*
+                GitHub's API is asked directly, not through /corsproxy, which
+                refuses it. GitHub answers cross-origin requests from any origin
+                and exposes X-RateLimit-Remaining to them, so the check below
+                reads the same header either way. What changes is whose allowance
+                is spent: GitHub keys its 60 anonymous requests an hour on the
+                address a request comes from, and through the proxy that was one
+                Cloudflare egress address shared by every visitor, so one caller
+                looping the proxy could stop gist imports for everyone.
+
+                Trailing dots are stripped before the comparison, as the proxy's
+                checkProxyTarget strips them before its refusal: the parser keeps
+                `api.github.com.` as written, and the two have to agree on what
+                the host is, or that spelling goes to a proxy that refuses it.
+            */
+            const fetchData = (url: string): Promise<Response> => {
+                const target = new URL(url)
+                target.hostname = target.hostname.replace(/\.+$/, '')
+                const github = target.hostname === 'api.github.com'
+                return fetch(
+                    github ? target.href : `/corsproxy?url=${encodeURIComponent(url)}`
+                ).then(response => {
                     if (response.ok) return response
                     if (
-                        new URL(url).hostname === 'api.github.com' &&
+                        github &&
                         (response.status === 429 ||
                             (response.status === 403 &&
                                 response.headers.get('x-ratelimit-remaining') === '0'))
@@ -324,6 +344,7 @@ function getBlueprintOrBookFromSource(source: string): Promise<Blueprint | Book>
                     }
                     throw new Error('Network response was not ok.')
                 })
+            }
 
             /*
                 Dropbox is deliberately unsupported - see #98, closed wontfix, which

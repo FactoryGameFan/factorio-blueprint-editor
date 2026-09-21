@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vite-plus/test'
 import * as fs from 'fs'
 import * as path from 'path'
-import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTarget'
+import {
+    ALLOWED_HOSTS,
+    checkProxyTarget,
+    LEGACY_HOSTNAME,
+} from '../packages/worker/src/proxyTarget'
 
 /*
-    The only automated coverage the Cloudflare Worker has.
+    The Cloudflare Worker's proxy guard, where CI can run it.
 
     `packages/worker` is in `lint.ignorePatterns` (vite.config.ts) and no test
     project collects from it, so nothing in that package is linted, type-checked
@@ -12,11 +16,14 @@ import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTar
     reachable from here, where the `unit` project in vite.config.ts does collect
     it and CI runs it in seconds.
 
-    What is still uncovered, and it is most of the handler: the fetch, the
-    header rebuild, the Content-Length precheck and the streaming size cap all
-    live in index.ts and run nowhere but production. Testing those needs a
-    Workers runtime pool this repo does not have, and adding one means a new
-    dependency against a toolchain whose whole version story is "vite-plus pins
+    Less of the handler is uncovered than this comment once said, but not all of
+    it is covered. tests/gist-rate-limit.test.ts drives the real handler with a
+    stubbed fetch, and tests/worker-response-headers.test.ts calls the header
+    rebuild directly, both under Node rather than the Workers runtime. Nothing
+    drives the Content-Length precheck or the streaming size cap, and nothing
+    here can see what the runtime itself does differently. That needs a Workers
+    runtime pool this repo does not have, and adding one means a new dependency
+    against a toolchain whose whole version story is "vite-plus pins
     everything" (CLAUDE.md, Version Constraints). Worth knowing before reading a
     green run here as "the proxy is covered".
 
@@ -26,8 +33,18 @@ import { ALLOWED_HOSTS, checkProxyTarget } from '../packages/worker/src/proxyTar
 */
 
 const SELF = 'fbe.factorygamefan.com'
+// The other two kinds of hostname the same Worker answers on (#456).
+const LEGACY = 'fbeworkeyman.wormeyman.workers.dev'
+const PREVIEW = '1a2b3c4d-fbeworkeyman.wormeyman.workers.dev'
 
 const allow = (target: string) => checkProxyTarget(target, SELF)
+
+/*
+    Hosts bpString.ts asks directly instead of through the proxy. They appear
+    in its source like every other host, so the scan below skips them, and the
+    proxy must refuse them rather than let the catch-all accept them.
+*/
+const ASKED_DIRECTLY = ['api.github.com']
 
 describe('checkProxyTarget - the editor’s own sources', () => {
     it('accepts every host on the allowlist', () => {
@@ -59,8 +76,45 @@ describe('checkProxyTarget - the editor’s own sources', () => {
         )
 
         expect(hosts.size).toBeGreaterThan(0)
+        for (const host of ASKED_DIRECTLY) {
+            expect(hosts.has(host), `${host} is no longer in bpString.ts`).toBe(true)
+        }
         for (const host of hosts) {
+            if (ASKED_DIRECTLY.includes(host)) continue
             expect(ALLOWED_HOSTS.has(host), `${host} is fetched but not allowlisted`).toBe(true)
+        }
+    })
+
+    /*
+        GitHub keys its anonymous allowance on the source address, and every
+        request from the proxy shares one. Refused in every spelling, because
+        the canonical form is what the rule compares.
+    */
+    it('refuses the hosts the editor asks directly', () => {
+        for (const host of ASKED_DIRECTLY) {
+            expect(ALLOWED_HOSTS.has(host), host).toBe(false)
+            for (const spelling of [host, host.toUpperCase(), `${host}.`, `${host}..`]) {
+                const target = `https://${spelling}/gists/dead1234`
+                expect(allow(target), target).toMatchObject({ ok: false, status: 403 })
+            }
+        }
+    })
+
+    /*
+        And the page may ask them. The dev server does not apply public/_headers,
+        so every Playwright spec passes without this, and production would block
+        the request with the CSP it serves.
+    */
+    it('lets the page ask them through connect-src', () => {
+        const headers = fs.readFileSync(
+            path.resolve(process.cwd(), 'packages/website/public/_headers'),
+            'utf-8'
+        )
+        const connectSrc = headers.match(/connect-src ([^;]*);/)
+        if (connectSrc === null) throw new Error('no connect-src directive in _headers')
+        const sources = connectSrc[1].split(/\s+/)
+        for (const host of ASKED_DIRECTLY) {
+            expect(sources, host).toContain(`https://${host}`)
         }
     })
 
@@ -112,6 +166,21 @@ describe('checkProxyTarget - the catch-all stays open', () => {
     it('accepts a subdomain of an ordinary public host', () => {
         expect(allow('https://files.example.co.uk/a/b.txt')).toMatchObject({ ok: true })
     })
+
+    // A trailing dot is a legal spelling of a public name, so it is accepted -
+    // as the undotted name, so the guard and the fetch agree on what it is.
+    it('accepts a public host with a trailing dot, and fetches it without one', () => {
+        const verdict = allow('https://Example.com./blueprint.txt')
+        expect(verdict).toMatchObject({ ok: true, allowlisted: false })
+        if (verdict.ok) expect(verdict.url.href).toBe('https://example.com/blueprint.txt')
+    })
+
+    it('recognises an allowlisted host spelled with a trailing dot', () => {
+        expect(allow('https://pastebin.com./raw/abc')).toMatchObject({
+            ok: true,
+            allowlisted: true,
+        })
+    })
 })
 
 describe('checkProxyTarget - refusals', () => {
@@ -125,6 +194,15 @@ describe('checkProxyTarget - refusals', () => {
         ['a data: URL', 'data:text/plain,hello', 403],
         ['credentials in the URL', 'https://user:pw@example.com/x', 403],
         ['this deployment itself', `https://${SELF}/corsproxy?url=x`, 403],
+        /*
+            The other hostnames this Worker answers on (#456). Comparing with
+            the arrival hostname alone let both through. The legacy name
+            re-enters the Worker and comes back as a 301 to /corsproxy, and a
+            preview hostname runs a whole copy of the proxy, so a chain of
+            different previews nests as deep as the URL allows.
+        */
+        ['the legacy workers.dev hostname', `https://${LEGACY}/corsproxy?url=x`, 403],
+        ['a preview hostname', `https://${PREVIEW}/corsproxy?url=x`, 403],
         ['localhost', 'https://localhost/x', 403],
         ['an IPv4 literal', 'https://127.0.0.1/x', 403],
         ['a private IPv4 literal', 'https://10.0.0.1/x', 403],
@@ -134,8 +212,70 @@ describe('checkProxyTarget - refusals', () => {
         ['a .local name', 'https://printer.local/x', 403],
         ['a .internal name', 'https://metadata.internal/x', 403],
         ['a non-default port on an unknown host', 'https://example.com:8080/x', 403],
+        /*
+            The same names with a trailing root label. The parser keeps it on a
+            name, so each of these used to compare unequal to its refused
+            spelling and pass. An IPv4-shaped host is different: the parser
+            removes exactly one trailing empty label, so `127.0.0.1.` was
+            already refused and it took two dots to get one past the literal
+            regexp.
+        */
+        ['localhost with a trailing dot', 'https://localhost./x', 403],
+        ['this deployment with a trailing dot', `https://${SELF}./corsproxy?url=x`, 403],
+        ['the legacy hostname with a trailing dot', `https://${LEGACY}./corsproxy?url=x`, 403],
+        ['a preview hostname with a trailing dot', `https://${PREVIEW}./corsproxy?url=x`, 403],
+        ['a .local name with a trailing dot', 'https://printer.local./x', 403],
+        ['a .internal name with a trailing dot', 'https://metadata.google.internal./x', 403],
+        ['an IPv4 literal with two trailing dots', 'https://127.0.0.1../x', 403],
+        ['the metadata address with two trailing dots', 'https://169.254.169.254../x', 403],
+        ['a hostname of nothing but a dot', 'https://./x', 403],
     ])('refuses %s', (_label, target, status) => {
         expect(checkProxyTarget(target, SELF)).toMatchObject({ ok: false, status })
+    })
+
+    // The arrival hostname comes from the client's Host header, so the trailing
+    // dot can be on that side of the comparison too.
+    it('refuses this deployment when the arrival hostname carries the dot', () => {
+        expect(checkProxyTarget(`https://${SELF}/corsproxy?url=x`, `${SELF}.`)).toMatchObject({
+            ok: false,
+            status: 403,
+        })
+    })
+
+    // `wrangler dev` arrives on localhost, so the refusal cannot depend on
+    // the request having arrived on the name it targets.
+    it.each([SELF, LEGACY, PREVIEW])('refuses %s whatever the arrival hostname', hostname => {
+        expect(checkProxyTarget(`https://${hostname}/corsproxy?url=x`, 'localhost')).toMatchObject({
+            ok: false,
+            status: 403,
+        })
+    })
+
+    // And the other way round: a hostname the list does not know is still
+    // refused when the request arrived on it, as a domain attached in the
+    // dashboard would be.
+    it('refuses the arrival hostname even when it is not on the list', () => {
+        expect(
+            checkProxyTarget(
+                'https://blueprints.example.org/corsproxy?url=x',
+                'blueprints.example.org'
+            )
+        ).toMatchObject({ ok: false, status: 403 })
+    })
+
+    /*
+        The arms deliberately left open. Only this account's workers.dev
+        subdomain is refused, so another account's Worker, a name that merely
+        ends in the same letters, and a host that only starts with ours are all
+        still ordinary public hosts.
+    */
+    it.each([
+        'https://someone.otheraccount.workers.dev/x',
+        'https://notwormeyman.workers.dev/x',
+        `https://${LEGACY}.example.com/x`,
+        `https://${SELF}.example.com/x`,
+    ])('still accepts %s', target => {
+        expect(checkProxyTarget(target, SELF)).toMatchObject({ ok: true, allowlisted: false })
     })
 
     // The cloud-metadata address is the one refusal worth naming on its own:
@@ -148,17 +288,52 @@ describe('checkProxyTarget - refusals', () => {
 })
 
 /*
+    proxyTarget.ts writes this Worker's hostnames down by hand, but
+    wrangler.jsonc is what decides them. A new route, or a renamed Worker,
+    would leave the guard refusing names nothing serves while a real one
+    passed, and no other test here would notice.
+*/
+describe('checkProxyTarget - agrees with wrangler.jsonc', () => {
+    const config = fs.readFileSync(
+        path.resolve(process.cwd(), 'packages/worker/wrangler.jsonc'),
+        'utf-8'
+    )
+
+    it('refuses every custom domain the Worker is routed on', () => {
+        const patterns = [...config.matchAll(/"pattern":\s*"([^"]+)"/g)].map(match => match[1])
+        expect(patterns).not.toHaveLength(0)
+        for (const pattern of patterns) {
+            expect(checkProxyTarget(`https://${pattern}/x`, 'localhost')).toMatchObject({
+                ok: false,
+                status: 403,
+            })
+        }
+    })
+
+    it('names the legacy hostname after the Worker', () => {
+        const name = config.match(/^ {4}"name":\s*"([^"]+)"/m)
+        if (name === null) throw new Error('wrangler.jsonc names no Worker')
+        expect(LEGACY_HOSTNAME.split('.')[0]).toBe(name[1])
+    })
+})
+
+/*
     A source scan rather than a behaviour test, and it is the same answer
     tests/spec-modifier-keys.test.ts reached for its own class of bug: nothing
     that runs here can reach api.github.com, so no runner can catch the thing
     this guards.
 
     GitHub's API refuses a request with no User-Agent, and Cloudflare's fetch
-    sends none of its own, so dropping this header silently breaks the `gist`
-    source in bpString.ts - and breaks it in a way the whole suite stays green
+    sends none of its own, so dropping this header silently broke the `gist`
+    source in bpString.ts - and broke it in a way the whole suite stayed green
     for, because tests/blueprint-sources.spec.ts intercepts /corsproxy with
     page.route and never leaves the browser. That is exactly how it went
     unnoticed from March 2026 until it was probed against production.
+
+    Gists now go to GitHub directly and the proxy refuses api.github.com, so
+    that failure can no longer happen here. The guard stays for the second
+    test: the header must remain a fixed string rather than a copy of the
+    caller's, which would carry this site's cookies to the target.
 */
 describe('the outbound fetch identifies itself', () => {
     const worker = fs.readFileSync(

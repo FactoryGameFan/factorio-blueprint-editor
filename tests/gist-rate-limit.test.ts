@@ -3,14 +3,35 @@ import worker from '../packages/worker/src/index'
 
 afterEach(() => vi.unstubAllGlobals())
 
-it('preserves GitHub rate-limit status and signal without forwarding unsafe headers', async () => {
+const proxy = (target: string) =>
+    worker.fetch(
+        new Request(`https://fbe.factorygamefan.com/corsproxy?url=${target}`),
+        {} as never,
+        {} as never
+    )
+
+/*
+    The editor asks GitHub for a gist directly, so a request for GitHub's API
+    arriving here is someone spending the site's shared allowance on purpose.
+    Refused before any fetch, which is the part that matters: a refusal after
+    the fetch would still have spent it.
+*/
+it('refuses GitHub’s API without fetching it', async () => {
+    const upstream = vi.fn()
+    vi.stubGlobal('fetch', upstream)
+    const response = await proxy('https://api.github.com/gists/dead1234')
+    expect(response.status).toBe(403)
+    expect(upstream).not.toHaveBeenCalled()
+})
+
+it('passes an upstream refusal through without any of its headers', async () => {
     vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue(
             new Response('rate limited', {
-                status: 403,
+                status: 429,
                 headers: {
-                    'content-type': 'application/json',
+                    'content-type': 'text/html',
                     'x-ratelimit-remaining': '0',
                     'set-cookie': 'session=untrusted',
                     'cache-control': 'public, max-age=86400',
@@ -19,15 +40,10 @@ it('preserves GitHub rate-limit status and signal without forwarding unsafe head
             })
         )
     )
-    const response = await worker.fetch(
-        new Request(
-            'https://fbe.factorygamefan.com/corsproxy?url=https://api.github.com/gists/dead1234'
-        ),
-        {} as never,
-        {} as never
-    )
-    expect(response.status).toBe(403)
-    expect(response.headers.get('x-ratelimit-remaining')).toBe('0')
+    const response = await proxy('https://pastebin.com/raw/dead1234')
+    expect(response.status).toBe(429)
+    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8')
+    expect(response.headers.get('x-ratelimit-remaining')).toBeNull()
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(response.headers.get('location')).toBeNull()
     expect(response.headers.get('cache-control')).toBe('no-store')

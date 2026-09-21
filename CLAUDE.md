@@ -20,7 +20,9 @@ closing references such as `Closes #123` in the pull request body.
 - `test-blueprints` - committed real-world blueprint corpus
 - `tools/oracle` - probes that ask a local Factorio installation what it does
 - `docs/superpowers` - `specs` (6) for larger past changes
-- `.github/workflows` - CI and deploy; `README.md` holds the job rationale
+- `.github/workflows` - CI, deploy, and issue triage; `README.md` holds the
+  job rationale
+- `.devcontainer` - an opt-in Linux container; see "Devcontainer" below
 
 ## Setup and commands
 
@@ -41,9 +43,12 @@ rm vp-install.sh
 The installer writes `~/.vite-plus/bin` into your shell's startup files for
 new shells; for the current one, prepend it to `PATH` yourself. Then
 `vp install` fetches the pinned toolchain. The action verifies the installer
-script against a sha256 before running it; to get the same guarantee, take the
-`sha256sum -c` line from the action rather than from a doc, because that digest
-rotates on its own and a copy here would go stale.
+against a sha256 before running it - two scripts, since the vite.plus script
+now sources a second one, `install-legacy.sh`, which it looks for beside
+itself before downloading it. To get the same guarantee, fetch both into the
+same directory and take the `sha256sum -c` lines from the action rather than
+from a doc, because those digests rotate on their own and a copy here would go
+stale.
 
 The global `vp` does not need to match the pin. It defers to the project's
 local `vite-plus` for every tool - measured, a global `vp` one release behind
@@ -57,20 +62,25 @@ makes the `PATH` line above wrong and `vp` looks missing rather than misplaced.
 The action sets it for the same reason.
 
 Prepend rather than append, because Vite+ works through shims. It installs
-`node`, `npm`, `npx` and `corepack` into that one directory, and each of them
-resolves a version per directory at the moment you run it. Any other `node` or
-`npm` earlier on `PATH` wins instead, and the shims are then never consulted.
+`node`, `npm` and `npx` into that one directory, alongside `pnpm`, `yarn` and
+`bun`, and each of them resolves a version per directory at the moment you run
+it. There is no `corepack` shim: vite-plus 0.3.1 removed it and manages the
+package managers itself. Any other `node` or `npm` earlier on `PATH` wins
+instead, and the shims are then never consulted.
 
 Node and npm are two separate pins, which is the part worth knowing. The Node
-version comes from `.node-version` (24.20.0). The npm version comes from
+version comes from `.node-version`. The npm version comes from
 `devEngines.packageManager` in the root `package.json`, and Vite+ keeps it in
 `~/.vite-plus/package_manager/npm/<version>/` rather than using the one inside
-the Node install. That matters because the npm bundled inside Node 24.20.0 is
-11.19.0. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
-satisfy this repo whichever Node it selects, because npm 12 comes from Vite+
-and from nowhere else.
+the Node install. Read both files for the numbers; neither is repeated here,
+because a copy goes stale the day the pin moves. What matters is that the npm
+bundled inside the pinned Node is an older major than the range `devEngines`
+asks for. A Node version manager on its own - fnm, nvm, asdf - therefore cannot
+satisfy this repo whichever Node it selects, because the npm it needs comes from
+Vite+ and from nowhere else.
 
-The symptom when something else's npm wins is `EBADDEVENGINES`:
+The symptom when something else's npm wins is `EBADDEVENGINES`. With a bundled
+npm 11 against a `^12` range, it reads:
 
 ```
 npm error EBADDEVENGINES Invalid semver version "^12" does not match "11.19.0"
@@ -125,6 +135,109 @@ FBE_BASE_URL=http://localhost:8090 npx playwright test
 
 The sprite server must stay on 8081 because Vite's development proxy targets
 that port. Run `npx playwright install` after changing `@playwright/test`.
+
+### Devcontainer
+
+`.devcontainer/devcontainer.json` builds a Linux container that runs
+everything above: `vp check`, `vp test`, `npm run localpreview`, the
+Playwright suite, and the exporter's cargo build, test, fmt and clippy. It
+starts from the Vite+ image, `ghcr.io/voidzero-dev/vite-plus`, so `vp`, `node`
+and `npm` all resolve to `/home/vp/.vite-plus/bin`, from the same two pins as
+on the host. That directory is second on `PATH`, not first: the Dockerfile
+prepends `/home/vp/.cargo/bin` for the Rust toolchain, and that directory holds
+no `node` or `npm`, so it shadows no shim. Measured 2026-09-21 in the built
+image on macOS arm64, `PATH` is
+`/home/vp/.cargo/bin:/home/vp/.vite-plus/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`.
+
+Measured 2026-09-18 on three hosts: OrbStack on a Mac (linux/arm64), Docker
+Engine inside WSL2 on a Windows PC (linux/amd64), and rootless Podman on a
+CachyOS laptop (linux/amd64). On all three, `vp check` and `vp test` matched
+the host, and the Playwright suite passed, including the two canvas specs that
+fail under WSL (see below). The one exception came from memory, not from the
+container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
+Chromium's renderer, at about 1.5 GB, during the large-paste test in
+`tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
+chase. That run used the features-based `devcontainer.json`; `c82ed87e`
+replaced the Rust feature with the Dockerfile on 2026-09-21, after the table
+was taken.
+
+It does not do two things:
+
+- **Regenerate Factorio data.** `packages/exporter/basisu` is a macOS arm64
+  binary, with a Windows `basisu.exe` beside it, and on Linux the exporter
+  looks for an x86-64 `bin/x64/factorio`. Run `npm run start:exporter` on the
+  host.
+- **Run oracle probes.** They need a local Factorio.
+
+Reaching Vite from the host needed a change to get right. Vite's default host
+is `localhost`, which resolves `::1` ahead of `127.0.0.1`, so Vite bound `[::1]`
+alone while a port forwarder dials `127.0.0.1`. Measured against VS Code's Dev
+Containers extension, which does read `forwardPorts`: it forwarded both ports
+correctly, 8081 answered 200 because `npx serve` binds `::` dual-stack, and 8080
+timed out on an otherwise healthy Vite. The editor's own Playwright specs never
+saw it, because they reach `::1` too.
+
+`containerEnv` now sets `FBE_DEV_HOST`, which makes `scripts/localpreview.mjs`
+add a bare `--host`, and both ports come up on `::`. Measured from the Mac
+afterwards: `localhost:8080` answers 200 through VS Code's forward, and the
+container's own address answers 200 directly - so on OrbStack the bare
+`devcontainer` CLI no longer needs the forwarding it does not do
+(devcontainers/cli#22). The container's `.orb.local` name connects and returns
+403, which is Vite's `allowedHosts` refusing an unfamiliar Host header rather
+than a networking fault, and the name is random anyway because VS Code passes
+no `--name`.
+
+**That 403 is not what keeps the listener safe, and an earlier version of this
+section implied it was.** Measured against the pinned Vite:
+`isHostAllowedInternal` returns true for any Host header that parses as an IPv4
+or IPv6 literal, _before_ `allowedHosts` is consulted. Against the real dev
+server, `evil.example.com` and `fbe.factorygamefan.com` both got 403 while
+`10.1.2.3`, `192.168.1.50` and `[dead::beef]` all got 200. `allowedHosts`
+constrains names only, and a peer reaching the server by address sends no name.
+What actually keeps it contained is that `forwardPorts` is a VS Code-side
+forward and not a docker publish, so nothing puts the port on a real interface.
+Note also that `server.fs.deny` defaults do not cover `.dev.vars`, which
+`.gitignore` treats as secret.
+
+Do not "fix" that bind with `--host 0.0.0.0`. It binds IPv4 alone and refuses
+`::1` - the address the Playwright specs reach, through
+`playwright.config.ts`'s default `baseURL` of `http://localhost:8080`. The
+value that reads as the more permissive one breaks the suite instead.
+
+`.devcontainer/Dockerfile` installs Rust with a checksum-verified rustup
+installer as the non-root `vp` user. It replaces the Rust feature, which added
+`SYS_PTRACE` and disabled seccomp through its metadata. No extra capabilities
+or security options are requested. The Devcontainer workflow builds the actual
+configuration, asserts seccomp is enabled and `SYS_PTRACE` is absent from the
+capability bounding set, checks Chromium can render, then runs cargo test, fmt
+and clippy.
+
+Rust still resolves to stable at build time, matching the previous feature's
+default. The installer checksum does not pin the toolchain; use a shared
+`rust-toolchain.toml` if the project adopts a Rust version policy. When the
+rustup installer changes, verify it and update its checksum in the Dockerfile.
+
+`node_modules` is a named volume, not the bind-mounted folder. An install
+holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
+more), so a shared folder would leave whichever side installed last broken for
+the other. `CARGO_TARGET_DIR` moves the Rust build out of the bind mount for
+the same reason. There are no devcontainer features or feature lockfile.
+
+Two lines in the CLI's output look like faults and are not. `Error fetching
+image details: Could not parse image name` is the CLI failing to parse a tag
+plus a digest for a metadata lookup; the build carries on and succeeds. And
+under rootless Podman the container runs with `userns=private`, which reads as
+if the host user's files would show up root-owned inside. They do not: the CLI
+maps the user itself, the workspace shows as `vp` inside, and files written
+there land as the host user outside. Only the empty `node_modules` mountpoint
+on the host belongs to a subordinate UID, and nothing reads it.
+
+Run the CLI from a directory with no `package.json` above it. From the repo
+root, `pnx @devcontainers/cli` prints `The "workspaces" field in package.json
+is not supported by pnpm`, which is the host's pnpm reading the root
+`package.json`, not the container. And under a parent `package.json` whose
+`devEngines` names another package manager, `npx` stops with
+`EBADDEVENGINES` before the CLI starts.
 
 ## Dependencies
 
@@ -258,8 +371,12 @@ navigation so toasts and the settings panel cannot intercept events. Do not
 edit files while a Playwright run is active: Vite reloads the page and destroys
 the test's execution context.
 
-CI runs checks, Rust builds on Linux and Windows, four Playwright shards, and a
-Cloudflare deployment after both checks and browser tests pass.
+CI runs checks, a Rust build, four Playwright shards, and a Cloudflare
+deployment after both checks and browser tests pass. Every job is on
+`ubuntu-latest`; the Windows Rust job is gone, because `download()` no longer
+hides either extractor behind a `#[cfg(target_os)]` and Linux therefore
+type-checks both. `.github/workflows/README.md` records what that stopped
+covering.
 
 ### Running the browser suite under WSL2
 
@@ -330,6 +447,15 @@ failing to all 4, `drawImage` disappears from the log entirely, and
 `waitForEditor` times out after 120 s because the editor never initialises. The
 flag is load-bearing in the opposite direction from the guess.
 
+**The devcontainer avoids both problems, where Docker runs inside the WSL
+distro.** Measured 2026-09-18 on Menehune (Docker Engine 29.1.3 in
+Ubuntu 26.04): the full suite passed with the committed config and no extra
+flags, `overlay-container` and `sprite-generation` included, and the VM
+survived. The container has no `/dev/dxg`, no `/mnt/wslg`, and no `DISPLAY` or
+`WAYLAND_DISPLAY`, so Chromium never reaches the GPU path, and the canvas specs
+pass there as they do in CI. So a machine with Docker in WSL can record all five
+specs above.
+
 Two rules the specs cannot enforce:
 
 - A green suite says nothing about how a feature feels. For anything with a
@@ -337,6 +463,48 @@ Two rules the specs cannot enforce:
   before calling it done.
 - An intermittent spec usually has a deterministic bug under it. Find the
   mechanism rather than adding a retry.
+
+## Labelling a new issue
+
+`.github/workflows/issue-triage.yml` gives a newly opened issue the domain
+label saying which part of the editor it is about. The type label arrives on
+its own - both issue templates set one - so the allowlist in
+`scripts/triage-labels.mjs` holds only the 13 domain labels. Type, the verdicts
+(duplicate, wontfix, invalid) and the recruiting labels are deliberately
+outside it.
+
+Three things are worth knowing before changing it.
+
+**A gate runs first and usually stops there.** It reads the labels GitHub has
+at run time rather than the ones the event payload carried, because
+`gh issue create --label` lands about two seconds after the issue exists and a
+runner takes longer than that to boot. An issue that already names an area
+never reaches the model at all. `selectLabels` asks the same question again at
+the moment of writing, which closes the minute-wide gap where someone labels
+the issue by hand while the model is still reading it.
+
+**The menu is built from the repository's own labels.** `gate` reads
+`gh label list` and filters it through the allowlist, so a label created on
+GitHub reaches the prompt on the next run with no edit here. Only the allowlist
+that decides what may be _applied_ is in code, and a test pins each entry.
+
+**Claude cannot write to GitHub from that workflow, by construction.** It gets
+no Bash tool, so it has no `gh` and no network; the gate dumps the issue to a
+file and the model writes a proposal file, which the applier validates. The
+applier is copied to `$RUNNER_TEMP` and checksummed before the model starts,
+because the model's `Write` tool reaches the whole checkout and the last step
+executes that file with a token that can write to issues. A `git diff` there
+would not do: `.git/config` is untracked, and `diff.external` in it names a
+program `git diff` itself runs. Anything logged or put in the job summary goes
+through `oneLine` first - a step's stdout is parsed for workflow commands,
+which are recognised only at the start of a line.
+
+Re-run it on any issue with
+`gh workflow run 'Issue triage' --field issue=<number>`. That is also the only
+way to test a prompt change: `workflow_dispatch` and `issues` events both run
+the copy of the workflow on the default branch, and `push` is not an event
+`claude-code-action` supports at all, so nothing here can be exercised from a
+branch.
 
 ## Asking Factorio
 
@@ -361,13 +529,42 @@ Set `FACTORIO_DIR` in `packages/exporter/.env` to a local installation and run:
 npm run start:exporter
 ```
 
-Without a local installation, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` can
-download base-game data, but that path cannot export Space Age. Sprite
-compression invokes the repository's `basisu` binary, currently macOS ARM64.
+Without a local installation, `FACTORIO_USERNAME` and `FACTORIO_TOKEN` download
+the game instead. That path asks for the `expansion` build, so it does carry
+Space Age, and the account behind the token has to own Space Age or the download
+returns a non-success status. It runs on Linux and Windows only; macOS panics on
+the unsupported-OS arm, because the macOS distribution is a DMG.
 
-The Rust exporter has two input paths - downloaded data and a local install -
-but both route sprite compression through the same implementation in
-`setup.rs`.
+The version is not written in the source. `resolve_version()` reads
+`stable.expansion` from <https://factorio.com/api/latest-releases>, and
+`FACTORIO_VERSION` pins a specific one. A number in the source went stale
+before: it read 2.0.68 while the oracle fixtures were recorded at 2.0.77.
+
+Sprite compression invokes a tracked `basisu` binary, one per platform, chosen
+by `basisu_for()` in `setup.rs`: `basisu` on macOS ARM64, `basisu-linux` on
+Linux x86-64, `basisu.exe` on Windows. All three are v1.16.4, and the Windows
+and Linux ones are upstream's own builds from the 1.16.4 release, whose
+`basisu.exe` is byte-identical to the tracked one. Both input paths, downloaded
+and local, route compression through the same implementation.
+
+**The three are not interchangeable, and the committed textures came from the
+macOS build.** The same PNG encodes to different bytes on macOS and on Linux:
+measured 2026-09-20 on `accumulator-charge.png`, 139,208 bytes against 139,094,
+with 7 of 8 sprites differing. The pictures are the same to look at - alpha is
+bit-identical, transparent pixels match exactly, and the mean channel difference
+over the sheet is 0.226 of 255 - but the files are not.
+
+So regenerating on Linux rewrites all 3,060 `.basis` files, about 152 MB, with
+no visible change in any of them. That is a real cost on a `.git` already around
+700 MB, and it is why the Linux binary is tracked while the committed output was
+left alone. **Regenerate on macOS unless you intend that rewrite.** If you ever
+do intend it, the Linux output is reproducible: upstream's x86-64 build gives
+the identical sha256 on native x86-64 hardware and under emulation on an
+arm64 Mac, measured both ways on the same input.
+
+`tools/check-basisu-determinism.mjs` reads the macOS binary by name and answers
+a different question - whether one encoder repeats itself - so it cannot see
+this.
 
 ## Deployment
 

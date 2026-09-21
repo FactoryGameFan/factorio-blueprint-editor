@@ -112,8 +112,16 @@ export const stepZoom = (scale: number, direction: 1 | -1): number => {
  * a notched mouse in Chrome, so one notch is exactly one rung and a notched
  * mouse walks the game's ladder.
  *
- * This is the one number in the file that is feel rather than measurement, and
- * no passing test can see whether it is right - it was driven before shipping.
+ * Checked in a driving session (#216) with a notched mouse (MX Master,
+ * ratchet mode) - and the deltas it actually sent were not the flat 100px
+ * chunks the paragraph above assumes, but a continuous stream from 1px up
+ * past 100px within a single flick. A light scroll stayed well under a
+ * rung (54px for -0.54 rung); a fast flick carried enough pixels to reach
+ * the floor in one gesture (2145px for -20.20 rungs, 0.739 down to the
+ * `ZOOM_MIN` limit). Both felt proportionate and controlled, so the value
+ * stays at what shipped rather than a value newly chosen. Whether the
+ * 100px-per-notch premise above holds at all on macOS is untested by this
+ * session and open as its own question.
  */
 export const WHEEL_NOTCH_PX = 100
 

@@ -33,6 +33,22 @@ and filling out the issue template.
 
 ### Prerequisites
 
+If you have Docker and VS Code, you can skip the node and Vite+ items below.
+The repo ships a dev container with `vp`, Node, npm, Rust and Playwright's
+Chromium ready: run **Dev Containers: Reopen in Container**. It cannot
+regenerate the sprite data. The "Devcontainer" section of
+[CLAUDE.md](CLAUDE.md) says what it covers.
+
+One thing to know before you use it on a branch you did not write. Opening a
+folder in the container first builds that branch's `.devcontainer/Dockerfile`,
+then runs that branch's `postCreateCommand`, taken from
+`.devcontainer/devcontainer.json`, inside a container that has root and a
+read-write mount of your checkout. Both steps run code the author wrote. That
+is normal for dev containers and is not specific to this repo, but it means
+reviewing a pull request by opening it in the container runs the author's build
+steps and command. Read `.devcontainer/` in the diff first, or review on the
+host.
+
 - [git](https://git-scm.com/)
 - [node](https://nodejs.org/en/). The root `package.json` declares
   `devEngines.packageManager: npm ^12` with `onFail: download`, so an npm new
@@ -56,8 +72,10 @@ and filling out the issue template.
     that command alone. If you want to check the installer script before
     running it, CI does: the `Install vp` step of
     [`.github/actions/setup-vp/action.yml`](.github/actions/setup-vp/action.yml)
-    verifies it with `sha256sum -c` against a digest kept current there. Take
-    that line from the action, not from a doc - the digest changes on its own.
+    verifies it with `sha256sum -c` against digests kept current there. There
+    are two: the installer runs a second script, `install-legacy.sh`, and uses
+    a copy in its own directory if one is there. Take those lines from the
+    action, not from a doc - the digests change on their own.
 
     Then put `~/.vite-plus/bin` on your PATH, ahead of any system npm. Two
     things need it there: `npm run localpreview` spawns `vp` directly, and

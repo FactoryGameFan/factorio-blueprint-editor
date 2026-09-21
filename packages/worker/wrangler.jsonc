@@ -6,6 +6,27 @@
     // Keep the legacy workers.dev URL live so it can 301-redirect to the
     // custom domain (redirect logic in src/index.ts).
     "workers_dev": true,
+    /*
+        Off, and it has to be written here. Left unset, preview_urls takes the
+        value of workers_dev above, so every version this Worker ever deployed
+        stayed live at <first 8 characters of its version ID>-fbeworkeyman.
+        wormeyman.workers.dev, running its own code. On 2026-09-18 that was 265
+        versions, every one with a preview.
+
+        Three things made that worse than it sounds. A fix to /corsproxy never
+        reached those hostnames, and the versions from before #272 still ran
+        the proxy from before any target guard existed, with
+        Access-Control-Allow-Origin: *. The deploy job prints each version ID
+        in this public repository's Actions logs, so the hostnames were not
+        hard to find. And Workers Logs cannot see preview traffic, so nothing
+        would have recorded their use.
+
+        Turning previews off in the dashboard is not enough on its own: the
+        next wrangler deploy puts back whatever this file says. Cloudflare's
+        docs say `false` stops routing to every versioned and aliased preview
+        URL, old versions included.
+    */
+    "preview_urls": false,
     "assets": {
         "directory": "../website/dist",
         "binding": "ASSETS",
@@ -46,8 +67,12 @@
         the binding constraint. Scoping `run_worker_first` above took
         invocations from 93.8/min to 9.9/min, measured per minute across the
         deploy on 2026-09-02: 199 in the minute before it landed, 21 in the
-        minute after. That is roughly 14,000 log events a day, or 430,000 a
-        month against 20 million included.
+        minute after. Counted exactly one day at a time, Workers Logs gave
+        8,677 to 14,692 invocations a day over 2026-09-12 to 17, or 6.0 to
+        10.2 a minute, about half of them /corsproxy. That is roughly 350,000
+        log events a month against 20 million included. Count one day at a
+        time: a query over the whole 7-day log comes back sampled at about 1
+        in 10, and it was once read as a single day's total, 7 times too high.
 
         The number to watch is invocations, not this rate. Log events bill at
         $0.60 per million past the included 20 million, so this stays free

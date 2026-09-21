@@ -1,4 +1,11 @@
-import { checkProxyTarget, MAX_PROXY_BYTES } from './proxyTarget'
+import {
+    checkProxyTarget,
+    CUSTOM_HOSTNAME,
+    LEGACY_HOSTNAME,
+    MAX_PROXY_BYTES,
+    MAX_PROXY_REDIRECTS,
+} from './proxyTarget'
+import { ownHeaders, proxyResponseHeaders } from './responseHeaders'
 import {
     DEDUPE_WINDOW_SECONDS,
     dedupeKey,
@@ -21,16 +28,7 @@ interface Env {
     VISITS?: AnalyticsEngineDataset
 }
 
-const LEGACY_HOSTNAME = 'fbeworkeyman.wormeyman.workers.dev'
-const CUSTOM_ORIGIN = 'https://fbe.factorygamefan.com'
-
-/*
-    Response headers the proxy re-emits. Everything else upstream sent is
-    dropped, which is the change from the old handler: that one did
-    `new Headers(resp.headers)` and copied the lot, so a target's Set-Cookie
-    landed on our origin and its caching directives spoke for our domain.
-*/
-const PASSTHROUGH_RESPONSE_HEADERS = ['content-type', 'x-ratelimit-remaining']
+const CUSTOM_ORIGIN = `https://${CUSTOM_HOSTNAME}`
 
 /*
     Sent on every outbound fetch, because GitHub's API refuses a request without
@@ -54,13 +52,25 @@ const PASSTHROUGH_RESPONSE_HEADERS = ['content-type', 'x-ratelimit-remaining']
 
     Measured 2026-08-25: of the eight allowlisted hosts, api.github.com is the
     only one that answers differently with and without this header.
+
+    Gists no longer come through here. The editor asks api.github.com directly,
+    and checkProxyTarget refuses it, so no host this proxy still fetches is
+    known to need the header. It stays because a fixed string is still the
+    right way for the proxy to name itself to a target, and the paragraph above
+    is why it must never become a copy of the caller's headers.
 */
 const PROXY_USER_AGENT = 'factorio-blueprint-editor (+https://fbe.factorygamefan.com)'
 
+/*
+    Every Response this Worker builds goes through here or through
+    proxyResponseHeaders, and nowhere else: the asset router applies
+    public/_headers to what it serves, but a Response the Worker returns
+    itself carries exactly the headers it was given. See responseHeaders.ts.
+*/
 const textResponse = (status: number, body: string): Response =>
     new Response(`${body}\n`, {
         status,
-        headers: { 'content-type': 'text/plain; charset=utf-8' },
+        headers: ownHeaders({ 'content-type': 'text/plain; charset=utf-8' }),
     })
 
 /*
@@ -100,54 +110,97 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
     const verdict = checkProxyTarget(requestUrl.searchParams.get('url'), requestUrl.hostname)
     if (!verdict.ok) return textResponse(verdict.status, verdict.reason)
 
+    return proxyHop(request.method, verdict.url, requestUrl, 0)
+}
+
+// The statuses the fetch standard follows. Any other 3xx is relayed as-is,
+// as it was when the runtime did the following.
+const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308])
+
+/*
+    One hop of a proxied request, and the next one if it redirects.
+
+    Redirects are followed here rather than by the runtime, so that every URL
+    this Worker fetches has passed checkProxyTarget - the first one in
+    handleCorsProxy, and each Location below. With `redirect: 'follow'` the
+    check bound the caller's URL only, and the runtime went wherever the
+    target sent it next: measured under `wrangler dev --local`, workerd
+    follows a 302 to another port without asking. `'manual'` hands back the
+    3xx itself, status and Location intact, and a relative Location exactly
+    as sent, which is why it is resolved against this hop's URL.
+
+    A refused hop gets the status and reason the rule gives, as a refused
+    first URL does: it is the same rule, and a 403 says the proxy refused
+    rather than that something upstream failed. The two cases that are not a
+    rule - a Location missing or unparseable, and a chain past
+    MAX_PROXY_REDIRECTS - are 502, the proxy's own answer for an upstream it
+    could not use. Relaying the 3xx instead would not help anyone:
+    proxyResponseHeaders passes no upstream header through, the Location
+    included, so the editor would get a redirect with nowhere to go.
+
+    Only GET and HEAD reach this far, so a 303's switch to GET never changes
+    the method, and it is passed along unchanged.
+*/
+async function proxyHop(
+    method: string,
+    target: URL,
+    requestUrl: URL,
+    redirects: number
+): Promise<Response> {
     let upstream: Response
     try {
-        upstream = await fetch(verdict.url.href, {
-            method: request.method,
-            redirect: 'follow',
+        upstream = await fetch(target.href, {
+            method,
+            redirect: 'manual',
             headers: { 'user-agent': PROXY_USER_AGENT },
         })
     } catch {
         return textResponse(502, 'Could not reach the target')
     }
 
+    if (REDIRECT_STATUSES.has(upstream.status)) {
+        // Not followed through the body, so release the connection now, as
+        // the 413 branch below does.
+        void upstream.body?.cancel()
+
+        const location = upstream.headers.get('location')
+        let next: URL | undefined
+        try {
+            if (location !== null) next = new URL(location, target)
+        } catch {
+            // Unparseable, and answered below the same way as missing.
+        }
+        if (next === undefined) {
+            return textResponse(502, 'The target redirected without a usable Location')
+        }
+
+        const verdict = checkProxyTarget(next.href, requestUrl.hostname)
+        if (!verdict.ok) {
+            return textResponse(
+                verdict.status,
+                `The target redirected to a URL that is not proxied: ${verdict.reason}`
+            )
+        }
+
+        if (redirects >= MAX_PROXY_REDIRECTS) {
+            return textResponse(502, 'The target redirected too many times')
+        }
+
+        return proxyHop(method, verdict.url, requestUrl, redirects + 1)
+    }
+
     const declared = Number(upstream.headers.get('content-length'))
     if (Number.isFinite(declared) && declared > MAX_PROXY_BYTES) {
+        // Not relaying it is not the same as not receiving it: an unread body
+        // holds the upstream connection open until the runtime gives up on it.
+        void upstream.body?.cancel()
         return textResponse(413, 'The target response is too large to proxy')
     }
-
-    const headers = new Headers()
-    for (const name of PASSTHROUGH_RESPONSE_HEADERS) {
-        const value = upstream.headers.get(name)
-        if (value !== null) headers.set(name, value)
-    }
-
-    /*
-        Scoped to this deployment's own origin rather than `*`.
-
-        The editor's own call is same-origin - bpString.ts fetches the relative
-        `/corsproxy?url=...` - so it needs no CORS header at all, and naming our
-        own origin is the narrowest value that still says out loud who the
-        endpoint is for. The old `*` handed every proxied body to any page on
-        the internet that cared to ask.
-
-        No Vary: Origin, deliberately, though the dead Pages handler carried one.
-        Vary earns its place when the header reflects the request's Origin; this
-        value is constant, so a shared cache cannot mix two callers up and the
-        header would only be cargo. There is no OPTIONS arm for the same reason:
-        a same-origin simple GET never preflights, and a cross-origin caller is
-        refused by the line below before a preflight would matter.
-    */
-    headers.set('access-control-allow-origin', requestUrl.origin)
-
-    // Third-party content served from our origin should not be cached as though
-    // we published it, and a blueprint is fetched once per load anyway.
-    headers.set('cache-control', 'no-store')
 
     return new Response(upstream.body === null ? null : capBody(upstream.body, MAX_PROXY_BYTES), {
         status: upstream.status,
         statusText: upstream.statusText,
-        headers,
+        headers: proxyResponseHeaders(requestUrl.origin),
     })
 }
 
@@ -165,12 +218,13 @@ async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Respo
     Engine, which is durable and queryable. visitorCount.ts explains what the
     first of those costs in accuracy.
 
-    One place the dedupe does nothing at all: the Cache API is inert on
-    workers.dev, so a load of a versioned preview hostname counts on every
-    request rather than once a day. Production is a custom domain (`routes` in
-    wrangler.jsonc) and the bare legacy hostname 301s out above before reaching
-    here, so this affects preview traffic only - which is a handful of manual
-    loads, and worth knowing before reading a preview's numbers as real.
+    One place the dedupe would do nothing at all: the Cache API is inert on
+    workers.dev. Nothing on workers.dev reaches this point, though. Production
+    is a custom domain (`routes` in wrangler.jsonc), the bare legacy hostname
+    301s out above, and preview URLs are off. If they are ever turned back on,
+    a load of a versioned preview hostname counts on every request rather than
+    once a day, which is worth knowing before reading a preview's numbers as
+    real.
 
     Reading the result. Analytics Engine has no dashboard view of its own - this
     is the number the beacon in packages/website/index.html cannot see, and it
@@ -241,11 +295,18 @@ export default {
         const url = new URL(request.url)
 
         // Redirect the legacy workers.dev hostname to the custom domain,
-        // preserving the path and query string. Exact-match on purpose: the
-        // versioned preview hostnames (<version>-fbeworkeyman.workers.dev) are
-        // meant to serve the app rather than bounce to production.
+        // preserving the path and query string. It is the only workers.dev
+        // name that reaches this Worker: preview URLs are off in
+        // wrangler.jsonc, so no versioned hostname routes here at all.
+        //
+        // Built by hand rather than with Response.redirect, whose headers are
+        // immutable: this is a Response the Worker returns itself, so it takes
+        // the same policy as the rest.
         if (url.hostname === LEGACY_HOSTNAME) {
-            return Response.redirect(`${CUSTOM_ORIGIN}${url.pathname}${url.search}`, 301)
+            return new Response(null, {
+                status: 301,
+                headers: ownHeaders({ location: `${CUSTOM_ORIGIN}${url.pathname}${url.search}` }),
+            })
         }
 
         if (url.pathname === '/corsproxy') return handleCorsProxy(request, url)

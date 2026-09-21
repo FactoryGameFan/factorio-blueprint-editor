@@ -99,6 +99,31 @@ export default defineConfig(async ({ command, mode }) => {
         server: {
             port: 8080,
             proxy,
+            fs: {
+                /*
+                    Vite REPLACES this array, it does not merge it:
+                    mergeWithDefaultsRecursively assigns any non-plain-object
+                    value straight over the default, and an array is not a plain
+                    object. So every one of Vite's own entries has to be
+                    repeated here or it is silently dropped - writing only the
+                    last line below would delete the `.env` protection while
+                    looking like it added something. Re-read Vite's
+                    _serverConfigDefaults on a toolchain bump.
+                */
+                deny: [
+                    '.env',
+                    '.env.*',
+                    '*.{crt,pem,key,p12,pfx,cer,der}',
+                    '.npmrc',
+                    '.yarnrc.yml',
+                    '**/.git/**',
+                    // Not one of Vite's. `.gitignore` already treats this as
+                    // secret - it is where `wrangler dev` keeps local Worker
+                    // secrets - and Vite's defaults do not cover the name, so a
+                    // dev server would serve it.
+                    '.dev.vars*',
+                ],
+            },
         },
         plugins: lazyPlugins(() => [
             command === 'build'

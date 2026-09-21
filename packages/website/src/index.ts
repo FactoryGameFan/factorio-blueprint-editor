@@ -25,6 +25,7 @@ import EDITOR, {
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
+import { readSourceParams } from './sourceParams'
 import { storedJson } from './storage'
 
 document.addEventListener('contextmenu', e => e.preventDefault())
@@ -133,7 +134,7 @@ if (isMobile.any) {
 if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'function') {
     createToast({
         text:
-            "Current browser doesn't support WebAssembly.<br>" +
+            "Current browser doesn't support WebAssembly.\n" +
             'If you think this is a mistake, feel free to report this bug on github.',
         type: 'error',
         timeout: Infinity,
@@ -142,25 +143,7 @@ if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'funct
     throw new Error('WEB_ASSEMBLY_NOT_SUPPORTED')
 }
 
-const params = window.location.search.slice(1).split('&')
-
-let bpSource: string
-let bpIndex = 0
-for (const p of params) {
-    if (p.includes('source')) {
-        const raw = p.split('=')[1]
-        // decodeURIComponent throws URIError on malformed input (e.g. ?source=%);
-        // fall back to the raw value so a bad param can't abort app init.
-        try {
-            bpSource = decodeURIComponent(raw)
-        } catch {
-            bpSource = raw
-        }
-    }
-    if (p.includes('index')) {
-        bpIndex = Number(p.split('=')[1])
-    }
-}
+const { source: bpSource, index: bpIndex } = readSourceParams(window.location.search)
 
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
@@ -252,9 +235,24 @@ function readClipboardText(): Promise<string> {
 */
 async function selectBookIndex(index: number): Promise<void> {
     if (!book) throw new Error('No book loaded')
-    bp = book.selectBlueprint(index)
-    await editor.loadBlueprint(bp)
-    changeBookForIndexSelector(book)
+    const current = book
+    const previous = { bp, selection: current.selection }
+    // A page whose own data is bad throws here, before anything has moved.
+    bp = current.selectBlueprint(index)
+    /*
+        One that fails to draw throws in loadBlueprint instead, by which time
+        the book has moved to it. Both go back, as loadBp's do: the editor puts
+        its own globals back, and a book left on the failed page would export
+        that page, not the one on screen, and take none of its later edits.
+    */
+    try {
+        await editor.loadBlueprint(bp)
+    } catch (error) {
+        bp = previous.bp
+        current.restoreSelection(previous.selection)
+        throw error
+    }
+    changeBookForIndexSelector(current)
 }
 
 const quickActions: QuickActions = {
@@ -282,10 +280,26 @@ editor
         getBlueprintOrBookFromSource(bpSource)
             .catch(error => createBPImportError(error))
 
-            .then(bpOrBook => loadBp(bpOrBook || new Blueprint()))
+            .then(bpOrBook =>
+                loadBp(bpOrBook || new Blueprint()).catch(error => {
+                    /*
+                        It decoded but did not load: initBP threw, and the editor
+                        rolled back to the empty blueprint it started with. Say
+                        so the way a failed fetch is said above, then load an
+                        empty Blueprint through loadBp, so the loading screen
+                        comes down and `bp` is set. Before, the overlay stayed up
+                        over an editor nobody could reach.
+                    */
+                    createBPImportError(error)
+                    return loadBp(new Blueprint())
+                })
+            )
 
             .then(() => createWelcomeMessage())
-            .catch(error => createBPImportError(error))
+            .catch(error => {
+                loadingScreen.hide()
+                createBPImportError(error)
+            })
 
             /*
                 Only now does the test hook go on `window`. It is the signal every
@@ -306,6 +320,7 @@ editor
             */
             .then(() => {
                 startupFinished = true
+                setTimeout(createStarMessage, 60000)
                 if (import.meta.env.DEV) {
                     ;(window as any).__fbe_test = testApi
                 }
@@ -323,6 +338,7 @@ window.addEventListener('visibilitychange', () => {
 })
 
 async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
+    const previous = { bp, book }
     if (bpOrBook instanceof Book) {
         book = bpOrBook
         bp = book.selectBlueprint(bpIndex ? bpIndex : undefined)
@@ -331,7 +347,19 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
         bp = bpOrBook
     }
 
-    await editor.loadBlueprint(bp)
+    /*
+        Assigned before the load, not after, because loadBlueprint reads them:
+        its G.UI.updateBookButton() asks quickActions.getCurrentBook(), which is
+        `book`. So on a throw they go back, the same way loadBlueprint puts its
+        own globals back. Otherwise the screen shows the old blueprint while
+        Ctrl+C exports the one that failed to load.
+    */
+    try {
+        await editor.loadBlueprint(bp)
+    } catch (error) {
+        ;({ bp, book } = previous)
+        throw error
+    }
     changeBookForIndexSelector(bpOrBook)
 
     loadingScreen.hide()
@@ -977,6 +1005,79 @@ function registerActions(): void {
     })
 }
 
+/**
+ * The one-time "give us a star" prompt. Its own element in the left-hand
+ * chrome, under the GitHub tab, and deliberately not a toast (issue #430).
+ *
+ * A toast has to be click-through: the toast column sits on top of the
+ * ToolsPanel, and #228 made every expiring toast `pointer-events: none` so it
+ * stops taking clicks meant for the slots under it. This prompt needs a live
+ * link and a live Dismiss button, and as a toast those two opted back into
+ * pointer events - measured at 1280x720, five of the nine slots then lost part
+ * of their face for the prompt's thirty seconds, Redo 78% of it. The
+ * `.toasts-persistent` exception does not transfer either: its callers throw
+ * straight afterwards, so nothing is under those toasts to block. Here there
+ * is a live editor underneath, so the prompt goes where the chrome already
+ * takes clicks and no editor panel is drawn - `#buttons` and `#corner-panel`
+ * hold that corner. `tests/star-prompt.spec.ts` walks every slot face to pin
+ * it.
+ *
+ * It only shows in a visible tab (issue #444). The 60s startup timer fires
+ * whether or not anyone is looking, so if the tab is hidden then, this waits
+ * for it to come back before it writes the one-time flag or builds anything.
+ * The 30s expiry starts when the prompt is actually on screen. The cases are
+ * spelled out inside.
+ */
+function createStarMessage(): void {
+    /*
+        The one-time flag used to be written the moment the 60s timer fired,
+        and a user away from the tab across the prompt's 30s was then never
+        asked at all. So the flag, the element and the expiry all wait for a
+        visible tab:
+
+        (a) The tab is hidden when the timer fires. Nothing is written and
+            nothing is built. One listener waits for the next
+            `visibilitychange` and runs this function again from the top.
+        (b) The tab becomes visible later. That listener runs this whole
+            function, so the flag check, the flag write, the element and the
+            30s expiry all happen at that moment, and the 30s counts from
+            then. The state is re-read rather than assumed, because a change
+            that leaves the tab hidden must only re-arm the wait, not spend
+            the one-shot listener and drop the prompt for good.
+        (c) The tab goes hidden while the prompt is on screen. Nothing
+            changes: it was put on screen in a visible tab, so the flag is
+            rightly spent and the 30s keeps running. Pausing it would need
+            more state for a user who has already seen the prompt.
+    */
+    if (document.visibilityState === 'hidden') {
+        document.addEventListener('visibilitychange', createStarMessage, { once: true })
+        return
+    }
+    try {
+        if (localStorage.getItem('starPromptShown')) return
+        localStorage.setItem('starPromptShown', 'true')
+    } catch {
+        // Storage can be disabled; the prompt still appears only once this visit.
+    }
+    const prompt = document.createElement('div')
+    prompt.id = 'star-prompt'
+    prompt.innerHTML =
+        '<span role="status">Enjoying the editor? We\'re open source!</span>' +
+        '<a href="https://github.com/FactoryGameFan/factorio-blueprint-editor" ' +
+        'target="_blank" rel="noopener noreferrer">★ Give us a star on GitHub</a>' +
+        '<button type="button" aria-label="Dismiss star prompt">Dismiss</button>'
+
+    const dismiss = (): void => {
+        clearTimeout(timer)
+        prompt.remove()
+    }
+    const timer = setTimeout(dismiss, 30000)
+    // Following the link is an answer too, so the prompt goes with it.
+    prompt.querySelector('a')?.addEventListener('click', dismiss)
+    prompt.querySelector('button')?.addEventListener('click', dismiss)
+    document.body.appendChild(prompt)
+}
+
 function createWelcomeMessage(): void {
     const notFirstRun = localStorage.getItem('firstRun') === 'false'
     if (notFirstRun) return
@@ -987,9 +1088,9 @@ function createWelcomeMessage(): void {
     setTimeout(() => {
         createToast({
             text:
-                '> To access the inventory and start building press E<br>' +
-                '> To import/export a blueprint string use ctrl/cmd + C/V<br>' +
-                '> For more info press I<br>' +
+                '> To access the inventory and start building press E\n' +
+                '> To import/export a blueprint string use ctrl/cmd + C/V\n' +
+                '> For more info press I\n' +
                 '> Also check out the settings area',
             timeout: 30000,
         })
@@ -999,7 +1100,7 @@ function createErrorMessage(text: string, error: unknown, timeout = 10000): void
     console.error(error)
     createToast({
         text:
-            `${text}<br>` +
+            `${text}\n` +
             'Please check out the console (F12) for an error message and ' +
             'report this bug on github.',
         type: 'error',

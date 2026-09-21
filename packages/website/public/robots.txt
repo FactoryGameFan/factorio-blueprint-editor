@@ -1,0 +1,6 @@
+# /corsproxy is the editor's own fetch for ?source= links, not a page. Google's
+# crawler fetched it about 3,600 times a day on 2026-09-18, most likely while
+# rendering ?source= links it found elsewhere. A crawler that obeys this file
+# skips it, including for the files a rendered page asks for.
+User-agent: *
+Disallow: /corsproxy

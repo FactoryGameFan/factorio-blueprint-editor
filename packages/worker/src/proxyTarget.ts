@@ -21,8 +21,10 @@
 /*
     The hosts the editor itself asks for, which are the rewritten targets rather
     than the ones a user types: packages/editor/src/core/bpString.ts turns a
-    pastebin page URL into pastebin.com/raw/<id>, a gist URL into api.github.com,
-    and so on. Read them off the `switch` there, not off its doc comment.
+    pastebin page URL into pastebin.com/raw/<id>, and so on. Read them off the
+    `switch` there, not off its doc comment. A gist URL becomes api.github.com,
+    which is not here: the editor asks GitHub for it directly, and
+    checkProxyTarget refuses it below.
 
     `facorio-blueprints` is spelled that way upstream - it is the real Firebase
     project name behind factorioprints, typo included, and correcting it here
@@ -31,7 +33,6 @@
 export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
     'pastebin.com',
     'hastebin.com',
-    'api.github.com',
     'gitlab.com',
     'facorio-blueprints.firebaseio.com',
     'www.factorio.school',
@@ -52,6 +53,39 @@ export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
     will relay in one request.
 */
 export const MAX_PROXY_BYTES = 16 * 1024 * 1024
+
+/*
+    How many redirects one proxied request may follow. index.ts follows them
+    itself and puts every Location through checkProxyTarget, so each hop is a
+    subrequest judged by the same rules as the first; this bounds how many.
+
+    Measured 2026-09-18 by requesting each URL shape bpString.ts builds
+    directly, not through the proxy, with placeholder ids: `factorio.school`
+    answers 301 to `www.factorio.school`, a GitLab snippet that is missing or
+    private answers 302 to the sign-in page, and the other eight answer without
+    redirecting. One hop is the most any of them used. A real paste or a real
+    Google Doc was not measured, and the catch-all serves whatever host was
+    pasted, so 5 leaves room for an apex-to-www hop, a path fix-up and a CDN
+    hand-off in one chain while holding one request to six subrequests. The
+    fetch standard's own limit is 20.
+*/
+export const MAX_PROXY_REDIRECTS = 5
+
+/*
+    The hostnames this Worker answers on, which are the ones it must never fetch.
+
+    The custom domain is `routes` in wrangler.jsonc. The legacy name is
+    `<name>.<account subdomain>.workers.dev`, and index.ts answers it with a
+    301 to the custom domain. Every version deployed also gets a preview
+    hostname, `<version prefix or alias>-fbeworkeyman.wormeyman.workers.dev`.
+    Those are off since `preview_urls: false`, but only a config line away. The
+    legacy name and every preview sit under the account's workers.dev
+    subdomain, so one suffix covers both, and any other Worker on this account
+    along with them.
+*/
+export const CUSTOM_HOSTNAME = 'fbe.factorygamefan.com'
+export const LEGACY_HOSTNAME = 'fbeworkeyman.wormeyman.workers.dev'
+const ACCOUNT_WORKERS_DEV = LEGACY_HOSTNAME.slice(LEGACY_HOSTNAME.indexOf('.'))
 
 export type TargetVerdict =
     | { ok: true; url: URL; allowlisted: boolean }
@@ -77,6 +111,23 @@ function isAddressLiteralOrBareName(hostname: string): boolean {
 
 const INTERNAL_SUFFIXES = ['.local', '.internal', '.localhost', '.home.arpa']
 
+/*
+    The one spelling of a hostname every rule below compares against.
+
+    Lowercased, and with every trailing dot removed. The WHATWG parser keeps a
+    trailing root label on a name - `localhost.` stays `localhost.` - so every
+    string comparison here was one dot away from passing: `localhost.`,
+    `printer.local.` and `metadata.google.internal.` were all allowed where the
+    undotted form is refused. It also removes exactly one trailing empty label
+    from an IPv4-shaped host, so `127.0.0.1..` survives as `127.0.0.1..`, fails
+    the literal regexp, and reached the catch-all. Stripping every trailing dot
+    closes both at once, and the URL that is fetched is rewritten to the same
+    spelling so the guard and the request cannot disagree.
+*/
+function canonicalHostname(hostname: string): string {
+    return hostname.toLowerCase().replace(/\.+$/, '')
+}
+
 export function checkProxyTarget(raw: string | null, selfHostname: string): TargetVerdict {
     if (raw === null || raw === '') return deny(400, 'Missing url parameter')
 
@@ -97,11 +148,45 @@ export function checkProxyTarget(raw: string | null, selfHostname: string): Targ
         return deny(403, 'Targets may not carry credentials')
     }
 
-    // Without this the Worker will happily fetch itself, and /corsproxy?url=
-    // pointing at /corsproxy?url= is a loop that costs a subrequest per hop.
-    if (url.hostname === selfHostname) return deny(403, 'Refusing to proxy this deployment')
+    const hostname = canonicalHostname(url.hostname)
+    // `https://./x` parses, and canonicalises to nothing. The setter below
+    // would silently ignore an empty name, so refuse it before it gets there.
+    if (hostname === '') return deny(403, 'Targets must be a public hostname')
+    if (hostname !== url.hostname) url.hostname = hostname
 
-    if (ALLOWED_HOSTS.has(url.hostname)) return { ok: true, url, allowlisted: true }
+    /*
+        Without this the Worker will happily fetch itself, and /corsproxy?url=
+        pointing at /corsproxy?url= is a loop that costs a subrequest per hop.
+        Every hostname it answers on, not only the one this request arrived on
+        (#456): a preview hostname runs its own copy of this proxy, so a chain
+        through different previews passed a same-hostname check at every level.
+        The arrival hostname is still compared too, for a name attached outside
+        wrangler.jsonc, such as a custom domain added in the dashboard.
+        Both sides canonicalised: the arrival hostname is whatever the client
+        put in its Host header, and a trailing dot there is as legal as here.
+    */
+    if (
+        hostname === canonicalHostname(selfHostname) ||
+        hostname === CUSTOM_HOSTNAME ||
+        hostname.endsWith(ACCOUNT_WORKERS_DEV)
+    ) {
+        return deny(403, 'Refusing to proxy this deployment')
+    }
+
+    /*
+        GitHub allows 60 anonymous API requests an hour per source address, and
+        every request from here leaves from Cloudflare's shared egress pool. So
+        through this proxy the allowance was one for the whole site, and anyone
+        looping it could stop gist imports for every visitor. The editor asks
+        GitHub directly now (bpString.ts, fetchData), where each visitor spends
+        their own. Refused rather than left to the catch-all, which would accept
+        it: an ordinary public host on port 443 passes every rule below.
+    */
+    if (hostname === 'api.github.com') {
+        return deny(403, 'api.github.com is asked directly by the editor, not through this proxy')
+    }
+
+    if (ALLOWED_HOSTS.has(hostname)) return { ok: true, url, allowlisted: true }
 
     /*
         Everything below applies only to the catch-all. The editor's `default:`
@@ -109,8 +194,6 @@ export function checkProxyTarget(raw: string | null, selfHostname: string): Targ
         tests/blueprint-sources.spec.ts:168 pins it - so the answer here is to
         narrow what an arbitrary target may be, not to refuse one.
     */
-    const hostname = url.hostname.toLowerCase()
-
     if (hostname === 'localhost' || isAddressLiteralOrBareName(hostname)) {
         return deny(403, 'Targets must be a public hostname')
     }
