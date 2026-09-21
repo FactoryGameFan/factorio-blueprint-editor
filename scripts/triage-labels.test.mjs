@@ -4,10 +4,12 @@ import {
     DOMAIN_LABELS,
     MAX_LABELS,
     labelMenu,
+    logLines,
     needsTriage,
     parseArgs,
     parseProposal,
     selectLabels,
+    oneLine,
     summaryFor,
 } from './triage-labels.mjs'
 
@@ -133,6 +135,69 @@ test('summaryFor names what it dropped and why', () => {
 
 test('summaryFor leaves the dropped line out when nothing was dropped', () => {
     assert.doesNotMatch(summaryFor(416, ['renderer'], [], 'x'), /Dropped/)
+})
+
+test('oneLine keeps text a stranger wrote on one line', () => {
+    // A step's stdout is parsed by the runner for workflow commands, and those
+    // are recognised only at the start of a line. Every line logged here is
+    // prefixed, so flattening the newlines is what keeps injected text on the
+    // prefix's line, where it can only ever be data.
+    assert.equal(oneLine('one\n::error::forged'), 'one ::error::forged')
+    assert.equal(oneLine('a\r\n\r\nb'), 'a b')
+})
+
+test('oneLine strips the control characters a terminal would act on', () => {
+    // Asserted as "none are left" rather than as an exact string: whether a
+    // stripped character leaves one space or two is incidental, and pinning it
+    // would make this test fail for a reason that is not the point.
+    const flattened = oneLine('red \u001b[31mhere\u0007')
+    assert.doesNotMatch(flattened, /\p{Cc}/u)
+    assert.match(flattened, /red\s+\[31mhere/)
+})
+
+test('oneLine truncates rather than printing an essay', () => {
+    const flattened = oneLine('x'.repeat(500))
+    assert.equal(flattened.length, 303)
+    assert.match(flattened, /\.\.\.$/)
+})
+
+test('logLines reports what was proposed, added, dropped and why', () => {
+    assert.deepEqual(logLines(['renderer'], ['renderer'], [], 'It draws things.'), [
+        'proposed: renderer',
+        'adding:   renderer',
+        'because:  It draws things.',
+    ])
+})
+
+test('logLines leaves the dropped line out when nothing was dropped', () => {
+    assert.equal(
+        logLines(['renderer'], ['renderer'], [], 'x').some(l => l.startsWith('dropped')),
+        false
+    )
+})
+
+test('logLines says so plainly when there is nothing to add', () => {
+    const lines = logLines([], [], [], '')
+    assert.ok(lines.includes('adding:   (none)'))
+    assert.ok(lines.includes('because:  (no reason given)'))
+})
+
+test('logLines cannot be made to emit a second line by a proposal', () => {
+    // The proposal file's label names are model output and are not checked for
+    // shape before they are logged, so this is the same hazard as the reasoning.
+    const lines = logLines(
+        ['a\n::add-mask::secret'],
+        [],
+        ['b\n::error::two'],
+        'why\n::error::forged'
+    )
+    assert.equal(lines.length, 4)
+    for (const line of lines) assert.doesNotMatch(line, /\n/)
+})
+
+test('summaryFor flattens the reasoning so it cannot forge a heading', () => {
+    const summary = summaryFor(1, [], [], 'fine\n### Injected heading')
+    assert.equal(summary.split('\n').filter(l => l.startsWith('###')).length, 1)
 })
 
 test('parseArgs reads the subcommand and issue number', () => {
