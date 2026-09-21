@@ -183,9 +183,18 @@ alone would have restored the old 1.9 GB cache for its lockfile forever and
 never replaced it. The `v2` in `cargo-v2-...` exists for that, and any future
 change to how these artifacts are produced needs the same bump.
 
-Re-measure after this lands rather than trusting the estimate here. The numbers
-above are what the old cache cost and what the build directory now weighs; what
-the new restore costs on a runner has not been measured yet.
+Measured on a runner afterwards, same day, run 35545415494:
+
+| | before | after |
+| --- | --- | --- |
+| cache size | 1,884 MB | 251 MB |
+| restore | 49s | 6s |
+| save (post step) | 19s | 0s on a hit, 4s when it writes |
+| whole job, warm | 90s | **30s** |
+
+The first run after the key changes has no cache to restore and pays a full
+build: 100s, of which 68s is `Build` and 19s is `Clippy`. That is the shape to
+expect from any future key bump, and it is not a regression.
 
 ### `-D warnings` on clippy
 
