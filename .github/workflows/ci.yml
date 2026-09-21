@@ -130,6 +130,14 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # CI never opens a debugger, and debug info was most of what this job spent
+    # its time moving. Measured locally 2026-09-20: the build directory goes
+    # from 1.7 GB to 506 MB with these two set, and the build itself does not
+    # get slower. Set here rather than in Cargo.toml, so a developer keeps
+    # backtraces with line numbers. See README.md.
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "false"
+      CARGO_INCREMENTAL: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -137,6 +145,9 @@ jobs:
       - name: Record toolchain
         run: cargo --version && rustc --version
 
+      # `v2` in the key is load-bearing, not decoration. A cache hit does not
+      # re-save, so without a new key the 1.9 GB caches built with debug info
+      # would keep being restored for their lockfile and never be replaced.
       - name: Cache cargo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -144,9 +155,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             packages/exporter/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('packages/exporter/Cargo.lock') }}
+          key: cargo-v2-${{ runner.os }}-${{ hashFiles('packages/exporter/Cargo.lock') }}
           restore-keys: |
-            cargo-${{ runner.os }}-
+            cargo-v2-${{ runner.os }}-
 
       - name: Build
         run: cargo build --locked --manifest-path packages/exporter/Cargo.toml
