@@ -20,7 +20,8 @@ closing references such as `Closes #123` in the pull request body.
 - `test-blueprints` - committed real-world blueprint corpus
 - `tools/oracle` - probes that ask a local Factorio installation what it does
 - `docs/superpowers` - `specs` (6) for larger past changes
-- `.github/workflows` - CI and deploy; `README.md` holds the job rationale
+- `.github/workflows` - CI, deploy, and issue triage; `README.md` holds the
+  job rationale
 
 ## Setup and commands
 
@@ -345,6 +346,48 @@ Two rules the specs cannot enforce:
   before calling it done.
 - An intermittent spec usually has a deterministic bug under it. Find the
   mechanism rather than adding a retry.
+
+## Labelling a new issue
+
+`.github/workflows/issue-triage.yml` gives a newly opened issue the domain
+label saying which part of the editor it is about. The type label arrives on
+its own - both issue templates set one - so the allowlist in
+`scripts/triage-labels.mjs` holds only the 13 domain labels. Type, the verdicts
+(duplicate, wontfix, invalid) and the recruiting labels are deliberately
+outside it.
+
+Three things are worth knowing before changing it.
+
+**A gate runs first and usually stops there.** It reads the labels GitHub has
+at run time rather than the ones the event payload carried, because
+`gh issue create --label` lands about two seconds after the issue exists and a
+runner takes longer than that to boot. An issue that already names an area
+never reaches the model at all. `selectLabels` asks the same question again at
+the moment of writing, which closes the minute-wide gap where someone labels
+the issue by hand while the model is still reading it.
+
+**The menu is built from the repository's own labels.** `gate` reads
+`gh label list` and filters it through the allowlist, so a label created on
+GitHub reaches the prompt on the next run with no edit here. Only the allowlist
+that decides what may be _applied_ is in code, and a test pins each entry.
+
+**Claude cannot write to GitHub from that workflow, by construction.** It gets
+no Bash tool, so it has no `gh` and no network; the gate dumps the issue to a
+file and the model writes a proposal file, which the applier validates. The
+applier is copied to `$RUNNER_TEMP` and checksummed before the model starts,
+because the model's `Write` tool reaches the whole checkout and the last step
+executes that file with a token that can write to issues. A `git diff` there
+would not do: `.git/config` is untracked, and `diff.external` in it names a
+program `git diff` itself runs. Anything logged or put in the job summary goes
+through `oneLine` first - a step's stdout is parsed for workflow commands,
+which are recognised only at the start of a line.
+
+Re-run it on any issue with
+`gh workflow run 'Issue triage' --field issue=<number>`. That is also the only
+way to test a prompt change: `workflow_dispatch` and `issues` events both run
+the copy of the workflow on the default branch, and `push` is not an event
+`claude-code-action` supports at all, so nothing here can be exercised from a
+branch.
 
 ## Asking Factorio
 
