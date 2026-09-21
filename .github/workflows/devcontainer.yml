@@ -1,0 +1,60 @@
+name: Devcontainer
+
+on:
+  pull_request:
+    branches: [wormeyman-space-age-support]
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/devcontainer.yml'
+  # Weekly, so a rotated installer is caught by CI and not by a contributor.
+  # The Dockerfile pins https://sh.rustup.rs by sha256, and that script rotates
+  # on its own - the two vite-plus installer hashes did on 2026-08-25. A
+  # mismatch then fails the build for everyone who opens the container. The
+  # paths filter above cannot catch it, because nothing under .devcontainer/
+  # changes when the remote script does. Scheduled runs read the default
+  # branch, which is this workflow's own base branch.
+  schedule:
+    - cron: '17 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Keep the CLI's npm outside the repository's devEngines policy.
+        working-directory: /tmp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Create the development container
+        run: npx --yes @devcontainers/cli@0.89.0 up --workspace-folder "$GITHUB_WORKSPACE"
+      - name: Verify runtime restrictions and Chromium
+        run: |
+          npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder "$GITHUB_WORKSPACE" node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { readFileSync } from "node:fs";
+            import { chromium } from "@playwright/test";
+            const status = readFileSync("/proc/self/status", "utf8");
+            assert.match(status, /^Seccomp:\s+2$/m, "seccomp filtering must remain enabled");
+            const caps = BigInt("0x" + status.match(/^CapBnd:\s+(\w+)$/m)[1]);
+            assert.equal(caps & (1n << 19n), 0n, "SYS_PTRACE must not be added");
+            const browser = await chromium.launch();
+            try {
+              const page = await browser.newPage();
+              await page.setContent("<h1>Container smoke test</h1>");
+              await page.screenshot();
+            } finally {
+              await browser.close();
+            }
+          '
+      - name: Check the Rust toolchain under the default restrictions
+        run: |
+          npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder "$GITHUB_WORKSPACE" sh -ec '
+            cargo test --locked --manifest-path packages/exporter/Cargo.toml
+            cargo fmt --check --manifest-path packages/exporter/Cargo.toml
+            cargo clippy --locked --manifest-path packages/exporter/Cargo.toml -- -D warnings
+          '

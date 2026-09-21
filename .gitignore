@@ -17,3 +17,8 @@ diagnostic-reports/
 playwright-report/
 test-results/
 .claude/settings.local.json
+
+# Written into the workspace by .github/workflows/issue-triage.yml, and by
+# scripts/triage-labels.mjs when it is run by hand against a real issue.
+issue.json
+triage-labels.json

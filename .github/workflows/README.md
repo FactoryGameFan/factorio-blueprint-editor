@@ -17,9 +17,11 @@ noticing, and both were being quoted as settled fact.
 changes ──┬── checks ─────────┐
           │                   ├── deploy
           ├── e2e (4 shards) ─┘
-          ├── rust
-          └── rust-windows
+          └── rust
 ```
+
+Every job runs on `ubuntu-latest`. There is no Windows or macOS runner here,
+which is what makes moving the whole matrix into a Linux container possible.
 
 `deploy` runs only on a push to `wormeyman-space-age-support` or a manual
 dispatch with the deploy input set. It never runs on a pull request.
@@ -36,7 +38,7 @@ corner case: 14 of the 20 bot pull requests before 2026-09-01 were single Rust
 crate bumps.
 
 The job lists the files a pull request touches and sets two outputs. `checks`
-and `e2e` wait on `web`. `rust` and `rust-windows` wait on `rust`.
+and `e2e` wait on `web`. The `rust` job waits on `rust`.
 
 Measured on PR #315, an exporter-only diff, 2026-09-02: 6.5 minutes of runner
 time against about 23 before.
@@ -48,8 +50,8 @@ CI at all. That is indistinguishable from CI being broken, and it would block
 any check that is ever marked required, because a skipped workflow never
 reports.
 
-A skipped job does report. `checks`, `rust` and `rust-windows` all appear greyed
-out rather than missing.
+A skipped job does report. `checks` and `rust` both appear greyed out rather
+than missing.
 
 **One exception, and it is why this section is longer than one line.** A skipped
 matrix job never expands its matrix. Measured on PR #315: `e2e` reported as a
@@ -139,18 +141,22 @@ runs first and tolerates nothing.
 
 Issue #77 ran it from 24 to 0 this way.
 
-## `rust` and `rust-windows`: compile the exporter
+## `rust`: compile the exporter
 
-`packages/exporter` is Rust. Nothing compiled it until these jobs existed, so a
+`packages/exporter` is Rust. Nothing compiled it until this job existed, so a
 broken crate bump or a breaking API change was invisible until somebody built it
 by hand on macOS.
 
-These jobs **compile** the exporter. They cannot **run** it, and the difference
-matters before anyone extends them. Running it needs a Factorio install to
-extract from, and sprite encoding shells out to `./basisu` (`src/setup.rs:501`,
-hardcoded with no `cfg(target_os)` switch) for which only a macOS ARM64 binary is
-tracked. Compiling needs neither: `basisu` is invoked through `Command::new` at
-run time, there is no `build.rs`, and no dependency is platform-gated.
+The job **compiles** the exporter. It cannot **run** it, and the difference
+matters before anyone extends it. Running it needs a Factorio install to extract
+from, and sprite encoding shells out to a `basisu` binary picked by
+`basisu_for()` in `src/setup.rs`, one per platform. Compiling needs neither:
+`basisu` is invoked through `Command::new` at run time, there is no `build.rs`,
+and no dependency is platform-gated.
+
+Extending this job to run the exporter would be a bigger change than it looks.
+The Linux and macOS `basisu` builds encode the same PNG to different bytes, so a
+run here would not reproduce the committed textures. CLAUDE.md has the numbers.
 
 So a crate that changes runtime behaviour without breaking the build will pass.
 
@@ -158,8 +164,43 @@ So a crate that changes runtime behaviour without breaking the build will pass.
 which is exactly the mistake a dependency pull request can make. Renovate updates
 the lockfile itself, and this is what checks that it did.
 
-Both are separate jobs rather than steps in `checks` so they run in parallel
+It is a separate job rather than a step in `checks` so the two run in parallel
 instead of adding to that job's wall clock.
+
+### The cache was most of this job
+
+Measured on run 35543940158, 2026-09-20. The Linux job took 90s, and 68s of that
+was the cache: 49s to restore and 19s in the post step. The work it protects,
+build plus test plus fmt plus clippy, was 13s. The cache itself was 1,884 MB.
+
+Debug info was the bulk of it. Measured locally the same day, a clean build
+directory for this crate is 1.7 GB, 1.2 GB of that in `target/debug/deps`, and
+building with `CARGO_PROFILE_DEV_DEBUG=false` and `CARGO_INCREMENTAL=0` gives
+506 MB instead. The build did not get slower, 15.6s against 20.3s on the same
+machine. Nothing in this job opens a debugger, so the information was being
+compressed, uploaded, downloaded and decompressed for nobody.
+
+Both are set as job-level `env:` rather than in `Cargo.toml`, so a developer
+building locally keeps backtraces with line numbers.
+
+**The cache key had to change with them, and that is the part worth
+remembering.** `actions/cache` does not re-save on a hit, so leaving the key
+alone would have restored the old 1.9 GB cache for its lockfile forever and
+never replaced it. The `v2` in `cargo-v2-...` exists for that, and any future
+change to how these artifacts are produced needs the same bump.
+
+Measured on a runner afterwards, same day, run 35545415494:
+
+|                  | before   | after                          |
+| ---------------- | -------- | ------------------------------ |
+| cache size       | 1,884 MB | 251 MB                         |
+| restore          | 49s      | 6s                             |
+| save (post step) | 19s      | 0s on a hit, 4s when it writes |
+| whole job, warm  | 90s      | **30s**                        |
+
+The first run after the key changes has no cache to restore and pays a full
+build: 100s, of which 68s is `Build` and 19s is `Clippy`. That is the shape to
+expect from any future key bump, and it is not a regression.
 
 ### `-D warnings` on clippy
 
@@ -171,39 +212,48 @@ Format and clippy arrived non-blocking, with 4 fmt sites and 10 clippy findings.
 The `continue-on-error` came off in the same pull request that cleared them,
 deliberately: a check nobody has to fix is a check nobody reads.
 
-### Clippy gates on Linux, and that is deliberate
+### Clippy agrees on every host
 
-`download()` in `src/setup.rs` uses `out_dir` and `stream` only inside
-`#[cfg(target_os = "windows")]` and `#[cfg(target_os = "linux")]` blocks. On a
-macOS host both read as unused, and clippy proposes renaming them to `_out_dir`
-and `_stream`. That autofix compiles on macOS and **breaks the Linux job**, where
-the cfg blocks reference the original names.
+`download()` in `src/setup.rs` chooses its extractor with a runtime `match` on
+`std::env::consts::OS`, so every target compiles both arms and both `out_dir`
+and `stream` are read everywhere. `cargo clippy -- -D warnings` reports 0 on
+this job and 0 on a Mac. Measured 2026-09-20, either side of the commit that
+made the change: before it the same command gave 2 errors on macOS and none
+here.
 
-So clippy is clean in CI and reports 2 warnings on a developer's Mac, and the Mac
-is the one that is wrong. Do not silence them locally.
+Put a `#[cfg(target_os)]` back around either arm and the split returns, with
+clippy proposing `_out_dir` and `_stream`. That autofix compiles on macOS and
+breaks this job, where the other arm still reads the original names.
 
-### Why a Windows runner and not a cross-check
+### Why there is no Windows runner
 
-The Linux job compiles the linux cfg block of `src/setup.rs` and skips the
-Windows one, so a chunk of that file was checked by nothing.
+There was one, `rust-windows`, on `windows-latest`. The Linux job compiled the
+linux cfg block of `src/setup.rs` and skipped the Windows one, so a chunk of
+that file was checked by nothing. Not theoretical: `zip` had exactly one call
+site in the whole crate, inside `#[cfg(target_os = "windows")]`, and the zip v2
+to v8 pull request passed the Linux job green with its only consumer
+uncompiled. Six majors, covered by nothing.
 
-Not theoretical. `zip` has exactly one call site in the whole crate,
-`setup.rs:623`, inside `#[cfg(target_os = "windows")]`. The zip v2 to v8 pull
-request passed the Linux job green with its only consumer uncompiled. Six majors,
-covered by nothing.
+The runtime `match` closes that at the source. Both arms compile on every
+target, so this job now type-checks the `zip` call site and the `tokio-tar` one
+alike, and the Windows job covered no code it misses.
 
-The obvious cheap answer is a cross-check, and it was written that way first.
-`cargo check --target x86_64-pc-windows-msvc` on ubuntu **fails**, because
-`check` still runs build scripts, and `zstd-sys` (pulled in by `zip`) builds C
-and refuses the GNU compiler for an msvc target. Measured, not predicted: the
-cross-check was committed and CI rejected it. Any `-sys` crate reintroduces this,
-so a native runner is the durable answer rather than chasing a mingw toolchain.
+A cross-check is still unavailable, and the reason moved rather than went away.
+`cargo check --target x86_64-pc-windows-msvc` runs build scripts, and any
+`-sys` crate then builds C for a Windows target. Dropping `zip`'s default
+features removed `zstd-sys`, the crate this section used to name, and
+`liblzma-sys` took its place: `async-compression` needs it because the Linux
+download really is a `.tar.xz`, confirmed against the published
+`factorio-demo_linux_2.0.68.tar.xz`. Measured from macOS 2026-09-20, the check
+stops at `'stdlib.h' file not found`, because no Mac or Linux host carries the
+Windows SDK headers.
 
-macOS is deliberately not covered. `download()` panics on the unsupported-OS arm,
-so there is no macOS cfg block to check.
+What is no longer covered is narrow and worth naming: nothing checks that the
+exporter's dependency tree still builds on windows-msvc. A crate bump could
+break `npm run start:exporter` for a Windows contributor while CI stays green.
 
-Windows runners bill at 2x, which costs nothing here: GitHub-hosted minutes are
-unmetered for public repositories.
+macOS is not covered either. `download()` panics on the unsupported-OS arm
+before it reaches an extractor at all.
 
 ## `e2e`: the Playwright suite
 
