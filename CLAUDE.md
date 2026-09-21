@@ -22,6 +22,7 @@ closing references such as `Closes #123` in the pull request body.
 - `docs/superpowers` - `specs` (6) for larger past changes
 - `.github/workflows` - CI, deploy, and issue triage; `README.md` holds the
   job rationale
+- `.devcontainer` - an opt-in Linux container; see "Devcontainer" below
 
 ## Setup and commands
 
@@ -134,6 +135,109 @@ FBE_BASE_URL=http://localhost:8090 npx playwright test
 
 The sprite server must stay on 8081 because Vite's development proxy targets
 that port. Run `npx playwright install` after changing `@playwright/test`.
+
+### Devcontainer
+
+`.devcontainer/devcontainer.json` builds a Linux container that runs
+everything above: `vp check`, `vp test`, `npm run localpreview`, the
+Playwright suite, and the exporter's cargo build, test, fmt and clippy. It
+starts from the Vite+ image, `ghcr.io/voidzero-dev/vite-plus`, so `vp`, `node`
+and `npm` all resolve to `/home/vp/.vite-plus/bin`, from the same two pins as
+on the host. That directory is second on `PATH`, not first: the Dockerfile
+prepends `/home/vp/.cargo/bin` for the Rust toolchain, and that directory holds
+no `node` or `npm`, so it shadows no shim. Measured 2026-09-21 in the built
+image on macOS arm64, `PATH` is
+`/home/vp/.cargo/bin:/home/vp/.vite-plus/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`.
+
+Measured 2026-09-18 on three hosts: OrbStack on a Mac (linux/arm64), Docker
+Engine inside WSL2 on a Windows PC (linux/amd64), and rootless Podman on a
+CachyOS laptop (linux/amd64). On all three, `vp check` and `vp test` matched
+the host, and the Playwright suite passed, including the two canvas specs that
+fail under WSL (see below). The one exception came from memory, not from the
+container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
+Chromium's renderer, at about 1.5 GB, during the large-paste test in
+`tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
+chase. That run used the features-based `devcontainer.json`; `c82ed87e`
+replaced the Rust feature with the Dockerfile on 2026-09-21, after the table
+was taken.
+
+It does not do two things:
+
+- **Regenerate Factorio data.** `packages/exporter/basisu` is a macOS arm64
+  binary, with a Windows `basisu.exe` beside it, and on Linux the exporter
+  looks for an x86-64 `bin/x64/factorio`. Run `npm run start:exporter` on the
+  host.
+- **Run oracle probes.** They need a local Factorio.
+
+Reaching Vite from the host needed a change to get right. Vite's default host
+is `localhost`, which resolves `::1` ahead of `127.0.0.1`, so Vite bound `[::1]`
+alone while a port forwarder dials `127.0.0.1`. Measured against VS Code's Dev
+Containers extension, which does read `forwardPorts`: it forwarded both ports
+correctly, 8081 answered 200 because `npx serve` binds `::` dual-stack, and 8080
+timed out on an otherwise healthy Vite. The editor's own Playwright specs never
+saw it, because they reach `::1` too.
+
+`containerEnv` now sets `FBE_DEV_HOST`, which makes `scripts/localpreview.mjs`
+add a bare `--host`, and both ports come up on `::`. Measured from the Mac
+afterwards: `localhost:8080` answers 200 through VS Code's forward, and the
+container's own address answers 200 directly - so on OrbStack the bare
+`devcontainer` CLI no longer needs the forwarding it does not do
+(devcontainers/cli#22). The container's `.orb.local` name connects and returns
+403, which is Vite's `allowedHosts` refusing an unfamiliar Host header rather
+than a networking fault, and the name is random anyway because VS Code passes
+no `--name`.
+
+**That 403 is not what keeps the listener safe, and an earlier version of this
+section implied it was.** Measured against the pinned Vite:
+`isHostAllowedInternal` returns true for any Host header that parses as an IPv4
+or IPv6 literal, _before_ `allowedHosts` is consulted. Against the real dev
+server, `evil.example.com` and `fbe.factorygamefan.com` both got 403 while
+`10.1.2.3`, `192.168.1.50` and `[dead::beef]` all got 200. `allowedHosts`
+constrains names only, and a peer reaching the server by address sends no name.
+What actually keeps it contained is that `forwardPorts` is a VS Code-side
+forward and not a docker publish, so nothing puts the port on a real interface.
+Note also that `server.fs.deny` defaults do not cover `.dev.vars`, which
+`.gitignore` treats as secret.
+
+Do not "fix" that bind with `--host 0.0.0.0`. It binds IPv4 alone and refuses
+`::1` - the address the Playwright specs reach, through
+`playwright.config.ts`'s default `baseURL` of `http://localhost:8080`. The
+value that reads as the more permissive one breaks the suite instead.
+
+`.devcontainer/Dockerfile` installs Rust with a checksum-verified rustup
+installer as the non-root `vp` user. It replaces the Rust feature, which added
+`SYS_PTRACE` and disabled seccomp through its metadata. No extra capabilities
+or security options are requested. The Devcontainer workflow builds the actual
+configuration, asserts seccomp is enabled and `SYS_PTRACE` is absent from the
+capability bounding set, checks Chromium can render, then runs cargo test, fmt
+and clippy.
+
+Rust still resolves to stable at build time, matching the previous feature's
+default. The installer checksum does not pin the toolchain; use a shared
+`rust-toolchain.toml` if the project adopts a Rust version policy. When the
+rustup installer changes, verify it and update its checksum in the Dockerfile.
+
+`node_modules` is a named volume, not the bind-mounted folder. An install
+holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
+more), so a shared folder would leave whichever side installed last broken for
+the other. `CARGO_TARGET_DIR` moves the Rust build out of the bind mount for
+the same reason. There are no devcontainer features or feature lockfile.
+
+Two lines in the CLI's output look like faults and are not. `Error fetching
+image details: Could not parse image name` is the CLI failing to parse a tag
+plus a digest for a metadata lookup; the build carries on and succeeds. And
+under rootless Podman the container runs with `userns=private`, which reads as
+if the host user's files would show up root-owned inside. They do not: the CLI
+maps the user itself, the workspace shows as `vp` inside, and files written
+there land as the host user outside. Only the empty `node_modules` mountpoint
+on the host belongs to a subordinate UID, and nothing reads it.
+
+Run the CLI from a directory with no `package.json` above it. From the repo
+root, `pnx @devcontainers/cli` prints `The "workspaces" field in package.json
+is not supported by pnpm`, which is the host's pnpm reading the root
+`package.json`, not the container. And under a parent `package.json` whose
+`devEngines` names another package manager, `npx` stops with
+`EBADDEVENGINES` before the CLI starts.
 
 ## Dependencies
 
@@ -338,6 +442,15 @@ flag dropped and every other flag kept, the two specs go from 2 of their 4 tests
 failing to all 4, `drawImage` disappears from the log entirely, and
 `waitForEditor` times out after 120 s because the editor never initialises. The
 flag is load-bearing in the opposite direction from the guess.
+
+**The devcontainer avoids both problems, where Docker runs inside the WSL
+distro.** Measured 2026-09-18 on Menehune (Docker Engine 29.1.3 in
+Ubuntu 26.04): the full suite passed with the committed config and no extra
+flags, `overlay-container` and `sprite-generation` included, and the VM
+survived. The container has no `/dev/dxg`, no `/mnt/wslg`, and no `DISPLAY` or
+`WAYLAND_DISPLAY`, so Chromium never reaches the GPU path, and the canvas specs
+pass there as they do in CI. So a machine with Docker in WSL can record all five
+specs above.
 
 Two rules the specs cannot enforce:
 
