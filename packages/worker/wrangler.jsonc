@@ -96,9 +96,11 @@
         into a failed deploy of the whole site.
 
         Cost: writes are billed as data points, and this writes at most one per
-        visitor per day per colo - not one per request, and not one per asset.
-        It is a fraction of the invocation count already discussed above, so if
-        the Worker's own request bill is acceptable this is noise beside it.
+        distinct IP, User-Agent and Accept-Language per day per colo, and never
+        one per asset. A client that changes those headers on every request can
+        write one per request, but that costs no more than the request it rode
+        in on, so if the Worker's own request bill is acceptable this is noise
+        beside it.
 
         There is no dashboard for a dataset. Read it over the SQL API with the
         query in the `recordVisit` comment in src/index.ts. The beacon in
