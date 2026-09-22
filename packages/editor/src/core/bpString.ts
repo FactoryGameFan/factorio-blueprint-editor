@@ -190,8 +190,10 @@ interface StrippedNames {
     version is not worth trusting here.
 */
 function dropDanglingWires(bp: IBlueprint): number {
-    if (bp.entities === undefined) return 0
-    const present = new Set(bp.entities.map(e => e.entity_number))
+    // No `entities` key means every endpoint dangles. `Blueprint` never reads
+    // `wires` without entities, so this changes nothing but the warning.
+    const entities = bp.entities ?? []
+    const present = new Set(entities.map(e => e.entity_number))
     let dropped = 0
 
     if (bp.wires !== undefined) {
@@ -219,7 +221,7 @@ function dropDanglingWires(bp: IBlueprint): number {
         ids.push(...kept)
     }
 
-    for (const entity of bp.entities) {
+    for (const entity of entities) {
         const conn = entity.connections
         if (conn !== undefined) {
             for (const side of [conn['1'], conn['2']]) {

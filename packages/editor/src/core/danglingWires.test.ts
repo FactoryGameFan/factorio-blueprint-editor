@@ -161,6 +161,23 @@ describe('a post-2.0 wire naming a missing entity', () => {
     })
 
     /*
+        A blueprint with no `entities` key at all, from CodeRabbit on #489.
+        `Blueprint` never reads `wires` without entities, so these wires were
+        already lost before this and nothing threw. What this pins is the
+        warning: a user whose wires vanish should be told, and measured, before
+        the fix the load reported nothing.
+    */
+    it('drops every wire when the blueprint has no entities key', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_2_0,
+            wires: [[1, 1, 2, 1]],
+        })
+        expect(bp.serialize().wires ?? []).toEqual([])
+        expect(getAndClearLoadWarnings()).toContain('Skipped 1 wire to a missing entity')
+    })
+
+    /*
         The control. A wire between two entities that are both present has to
         survive, or "drops dangling wires" is indistinguishable from "drops
         wires".
