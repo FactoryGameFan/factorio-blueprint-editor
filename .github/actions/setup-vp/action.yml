@@ -96,12 +96,19 @@ runs:
         #
         # Once the pinned vp can set itself up, the legacy script is fetched and
         # checked but never run. It can still rotate on its own and fail this
-        # step; re-hash it the same way. Both hashes below were matched against
-        # upstream packages/cli/install.sh and install-legacy.sh at 40b9cb66.
+        # step; re-hash it the same way.
+        #
+        # The bootstrap rotated again on 2026-09-22, to upstream install.sh at
+        # 2a8aba3f (#2440). That change makes it refuse a platform package that
+        # carries no npm provenance, so a re-hash is only safe while the pinned
+        # version has it - check `dist.attestations.provenance` in the
+        # registry's metadata for the pin before re-hashing. 0.3.3 has it, and
+        # the new script installed 0.3.3 cleanly in an ubuntu:24.04 container.
+        # install-legacy.sh did not change and still matches 40b9cb66.
         curl -fsSL https://vite.plus -o vp-install.sh
         curl -fsSL https://viteplus.dev/install-legacy.sh -o install-legacy.sh
         printf '%s\n' \
-          "6ed2d2847e5b7f3d67b6f91f2d28200bdffcffcd91ef2a336cf764d02776fcc3  vp-install.sh" \
+          "e79e48da3b2817c179f581c943e2e1ccf0c690d32d0ed11b8cbfbebd7196918f  vp-install.sh" \
           "a3825f5a48d6ac5ac523d79a33ef3eff954013b8af7e4208231ac3de66030514  install-legacy.sh" \
           | sha256sum -c -
         VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
