@@ -5,12 +5,24 @@ import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
 /*
     A blueprint that decodes but fails to load must leave the editor as it was.
 
-    The failure here is a wire naming an entity the blueprint does not have.
-    Nothing checks wire endpoints against the entity set on decode, so it gets
-    as far as initBP and throws in WiresContainer. That is a real input - an
-    author can write one, and the unknown-prototype strip filter makes one out
-    of any wire to a modded entity - and it throws *after* initBP has already
-    built a container for every entity.
+    The failure here is a copper wire between two entities that have no copper
+    connector, which throws in WiresContainer.getWireSprite *after* initBP has
+    already built a container for every entity. That is what this spec needs: a
+    throw late enough to have left half-built state behind.
+
+    It used to use a wire naming an entity the blueprint does not have. #457
+    fixed that one - bpString now drops a dangling endpoint on decode, so it
+    loads cleanly and cannot fail here any more. A test that needs a bug to stay
+    unfixed is a test that argues against fixing it, which is why this moved
+    rather than being made to keep the old input failing.
+
+    The input below is the same shape of hazard and is filed as issue #488: one
+    wire the renderer cannot draw still loses the whole blueprint. When that is
+    fixed this spec needs a fixture written down, the way ThrowingDialog in
+    packages/website/src/index.ts is, because measured against the editor at
+    this commit there is then no blueprint string left that fails inside initBP.
+    A deliberate fixture cannot serve the ?source= test below on its own, since
+    that failure has to come from the string during page load.
 
     Four things have to go back, and each assertion below is one of them:
     G.bp (entityPosition), the static EntityContainer.mappings index
@@ -35,18 +47,29 @@ const LOADED = encodeBlueprint({
 })
 
 /*
-    Entity 1 only, with a red wire to an entity 2 that does not exist. Sharing
-    the number 1 with LOADED is deliberate: it is the case where the half-built
-    container overwrites an entry in the static index.
+    Two chests joined by a copper wire, connector id 5 on both ends. A wooden
+    chest has no copper connection point, so getWireSprite finds none and
+    throws. Both endpoints exist, so #457's dangling-endpoint drop leaves this
+    wire alone - which is what makes it usable here.
+
+    Reusing entity numbers 1 and 2 from LOADED is deliberate: it is the case
+    where the half-built containers overwrite the outgoing blueprint's entries
+    in the static EntityContainer.mappings index. The two are also close enough
+    together (x 0.5 and 2.5 against LOADED's 0.5 and 8.5) that loading this one
+    would re-centre entity 1 somewhere else, so entityPosition(1) can tell a
+    real rollback from a load that went through.
 */
-const DANGLING_WIRE = encodeBlueprint({
+const FAILS_IN_INIT_BP = encodeBlueprint({
     item: 'blueprint',
     version: VERSION,
-    entities: [{ entity_number: 1, name: 'wooden-chest', position: { x: 0.5, y: 0.5 } }],
-    wires: [[1, 1, 2, 1]],
+    entities: [
+        { entity_number: 1, name: 'wooden-chest', position: { x: 0.5, y: 0.5 } },
+        { entity_number: 2, name: 'wooden-chest', position: { x: 2.5, y: 0.5 } },
+    ],
+    wires: [[1, 5, 2, 5]],
 })
 
-const THROWN = 'Wire connects to entity 2, which is not in the blueprint'
+const THROWN = 'Could not find the wire connection point!'
 
 async function snapshot(page: import('@playwright/test').Page) {
     return page.evaluate(async () => {
@@ -76,7 +99,7 @@ test('a blueprint that fails in initBP leaves the loaded one in place', async ({
         } catch (e) {
             return e instanceof Error ? e.message : String(e)
         }
-    }, DANGLING_WIRE)
+    }, FAILS_IN_INIT_BP)
     expect(failure).toContain(THROWN)
 
     expect(await snapshot(page)).toEqual(before)
@@ -105,7 +128,7 @@ test('a ?source= blueprint that fails in initBP still brings the editor up', asy
         if (m.type() === 'error') consoleErrors.push(m.text())
     })
 
-    await page.goto(`/?source=${encodeURIComponent(DANGLING_WIRE)}`)
+    await page.goto(`/?source=${encodeURIComponent(FAILS_IN_INIT_BP)}`)
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
 
     // The failure is reported, through the catch-all rather than the corrupt-string arm.

@@ -307,6 +307,12 @@ Key files:
   zero values. Tests in `entity-accessors.spec.ts` pin this behavior.
 - Logistic filter writes must retain unknown sections and per-filter quality,
   comparator, and maximum-count fields.
+- A wire endpoint can live in three places: `blueprint.wires` (2.0 and later),
+  and each entity's `connections` and `neighbours` (before 2.0). `bpString.ts`
+  drops an endpoint naming a missing entity from all three, whatever the
+  declared version, because each one threw the same error in `initBP` (#457).
+  A new wire shape needs the same treatment. A wire to a connector the entity
+  lacks still throws (#488).
 - `PositionGrid` and `EntityContainer` throw when their indexes drift from the
   model. A missing indexed entity is an invariant failure, not a normal lookup.
 - `need()` belongs only below a caller that can catch a missing sprite field.

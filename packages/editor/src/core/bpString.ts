@@ -1,5 +1,5 @@
 import Ajv, { KeywordDefinition } from 'ajv'
-import { IBlueprint, IBlueprintBook, IBlueprintBookEntry } from '../types'
+import { IBlueprint, IBlueprintBook, IBlueprintBookEntry, IWireColor } from '../types'
 import G from '../common/globals'
 import FD from './factorioData'
 import blueprintSchema from './blueprintSchema.json'
@@ -153,11 +153,99 @@ function getAndClearLoadWarnings(): string[] {
 interface StrippedNames {
     entities: string[]
     tiles: string[]
+    /** Wire endpoints dropped for naming an entity the blueprint does not have. */
+    danglingWires: number
+}
+
+/*
+    Every wire endpoint that names an entity the blueprint does not have, dropped
+    (issue #457).
+
+    Nothing checked endpoints against the entity set, so such a wire reached
+    `initBP` and threw in `WiresContainer.entityOf`, losing the whole blueprint.
+    The strip filter above is the usual source: it removes entities this build
+    does not know, such as a modded `ee-infinity-loader`, but it looks only at
+    names, so a wire that pointed at a removed entity was left with one end
+    hanging. That made a modded blueprint unopenable whenever its modded entity
+    was wired to anything - although dropping the modded entity is exactly what
+    the strip filter exists to make possible.
+
+    This runs on every blueprint, not only one that lost an entity, because an
+    author can write a dangling endpoint by hand. The corpus says nothing real is
+    touched: the 16 committed files decode to 372 blueprints carrying 49,182
+    `wires` entries, 40 `connections` endpoints and 110 `neighbours` endpoints,
+    and not one of them dangles.
+
+    Three shapes carry an endpoint and, measured, all three threw the same error.
+    Issue #457 named only the first:
+
+    - `blueprint.wires`, post-2.0, both ends in one entry
+    - each entity's `connections`, pre-2.0: red and green under sides `1` and
+      `2`, plus power-switch copper under `Cu0` and `Cu1`
+    - each entity's `neighbours`, pre-2.0, copper between power poles
+
+    All three are cleaned whatever the version declares, rather than behind the
+    same `pre_2_0` test `Blueprint`'s constructor uses. A blueprint carrying a
+    shape its version does not call for is ignored downstream either way, so the
+    version is not worth trusting here.
+*/
+function dropDanglingWires(bp: IBlueprint): number {
+    if (bp.entities === undefined) return 0
+    const present = new Set(bp.entities.map(e => e.entity_number))
+    let dropped = 0
+
+    if (bp.wires !== undefined) {
+        const before = bp.wires.length
+        bp.wires = bp.wires.filter(w => present.has(w[0]) && present.has(w[2]))
+        dropped += before - bp.wires.length
+    }
+
+    /*
+        Rewrites the array in place with only the endpoints that are present.
+
+        An emptied array is left as `[]` rather than deleted, which reads as
+        untidy and is not. Nothing downstream can tell the two apart: schema
+        validation has already run by the time this is called, `deserialize`
+        skips an empty array exactly as it skips an absent key, and the
+        `Blueprint` constructor deletes `connections` and `neighbours` outright
+        once it has read them. Deleting a computed key is also what `oxlint`'s
+        no-dynamic-delete rule is about.
+    */
+    const keepPresent = (ids: IWireColor[] | undefined): void => {
+        if (ids === undefined) return
+        const kept = ids.filter(w => present.has(w.entity_id))
+        dropped += ids.length - kept.length
+        ids.length = 0
+        ids.push(...kept)
+    }
+
+    for (const entity of bp.entities) {
+        const conn = entity.connections
+        if (conn !== undefined) {
+            for (const side of [conn['1'], conn['2']]) {
+                if (side === undefined) continue
+                keepPresent(side.red)
+                keepPresent(side.green)
+                keepPresent(side.copper)
+            }
+            keepPresent(conn.Cu0)
+            keepPresent(conn.Cu1)
+        }
+
+        if (entity.neighbours !== undefined) {
+            const kept = entity.neighbours.filter(n => present.has(n))
+            dropped += entity.neighbours.length - kept.length
+            entity.neighbours = kept
+        }
+    }
+
+    return dropped
 }
 
 function stripUnknownPrototypes(data: StringData): StrippedNames {
     const strippedEntities = new Set<string>()
     const strippedTiles = new Set<string>()
+    let danglingWires = 0
     const stripBlueprint = (bp: IBlueprint): void => {
         if (bp.entities) {
             const before = bp.entities.length
@@ -185,6 +273,13 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
                 console.warn(`Stripped ${before - bp.tiles.length} unknown tiles`)
             }
         }
+        // After the entity filter, so a wire to a stripped entity counts as
+        // dangling. Before it, every such wire still had both ends.
+        const dangling = dropDanglingWires(bp)
+        if (dangling > 0) {
+            danglingWires += dangling
+            console.warn(`Dropped ${dangling} wires to missing entities`)
+        }
     }
 
     const stripBook = (entries: IBlueprintBookEntry[] = []): void => {
@@ -199,7 +294,7 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
     } else if (data.blueprint_book) {
         stripBook(data.blueprint_book.blueprints)
     }
-    return { entities: [...strippedEntities], tiles: [...strippedTiles] }
+    return { entities: [...strippedEntities], tiles: [...strippedTiles], danglingWires }
 }
 
 function decode(str: string): Promise<Blueprint | Book> {
@@ -239,6 +334,11 @@ function decode(str: string): Promise<Blueprint | Book> {
         if (stripped.tiles.length > 0) {
             loadWarnings.push(
                 `Skipped ${stripped.tiles.length} unknown tile${stripped.tiles.length === 1 ? '' : 's'}: ${stripped.tiles.join(', ')}`
+            )
+        }
+        if (stripped.danglingWires > 0) {
+            loadWarnings.push(
+                `Skipped ${stripped.danglingWires} wire${stripped.danglingWires === 1 ? '' : 's'} to ${stripped.danglingWires === 1 ? 'a missing entity' : 'missing entities'}`
             )
         }
 
