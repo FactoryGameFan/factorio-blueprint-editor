@@ -63,6 +63,17 @@ export default defineConfig(async ({ command, mode }) => {
         '/corsproxy': {
             target: 'https://fbe.factorygamefan.com',
             changeOrigin: true,
+            // Vite's proxy copies every request header and drops only `trailer`,
+            // and `changeOrigin` replaces just `Host`. Browsers scope cookies by
+            // host and not by port, so a cookie another app set on `localhost`
+            // would otherwise ride along to the live Worker (#467). The Worker
+            // reads no cookies, but they should not leave the machine.
+            configure: proxy => {
+                proxy.on('proxyReq', proxyReq => {
+                    proxyReq.removeHeader('cookie')
+                    proxyReq.removeHeader('authorization')
+                })
+            },
         },
     }
     if (mode !== 'production') {
