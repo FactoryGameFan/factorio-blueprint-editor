@@ -507,10 +507,14 @@ export class Editor {
             blueprint on screen with no containers in the index, and the next
             selection or wire redraw would throw in containerOf.
 
-            Before this, a throw inside initBP - a wire naming an entity the
-            blueprint does not have is one - left G.bp and G.BPC pointing at a
-            blueprint that never reached the stage, while the stage kept drawing
-            the old one.
+            Before this, a throw inside initBP - a copper wire between two
+            entities with no copper connector is one (#488) - left G.bp and
+            G.BPC pointing at a blueprint that never reached the stage, while
+            the stage kept drawing the old one.
+
+            A wire naming an entity the blueprint does not have used to be the
+            other example here. bpString drops those on decode since #457, so it
+            no longer reaches this.
         */
         const lastMappings = new Map(EntityContainer.mappings)
         let next: BlueprintContainer | undefined

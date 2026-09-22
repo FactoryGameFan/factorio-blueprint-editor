@@ -8,7 +8,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
 
     A page can fail in two places. Its own data can make the Blueprint
     constructor throw - a wire whose two ends are different colours - and a page
-    that builds can still fail to draw, like the dangling wire in
+    that builds can still fail to draw, like the copper wire in
     load-rollback.spec.ts. Each left the book wrong in its own way, and each is a
     test below. What is checked is the book Ctrl+C exports: it must be exactly
     what it was before the switch, and the page on screen must still be the one
@@ -39,14 +39,24 @@ const BOOK = {
             },
         },
         {
-            // Builds, then throws in initBP: entity 2 does not exist.
+            /*
+                Builds, then throws in initBP: connector 5 is copper and a
+                wooden chest has no copper connection point, so getWireSprite
+                finds none.
+
+                This used to be a wire to an entity 2 that did not exist. #457
+                drops a dangling endpoint on decode, so that page now draws and
+                cannot fail here - the same move load-rollback.spec.ts made, and
+                for the same reason. Both endpoints exist here, so the drop
+                leaves this wire alone. Issue #488 tracks the hazard.
+            */
             index: 1,
             blueprint: {
                 item: 'blueprint',
                 version: VERSION,
                 label: 'cannot draw',
-                entities: [chest(1, 0.5)],
-                wires: [[1, 1, 2, 1]],
+                entities: [chest(1, 0.5), chest(2, 8.5)],
+                wires: [[1, 5, 2, 5]],
             },
         },
         {
@@ -97,7 +107,7 @@ async function selectFails(page: import('@playwright/test').Page, index: number)
 }
 
 for (const { index, thrown } of [
-    { index: 1, thrown: 'Wire connects to entity 2, which is not in the blueprint' },
+    { index: 1, thrown: 'Could not find the wire connection point!' },
     { index: 2, thrown: 'Wire color mismatch!' },
 ]) {
     const label = BOOK.blueprints[index].blueprint.label
