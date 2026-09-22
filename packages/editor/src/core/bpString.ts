@@ -196,9 +196,20 @@ function dropDanglingWires(bp: IBlueprint): number {
     const present = new Set(entities.map(e => e.entity_number))
     let dropped = 0
 
-    if (bp.wires !== undefined) {
+    /*
+        Every field below is checked with `Array.isArray` or an object test, not
+        `!== undefined`. Schema validation only warns, so `null` or an object can
+        reach here, and the model reads each of these fields through a
+        truthiness check or an optional chain that skips such a value. Calling
+        `.filter` on one instead would throw and lose the blueprint this pass
+        exists to save - measured, `wires: null`, `neighbours: null`,
+        `Cu0: null` and a 2.0 blueprint's leftover `neighbours: {}` all loaded
+        before this pass and threw with a naive guard. A malformed element is
+        dropped as dangling, since it names no entity that is present.
+    */
+    if (Array.isArray(bp.wires)) {
         const before = bp.wires.length
-        bp.wires = bp.wires.filter(w => present.has(w[0]) && present.has(w[2]))
+        bp.wires = bp.wires.filter(w => present.has(w?.[0]) && present.has(w?.[2]))
         dropped += before - bp.wires.length
     }
 
@@ -214,8 +225,8 @@ function dropDanglingWires(bp: IBlueprint): number {
         no-dynamic-delete rule is about.
     */
     const keepPresent = (ids: IWireColor[] | undefined): void => {
-        if (ids === undefined) return
-        const kept = ids.filter(w => present.has(w.entity_id))
+        if (!Array.isArray(ids)) return
+        const kept = ids.filter(w => present.has(w?.entity_id))
         dropped += ids.length - kept.length
         ids.length = 0
         ids.push(...kept)
@@ -223,9 +234,9 @@ function dropDanglingWires(bp: IBlueprint): number {
 
     for (const entity of entities) {
         const conn = entity.connections
-        if (conn !== undefined) {
+        if (typeof conn === 'object' && conn !== null) {
             for (const side of [conn['1'], conn['2']]) {
-                if (side === undefined) continue
+                if (typeof side !== 'object' || side === null) continue
                 keepPresent(side.red)
                 keepPresent(side.green)
                 keepPresent(side.copper)
@@ -234,7 +245,7 @@ function dropDanglingWires(bp: IBlueprint): number {
             keepPresent(conn.Cu1)
         }
 
-        if (entity.neighbours !== undefined) {
+        if (Array.isArray(entity.neighbours)) {
             const kept = entity.neighbours.filter(n => present.has(n))
             dropped += entity.neighbours.length - kept.length
             entity.neighbours = kept

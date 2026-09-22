@@ -295,3 +295,113 @@ describe('a pre-2.0 connection naming a missing entity', () => {
         expect(getAndClearLoadWarnings()).toEqual([])
     })
 })
+
+/*
+    A wire field that is present but is not an array. Schema validation only
+    warns, so `null` or an object reaches this pass. Each of these loaded before
+    the pass existed, because the model reads every one of them through a
+    truthiness check or an optional chain, so the pass must skip them rather than
+    call `.filter` on them - or it loses the blueprint it exists to save.
+
+    The last case is a 2.0 blueprint carrying leftover 1.1 fields. The 2.0 path
+    never reads them, but the pass looks at all three shapes whatever the version.
+*/
+describe('a wire field that is not an array', () => {
+    it('loads a 2.0 blueprint whose `wires` is null', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_2_0,
+            entities: [chest(1, 0.5)],
+            wires: null,
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+    })
+
+    it('loads a pre-2.0 pole whose `neighbours` is null', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_1_1,
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'medium-electric-pole',
+                    position: { x: 0.5, y: 0.5 },
+                    neighbours: null,
+                },
+            ],
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+    })
+
+    it('loads a pre-2.0 entity whose `Cu0` is null', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_1_1,
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'wooden-chest',
+                    position: { x: 0.5, y: 0.5 },
+                    connections: { Cu0: null },
+                },
+            ],
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+    })
+
+    it('loads a pre-2.0 entity whose `connections` is null', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_1_1,
+            entities: [{ ...chest(1, 0.5), connections: null }],
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+    })
+
+    it('loads a pre-2.0 entity whose connection side is null', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_1_1,
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'decider-combinator',
+                    position: { x: 0.5, y: 1 },
+                    connections: { 1: null },
+                },
+            ],
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+    })
+
+    /*
+        Unlike the cases above, this one threw before the pass existed too, in
+        `createBpConnections`. It is pinned because the pass now drops the
+        element as dangling, which keeps the blueprint.
+    */
+    it('drops a null element of `wires` and keeps the blueprint', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_2_0,
+            entities: [chest(1, 0.5)],
+            wires: [null],
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+        expect(getAndClearLoadWarnings()).toContain('Skipped 1 wire to a missing entity')
+    })
+
+    it('loads a 2.0 blueprint carrying malformed leftover 1.1 fields', async () => {
+        const bp = await load({
+            item: 'blueprint',
+            version: V_2_0,
+            entities: [
+                {
+                    ...chest(1, 0.5),
+                    connections: { 1: { red: {} } },
+                    neighbours: {},
+                },
+            ],
+        })
+        expect(bp.serialize().entities).toHaveLength(1)
+    })
+})
