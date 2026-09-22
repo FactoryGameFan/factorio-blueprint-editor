@@ -86,7 +86,7 @@ jobs:
 
       - name: Choose the labels
         if: steps.gate.outputs.needs-triage == 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # No Bash, and so no `gh`: the issue text is already on disk, so
