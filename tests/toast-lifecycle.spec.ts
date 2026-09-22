@@ -169,6 +169,10 @@ test('a toast dismissed while sliding in still leaves the DOM', async ({ page })
 test('a toast that expires after settling collapses through its transition', async ({ page }) => {
     await page.clock.fastForward(1000)
     await expect.poll(() => running(page)).toEqual([])
+    await expect(welcome(page)).toHaveCSS(
+        'transition-property',
+        'max-height, margin, border, padding'
+    )
     const height = await welcome(page).evaluate(t => (t as HTMLElement).offsetHeight)
     expect(height).toBeGreaterThan(0)
 
