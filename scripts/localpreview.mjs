@@ -13,7 +13,7 @@
 // Vite without --strictPort silently falls back to 8081 and then proxies /data
 // to itself, which presents as the sprite server failing rather than as a port
 // clash. Here it is a named error before either server starts.
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { connect } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -99,12 +99,19 @@ export async function isPortFree(port) {
 const children = []
 let shuttingDown = false
 
-// Each child is spawned into its own process group so the whole group can be
-// signalled. `npx serve` in particular is a wrapper - killing the npx pid on
-// its own leaves the real server holding 8081, which makes the next run fail
-// the port check for a server this script started.
-function start(name, command, args, cwd) {
-    const child = spawn(command, args, { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+// Run installed JavaScript entry points with the current Node executable.
+// Bare vp/npx commands cannot spawn their .cmd wrappers on Windows (#432).
+export function spawnCli(module, args, cwd) {
+    return spawn(process.execPath, [fileURLToPath(import.meta.resolve(module)), ...args], {
+        cwd,
+        detached: true,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+    })
+}
+
+function start(name, module, args, cwd) {
+    const child = spawnCli(module, args, cwd)
 
     const prefix = line => `[${name}] ${line}`
     const pipe = (stream, out) => {
@@ -143,11 +150,20 @@ function start(name, command, args, cwd) {
 function shutdown(code) {
     if (shuttingDown) return
     shuttingDown = true
+    process.exitCode = code
 
     for (const { child } of children) {
         if (child.exitCode !== null || child.signalCode !== null) continue
         try {
-            process.kill(-child.pid, 'SIGTERM')
+            if (process.platform === 'win32') {
+                // Windows has no POSIX process-group signals. Stop descendants too.
+                spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], {
+                    windowsHide: true,
+                    stdio: 'ignore',
+                })
+            } else {
+                process.kill(-child.pid, 'SIGTERM')
+            }
         } catch {
             // Already gone, or never got a group - nothing to signal.
         }
@@ -160,7 +176,8 @@ function shutdown(code) {
         for (const { child } of children) {
             if (child.exitCode !== null || child.signalCode !== null) continue
             try {
-                process.kill(-child.pid, 'SIGKILL')
+                if (process.platform === 'win32') child.kill()
+                else process.kill(-child.pid, 'SIGKILL')
             } catch {
                 // Same.
             }
@@ -213,19 +230,16 @@ async function main() {
     // Vite first, matching the order in CLAUDE.md, and with --strictPort so a
     // clash that appears between the check above and the bind is still an error
     // rather than a silent fallback.
-    start('vite', 'vp', viteArgs(port), join(repoRoot, 'packages/website'))
-    // --yes so a machine without `serve` cached installs it instead of sitting
-    // on an install prompt that never gets answered.
+    start('vite', 'vite-plus/bin', viteArgs(port), join(repoRoot, 'packages/website'))
     start(
         'sprites',
-        'npx',
+        'serve/build/main.js',
         [
-            '--yes',
-            'serve',
             join(repoRoot, 'packages/exporter/data/output'),
             '-l',
             String(SPRITE_PORT),
             '--cors',
+            '--no-clipboard',
         ],
         repoRoot
     )
@@ -242,6 +256,6 @@ const isMain = import.meta.url === pathToFileURL(process.argv[1]).href
 if (isMain) {
     main().catch(e => {
         console.error(e.message)
-        process.exit(1)
+        shutdown(1)
     })
 }

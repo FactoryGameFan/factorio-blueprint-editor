@@ -1,7 +1,24 @@
 import { test } from 'vite-plus/test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:net'
-import { parseArgs, viteArgs, isPortFree } from './localpreview.mjs'
+import { once } from 'node:events'
+import { parseArgs, viteArgs, isPortFree, spawnCli } from './localpreview.mjs'
+
+test('installed server CLIs run without vp or npx shell wrappers (#432)', async () => {
+    for (const module of ['vite-plus/bin', 'serve/build/main.js']) {
+        const child = spawnCli(module, ['--version'], process.cwd())
+        let output = ''
+        child.stdout.on('data', chunk => {
+            output += chunk
+        })
+        child.stderr.on('data', chunk => {
+            output += chunk
+        })
+        const [code] = await once(child, 'close')
+        assert.equal(code, 0, output)
+        assert.match(output, /\d+\.\d+\.\d+/)
+    }
+})
 
 /** Listens on one loopback family and resolves the port it got. */
 function listenOn(host) {
