@@ -32,6 +32,15 @@ beforeAll(() => {
             signals: {},
             recipes: {},
             entities: {
+                'bulk-inserter': {
+                    type: 'inserter',
+                    name: 'bulk-inserter',
+                    minable: { result: 'bulk-inserter' },
+                    collision_box: [
+                        [-0.15, -0.15],
+                        [0.15, 0.15],
+                    ],
+                },
                 'decider-combinator': {
                     type: 'decider-combinator',
                     name: 'decider-combinator',
@@ -105,6 +114,38 @@ const CONDITIONS = [
 const OUTPUTS = [
     { signal: { type: 'virtual', name: 'signal-check' }, copy_count_from_input: false },
 ]
+
+describe('quality-only item filters (#382)', () => {
+    it.each([
+        [{ index: 1, quality: 'normal', comparator: '=' }, false],
+        [{ index: 1, quality: 'normal', comparator: '=', unexpected: true }, true],
+        [{ quality: 'normal', comparator: '=' }, true],
+    ])('preserves %j and warns only for invalid shapes', async (filter, warns) => {
+        const bp = await getBlueprintOrBookFromSource(
+            await encodeRoot({
+                blueprint: {
+                    item: 'blueprint',
+                    version: 2 * 2 ** 48 + 77 * 2 ** 16,
+                    icons: [{ index: 1, signal: { type: 'item', name: 'decider-combinator' } }],
+                    entities: [
+                        {
+                            entity_number: 1,
+                            name: 'bulk-inserter',
+                            position: { x: 0.5, y: 0.5 },
+                            filters: [filter],
+                            use_filters: true,
+                        },
+                    ],
+                },
+            })
+        )
+        expect(getAndClearLoadWarnings()).toEqual(
+            warns ? ['Blueprint had validation warnings (loaded anyway)'] : []
+        )
+        if (!(bp instanceof Blueprint)) throw new Error('expected a blueprint')
+        expect(bp.serialize().entities?.[0].filters).toEqual([filter])
+    })
+})
 
 describe('a leftover book-slot index at the root (#383)', () => {
     const blueprint = {

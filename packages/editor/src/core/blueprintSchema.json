@@ -297,7 +297,7 @@
         },
         "ItemFilter": {
             "type": "object",
-            "required": ["index", "name"],
+            "required": ["index"],
             "additionalProperties": false,
             "properties": {
                 "index": { "type": "integer" },
