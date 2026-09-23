@@ -328,7 +328,7 @@ html {
     transition-delay: 0.3s;
     transition-duration: 0.2s;
     transition-timing-function: cubic-bezier(0.47, 0, 0.745, 0.715);
-    transition-property: max-height margin border padding;
+    transition-property: max-height, margin, border, padding;
 }
 .toasts-toast-fadeOut {
     animation-name: toastsFadeOut;
