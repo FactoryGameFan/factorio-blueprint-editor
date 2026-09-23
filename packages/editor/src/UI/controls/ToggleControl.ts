@@ -53,6 +53,10 @@ export abstract class ToggleControl extends Container {
             this.addChild(label)
         }
 
+        // Replacement cached graphics have no rendered hit geometry yet (#423).
+        // Keep the whole control, including its label, clickable between frames.
+        this.hitArea = this.getLocalBounds().rectangle.clone()
+
         this.on('pointerdown', () => {
             this.checked = nextChecked(this.checked)
             this.emit('changed')

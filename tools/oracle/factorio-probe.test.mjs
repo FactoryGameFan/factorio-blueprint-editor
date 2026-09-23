@@ -1,7 +1,14 @@
 import { test } from 'vite-plus/test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    realpathSync,
+    symlinkSync,
+    writeFileSync,
+} from 'node:fs'
+import { dirname, join } from 'node:path'
 import { prepareProbe, runProbe } from './factorio-probe.mjs'
 
 /**
@@ -13,7 +20,7 @@ import { prepareProbe, runProbe } from './factorio-probe.mjs'
  * verdict - a probe signals success with a deliberate `error("DUMPED-OK")` - so
  * the fake writes a dump and returns cleanly.
  */
-function runAgainstFakeFactorio() {
+function runAgainstFakeFactorio(layout = 'bin/x64', { throughSymlink = false } = {}) {
     const probe = prepareProbe({
         name: 'runner_test',
         title: 'Runner test',
@@ -21,12 +28,38 @@ function runAgainstFakeFactorio() {
         dependencies: ['base'],
     })
     const expected = { ok: true }
+    const installation = join(probe.work, 'Factorio install')
+    const real = join(installation, layout, 'factorio')
+    mkdirSync(join(installation, 'data', 'core'), { recursive: true })
+
+    // Only the symlink case needs the executable to exist: the runner resolves
+    // a real path and leaves a missing one alone, so the other cases go on
+    // passing a path to nothing, as they did before.
+    let bin = real
+    if (throughSymlink) {
+        mkdirSync(dirname(real), { recursive: true })
+        writeFileSync(real, '')
+        bin = join(probe.work, 'factorio')
+        symlinkSync(real, bin)
+    }
+
+    // Resolving the link resolves the whole path, and on macOS the temporary
+    // directory is itself behind one: tmpdir() reports /var/folders/... where
+    // the real path is /private/var/folders/... So the expected value has to
+    // be resolved the same way, or this asserts against a prefix the runner
+    // correctly no longer writes.
+    const expectedData = join(throughSymlink ? realpathSync(installation) : installation, 'data')
     const { text } = runProbe({
         ...probe,
-        bin: 'factorio',
+        bin,
         dump: 'result.json',
         spawn: (_bin, _args, options) => {
             assert.equal(options.encoding, 'utf8')
+            assert.ok(
+                readFileSync(join(probe.work, 'config.ini'), 'utf8').includes(
+                    `read-data=${expectedData}\n`
+                )
+            )
             const output = join(probe.writeData, 'script-output')
             mkdirSync(output, { recursive: true })
             writeFileSync(join(probe.work, 'spawned'), '')
@@ -40,6 +73,17 @@ function runAgainstFakeFactorio() {
 test('runProbe returns the dump the probe wrote', () => {
     const { expected, text } = runAgainstFakeFactorio()
     assert.deepEqual(JSON.parse(text), expected)
+})
+
+test('runProbe resolves data beside the macOS executable directory', () => {
+    runAgainstFakeFactorio('MacOS')
+})
+
+test('runProbe follows a symlinked FACTORIO_BIN into its own installation', () => {
+    // A FACTORIO_BIN on PATH is usually a link. Searching beside the link
+    // rather than beside the executable looks for data/ in whatever directory
+    // the link happens to sit in, and throws with an install that has it.
+    runAgainstFakeFactorio('bin/x64', { throughSymlink: true })
 })
 
 test('runProbe actually spawns Factorio', () => {

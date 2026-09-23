@@ -535,6 +535,25 @@ test('unticking and re-ticking Snap to grid keeps the grid size instead of repla
     })
 })
 
+test('Snap to grid accepts a second click before the next render (#423)', async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+    await waitForEditor(page)
+    await loadBlueprint(page, SNAPPED_CHESTS)
+    const align = await openBlueprintInfo(page)
+    // Hold the gap between animation frames instead of relying on a fast click.
+    await page.clock.pauseAt(new Date('2026-01-02T00:00:00Z'))
+
+    await toggleSnapToGrid(page, align)
+    expect(
+        decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']
+    ).toBeUndefined()
+    await toggleSnapToGrid(page, align)
+    expect(decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']).toEqual({
+        x: 20,
+        y: 18,
+    })
+})
+
 test('typing a Grid size and clicking a radio before blur keeps what was typed (CodeRabbit on #243)', async ({
     page,
 }) => {
