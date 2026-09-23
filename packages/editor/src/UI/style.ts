@@ -34,9 +34,6 @@ const colors = {
             hover: { color: 0xb16925, p0: 15, p1: 5, p2: -10, p3: -50 },
             value: { color: 0xb16925, p0: 15, p1: 5, p2: -10, p3: -50 },
         },
-        slot: {
-            hover: { color: 0xcccccc },
-        },
         switch: {
             background: { color: 0x58585a, p0: 15, p1: 5, p2: -10, p3: -50 },
             hover: { color: 0xb16925, p0: 15, p1: 5, p2: -10, p3: -50 },

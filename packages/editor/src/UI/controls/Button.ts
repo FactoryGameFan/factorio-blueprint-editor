@@ -136,11 +136,6 @@ export class Button<Data = undefined, Content extends Container = Container> ext
         return colors.controls.button.background.color
     }
 
-    /** Rollover color of the button (can be overriden) */
-    protected get hover(): number {
-        return colors.controls.button.hover.color
-    }
-
     /** Shall button be raised or pressed (can be overridden) */
     protected get pressed(): boolean {
         return false

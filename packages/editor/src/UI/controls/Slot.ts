@@ -1,5 +1,4 @@
 import { Container } from 'pixi.js'
-import { colors } from '../style'
 import { Button } from './Button'
 
 /**
@@ -22,11 +21,6 @@ export class Slot<Data, Content extends Container = Container> extends Button<Da
         the base declares. Renaming answers both.
     */
     public iconName: string | undefined
-
-    // Override Rollover Color of Button
-    public get hover(): number {
-        return colors.controls.slot.hover.color
-    }
 
     // Override Pressed appearance of Button
     public get pressed(): boolean {
