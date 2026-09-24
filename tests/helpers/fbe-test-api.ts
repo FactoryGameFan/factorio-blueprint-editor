@@ -120,6 +120,8 @@ export interface FbeTestApi {
      * blueprint's containers - see tests/entity-container-mappings.spec.ts.
      */
     entityContainerCount: () => number
+    /** Actual displayed overlay origin, in pixels; absent when there is no overlay. */
+    liveOverlayPosition: (entityNumber: number) => { x: number; y: number } | undefined
     /**
      * Each quality badge on an entity's info overlay, as a frame in tiles from
      * the entity's centre; undefined when no entity has that number. See

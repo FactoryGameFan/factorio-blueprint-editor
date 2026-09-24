@@ -759,6 +759,8 @@ const testApi = {
         loaded one (issue #42).
     */
     entityContainerCount: () => EntityContainer.mappings.size,
+    liveOverlayPosition: (entityNumber: number) =>
+        EntityContainer.containerOf(entityNumber).entityInfoPosition,
     /*
         Per entity name, the number of children each entity's info overlay came
         out with, or -1 where it produced no overlay at all. Deliberately calls

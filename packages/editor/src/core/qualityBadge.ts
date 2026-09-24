@@ -83,7 +83,7 @@ const STYLES: Readonly<Record<string, QualityBadgeStyle>> = {
  * drawing nothing is what an unknown name gets everywhere else in the overlay.
  */
 export function qualityBadgeStyle(quality: string | undefined): QualityBadgeStyle | undefined {
-    return quality === undefined ? undefined : STYLES[quality]
+    return quality !== undefined && Object.hasOwn(STYLES, quality) ? STYLES[quality] : undefined
 }
 
 /**

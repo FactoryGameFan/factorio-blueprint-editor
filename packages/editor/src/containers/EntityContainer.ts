@@ -302,6 +302,11 @@ export class EntityContainer {
         return this.entityInfo?.visible ?? false
     }
 
+    /** Live overlay origin in pixels, used to verify that badges follow moves and undo. */
+    public get entityInfoPosition(): IPoint | undefined {
+        return this.entityInfo ? { x: this.entityInfo.x, y: this.entityInfo.y } : undefined
+    }
+
     public get position(): IPoint {
         return {
             x: this.m_Entity.position.x * 32,
@@ -386,6 +391,7 @@ export class EntityContainer {
     */
     private readonly redrawEntityInfo = (): void => {
         if (
+            this.entityInfo !== undefined ||
             this.m_Entity.moduleSlots !== 0 ||
             this.m_Entity.type === 'splitter' ||
             isCraftingMachine(this.m_Entity.entityData) ||

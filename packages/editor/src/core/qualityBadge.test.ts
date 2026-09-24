@@ -18,7 +18,9 @@ describe('qualityBadgeStyle', () => {
     it('draws nothing for normal, for no quality and for a name it does not know', () => {
         expect(qualityBadgeStyle('normal')).toBeUndefined()
         expect(qualityBadgeStyle(undefined)).toBeUndefined()
-        expect(qualityBadgeStyle('mythic')).toBeUndefined()
+        for (const quality of ['mythic', 'constructor', 'toString', '__proto__']) {
+            expect(qualityBadgeStyle(quality)).toBeUndefined()
+        }
     })
 
     it("uses the game icons' fill colours", () => {

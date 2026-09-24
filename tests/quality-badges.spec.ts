@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint, packVersion } from './helpers/encode-blueprint'
 import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     The quality badge on an entity and on its module icons - issue #348.
@@ -99,6 +100,7 @@ function expectFrame(
 }
 
 test.beforeEach(async ({ page }) => {
+    await suppressOverlays(page)
     await waitForEditor(page)
     await loadBlueprint(page, BLUEPRINT)
 })
@@ -166,3 +168,77 @@ test('a quality the editor has no art for draws nothing and throws nothing', asy
     expect(await frames(page, 7)).toEqual([])
     expect(errors).toEqual([])
 })
+
+for (const name of ['steel-chest', 'small-lamp', 'accumulator']) {
+    test(`${name}'s live quality overlay follows a drag, undo and redo`, async ({ page }) => {
+        await loadBlueprint(
+            page,
+            encodeBlueprint({
+                item: 'blueprint',
+                version: VERSION,
+                entities: [
+                    { entity_number: 1, name, position: { x: 0, y: 0 }, quality: 'legendary' },
+                ],
+            })
+        )
+        expect(await frames(page, 1)).toHaveLength(1)
+        const origin = await page.evaluate(() => window.__fbe_test.entityPosition(1))
+        const at = await page.evaluate(() => window.__fbe_test.entityScreenPosition(1))
+        if (!origin || !at) throw new Error('missing test entity')
+        const tile = 32 * (await page.evaluate(() => window.__fbe_test.viewportScale()))
+        const expectOverlayAt = async (position: { x: number; y: number }) => {
+            expect(await page.evaluate(() => window.__fbe_test.entityPosition(1))).toEqual(position)
+            expect(await page.evaluate(() => window.__fbe_test.liveOverlayPosition(1))).toEqual({
+                x: position.x * 32,
+                y: position.y * 32,
+            })
+        }
+        await expectOverlayAt(origin)
+        await page.mouse.move(at.x - 4, at.y - 4)
+        await page.keyboard.down('Alt')
+        await page.mouse.down()
+        await page.mouse.move(at.x + 4, at.y + 4)
+        await page.mouse.up()
+        await page.keyboard.up('Alt')
+        expect(await page.evaluate(() => window.__fbe_test.selectedEntityNumbers())).toEqual([1])
+        await page.mouse.move(at.x, at.y)
+        await page.mouse.down()
+        await page.mouse.move(at.x, at.y + 3 * tile, { steps: 4 })
+        await page.mouse.up()
+        const moved = { x: origin.x, y: origin.y + 3 }
+        await expectOverlayAt(moved)
+        await page.keyboard.down('Control')
+        await page.keyboard.press('KeyZ')
+        await expectOverlayAt(origin)
+        await page.keyboard.press('KeyY')
+        await page.keyboard.up('Control')
+        await expectOverlayAt(moved)
+    })
+}
+
+for (const quality of ['constructor', 'toString', '__proto__']) {
+    test(`unknown quality ${quality} preserves recipe and module overlays`, async ({ page }) => {
+        await loadBlueprint(
+            page,
+            encodeBlueprint({
+                item: 'blueprint',
+                version: VERSION,
+                entities: [
+                    {
+                        entity_number: 1,
+                        name: 'assembling-machine-3',
+                        position: { x: 0.5, y: 0.5 },
+                        quality,
+                        recipe: 'iron-gear-wheel',
+                        items: modules(quality),
+                    },
+                ],
+            })
+        )
+        expect(await frames(page, 1)).toEqual([])
+        expect(await page.evaluate(() => window.__fbe_test.entityInfoVisible(1))).toBe(true)
+        expect(await page.evaluate(() => window.__fbe_test.overlayInfoTally())).toEqual({
+            'assembling-machine-3': [2],
+        })
+    })
+}
