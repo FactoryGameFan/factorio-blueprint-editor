@@ -128,7 +128,7 @@ jobs:
             Then write ./triage-labels.json and stop. Its shape, with the
             angle brackets standing for your choices:
 
-            {"labels": ["<label>", ...], "reasoning": "<one sentence saying why>"}
+            {"labels": ["<label>"], "reasoning": "<one sentence saying why>"}
 
             Rules for that file:
             - Between 0 and 3 labels. Most issues are about one area.
