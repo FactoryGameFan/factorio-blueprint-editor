@@ -168,9 +168,9 @@ It does not do two things:
   host.
 - **Run oracle probes.** They need a local Factorio.
 
-Reaching Vite from the host needs a bare `--host`. Vite's default host
-is `localhost`, which resolves `::1` ahead of `127.0.0.1`, so Vite bound `[::1]`
-alone while a port forwarder dials `127.0.0.1`. Measured against VS Code's Dev
+Vite's default host is `localhost`, which resolves `::1` ahead of `127.0.0.1`,
+so a default Vite binds `[::1]` alone while a port forwarder dials
+`127.0.0.1`, and the host cannot reach it. Measured against VS Code's Dev
 Containers extension, which does read `forwardPorts`: it forwarded both ports
 correctly, 8081 answered 200 because `npx serve` binds `::` dual-stack, and 8080
 timed out on an otherwise healthy Vite. The editor's own Playwright specs never
