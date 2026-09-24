@@ -23,7 +23,7 @@ import FD, {
     hasModuleFunctionality,
 } from './factorioData'
 import { Entity } from './Entity'
-import { WireConnections } from './WireConnections'
+import { IConnection, WireConnections } from './WireConnections'
 import { PositionGrid } from './PositionGrid'
 import * as generators from './generators'
 import { IVisualization } from './generators'
@@ -227,6 +227,14 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
 
     private m_nextEntityNumber = 1
 
+    /**
+     * How many of the data's wires were left out because they cannot be drawn:
+     * a connector id that maps to nothing, or an end on an entity with no
+     * connection point for that colour and side (#488). `Editor.loadBlueprint`
+     * warns with it.
+     */
+    public readonly skippedWires: number = 0
+
     public constructor(data?: Partial<IBlueprint>) {
         super()
 
@@ -282,7 +290,7 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                         delete e.neighbours
                     }
                 } else if (data.wires) {
-                    this.wireConnections.createBpConnections(data.wires)
+                    this.skippedWires += this.wireConnections.createBpConnections(data.wires)
                     delete data.wires
                 }
 
@@ -497,6 +505,8 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                     this.wireConnections.generatePowerPoleWires()
                 }
 
+                this.skippedWires += this.dropUndrawableWires()
+
                 this.history.commitTransaction()
             }
 
@@ -515,6 +525,43 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         this.history.logging = G.debug
 
         return this
+    }
+
+    /*
+        Every wire with an end on an entity that has no connection point for its
+        colour and side, removed, and the count returned (#488).
+
+        Such a wire threw "Could not find the wire connection point!" in
+        `WiresContainer.getWireSprite`, and nothing catches around initBP, so
+        one wire lost the whole blueprint. A real export reaches it: Factorio
+        2.1 gave labs a circuit connector, so a 2.1 biolab wired to a substation
+        carries wires the 2.0 data cannot attach anywhere.
+
+        Asked of `Entity.getWireConnectionPoint` - the same question
+        `getWireSprite` asks - once every entity is built, rather than of the
+        raw JSON at decode beside #457's dangling-endpoint drop. Which point an
+        entity has depends on its direction, on a loader's mode and on a belt's
+        neighbours in the position grid, and none of that exists at decode.
+
+        An end on an entity the blueprint does not have is left alone. bpString
+        drops those on decode, and they are a different failure from this one.
+    */
+    private dropUndrawableWires(): number {
+        const undrawable: IConnection[] = []
+        this.wireConnections.forEach(connection => {
+            const attaches = connection.cps.every(cp => {
+                const entity = this.entities.get(cp.entityNumber)
+                return (
+                    entity === undefined ||
+                    !!entity.getWireConnectionPoint(connection.color, cp.entitySide)
+                )
+            })
+            if (!attaches) undrawable.push(connection)
+        })
+        for (const connection of undrawable) {
+            this.wireConnections.remove(connection)
+        }
+        return undrawable.length
     }
 
     public get name(): string {

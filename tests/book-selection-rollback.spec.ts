@@ -8,7 +8,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
 
     A page can fail in two places. Its own data can make the Blueprint
     constructor throw - a wire whose two ends are different colours - and a page
-    that builds can still fail to draw, like the copper wire in
+    that builds can still fail to draw, like the armed copper wire in
     load-rollback.spec.ts. Each left the book wrong in its own way, and each is a
     test below. What is checked is the book Ctrl+C exports: it must be exactly
     what it was before the switch, and the page on screen must still be the one
@@ -40,15 +40,16 @@ const BOOK = {
         },
         {
             /*
-                Builds, then throws in initBP: connector 5 is copper and a
-                wooden chest has no copper connection point, so getWireSprite
-                finds none.
+                Builds, then throws in initBP once the fixture has added a copper
+                wire between its two chests, which have no copper connection
+                point.
 
-                This used to be a wire to an entity 2 that did not exist. #457
-                drops a dangling endpoint on decode, so that page now draws and
-                cannot fail here - the same move load-rollback.spec.ts made, and
-                for the same reason. Both endpoints exist here, so the drop
-                leaves this wire alone. Issue #488 tracks the hazard.
+                This page used to carry that wire itself, and before that a wire
+                to an entity 2 that did not exist. #457 and #488 drop both kinds
+                while loading, so neither can fail here any more - the same move
+                load-rollback.spec.ts made, for the same reason. The red wire it
+                does carry is a real one, so the export check below still has a
+                wire to compare.
             */
             index: 1,
             blueprint: {
@@ -56,7 +57,7 @@ const BOOK = {
                 version: VERSION,
                 label: 'cannot draw',
                 entities: [chest(1, 0.5), chest(2, 8.5)],
-                wires: [[1, 5, 2, 5]],
+                wires: [[1, 1, 2, 1]],
             },
         },
         {
@@ -95,20 +96,24 @@ async function exported(page: import('@playwright/test').Page) {
         .blueprint_book
 }
 
-async function selectFails(page: import('@playwright/test').Page, index: number) {
-    return page.evaluate(async i => {
-        try {
-            await window.__fbe_test.selectBookIndex(i)
-            return 'selected'
-        } catch (e) {
-            return e instanceof Error ? e.message : String(e)
-        }
-    }, index)
+async function selectFails(page: import('@playwright/test').Page, index: number, arm = false) {
+    return page.evaluate(
+        async ([i, armed]) => {
+            if (armed) window.__fbe_test.armUndrawableWire()
+            try {
+                await window.__fbe_test.selectBookIndex(i)
+                return 'selected'
+            } catch (e) {
+                return e instanceof Error ? e.message : String(e)
+            }
+        },
+        [index, arm] as const
+    )
 }
 
-for (const { index, thrown } of [
-    { index: 1, thrown: 'Could not find the wire connection point!' },
-    { index: 2, thrown: 'Wire color mismatch!' },
+for (const { index, thrown, arm } of [
+    { index: 1, thrown: 'Could not find the wire connection point!', arm: true },
+    { index: 2, thrown: 'Wire color mismatch!', arm: false },
 ]) {
     const label = BOOK.blueprints[index].blueprint.label
 
@@ -125,7 +130,7 @@ for (const { index, thrown } of [
         )
 
         // The error first, so a switch that silently succeeded cannot pass.
-        expect(await selectFails(page, index)).toContain(thrown)
+        expect(await selectFails(page, index, arm)).toContain(thrown)
 
         expect(await exported(page)).toEqual(before)
 

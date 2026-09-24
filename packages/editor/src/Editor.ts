@@ -507,14 +507,16 @@ export class Editor {
             blueprint on screen with no containers in the index, and the next
             selection or wire redraw would throw in containerOf.
 
-            Before this, a throw inside initBP - a copper wire between two
-            entities with no copper connector is one (#488) - left G.bp and
-            G.BPC pointing at a blueprint that never reached the stage, while
-            the stage kept drawing the old one.
+            Before this, a throw inside initBP left G.bp and G.BPC pointing at
+            a blueprint that never reached the stage, while the stage kept
+            drawing the old one.
 
-            A wire naming an entity the blueprint does not have used to be the
-            other example here. bpString drops those on decode since #457, so it
-            no longer reaches this.
+            Both of the inputs that used to reach it are now dropped before
+            initBP: a wire naming an entity the blueprint does not have, on
+            decode since #457, and a wire to a connection point its entity does
+            not have, in the Blueprint constructor since #488. The rollback
+            specs arm a deliberate one instead (armUndrawableWire in
+            packages/website).
         */
         const lastMappings = new Map(EntityContainer.mappings)
         let next: BlueprintContainer | undefined
@@ -539,6 +541,19 @@ export class Editor {
         G.app.stage.addChildAt(G.BPC, i)
         if (last.parent) {
             last.destroy()
+        }
+
+        /*
+            Here rather than in bpString's load warnings, because a book page is
+            built when it is selected, long after decode has reported. Every page
+            shown passes through this, so each one says what it left out.
+        */
+        if (bp.skippedWires > 0) {
+            const n = bp.skippedWires
+            G.logger({
+                text: `Skipped ${n} wire${n === 1 ? '' : 's'} to connection points that do not exist`,
+                type: 'warning',
+            })
         }
     }
 

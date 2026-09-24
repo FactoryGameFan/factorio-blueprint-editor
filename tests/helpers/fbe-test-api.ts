@@ -299,6 +299,11 @@ export interface FbeTestApi {
      * in `Dialog.s_openDialogs` at all - only the `E` keybind, which branches on
      * `Dialog.anyOpen()`, can. See tests/dialog-registry-leak.spec.ts.
      */
+    /**
+     * Adds a copper wire between the first two entities of the next blueprint
+     * loaded, which initBP cannot draw. See tests/load-rollback.spec.ts.
+     */
+    armUndrawableWire: () => void
     throwingDialogAttempt: () => boolean
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     openDialogCount: () => number
@@ -335,6 +340,8 @@ export interface BlueprintOrBook {
 declare global {
     interface Window {
         __fbe_test: FbeTestApi
+        /** Arms `armUndrawableWire` for a `?source=` load, set before the page runs. */
+        __fbe_arm_undrawable_wire?: boolean
     }
 }
 

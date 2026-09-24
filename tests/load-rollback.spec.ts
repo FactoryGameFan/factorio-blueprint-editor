@@ -5,24 +5,19 @@ import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
 /*
     A blueprint that decodes but fails to load must leave the editor as it was.
 
-    The failure here is a copper wire between two entities that have no copper
+    The failure is a copper wire between two entities that have no copper
     connector, which throws in WiresContainer.getWireSprite *after* initBP has
     already built a container for every entity. That is what this spec needs: a
     throw late enough to have left half-built state behind.
 
-    It used to use a wire naming an entity the blueprint does not have. #457
-    fixed that one - bpString now drops a dangling endpoint on decode, so it
-    loads cleanly and cannot fail here any more. A test that needs a bug to stay
-    unfixed is a test that argues against fixing it, which is why this moved
-    rather than being made to keep the old input failing.
-
-    The input below is the same shape of hazard and is filed as issue #488: one
-    wire the renderer cannot draw still loses the whole blueprint. When that is
-    fixed this spec needs a fixture written down, the way ThrowingDialog in
-    packages/website/src/index.ts is, because measured against the editor at
-    this commit there is then no blueprint string left that fails inside initBP.
-    A deliberate fixture cannot serve the ?source= test below on its own, since
-    that failure has to come from the string during page load.
+    No blueprint string reaches that throw any more. #457 drops a wire naming a
+    missing entity on decode, and #488 drops a wire to a connection point its
+    entity lacks in the Blueprint constructor - which was this spec's input
+    until then. A test that needs a bug to stay unfixed argues against fixing
+    it, so the wire is now added by a fixture after the constructor has run:
+    `armUndrawableWire` in packages/website/src/index.ts, or for the ?source=
+    test, a flag set before the page's own scripts run. The throw is still the
+    real one.
 
     Four things have to go back, and each assertion below is one of them:
     G.bp (entityPosition), the static EntityContainer.mappings index
@@ -47,10 +42,7 @@ const LOADED = encodeBlueprint({
 })
 
 /*
-    Two chests joined by a copper wire, connector id 5 on both ends. A wooden
-    chest has no copper connection point, so getWireSprite finds none and
-    throws. Both endpoints exist, so #457's dangling-endpoint drop leaves this
-    wire alone - which is what makes it usable here.
+    Two chests for the armed fixture to join with a copper wire.
 
     Reusing entity numbers 1 and 2 from LOADED is deliberate: it is the case
     where the half-built containers overwrite the outgoing blueprint's entries
@@ -66,7 +58,6 @@ const FAILS_IN_INIT_BP = encodeBlueprint({
         { entity_number: 1, name: 'wooden-chest', position: { x: 0.5, y: 0.5 } },
         { entity_number: 2, name: 'wooden-chest', position: { x: 2.5, y: 0.5 } },
     ],
-    wires: [[1, 5, 2, 5]],
 })
 
 const THROWN = 'Could not find the wire connection point!'
@@ -93,6 +84,7 @@ test('a blueprint that fails in initBP leaves the loaded one in place', async ({
     // The error first, so a load that silently succeeded cannot pass as a rollback.
     const failure = await page.evaluate(async src => {
         const t = window.__fbe_test
+        t.armUndrawableWire()
         try {
             await t.loadBp(await t.getBlueprintOrBookFromSource(src))
             return 'loaded'
@@ -128,6 +120,9 @@ test('a ?source= blueprint that fails in initBP still brings the editor up', asy
         if (m.type() === 'error') consoleErrors.push(m.text())
     })
 
+    await page.addInitScript(() => {
+        window.__fbe_arm_undrawable_wire = true
+    })
     await page.goto(`/?source=${encodeURIComponent(FAILS_IN_INIT_BP)}`)
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
 

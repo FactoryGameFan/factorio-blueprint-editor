@@ -49,7 +49,8 @@ const indexPath = path.join(websiteDir, 'src/index.ts')
 /*
     Strings that packages/website/src/index.ts uses only inside the test API or
     the `import.meta.env.DEV` assignment that exposes it. `__fbe_test` is the
-    `window` property every spec waits on; the rest are keys on the `testApi`
+    `window` property every spec waits on, and `__fbe_arm_undrawable_wire` the
+    one the #488 fixture reads for a `?source=` load; the rest are keys on the `testApi`
     object literal and appear nowhere else in bundled code (the editor package
     mentions some in comments only). None is a local binding, so none is
     renamed - a match in a chunk means the guard did not hold.
@@ -62,6 +63,8 @@ const TEST_API_MARKERS = [
     'overlayInfoTally',
     'entityWireAttachment',
     'setWagonInventory',
+    'armUndrawableWire',
+    '__fbe_arm_undrawable_wire',
 ]
 
 let bundledJs = ''
