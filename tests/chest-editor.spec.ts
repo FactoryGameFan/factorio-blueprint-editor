@@ -170,9 +170,36 @@ async function openEditorOn(page: Page, entityNumber: number): Promise<void> {
 const dialogCount = (page: Page): Promise<number> =>
     page.evaluate(() => window.__fbe_test.openDialogCount())
 
+/*
+    The topmost dialog's bounds, read only after a frame has rendered it.
+
+    Pixi hit-tests against world transforms, and a container added since the
+    last render has none yet - it is tested as if it sat at the canvas origin.
+    A click sent in that window misses the dialog it was aimed at and lands on
+    the blueprint behind it. Measured on the pickers test below: 5 of 80 runs
+    reached the first slot 11 ms after the chest opened, against about 560 ms in
+    every passing run, and each of those 5 clicks opened the requester chest
+    beside it instead. Holding requestAnimationFrame made that happen 10 of 10
+    times, and letting one frame through first made it pass 10 of 10.
+
+    Two frames for the same reason as tests/text-input.spec.ts's nextFrame: the
+    first callback can be queued ahead of pixi's own render.
+*/
+async function renderedDialogBounds(
+    page: Page
+): Promise<{ x: number; y: number; width: number; height: number }> {
+    await page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+    return page.evaluate(() => window.__fbe_test.topDialogBounds())
+}
+
 /** Where filter slot `index` (0-based) sits on screen, from the dialog's own corner. */
 async function filterSlotAt(page: Page, index: number): Promise<{ x: number; y: number }> {
-    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+    const dialog = await renderedDialogBounds(page)
     return {
         x: dialog.x + FILTERS_X + (index % FILTER_COLUMNS) * SLOT_PITCH + SLOT_CENTRE,
         y: dialog.y + FILTERS_Y + Math.floor(index / FILTER_COLUMNS) * SLOT_PITCH + SLOT_CENTRE,
@@ -185,7 +212,7 @@ async function filterSlotAt(page: Page, index: number): Promise<{ x: number; y: 
     to a row, so the first one's centre is one half-slot in from that corner.
 */
 async function firstInventoryItem(page: Page): Promise<{ x: number; y: number }> {
-    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+    const dialog = await renderedDialogBounds(page)
     return { x: dialog.x + 12 + SLOT_CENTRE, y: dialog.y + 126 + SLOT_CENTRE }
 }
 
