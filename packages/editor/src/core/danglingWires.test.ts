@@ -40,6 +40,15 @@ const packVersion = (main: number, major: number, minor: number): number =>
 const V_2_0 = packVersion(2, 0, 55)
 const V_1_1 = packVersion(1, 1, 107)
 
+/*
+    A connection point for every colour, on every entity below. The Blueprint
+    constructor asks each wire's entities for one and drops a wire that has none
+    (#488), so without these every wire here would be dropped for that reason
+    rather than for the one under test.
+*/
+const point = { red: [0.1, 0.1], green: [0.2, 0.2], copper: [0, 0] }
+const fourWays = [0, 1, 2, 3].map(() => ({ wire: point, shadow: point }))
+
 beforeAll(() => {
     // loadData permanently replaces FD's accessors. Vitest's per-file module
     // isolation keeps this synthetic dataset from leaking into other test files.
@@ -57,6 +66,7 @@ beforeAll(() => {
                         [-0.35, -0.35],
                         [0.35, 0.35],
                     ],
+                    circuit_connector: { points: { wire: point, shadow: point } },
                 },
                 'decider-combinator': {
                     type: 'decider-combinator',
@@ -65,6 +75,8 @@ beforeAll(() => {
                         [-0.65, -0.35],
                         [0.65, 0.35],
                     ],
+                    input_connection_points: fourWays,
+                    output_connection_points: fourWays,
                 },
                 'medium-electric-pole': {
                     type: 'electric-pole',
@@ -73,6 +85,7 @@ beforeAll(() => {
                         [-0.25, -0.25],
                         [0.25, 0.25],
                     ],
+                    connection_points: fourWays,
                 },
             },
             tiles: {},
@@ -81,9 +94,9 @@ beforeAll(() => {
             utilityConstants: {},
             guiStyle: {},
             // The real values, because `createBpConnections` maps a connector id
-            // through them and throws `Missing mapping!` on anything it cannot
-            // place. An empty `defines` would fail every test here for that
-            // reason rather than for the one under test.
+            // through them and skips any wire it cannot place. An empty
+            // `defines` would fail every test here for that reason rather than
+            // for the one under test.
             defines: {
                 wire_connector_id: {
                     circuit_red: 1,

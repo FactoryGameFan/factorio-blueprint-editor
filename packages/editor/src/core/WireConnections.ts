@@ -281,10 +281,17 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         this.connections.forEach(fn)
     }
 
-    // post 2.0
-    public createBpConnections(wires: BlueprintWire[]): void {
+    /**
+     * Post 2.0. Answers how many wires it skipped because a connector id maps to
+     * nothing (#488). Those used to throw `Missing mapping!` here, which lost the
+     * whole blueprint at decode for one wire.
+     */
+    public createBpConnections(wires: BlueprintWire[]): number {
         const connections: IConnection[] = []
-        const getColorAndSide = (id: defines.wire_connector_id): [WireColor, number] => {
+        let skipped = 0
+        const getColorAndSide = (
+            id: defines.wire_connector_id
+        ): [WireColor, number] | undefined => {
             switch (id) {
                 case FD.defines.wire_connector_id.circuit_red:
                     return ['red', 1]
@@ -305,12 +312,18 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                 case FD.defines.wire_connector_id.power_switch_right_copper:
                     return ['copper', 2]
                 default:
-                    throw new Error('Missing mapping!')
+                    return undefined
             }
         }
         for (const wire of wires) {
-            const [c0, s0] = getColorAndSide(wire[1])
-            const [c1, s1] = getColorAndSide(wire[3])
+            const end0 = getColorAndSide(wire[1])
+            const end1 = getColorAndSide(wire[3])
+            if (end0 === undefined || end1 === undefined) {
+                skipped += 1
+                continue
+            }
+            const [c0, s0] = end0
+            const [c1, s1] = end1
             if (c0 !== c1) {
                 throw new Error('Wire color mismatch!')
             }
@@ -331,6 +344,7 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         for (const conn of connections) {
             this.create(conn)
         }
+        return skipped
     }
 
     // pre 2.0

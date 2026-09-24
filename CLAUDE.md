@@ -308,8 +308,11 @@ Key files:
   and each entity's `connections` and `neighbours` (before 2.0). `bpString.ts`
   drops an endpoint naming a missing entity from all three, whatever the
   declared version, because each one threw the same error in `initBP` (#457).
-  A new wire shape needs the same treatment. A wire to a connector the entity
-  lacks still throws (#488).
+  A new wire shape needs the same treatment. A wire to a connection point its
+  entity lacks, or with a connector id that maps to nothing, is dropped in the
+  `Blueprint` constructor instead, where the real `Entity` can be asked (#488);
+  `Editor.loadBlueprint` warns with the count. No real string now fails inside
+  `initBP`, so the rollback specs arm `armUndrawableWire` to get one.
 - `PositionGrid` and `EntityContainer` throw when their indexes drift from the
   model. A missing indexed entity is an invariant failure, not a normal lookup.
 - `need()` belongs only below a caller that can catch a missing sprite field.

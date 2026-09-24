@@ -239,6 +239,7 @@ async function selectBookIndex(index: number): Promise<void> {
     const previous = { bp, selection: current.selection }
     // A page whose own data is bad throws here, before anything has moved.
     bp = current.selectBlueprint(index)
+    if (import.meta.env.DEV) addArmedUndrawableWire(bp)
     /*
         One that fails to draw throws in loadBlueprint instead, by which time
         the book has moved to it. Both go back, as loadBp's do: the editor puts
@@ -346,6 +347,7 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
         book = undefined
         bp = bpOrBook
     }
+    if (import.meta.env.DEV) addArmedUndrawableWire(bp)
 
     /*
         Assigned before the load, not after, because loadBlueprint reads them:
@@ -470,6 +472,42 @@ class ThrowingDialog extends Dialog {
         super(300, 200, 'never shown')
         throw new Error('deliberate: a dialog constructor that throws after super()')
     }
+}
+
+/*
+    A wire initBP cannot draw, added to the next blueprint handed to
+    `editor.loadBlueprint` - the fixture the rollback specs fail with.
+
+    `tests/load-rollback.spec.ts` and `tests/book-selection-rollback.spec.ts`
+    need a load that throws inside initBP, after it has built a container for
+    every entity. They used to get one from a blueprint string: a copper wire
+    between two chests, which have no copper connection point. #488 made the
+    Blueprint constructor drop that wire, and with it the last string that
+    failed there - a test that needs a bug to stay unfixed argues against fixing
+    it, so this is the failure written down instead, as ThrowingDialog is.
+
+    The wire is added after the constructor has run, so it reaches initBP and
+    throws the real "Could not find the wire connection point!" from
+    `WiresContainer.getWireSprite`, not a stand-in. It joins the first two
+    entities, so the target needs two.
+
+    Armed by `armUndrawableWire`, or for a `?source=` load by a
+    `__fbe_arm_undrawable_wire` flag set before the page runs, since that load
+    starts before any spec can reach the test API. Fires once.
+*/
+let undrawableWireArmed = import.meta.env.DEV && (window as any).__fbe_arm_undrawable_wire === true
+
+function addArmedUndrawableWire(target: Blueprint): void {
+    if (!undrawableWireArmed) return
+    undrawableWireArmed = false
+    const [a, b] = target.entities.valuesArray()
+    target.wireConnections.create({
+        color: 'copper',
+        cps: [
+            { entityNumber: a.entityNumber, entitySide: 1 },
+            { entityNumber: b.entityNumber, entitySide: 1 },
+        ],
+    })
 }
 
 const testApi = {
@@ -690,6 +728,10 @@ const testApi = {
         which a spec cannot otherwise tell from the throw being swallowed
         somewhere. See tests/dialog-registry-leak.spec.ts.
     */
+    /** Arms `addArmedUndrawableWire`. See tests/load-rollback.spec.ts. */
+    armUndrawableWire: () => {
+        undrawableWireArmed = true
+    },
     throwingDialogAttempt: () => {
         try {
             new ThrowingDialog()
