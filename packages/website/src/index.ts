@@ -1,6 +1,6 @@
 import './index.css'
 
-import { isMobile } from 'pixi.js'
+import { Container, isMobile } from 'pixi.js'
 import EDITOR, {
     Editor,
     Blueprint,
@@ -765,6 +765,42 @@ const testApi = {
         the static createEntityInfo rather than the instance method, so a throw
         propagates instead of being swallowed by the latter's try/catch.
     */
+    /*
+        Every quality badge an entity's info overlay draws (#348), as frames in
+        tiles from the entity's centre: `x`,`y` the frame's top-left and `size`
+        its side. Found by the label the badge carries, and placed by summing
+        position and scale down the tree by hand rather than through pixi's
+        toLocal, since the overlay built here is never on stage and its world
+        transforms are never computed. Nothing in the overlay rotates, so
+        position and scale are the whole transform.
+    */
+    qualityBadgeFrames: (entityNumber: number) => {
+        const entity = bp.entities.get(entityNumber)
+        if (entity === undefined) return undefined
+        const info = OverlayContainer.createEntityInfo(entity, { x: 0, y: 0 })
+        const out: { quality: string; x: number; y: number; size: number }[] = []
+        const walk = (node: Container, ox: number, oy: number, scale: number): void => {
+            for (const child of node.children) {
+                const x = ox + scale * child.position.x
+                const y = oy + scale * child.position.y
+                const s = scale * child.scale.x
+                // Typed string, but null at runtime on a node nobody labelled.
+                const label: string | null = child.label
+                if (label?.startsWith('quality-badge:')) {
+                    out.push({
+                        quality: label.slice('quality-badge:'.length),
+                        x: x / 32,
+                        y: y / 32,
+                        size: (24 * s) / 32,
+                    })
+                } else {
+                    walk(child, x, y, s)
+                }
+            }
+        }
+        if (info) walk(info, 0, 0, 1)
+        return out
+    },
     overlayInfoTally: () => {
         const out: Record<string, number[]> = {}
         for (const entity of bp.entities.valuesArray()) {

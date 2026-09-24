@@ -259,6 +259,15 @@ export class Entity extends EventEmitter<EntityEvents> {
         return FD.entities[this.name]
     }
 
+    /**
+     * The entity's own quality as the blueprint stores it, undefined when the
+     * blueprint leaves it out - which is how Factorio writes normal. Read-only
+     * for now: the editor draws it (#348) but has no picker for it.
+     */
+    public get quality(): string | undefined {
+        return this.m_rawEntity.quality
+    }
+
     /** Entity size */
     public get size(): IPoint {
         return getEntitySize(this.entityData, this.direction)
@@ -517,6 +526,26 @@ export class Entity extends EventEmitter<EntityEvents> {
         }
         return out
     }
+    /**
+     * Each module slot's quality, slot for slot with `modules`: undefined for an
+     * empty slot and for a module the blueprint gives no quality. A separate
+     * getter so `modules` stays a list of names for the code that writes it.
+     */
+    public get moduleQualities(): (string | undefined)[] {
+        const items = this.m_rawEntity.items
+        const out = Array.from<string | undefined>({ length: this.moduleSlots })
+        if (!Array.isArray(items)) return out
+        const inventory = getModuleInventoryIndex(this.entityData)
+        for (const item of items) {
+            for (const inv of item.items.in_inventory ?? []) {
+                if (inv.inventory === inventory) {
+                    out[inv.stack] = item.id.quality
+                }
+            }
+        }
+        return out
+    }
+
     /** The given list can be shorter than the one returned by the getter. */
     public set modules(_modules: (string | undefined)[]) {
         const modules = _modules || []

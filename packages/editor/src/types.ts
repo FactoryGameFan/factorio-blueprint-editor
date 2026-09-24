@@ -246,6 +246,8 @@ export interface IEntity {
     direction?: number // 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
     /** direction type, only present if entity is of type underground-belt */
     type?: DirectionType
+    /** absent means normal; a quality this editor does not know is kept as it is */
+    quality?: string
     /** recipe name, only present if entity is of type assembling-machine or has fixed_recipe */
     recipe?: string
     recipe_quality?: string

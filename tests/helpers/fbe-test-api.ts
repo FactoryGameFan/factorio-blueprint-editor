@@ -120,6 +120,14 @@ export interface FbeTestApi {
      * blueprint's containers - see tests/entity-container-mappings.spec.ts.
      */
     entityContainerCount: () => number
+    /**
+     * Each quality badge on an entity's info overlay, as a frame in tiles from
+     * the entity's centre; undefined when no entity has that number. See
+     * tests/quality-badges.spec.ts.
+     */
+    qualityBadgeFrames: (
+        entityNumber: number
+    ) => { quality: string; x: number; y: number; size: number }[] | undefined
     overlayInfoTally: () => OverlayTally
     /**
      * Defaults to the loaded blueprint; pass one to tally a book entry instead.

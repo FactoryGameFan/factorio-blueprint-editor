@@ -708,7 +708,11 @@ against the CSP in `packages/website/public/_headers` that permits them.
   measured on the bridges, which variant the game uses differs from seam to
   seam, so reproducing it needs a position hash we would be inventing. That
   applies to all 17 keys, not just the walls.
-- Logistic filters retain quality metadata but the UI has no quality picker.
+- Quality is drawn but not editable. An entity's own quality and its modules'
+  get the alt-mode badge (#348), as vectors in `core/qualityBadge.ts` whose
+  placement and sizes were measured against 2.0.77 screenshots; the data export
+  carries no quality prototypes or icons. `recipe_quality` and filter quality
+  are kept but not drawn, and no editor has a quality picker.
 - Blueprint icons round-trip, and an auto icon is never stored.
   `BlueprintInfoEditor`'s four slots are the one place a blueprint's own
   icons are set; a blueprint carrying none exports what `computeAutoIcons`

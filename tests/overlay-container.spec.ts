@@ -152,8 +152,14 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
  * The check that this is a page change and not a branch that stopped firing:
  * the run added three keys and removed none. A skipping branch would show up
  * as a removal or a shortened array, never as a pure addition.
+ *
+ * `accumulator` arrived with the quality badge (#348). The corpus pages this
+ * spec opens carry rare accumulators, and a badge is their only overlay, so they
+ * read 1 where the normal ones read -1. It was the only change, and a pure
+ * addition again: no key removed and no array shortened.
  */
 const EXPECTED_REAL: Record<string, number[]> = {
+    accumulator: [-1, 1],
     'arithmetic-combinator': [2],
     'assembling-machine-1': [-1, 1],
     'assembling-machine-2': [1, 2, 3],
