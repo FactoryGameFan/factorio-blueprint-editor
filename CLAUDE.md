@@ -157,9 +157,8 @@ fail under WSL (see below). The one exception came from memory, not from the
 container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
 Chromium's renderer, at about 1.5 GB, during the large-paste test in
 `tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
-chase. That run used the features-based `devcontainer.json`; `c82ed87e`
-replaced the Rust feature with the Dockerfile on 2026-09-21, after the table
-was taken.
+chase. That run predates the switch from the Rust devcontainer feature to
+`.devcontainer/Dockerfile`, and has not been repeated on the current image.
 
 It does not do two things:
 
@@ -169,7 +168,7 @@ It does not do two things:
   host.
 - **Run oracle probes.** They need a local Factorio.
 
-Reaching Vite from the host needed a change to get right. Vite's default host
+Reaching Vite from the host needs a bare `--host`. Vite's default host
 is `localhost`, which resolves `::1` ahead of `127.0.0.1`, so Vite bound `[::1]`
 alone while a port forwarder dials `127.0.0.1`. Measured against VS Code's Dev
 Containers extension, which does read `forwardPorts`: it forwarded both ports
@@ -177,20 +176,19 @@ correctly, 8081 answered 200 because `npx serve` binds `::` dual-stack, and 8080
 timed out on an otherwise healthy Vite. The editor's own Playwright specs never
 saw it, because they reach `::1` too.
 
-`containerEnv` now sets `FBE_DEV_HOST`, which makes `scripts/localpreview.mjs`
+`containerEnv` sets `FBE_DEV_HOST`, which makes `scripts/localpreview.mjs`
 add a bare `--host`, and both ports come up on `::`. Measured from the Mac
 afterwards: `localhost:8080` answers 200 through VS Code's forward, and the
 container's own address answers 200 directly - so on OrbStack the bare
-`devcontainer` CLI no longer needs the forwarding it does not do
+`devcontainer` CLI does not need the forwarding it does not do
 (devcontainers/cli#22). The container's `.orb.local` name connects and returns
 403, which is Vite's `allowedHosts` refusing an unfamiliar Host header rather
 than a networking fault, and the name is random anyway because VS Code passes
 no `--name`.
 
-**That 403 is not what keeps the listener safe, and an earlier version of this
-section implied it was.** Measured against the pinned Vite:
-`isHostAllowedInternal` returns true for any Host header that parses as an IPv4
-or IPv6 literal, _before_ `allowedHosts` is consulted. Against the real dev
+**That 403 is not what keeps the listener safe.** Measured against the pinned
+Vite: `isHostAllowedInternal` returns true for any Host header that parses as an
+IPv4 or IPv6 literal, _before_ `allowedHosts` is consulted. Against the real dev
 server, `evil.example.com` and `fbe.factorygamefan.com` both got 403 while
 `10.1.2.3`, `192.168.1.50` and `[dead::beef]` all got 200. `allowedHosts`
 constrains names only, and a peer reaching the server by address sends no name.
@@ -212,10 +210,10 @@ configuration, asserts seccomp is enabled and `SYS_PTRACE` is absent from the
 capability bounding set, checks Chromium can render, then runs cargo test, fmt
 and clippy.
 
-Rust still resolves to stable at build time, matching the previous feature's
-default. The installer checksum does not pin the toolchain; use a shared
-`rust-toolchain.toml` if the project adopts a Rust version policy. When the
-rustup installer changes, verify it and update its checksum in the Dockerfile.
+Rust resolves to stable at build time. The installer checksum does not pin the
+toolchain; use a shared `rust-toolchain.toml` if the project adopts a Rust
+version policy. When the rustup installer changes, verify it and update its
+checksum in the Dockerfile.
 
 `node_modules` is a named volume, not the bind-mounted folder. An install
 holds native binaries for one platform (esbuild, oxlint, workerd, sharp and
@@ -250,12 +248,11 @@ over exact pins.
   consequence of `lockFileMaintenance: { enabled: false }` in `renovate.json5`.
 - Before acting on a transitive advisory, read the parent's declared range: an
   exact pin means it is not actionable, a range means it is.
-- Upgrade Wrangler and its pinned runtime dependencies together. Wrangler
-  4.126.0 brings workerd 1.20260825.1, Miniflare 5.20260825.0-alpha, and
-  undici 7.29.0; it accepts the configured 2026-08-25 compatibility date in
-  local development (#304). This also resolves the advisory reported against
-  the previous undici 7.28.0 pin. Do not use `npm audit fix --force` or override
-  Miniflare independently; validate the Worker with `wrangler dev --local`.
+- Upgrade Wrangler and its pinned runtime dependencies (workerd, Miniflare,
+  undici) together. Confirm the new Wrangler accepts the `compatibility_date` in
+  `packages/worker/wrangler.jsonc` in local development. Do not use
+  `npm audit fix --force` or override Miniflare on its own; validate the Worker
+  with `wrangler dev --local`.
 - `ajv` is ~100 kB minified and nothing branches on its result; `bpString.ts`
   logs and loads whether validation passes or fails.
 
@@ -379,10 +376,9 @@ the test's execution context.
 
 CI runs checks, a Rust build, four Playwright shards, and a Cloudflare
 deployment after both checks and browser tests pass. Every job is on
-`ubuntu-latest`; the Windows Rust job is gone, because `download()` no longer
-hides either extractor behind a `#[cfg(target_os)]` and Linux therefore
-type-checks both. `.github/workflows/README.md` records what that stopped
-covering.
+`ubuntu-latest`. Linux type-checks both extractors, because `download()` hides
+neither behind a `#[cfg(target_os)]`. `.github/workflows/README.md` records
+what Linux-only CI does not cover.
 
 ### Running the browser suite under WSL2
 
