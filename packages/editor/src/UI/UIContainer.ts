@@ -160,6 +160,21 @@ export class UIContainer extends Container {
         return this.shortcutBar.shortcutTooltip
     }
 
+    public get quickbarBounds(): { x: number; y: number; width: number; height: number } {
+        const at = this.quickbarPanel.toGlobal({ x: 0, y: 0 })
+        return {
+            x: at.x,
+            y: at.y,
+            width: this.quickbarPanel.width,
+            height: this.quickbarPanel.height,
+        }
+    }
+
+    /** The hover text QuickbarPanel is showing, or undefined when it shows none. */
+    public get quickbarTooltip(): string | undefined {
+        return this.quickbarPanel.hoverTextShown
+    }
+
     /**
      * Opens ImportDialog, or closes it if it is already open - the ShortcutBar
      * button that reaches this is a single toggle, not a spawner, so a

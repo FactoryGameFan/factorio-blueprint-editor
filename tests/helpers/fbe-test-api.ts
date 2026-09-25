@@ -321,6 +321,10 @@ export interface FbeTestApi {
     shortcutBarBounds: () => { x: number; y: number; width: number; height: number }
     /** The shortcut bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
     shortcutBarHoverText: () => string | undefined
+    /** Where the inventory bar (QuickbarPanel) sits, in the same coordinates as `shortcutBarBounds`. */
+    quickbarBounds: () => { x: number; y: number; width: number; height: number }
+    /** The inventory bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
+    quickbarHoverText: () => string | undefined
     /** Assigns one action's key combo, as the settings pane does. */
     rebindAction: (name: string, keyCombo: string) => void
     /**

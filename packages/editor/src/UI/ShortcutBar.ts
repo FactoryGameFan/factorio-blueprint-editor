@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js'
+import { Container, Graphics, Rectangle, Sprite } from 'pixi.js'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
 import {
@@ -10,7 +10,9 @@ import {
 import { withKeybind } from '../core/keyComboLabel'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
-import { colors, styles } from './style'
+import { HoverText } from './controls/HoverText'
+import { BAR_PADDING, BAR_SLOT_PITCH, QUICKBAR_WIDTH, barLength } from './barLayout'
+import { colors } from './style'
 
 /** The icon's drawn size inside a 36 px slot, the size every other slot icon uses. */
 const ICON_SIZE = 32
@@ -246,7 +248,7 @@ const ROWS = 2
  * The keybind is read when the hover starts rather than stored here, because
  * a user can rebind any action in settings.
  */
-interface HoverText {
+interface HoverLabel {
     name: string
     /** The actions whose keybinds the text shows, in order. */
     actions?: readonly string[]
@@ -254,41 +256,28 @@ interface HoverText {
 
 interface Cell {
     slot: Container
-    hover: HoverText
+    hover: HoverLabel
 }
 
 export class ShortcutBar extends Panel {
     private slotsContainer: Container
     private altHighlightTick: (() => void) | undefined
-    /*
-        One box, shown above whichever slot the pointer is over, and reused
-        for every hover. A fresh `Text` per hover would leak: pixi's text
-        listens for changes on its style, which here is the shared
-        `styles.dialog.label`, and does not stop listening when destroyed.
-    */
-    private readonly hoverText = new Container()
-    private readonly hoverBackground = new Graphics()
-    private readonly hoverLabel = new Text({ style: styles.dialog.label })
-    private hoveredSlot: Container | undefined
+    private readonly hoverText = new HoverText()
     public static Wires = WIRES
 
     public constructor() {
         const initialCells = ShortcutBar.buildCells()
         const cols = Math.ceil(initialCells.cells.length / ROWS)
         super(
-            24 + 38 * cols - 2,
-            24 + 38 * ROWS - 2,
+            barLength(cols),
+            barLength(ROWS),
             colors.quickbar.background.color,
             colors.quickbar.background.alpha,
             colors.quickbar.background.border
         )
 
         this.slotsContainer = new Container()
-        this.slotsContainer.position.set(12, 12)
-        this.hoverLabel.position.set(8, 5)
-        this.hoverText.addChild(this.hoverBackground, this.hoverLabel)
-        this.hoverText.eventMode = 'none'
-        this.hoverText.visible = false
+        this.slotsContainer.position.set(BAR_PADDING, BAR_PADDING)
         this.addChild(this.slotsContainer, this.hoverText)
 
         this.placeCells(initialCells)
@@ -296,36 +285,7 @@ export class ShortcutBar extends Panel {
 
     /** The hover text on show, or undefined when there is none. */
     public get shortcutTooltip(): string | undefined {
-        return this.hoverText.visible ? this.hoverLabel.text : undefined
-    }
-
-    private showHoverText(slot: Container, hover: HoverText): void {
-        const keyCombos = (hover.actions ?? []).map(a => G.actions.get(a)?.keyCombo)
-        this.hoverLabel.text = withKeybind(hover.name, keyCombos)
-
-        const width = Math.ceil(this.hoverLabel.width) + 16
-        const height = Math.ceil(this.hoverLabel.height) + 10
-        this.hoverBackground
-            .clear()
-            .rect(0, 0, width, height)
-            .fill(colors.dialog.background.color)
-            .stroke({ width: 1, color: colors.controls.button.background.color, alignment: 1 })
-
-        // Over the slot's left edge, and kept on screen at a narrow width.
-        const x = this.slotsContainer.x + slot.x
-        this.hoverText.position.set(
-            Math.max(-this.x, Math.min(x, G.app.screen.width - this.x - width)),
-            -height - 4
-        )
-        this.hoverText.visible = true
-        this.hoveredSlot = slot
-    }
-
-    private hideHoverText(slot: Container): void {
-        // pointerout on one slot can arrive after pointerover on the next.
-        if (this.hoveredSlot !== slot) return
-        this.hoverText.visible = false
-        this.hoveredSlot = undefined
+        return this.hoverText.shown
     }
 
     public override destroy(): void {
@@ -419,7 +379,7 @@ export class ShortcutBar extends Panel {
         for (const child of this.slotsContainer.removeChildren()) {
             child.destroy({ children: true })
         }
-        if (this.hoveredSlot) this.hideHoverText(this.hoveredSlot)
+        this.hoverText.hide()
 
         /*
             Polls rather than listening for an event, because `G.BPC` - and so
@@ -441,9 +401,14 @@ export class ShortcutBar extends Panel {
         for (const [i, { slot, hover }] of cells.entries()) {
             const col = Math.floor(i / ROWS)
             const row = i % ROWS
-            slot.position.set((36 + 2) * col, (36 + 2) * row)
-            slot.on('pointerover', () => this.showHoverText(slot, hover))
-            slot.on('pointerout', () => this.hideHoverText(slot))
+            slot.position.set(BAR_SLOT_PITCH * col, BAR_SLOT_PITCH * row)
+            slot.on('pointerover', () => {
+                const keyCombos = (hover.actions ?? []).map(a => G.actions.get(a)?.keyCombo)
+                // Over the slot's left edge.
+                const x = this.slotsContainer.x + slot.x
+                this.hoverText.show(slot, withKeybind(hover.name, keyCombos), x)
+            })
+            slot.on('pointerout', () => this.hoverText.hide(slot))
             this.slotsContainer.addChild(slot)
         }
     }
@@ -452,13 +417,13 @@ export class ShortcutBar extends Panel {
      * Flush against the quickbar's right edge at common viewport widths, the
      * same way the two-row layout above assumes - but clamped to the screen's
      * own right edge underneath that, since the unclamped position runs the
-     * panel off-screen entirely below ~866px (`screen.width / 2 + 221 +
+     * panel off-screen entirely below ~864px (`screen.width / 2 + 220 +
      * this.width > screen.width`, solved for `screen.width`). Below that
      * width the panel overlaps the quickbar instead of vanishing, which is
      * the same trade-off a real user can still click through. Also clamped
      * at 0: `screen.width - this.width` goes negative once the screen is
      * narrower than the panel itself (below ~212px, `this.width` being
-     * `24 + 38*cols - 2` for `cols = ceil(9/2) = 5`), which without the
+     * `barLength(cols)` for `cols = ceil(9/2) = 5`), which without the
      * lower bound pushed the panel off the *left* edge instead - worse than
      * the overlap this comment already accepts, since a clamp to 0 is still
      * fully on-screen and clickable where a negative one is not (#242
@@ -467,7 +432,7 @@ export class ShortcutBar extends Panel {
     protected override setPosition(): void {
         const x = Math.max(
             0,
-            Math.min(G.app.screen.width / 2 + 442 / 2, G.app.screen.width - this.width)
+            Math.min(G.app.screen.width / 2 + QUICKBAR_WIDTH / 2, G.app.screen.width - this.width)
         )
         this.position.set(x, G.app.screen.height - this.height + 1)
     }

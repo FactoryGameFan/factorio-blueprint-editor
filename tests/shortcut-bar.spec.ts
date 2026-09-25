@@ -195,6 +195,64 @@ test('each button names itself and its keybind on hover, and follows a rebind (#
     await expect.poll(hoverText).toBe('Toggle "Alt-mode" (T or Right Alt)')
 })
 
+/*
+    The inventory bar and the shortcut bar sit side by side on the bottom
+    edge, so they have to be one height or their top edges step (#509). Both
+    use the game's rule: the same padding on every side, and gaps only
+    between slots, never after the last one. The game's own bars are one
+    96 px frame with 8 px above and below the slots; the editor's 36 px
+    slots and 12 px padding make that 98 (#513 covers the game's sizes).
+*/
+test('the inventory bar and the shortcut bar are one height and meet edge to edge (#509)', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const quickbar = await page.evaluate(() => window.__fbe_test.quickbarBounds())
+    const shortcutBar = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
+
+    expect(quickbar.height).toBe(98)
+    expect(shortcutBar.height).toBe(98)
+    expect(quickbar.y).toBe(shortcutBar.y)
+    // 10 slots, 9 gaps, 12 px each side, and the 38 px middle gap the triangle sits in
+    expect(quickbar.width).toBe(440)
+    expect(quickbar.x + quickbar.width).toBe(shortcutBar.x)
+})
+
+/*
+    The triangle between the inventory bar's two halves swaps its rows. The
+    game calls that "Rotate active quickbars" (`rotate-active-quick-bars` in
+    `core/locale/en/core.cfg`) and binds it to X, as the editor does. Its
+    hover text reads the keybind when the hover starts, like the shortcut
+    bar's, so a rebind shows on the next hover.
+*/
+test('the row-swap triangle names its action and keybind on hover (#509)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const bounds = await page.evaluate(() => window.__fbe_test.quickbarBounds())
+    const hoverText = () => page.evaluate(() => window.__fbe_test.quickbarHoverText())
+    const hoverTriangle = async () => {
+        await nextFrames(page)
+        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+        await nextFrames(page)
+    }
+    const leave = async () => {
+        await page.mouse.move(640, 200)
+        await nextFrames(page)
+    }
+
+    await leave()
+    expect(await hoverText()).toBeUndefined()
+    await hoverTriangle()
+    await expect.poll(hoverText).toBe('Rotate active quickbars (X)')
+    await leave()
+    await expect.poll(hoverText).toBeUndefined()
+
+    await page.evaluate(() => window.__fbe_test.rebindAction('changeActiveQuickbar', 'KeyQ'))
+    await hoverTriangle()
+    await expect.poll(hoverText).toBe('Rotate active quickbars (Q)')
+})
+
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
     page,
 }) => {
@@ -269,7 +327,7 @@ test('typing job control: a large paste actually loads through Replace, not just
 
 test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) => {
     /*
-        Below ~866px (see ShortcutBar.ts's setPosition doc comment) the
+        Below ~864px (see ShortcutBar.ts's setPosition doc comment) the
         unclamped position runs the panel off the right edge entirely. 800px
         is inside that range and still a real desktop width, not an extreme
         this project's UI otherwise ignores - mobile gets a different,
@@ -283,8 +341,8 @@ test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) 
 
         The poll asserts the *joint* condition, and that is the whole of it:
         `x >= 0` alone is already true before the resize lands, since the
-        stale 1280px layout puts the panel at `max(0, min(861, 1068))` =
-        861, so polling for that half resolves on its first check and adds
+        stale 1280px layout puts the panel at `max(0, min(860, 1068))` =
+        860, so polling for that half resolves on its first check and adds
         no wait whatsoever - leaving the right-edge assertion after it
         exposed to exactly the race the poll was added for. The sibling
         150px test below works only because its target (`x === 0`) is false
