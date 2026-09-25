@@ -9,8 +9,12 @@
 
     Rasterised at 56 px and scored against the game icon, both laid over the
     game's button grey, the mean channel difference over the pixels either
-    one covers is 1.9 alt, 5.2 import, 5.9 undo and redo, 0.9 copper wire,
-    3.6 red wire and 3.0 green wire, out of 255.
+    one covers is 1.9 alt, 5.3 import, 5.1 undo and redo, 1.1 copper wire,
+    2.3 red wire and 1.0 green wire, out of 255.
+
+    The red wire is an R and the green wire a g with an apostrophe. Their
+    strokes are layered to keep those letters readable, not just in the
+    order the pieces run: see each one below.
 
     This file holds only shape data, with no pixi code, so the shapes can be
     tested without a browser. `ShortcutBar` draws them.
@@ -254,7 +258,13 @@ const ICONS: Readonly<Record<ShortcutIconName, readonly IconShape[]>> = {
             [move(14, 12), line(14, 32)],
             [move(14, 8), line(14, 32)]
         ),
-        ...wirePiece(SHORTCUT_COLORS.copper, circle(24, 32, 10), circle(24, 32, 10)),
+        /*
+            The core sits 0.05 further out than its outline's centre line. The
+            game's ring has a slightly wider hole at its diagonals, and at 56 px
+            this is what clears the three pixels there that are dark in the
+            game. 0.15 overshoots and leaves 13 pixels wrong instead.
+        */
+        ...wirePiece(SHORTCUT_COLORS.copper, circle(24, 32, 10.05), circle(24, 32, 10)),
         ...wirePiece(
             SHORTCUT_COLORS.copper,
             [move(24, 42), line(44, 42)],
@@ -262,25 +272,39 @@ const ICONS: Readonly<Record<ShortcutIconName, readonly IconShape[]>> = {
         ),
     ],
     'red-wire': [
+        /*
+            An R. The leg's outline goes down first, so the bowl sits on top of
+            it and keeps its full lower curve. The leg's core goes on last, and
+            starts just below the bowl's core, with a sliver of outline between
+            them, so the leg reads as springing from the bowl.
+        */
+        {
+            kind: 'stroke',
+            color: SHORTCUT_COLORS.dark,
+            width: 12,
+            path: [arcStart(38, 30, 12, 145), arc(38, 30, 12, 145, 90), line(42, 42)],
+        },
+        fill(rect(42, 40, 4, 4)),
         ...wirePiece(
             SHORTCUT_COLORS.red,
             [move(22, 34), line(26, 34), arc(26, 24, 10, 90, -180), line(16, 40)],
             [move(18, 34), line(26, 34), arc(26, 24, 10, 90, -180), line(16, 44)]
         ),
         fill(rect(14, 44, 4, 4)),
-        ...wirePiece(
-            SHORTCUT_COLORS.red,
-            [arcStart(38, 30, 12, 140), arc(38, 30, 12, 140, 90)],
-            [arcStart(38, 30, 12, 155), arc(38, 30, 12, 155, 90), line(42, 42)]
-        ),
-        fill(rect(42, 40, 4, 4)),
+        {
+            kind: 'stroke',
+            color: SHORTCUT_COLORS.red,
+            width: 4,
+            path: [arcStart(38, 30, 12, 130), arc(38, 30, 12, 130, 90)],
+        },
     ],
     'green-wire': [
-        ...wirePiece(
-            SHORTCUT_COLORS.green,
-            [move(42, 16), line(40, 26)],
-            [move(42, 12), line(40, 26)]
-        ),
+        /*
+            A g with an apostrophe. The apostrophe is a wedge that narrows to
+            a point, so it is filled rather than stroked: its outline goes down
+            first, under the g, and its core goes on last.
+        */
+        fill(poly([36, 12], [48, 12], [48, 19.5], [47, 21], [45, 26], [40, 30], [36, 30])),
         fill(rect(40, 8, 4, 4)),
         ...wirePiece(SHORTCUT_COLORS.green, circle(24, 24, 10), circle(24, 24, 10)),
         ...wirePiece(
@@ -289,6 +313,11 @@ const ICONS: Readonly<Record<ShortcutIconName, readonly IconShape[]>> = {
             [move(34, 24), line(34, 32), arc(24, 32, 10, 0, 90), line(12, 42)]
         ),
         fill(rect(8, 40, 4, 4)),
+        {
+            kind: 'fill',
+            color: SHORTCUT_COLORS.green,
+            path: poly([40, 16], [44, 16], [44, 20], [41, 24], [40, 24], [39, 19]),
+        },
     ],
     'export-image': EXPORT_IMAGE,
 }

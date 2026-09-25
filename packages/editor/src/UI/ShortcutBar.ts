@@ -395,20 +395,15 @@ export class ShortcutBar extends Panel {
     }
 
     /**
-     * Re-callable: clears whatever `slotsContainer` currently holds - and
-     * calls `destroy()` on each removed child, since `removeChildren()`
-     * alone only detaches - before placing a freshly built set, and replaces
-     * the ticker rather than accumulating a second one. Bare `destroy()`
-     * with no options does not cascade to a child's own children, only to
-     * the immediate container (pixi's own `Container.destroy` doc comment,
-     * `{children: true, texture: true, textureSource: true}` is what
-     * reaches further) - a claim this used to make and got wrong (#242
-     * review) - so each slot's icon sprite, which frees its baked texture
-     * when it is destroyed, is not released here; only the slot container
-     * itself is. Nothing calls this a second
-     * time today, but nothing should have to trust that either -
-     * `QuickbarPanel.generateSlots` is the precedent this mirrors, for
-     * row-count changes.
+     * Re-callable: clears whatever `slotsContainer` currently holds and
+     * destroys each removed child, since `removeChildren()` alone only
+     * detaches, before placing a freshly built set, and replaces the ticker
+     * rather than accumulating a second one. The destroy cascades to each
+     * slot's children, because a bare `destroy()` stops at the slot itself
+     * (#242 review) and each slot's icon sprite owns a baked texture that it
+     * frees only when it is destroyed. Nothing calls this a second time today,
+     * but nothing should have to trust that either - `QuickbarPanel.generateSlots`
+     * is the precedent this mirrors, for row-count changes.
      */
     public generateSlots(): void {
         this.placeCells(ShortcutBar.buildCells())
@@ -416,7 +411,7 @@ export class ShortcutBar extends Panel {
 
     private placeCells({ cells, altSlot }: { cells: Cell[]; altSlot: ActionSlot }): void {
         for (const child of this.slotsContainer.removeChildren()) {
-            child.destroy()
+            child.destroy({ children: true })
         }
         if (this.hoveredSlot) this.hideHoverText(this.hoveredSlot)
 
