@@ -11,7 +11,10 @@ and it adds Factorio 2.0 and Space Age support. Two things follow from that and
 are easy to get wrong:
 
 - The default branch is `wormeyman-space-age-support`, not `master`. Branch from
-  it and target it with your pull request. CI only runs on that branch.
+  it and target it with your pull request. CI only runs on pull requests into
+  that branch, and on GitHub stacked pull requests built on it. Stacks need
+  every branch in this repository, so they are for maintainers; the "Stacked
+  pull requests" section of [CLAUDE.md](CLAUDE.md) covers them.
 - Issues and pull requests belong here, not upstream. Nobody is reading them
   there.
 

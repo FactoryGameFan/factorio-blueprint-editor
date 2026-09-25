@@ -10,6 +10,52 @@ The default and deployment branch is `wormeyman-space-age-support`. Branch from
 it and target pull requests at it. Use a descriptive commit subject; put issue
 closing references such as `Closes #123` in the pull request body.
 
+### Stacked pull requests
+
+When one change builds on another that has not merged yet, open it as a
+GitHub stacked pull request rather than a plain pull request against the
+other branch. A stack is a chain: the bottom pull request targets
+`wormeyman-space-age-support`, and each one above targets the branch below it.
+It is a GitHub public preview, driven by the official `gh stack` extension
+(`gh extension install github/gh-stack`). The first stack here was #507 and
+#508.
+
+The reason is CI. `ci.yml` runs only for pull requests whose base is the
+default branch, so a plain pull request on top of another one gets the Claude
+review and nothing else - no checks and no Playwright - until the one below
+merges and someone retargets it by hand. Once the two are linked into a stack,
+the full CI runs on the upper one too. Measured on #508: its push got only the
+Claude review, and linking it started the full CI run within minutes, with no
+new push.
+
+Link pull requests into a stack bottom to top. Passing a stack's number first
+adds the rest to the top of that stack:
+
+```sh
+gh stack link 507 508
+```
+
+To merge a whole stack, pass its number. That is the stack's own number,
+which `gh stack link` prints and the stack map shows; it is not a pull request
+or issue number, so `gh pr view` cannot find it:
+
+```sh
+gh stack merge 510 --yes --squash
+```
+
+It merges every pull request in one step, all or nothing, and still writes one
+squash commit per pull request - stack 510 landed #507 and #508 as two
+commits, and closed the issue #508 named. It does not delete the branches.
+Merging only part of a stack goes from the bottom: a pull request merges with
+every one below it. GitHub's documentation says the lowest pull request left
+then targets the default branch on its own, and the rest stay chained above
+it. That has not been tried here yet.
+
+CodeRabbit reviews only pull requests whose base is the default branch, so it
+skips an upper layer (it did on #508). Comment `@coderabbitai review` to ask for
+one. Stacks need every branch in this repository, so a pull request from a fork
+cannot join one.
+
 ## Repository layout
 
 - `packages/editor` - blueprint model, PixiJS renderer, controls, and unit tests
