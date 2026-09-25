@@ -179,7 +179,7 @@ test('a paste from an empty clipboard leaves the loaded blueprint alone', async 
         pass against any version of the code at all.
 
         (150, 120) is empty canvas, away from the centred chest, the quickbar
-        and ToolsPanel - the same point and the same reasoning as that spec.
+        and ShortcutBar - the same point and the same reasoning as that spec.
     */
     await page.mouse.click(150, 120)
     expect(await page.evaluate(() => document.activeElement?.id)).toBe('editor')

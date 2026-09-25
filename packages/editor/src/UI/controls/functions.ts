@@ -435,10 +435,9 @@ function CreateUtilitySpriteIcon(data: SpriteData, maxSize = 32, setAnchor = tru
  * swallowed - note that reaches the user as a toast, not a console line.
  *
  * Takes a builder rather than a name so it covers both icon functions. Lives
- * here, next to the two calls it is guarding, rather than in whichever caller
- * needed it first: `ToolsPanel` wanted it for a hardcoded name it could not
- * spell wrong twice, `DisplayPanelEditor` wants it for a name a blueprint
- * chose, and a second copy in the second caller is how the two drift.
+ * here, next to the two calls it is guarding, rather than in any one caller:
+ * `BookButton` uses it for a hardcoded name, `DisplayPanelEditor` for a name a
+ * blueprint chose, and a copy in each caller is how they drift.
  *
  * **This is not a substitute for a try/catch above a whole feature.** It is the
  * right tool only where the icon is one piece of something bigger that should

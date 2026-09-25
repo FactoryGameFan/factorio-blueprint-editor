@@ -39,7 +39,7 @@ export interface EditorInitOptions {
  * What `G.quickActions` falls back to when `init` is called without one - a
  * partial options object, or any JS-side caller, previously left it
  * `undefined` with nothing guarding a single read site, so the first click
- * on ToolsPanel's export-image slot threw `Cannot read properties of
+ * on ShortcutBar's export-image slot threw `Cannot read properties of
  * undefined (reading 'exportImage')`, naming neither `quickActions` nor
  * that it was ever optional to begin with (#242 review). `@fbe/editor` is
  * workspace-internal with one consumer today (`packages/website`, which
@@ -410,16 +410,16 @@ export class Editor {
         G.UI.toggleBlueprintInfoEditor(G.bp)
     }
 
-    /** Where ToolsPanel sits in client coordinates. See tests/tools-panel.spec.ts. */
-    public get toolsPanelBounds(): { x: number; y: number; width: number; height: number } {
-        return G.UI.toolsPanelBounds
+    /** Where ShortcutBar sits in client coordinates. See tests/shortcut-bar.spec.ts. */
+    public get shortcutBarBounds(): { x: number; y: number; width: number; height: number } {
+        return G.UI.shortcutBarBounds
     }
 
     /**
-     * Opens ImportDialog, the same as clicking ToolsPanel's Import slot -
+     * Opens ImportDialog, the same as clicking ShortcutBar's Import slot -
      * there is no keybind for opening it (only for the paste/append it
      * shortcuts), so a spec has no other way to reach it without computing
-     * ToolsPanel's own screen position. See tests/quick-actions.spec.ts.
+     * ShortcutBar's own screen position. See tests/quick-actions.spec.ts.
      */
     public openImportDialog(): void {
         G.UI.toggleImportDialog()

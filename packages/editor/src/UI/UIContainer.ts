@@ -10,7 +10,7 @@ import { ImportDialog } from './ImportDialog'
 import { ExportDialog, setReencodeDebounceMsForTests } from './ExportDialog'
 import { BookButton } from './BookButton'
 import { BookDialog } from './BookDialog'
-import { ToolsPanel } from './ToolsPanel'
+import { ShortcutBar } from './ShortcutBar'
 import { BlueprintInfoButton } from './BlueprintInfoButton'
 import { BlueprintInfoEditor } from './BlueprintInfoEditor'
 import { createEditor } from './editors/factory'
@@ -20,7 +20,7 @@ export class UIContainer extends Container {
     public quickbarPanel: QuickbarPanel
     private bookButton: BookButton
     private bookDialog: BookDialog | undefined
-    private toolsPanel: ToolsPanel
+    private shortcutBar: ShortcutBar
     private entityInfoPanel: EntityInfoPanel
     private dialogsContainer: Container
     private paintIconContainer: Container
@@ -34,7 +34,7 @@ export class UIContainer extends Container {
 
         this.debugContainer = new DebugContainer()
         this.quickbarPanel = new QuickbarPanel(2)
-        this.toolsPanel = new ToolsPanel()
+        this.shortcutBar = new ShortcutBar()
         this.entityInfoPanel = new EntityInfoPanel()
         this.dialogsContainer = new Container()
         this.paintIconContainer = new Container()
@@ -51,7 +51,7 @@ export class UIContainer extends Container {
         if (!isMobile.any) {
             this.addChild(
                 this.quickbarPanel,
-                this.toolsPanel,
+                this.shortcutBar,
                 this.blueprintInfoButton,
                 this.bookButton
             )
@@ -145,18 +145,18 @@ export class UIContainer extends Container {
     }
 
     /**
-     * Where ToolsPanel sits, in the same client coordinates `topDialogBounds`
-     * answers in - for tests/tools-panel.spec.ts, which needs to check it
+     * Where ShortcutBar sits, in the same client coordinates `topDialogBounds`
+     * answers in - for tests/shortcut-bar.spec.ts, which needs to check it
      * stays on screen at a narrow viewport width rather than running off the
-     * right edge (ToolsPanel.setPosition's own clamp).
+     * right edge (ShortcutBar.setPosition's own clamp).
      */
-    public get toolsPanelBounds(): { x: number; y: number; width: number; height: number } {
-        const at = this.toolsPanel.toGlobal({ x: 0, y: 0 })
-        return { x: at.x, y: at.y, width: this.toolsPanel.width, height: this.toolsPanel.height }
+    public get shortcutBarBounds(): { x: number; y: number; width: number; height: number } {
+        const at = this.shortcutBar.toGlobal({ x: 0, y: 0 })
+        return { x: at.x, y: at.y, width: this.shortcutBar.width, height: this.shortcutBar.height }
     }
 
     /**
-     * Opens ImportDialog, or closes it if it is already open - the ToolsPanel
+     * Opens ImportDialog, or closes it if it is already open - the ShortcutBar
      * button that reaches this is a single toggle, not a spawner, so a
      * second click has to answer "close" rather than stacking a second copy
      * on top of the first.

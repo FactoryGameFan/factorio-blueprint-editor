@@ -19,12 +19,12 @@ import { importTextarea } from './helpers/dialog-textareas'
     That is what left the bug live: the listeners' guard was
     `document.activeElement !== CANVAS` and nothing else, and the ordinary
     route to ImportDialog leaves the canvas focused, because clicking
-    ToolsPanel's Import slot *is* a click on the canvas and ImportDialog
+    ShortcutBar's Import slot *is* a click on the canvas and ImportDialog
     never focuses its own field (only ExportDialog does). So Ctrl+V with the
     Import dialog open ran `importReplace()` and replaced the whole blueprint
     from the OS clipboard, closing the dialog and taking anything typed into
     its field with it - and the fresh blueprint carries a fresh empty
-    `History`, so neither Ctrl+Z nor the ToolsPanel Undo slot brought the old
+    `History`, so neither Ctrl+Z nor the ShortcutBar Undo slot brought the old
     one back.
 
     ## The clipboard is reachable here, unlike in quick-actions.spec.ts
@@ -55,7 +55,7 @@ import { importTextarea } from './helpers/dialog-textareas'
     presses its keys before the editor has drawn anything to click.
 
     (150, 120) is empty canvas away from the centred blueprint, from the
-    quickbar and from ToolsPanel; measured, it leaves the editor in NONE mode
+    quickbar and from ShortcutBar; measured, it leaves the editor in NONE mode
     with no dialog open and no entity hovered - a click on the chest itself
     would enter EDIT and open the entity GUI, which is a dialog. The
     tests that open a dialog then assert the canvas *still* holds the focus,
@@ -193,7 +193,7 @@ test('Ctrl+V does not touch the blueprint while ImportDialog is open', async ({ 
         shortcut: `fill()` focuses the textarea, which would make
         `document.activeElement` the field rather than the canvas and hand the
         test to the *old* half of the guard - it would then pass with the fix
-        reverted. Same technique tools-panel.spec.ts uses, for its own
+        reverted. Same technique shortcut-bar.spec.ts uses, for its own
         reasons.
     */
     await loadBlueprint(page, ONE_CHEST)
