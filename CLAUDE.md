@@ -35,10 +35,18 @@ adds the rest to the top of that stack:
 gh stack link 507 508
 ```
 
-Merge from the bottom. Merging a pull request also merges every one below it,
-and the ones above retarget to the default branch on their own, per GitHub's
-documentation. An API merge of a stack needs the asynchronous merge endpoint.
-Squash merges work as usual.
+To merge a whole stack, pass its number:
+
+```sh
+gh stack merge 510 --yes --squash
+```
+
+It merges every pull request in one step, all or nothing, and still writes one
+squash commit per pull request - stack #510 landed #507 and #508 as two
+commits, and closed the issue #508 named. It does not delete the branches.
+Merging only part of a stack goes from the bottom: a pull request merges with
+every one below it, and GitHub's documentation says the ones above then
+retarget to the default branch on their own, which has not been tried here yet.
 
 CodeRabbit reviews only pull requests whose base is the default branch, so it
 skips an upper layer (it did on #508). Comment `@coderabbitai review` to ask for
