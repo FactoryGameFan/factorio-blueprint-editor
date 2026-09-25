@@ -28,24 +28,17 @@ the full CI runs on the upper one too. Measured on #508: its push got only the
 Claude review, and linking it started the full CI run within minutes, with no
 new push.
 
-Two things to know when using it from this checkout:
+Link pull requests into a stack bottom to top. Passing a stack's number first
+adds the rest to the top of that stack:
 
-- **Name the repository.** A checkout with an `upstream` remote pointing at
-  teoxoy's original makes `gh stack` look pull requests up there, and it fails
-  with `Could not resolve to a PullRequest with the number of ...`, even for a
-  full URL. Set `GH_REPO` and name the remote:
+```sh
+gh stack link 507 508
+```
 
-    ```sh
-    GH_REPO=FactoryGameFan/factorio-blueprint-editor gh stack link --remote origin 507 508
-    ```
-
-    List the pull requests bottom to top. Passing a stack's number first adds the
-    rest to the top of that stack.
-
-- **Merge from the bottom.** Merging a pull request also merges every one below
-  it, and the ones above retarget to the default branch on their own, per
-  GitHub's documentation. An API merge of a stack needs the asynchronous merge
-  endpoint. Squash merges work as usual.
+Merge from the bottom. Merging a pull request also merges every one below it,
+and the ones above retarget to the default branch on their own, per GitHub's
+documentation. An API merge of a stack needs the asynchronous merge endpoint.
+Squash merges work as usual.
 
 CodeRabbit reviews only pull requests whose base is the default branch, so it
 skips an upper layer (it did on #508). Comment `@coderabbitai review` to ask for
