@@ -836,8 +836,16 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         this.m_BP.history.transaction(undefined, () => {
             // used to write { name: undefined } when clearing, which serialized as an
-            // empty filter object rather than as no filter at all
-            const f = filter === undefined ? undefined : { name: filter }
+            // empty filter object rather than as no filter at all. Quality goes
+            // with the name, the shape the getter reads back, so a pasted filter
+            // keeps it.
+            const quality = filters?.[0]?.quality
+            const f =
+                filter === undefined
+                    ? undefined
+                    : quality === undefined
+                      ? { name: filter }
+                      : { name: filter, quality }
 
             this.m_BP.history
                 .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')

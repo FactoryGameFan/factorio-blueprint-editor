@@ -50,6 +50,19 @@ const BLUEPRINT = encodeBlueprint({
         },
         // An empty machine to paste onto.
         { entity_number: 3, name: 'assembling-machine-3', position: { x: 9.5, y: 1.5 } },
+        /*
+            The splitters sit on a second row, near the left. One drawn toward
+            the right of the screen could not be hovered reliably, on the base
+            branch as well, and a copy that never starts pastes nothing.
+        */
+        {
+            entity_number: 4,
+            name: 'splitter',
+            position: { x: 2, y: 6.5 },
+            output_priority: 'left',
+            filter: { name: 'iron-plate', quality: 'legendary' },
+        },
+        { entity_number: 5, name: 'splitter', position: { x: 6, y: 6.5 } },
     ],
 })
 
@@ -151,4 +164,14 @@ test('pasted modules keep their quality', async ({ page }) => {
         LEGENDARY_SPEED,
         LEGENDARY_SPEED,
     ])
+})
+
+test('a pasted splitter filter keeps its quality', async ({ page }) => {
+    await pasteSettings(page, 4, 5)
+    expect((await exportedEntity(page, 5)).filter).toEqual({
+        name: 'iron-plate',
+        quality: 'legendary',
+    })
+    const badges = await page.evaluate(() => window.__fbe_test.qualityBadgeFrames(5))
+    expect(badges?.map(b => b.quality)).toEqual(['legendary'])
 })
