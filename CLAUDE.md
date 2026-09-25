@@ -10,6 +10,48 @@ The default and deployment branch is `wormeyman-space-age-support`. Branch from
 it and target pull requests at it. Use a descriptive commit subject; put issue
 closing references such as `Closes #123` in the pull request body.
 
+### Stacked pull requests
+
+When one change builds on another that has not merged yet, open it as a
+GitHub stacked pull request rather than a plain pull request against the
+other branch. A stack is a chain: the bottom pull request targets
+`wormeyman-space-age-support`, and each one above targets the branch below it.
+It is a GitHub public preview, driven by the official `gh stack` extension
+(`gh extension install github/gh-stack`). The first stack here was #507 and
+#508.
+
+The reason is CI. `ci.yml` runs only for pull requests whose base is the
+default branch, so a plain pull request on top of another one gets the Claude
+review and nothing else - no checks and no Playwright - until the one below
+merges and someone retargets it by hand. Once the two are linked into a stack,
+the full CI runs on the upper one too. Measured on #508: its push got only the
+Claude review, and linking it started the full CI run within minutes, with no
+new push.
+
+Two things to know when using it from this checkout:
+
+- **Name the repository.** A checkout with an `upstream` remote pointing at
+  teoxoy's original makes `gh stack` look pull requests up there, and it fails
+  with `Could not resolve to a PullRequest with the number of ...`, even for a
+  full URL. Set `GH_REPO` and name the remote:
+
+    ```sh
+    GH_REPO=FactoryGameFan/factorio-blueprint-editor gh stack link --remote origin 507 508
+    ```
+
+    List the pull requests bottom to top. Passing a stack's number first adds the
+    rest to the top of that stack.
+
+- **Merge from the bottom.** Merging a pull request also merges every one below
+  it, and the ones above retarget to the default branch on their own, per
+  GitHub's documentation. An API merge of a stack needs the asynchronous merge
+  endpoint. Squash merges work as usual.
+
+CodeRabbit reviews only pull requests whose base is the default branch, so it
+skips an upper layer (it did on #508). Comment `@coderabbitai review` to ask for
+one. Stacks need every branch in this repository, so a pull request from a fork
+cannot join one.
+
 ## Repository layout
 
 - `packages/editor` - blueprint model, PixiJS renderer, controls, and unit tests
