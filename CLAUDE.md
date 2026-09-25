@@ -35,14 +35,16 @@ adds the rest to the top of that stack:
 gh stack link 507 508
 ```
 
-To merge a whole stack, pass its number:
+To merge a whole stack, pass its number. That is the stack's own number,
+which `gh stack link` prints and the stack map shows; it is not a pull request
+or issue number, so `gh pr view` cannot find it:
 
 ```sh
 gh stack merge 510 --yes --squash
 ```
 
 It merges every pull request in one step, all or nothing, and still writes one
-squash commit per pull request - stack #510 landed #507 and #508 as two
+squash commit per pull request - stack 510 landed #507 and #508 as two
 commits, and closed the issue #508 named. It does not delete the branches.
 Merging only part of a stack goes from the bottom: a pull request merges with
 every one below it. GitHub's documentation says the lowest pull request left
