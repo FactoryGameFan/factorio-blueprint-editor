@@ -878,8 +878,21 @@ export class Entity extends EventEmitter<EntityEvents> {
     private get inserterFilters(): IFilter[] | undefined {
         return this.m_rawEntity.filters
     }
-    private set inserterFilters(filters: IFilter[] | undefined) {
-        if (filters === undefined && this.m_rawEntity.filters === undefined) return
+    private set inserterFilters(_filters: IFilter[] | undefined) {
+        if (_filters === undefined && this.m_rawEntity.filters === undefined) return
+
+        /*
+            The filter dialog sends every slot back when one changes, with its
+            index, name and count and nothing else. A slot still holding the
+            same item keeps the quality and comparator the dialog cannot show,
+            the same rule `logisticChestFilters` follows: what the incoming
+            filter carries still wins.
+        */
+        const held = this.m_rawEntity.filters ?? []
+        const filters = _filters?.map(f => {
+            const before = held.find(h => h.index === f.index && h.name === f.name)
+            return before === undefined ? f : { ...before, ...f }
+        })
         if (util.areArraysEquivalent(filters, this.m_rawEntity.filters)) return
 
         this.m_BP.history

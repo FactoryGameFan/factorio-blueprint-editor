@@ -63,6 +63,16 @@ const BLUEPRINT = encodeBlueprint({
             filter: { name: 'iron-plate', quality: 'legendary' },
         },
         { entity_number: 5, name: 'splitter', position: { x: 6, y: 6.5 } },
+        {
+            entity_number: 6,
+            name: 'fast-inserter',
+            position: { x: 9.5, y: 6.5 },
+            use_filters: true,
+            filters: [
+                { index: 1, name: 'iron-plate', quality: 'legendary' },
+                { index: 2, name: 'copper-plate', quality: 'rare', comparator: '>' },
+            ],
+        },
     ],
 })
 
@@ -174,4 +184,21 @@ test('a pasted splitter filter keeps its quality', async ({ page }) => {
     })
     const badges = await page.evaluate(() => window.__fbe_test.qualityBadgeFrames(5))
     expect(badges?.map(b => b.quality)).toEqual(['legendary'])
+})
+
+test('changing one inserter filter keeps the quality of the others', async ({ page }) => {
+    // What the filter dialog sends: every slot's index, name and count, with
+    // no quality, because it has no way to show one.
+    await page.evaluate(() =>
+        window.__fbe_test.setEntityFilters(6, [
+            { index: 1, name: 'iron-plate', count: undefined },
+            { index: 2, name: 'copper-plate', count: undefined },
+            { index: 3, name: 'coal', count: undefined },
+        ])
+    )
+    expect((await exportedEntity(page, 6)).filters).toEqual([
+        { index: 1, name: 'iron-plate', quality: 'legendary' },
+        { index: 2, name: 'copper-plate', quality: 'rare', comparator: '>' },
+        { index: 3, name: 'coal' },
+    ])
 })
