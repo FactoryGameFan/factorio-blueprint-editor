@@ -182,6 +182,14 @@ FBE_BASE_URL=http://localhost:8090 npx playwright test
 The sprite server must stay on 8081 because Vite's development proxy targets
 that port. Run `npx playwright install` after changing `@playwright/test`.
 
+When 8081 is VS Code forwarding from the devcontainer, a full local run loses
+random specs to a timeout in `waitForEditor`, with the page on its loading
+screen. That is not the code under test: through Vite's `/data` proxy, about 1
+request in 7 gets its `200` and then no body, while requests straight to 8081
+all complete (#514). Check with `curl` through the proxy before blaming a
+change, and take the full-suite result from inside the devcontainer or from
+CI.
+
 ### Devcontainer
 
 `.devcontainer/devcontainer.json` builds a Linux container that runs
