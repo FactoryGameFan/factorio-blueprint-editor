@@ -248,7 +248,8 @@ const ROWS = 2
  */
 interface HoverText {
     name: string
-    action?: string
+    /** The actions whose keybinds the text shows, in order. */
+    actions?: readonly string[]
 }
 
 interface Cell {
@@ -299,9 +300,8 @@ export class ShortcutBar extends Panel {
     }
 
     private showHoverText(slot: Container, hover: HoverText): void {
-        const keyCombo =
-            hover.action === undefined ? undefined : G.actions.get(hover.action)?.keyCombo
-        this.hoverLabel.text = withKeybind(hover.name, keyCombo)
+        const keyCombos = (hover.actions ?? []).map(a => G.actions.get(a)?.keyCombo)
+        this.hoverLabel.text = withKeybind(hover.name, keyCombos)
 
         const width = Math.ceil(this.hoverLabel.width) + 16
         const height = Math.ceil(this.hoverLabel.height) + 10
@@ -365,7 +365,13 @@ export class ShortcutBar extends Panel {
         )
 
         const cells: Cell[] = [
-            { slot: altSlot, hover: { name: 'Toggle "Alt-mode"', action: 'showInfo' } },
+            {
+                slot: altSlot,
+                hover: {
+                    name: 'Toggle "Alt-mode"',
+                    actions: ['showInfo', 'showInfoRight'],
+                },
+            },
             { slot: new WireSlot(WIRES[0], 'copper-wire'), hover: { name: 'Make copper wire' } },
             {
                 slot: new ActionSlot('import-string', () => G.UI.toggleImportDialog()),
@@ -379,15 +385,15 @@ export class ShortcutBar extends Panel {
             { slot: new WireSlot(WIRES[2], 'green-wire'), hover: { name: 'Make green wire' } },
             {
                 slot: new ActionSlot('undo', () => G.bp.history.undo()),
-                hover: { name: 'Undo', action: 'undo' },
+                hover: { name: 'Undo', actions: ['undo'] },
             },
             {
                 slot: new ActionSlot('redo', () => G.bp.history.redo()),
-                hover: { name: 'Redo', action: 'redo' },
+                hover: { name: 'Redo', actions: ['redo'] },
             },
             {
                 slot: new ActionSlot('export-image', () => G.quickActions.exportImage()),
-                hover: { name: 'Export image', action: 'takePicture' },
+                hover: { name: 'Export image', actions: ['takePicture'] },
             },
         ]
 

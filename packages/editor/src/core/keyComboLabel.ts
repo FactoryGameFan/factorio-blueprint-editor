@@ -73,8 +73,23 @@ export function keyComboLabel(keyCombo: string): string {
 
 /**
  * A button's hover text: its name, then its keybind in brackets when it has
- * one, which is the locale's `inline-keybind-format`, `__1__ (__2__)`.
+ * one, which is the locale's `inline-keybind-format`, `__1__ (__2__)`. A
+ * button that more than one action triggers, such as Alt with its left and
+ * right keys, lists each bound combo, joined with "or" as the locale words
+ * its own lists of alternatives.
+ *
+ * The letters are the key's position on a US QWERTY keyboard, not what is
+ * printed on it. Actions match `KeyboardEvent.code`, which names the physical
+ * key, so on a German keyboard the Undo box says Control + Z while the key
+ * that works is the one printed Y. Showing the printed letter would need
+ * `navigator.keyboard.getLayoutMap()`, which only Chromium has.
  */
-export function withKeybind(name: string, keyCombo: string | undefined): string {
-    return keyCombo ? `${name} (${keyComboLabel(keyCombo)})` : name
+export function withKeybind(
+    name: string,
+    keyCombos: string | undefined | readonly (string | undefined)[]
+): string {
+    const bound = (Array.isArray(keyCombos) ? keyCombos : [keyCombos]).filter(
+        (c): c is string => !!c
+    )
+    return bound.length ? `${name} (${bound.map(keyComboLabel).join(' or ')})` : name
 }

@@ -42,5 +42,16 @@ describe('withKeybind', () => {
 
     it('leaves the name alone for a button with no keybind', () => {
         expect(withKeybind('Import string', undefined)).toBe('Import string')
+        expect(withKeybind('Import string', [])).toBe('Import string')
+    })
+
+    it('lists every bound combo for a button with more than one action', () => {
+        expect(withKeybind('Toggle "Alt-mode"', ['AltLeft', 'AltRight'])).toBe(
+            'Toggle "Alt-mode" (Left Alt or Right Alt)'
+        )
+        // An action with no keybind is left out rather than shown empty.
+        expect(withKeybind('Toggle "Alt-mode"', ['AltLeft', undefined])).toBe(
+            'Toggle "Alt-mode" (Left Alt)'
+        )
     })
 })

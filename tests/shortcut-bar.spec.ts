@@ -147,7 +147,7 @@ async function nextFrames(page: import('@playwright/test').Page): Promise<void> 
 }
 
 const HOVER_TEXTS: [col: number, row: number, text: string][] = [
-    [0, 0, 'Toggle "Alt-mode" (Left Alt)'],
+    [0, 0, 'Toggle "Alt-mode" (Left Alt or Right Alt)'],
     [0, 1, 'Make copper wire'],
     [1, 0, 'Import string'],
     [1, 1, 'Make red wire'],
@@ -192,7 +192,7 @@ test('each button names itself and its keybind on hover, and follows a rebind (#
     await hover(3, 0)
     await expect.poll(hoverText).toBe('Undo (Control + Shift + U)')
     await hover(0, 0)
-    await expect.poll(hoverText).toBe('Toggle "Alt-mode" (T)')
+    await expect.poll(hoverText).toBe('Toggle "Alt-mode" (T or Right Alt)')
 })
 
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
