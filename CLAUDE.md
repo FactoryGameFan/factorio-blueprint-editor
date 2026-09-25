@@ -156,8 +156,8 @@ the host, and the Playwright suite passed, including the two canvas specs that
 fail under WSL (see below). The one exception came from memory, not from the
 container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
 Chromium's renderer, at about 1.5 GB, during the large-paste test in
-`tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
-chase. That run predates the switch from the Rust devcontainer feature to
+`shortcut-bar.spec.ts`. That test passed when run alone, so it is not a flake
+to chase. That run predates the switch from the Rust devcontainer feature to
 `.devcontainer/Dockerfile`, and has not been repeated on the current image.
 
 It does not do two things:

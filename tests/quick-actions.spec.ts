@@ -15,7 +15,7 @@ import {
 
 /*
     First coverage of `QuickActions` (packages/editor/src/common/globals.ts) -
-    the bridge ToolsPanel's quick-action buttons and ImportDialog/ExportDialog
+    the bridge ShortcutBar's quick-action buttons and ImportDialog/ExportDialog
     use to reach website-level clipboard/file logic (PR #221 review, then
     #242's re-review of the recreated PR). Nothing under tests/ named
     ImportDialog, importReplace/importAppend, or exportString/exportImage
@@ -326,7 +326,7 @@ test('Escape closes ImportDialog and ExportDialog even while the textarea has fo
         <input>/<textarea> is the event target (`e.target instanceof
         HTMLTextAreaElement`), so the app-level `closeWindow` action never
         ran and neither dialog had any way to close via keyboard once its
-        field was focused - clicking the ToolsPanel slot again, or clicking
+        field was focused - clicking the ShortcutBar slot again, or clicking
         the canvas first to blur, were the only exits (#242 review).
     */
     await openImportDialog(page)
@@ -481,7 +481,7 @@ test('ImportDialog and ExportDialog can be open at once, and each helper still f
         Nothing stops both being open together - `toggleImportDialog`/
         `toggleExportDialog` (UIContainer.ts) each track their own dialog
         independently. `cssText !== ''` used to be how both this spec and
-        tools-panel.spec.ts told the two textareas apart, and it matched
+        shortcut-bar.spec.ts told the two textareas apart, and it matched
         every TextInput equally (TextInput's constructor sets several inline
         styles on all of them), so with two on the page a bare `.find()`
         silently picked whichever the DOM happened to list first (#242

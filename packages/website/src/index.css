@@ -188,7 +188,7 @@ html {
 /*
     The one-time star prompt. It sits under #buttons' GitHub tab, in the
     corner the chrome already owns, and not in the toast column: a toast is
-    click-through over the ToolsPanel (issue #228), and this one needs a live
+    click-through over the ShortcutBar (issue #228), and this one needs a live
     link and button (issue #430). `top` is #buttons' 80px plus the 35px tab
     and a 10px gap. Nothing of the editor's own UI is drawn here - the panels
     sit along the bottom and top right.
@@ -297,7 +297,7 @@ html {
         Issue #228. The canvas fills the window, so this column sits on top of
         whatever panel UI occupies the bottom right - measured at 1280x720, a
         settled toast spans the container's full 320px and covers five of the
-        nine ToolsPanel slots. Inherited by the toasts themselves, which is the
+        nine ShortcutBar slots. Inherited by the toasts themselves, which is the
         point: putting it on the container alone would only clear the roughly
         21px of margin between them.
     */

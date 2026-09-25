@@ -17,7 +17,7 @@ export type Logger = (msg: ILogMessage) => void
 /**
  * The clipboard/file actions that only ever existed as keyboard shortcuts -
  * paste to replace, Ctrl+Shift+V to append, Ctrl+S for an image - exposed so
- * ToolsPanel's quick-action buttons can trigger the exact same website-level
+ * ShortcutBar's quick-action buttons can trigger the exact same website-level
  * logic a key press does, rather than the editor package reaching for
  * `navigator.clipboard`/`saveBlob` itself.
  *
@@ -25,7 +25,7 @@ export type Logger = (msg: ILogMessage) => void
  * still calls the website's own local copy of it directly (packages/website/
  * src/index.ts's `copy` listener), but nothing in the editor package has a
  * one-click "copy the string" action of its own to trigger it from -
- * ToolsPanel's Export slot opens ExportDialog instead, the same
+ * ShortcutBar's Export slot opens ExportDialog instead, the same
  * dialog-over-raw-clipboard choice ImportDialog made for Replace/Append. A
  * member here that nothing in this package ever calls is a dead one.
  */
@@ -34,7 +34,7 @@ export interface QuickActions {
     selectBookEntry: (index: number) => Promise<void>
     /**
      * Reads the OS clipboard when `source` is omitted - a key press or a
-     * ToolsPanel button - or uses `source` directly, which is what
+     * ShortcutBar button - or uses `source` directly, which is what
      * ImportDialog's textarea passes instead of going through the
      * clipboard at all. Resolves `true` on a successful load and `false`
      * after a failure the website's own implementation has already reported

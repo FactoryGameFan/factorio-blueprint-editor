@@ -15,7 +15,7 @@ import {
 } from '../packages/editor/src/UI/controls/DescribedButton'
 
 /*
-    ToolsPanel (#221 review, then #242). Three things the review asked to be
+    ShortcutBar (#221 review, then #242). Three things the review asked to be
     pinned down, none of which any other spec touches: ImportDialog's
     textarea used to truncate a pasted blueprint string, the panel used to
     run off the right edge of a narrow viewport, and Replace's own click
@@ -49,7 +49,7 @@ function largestBlueprintFile(): BlueprintFile {
     const files = discoverBlueprintFiles()
     if (files.length === 0) {
         throw new Error(
-            'tools-panel.spec.ts: discoverBlueprintFiles() found no test-blueprints/ corpus - ' +
+            'shortcut-bar.spec.ts: discoverBlueprintFiles() found no test-blueprints/ corpus - ' +
                 'this spec needs one to pick its largest file from.'
         )
     }
@@ -65,16 +65,27 @@ test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
 })
 
-test('ALT label is black on amber and white on grey (#429)', async ({ page }) => {
+/*
+    The Alt icon is the game's dark ink, 0x1d1d1d, on the game's grey shortcut
+    button, 0x8c8c8c, and on its amber selected button, 0xf1be64, while Alt is
+    on (#429, #505). The icon is baked with antialiasing, so its colours are
+    matched to within a few steps rather than exactly; the ink still has
+    solid pixels in the middle of the bar.
+
+    The clip is the inside of the icon's bar, so the only face colour in it
+    shows through the letters cut out of the bar. A bar drawn without them
+    fails here.
+*/
+test('Alt icon keeps its dark ink on grey and on amber (#429)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
-    const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
+    const bounds = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
     const x = bounds.x + 12
     const y = bounds.y + 12
     const expectColors = async (foreground: number[], background: number[]) => {
         await expect
             .poll(async () => {
                 const png = await page.screenshot({
-                    clip: { x: x + 4, y: y + 8, width: 28, height: 20 },
+                    clip: { x: x + 7, y: y + 14, width: 22, height: 8 },
                 })
                 return page.evaluate(
                     async ({ data, foreground, background }) => {
@@ -90,7 +101,11 @@ test('ALT label is black on amber and white on grey (#429)', async ({ page }) =>
                         const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
                         return [foreground, background].every(color => {
                             for (let i = 0; i < pixels.length; i += 4) {
-                                if (color.every((channel, j) => pixels[i + j] === channel))
+                                if (
+                                    color.every(
+                                        (channel, j) => Math.abs(pixels[i + j] - channel) <= 3
+                                    )
+                                )
                                     return true
                             }
                             return false
@@ -102,14 +117,15 @@ test('ALT label is black on amber and white on grey (#429)', async ({ page }) =>
             .toBe(true)
     }
 
-    await expectColors([0, 0, 0], [241, 190, 100])
+    const ink = [29, 29, 29]
+    await expectColors(ink, [241, 190, 100])
     await page.keyboard.press('AltLeft')
-    await expectColors([255, 255, 255], [100, 100, 100])
+    await expectColors(ink, [140, 140, 140])
     await page.mouse.click(x + 18, y + 18)
     await page.mouse.move(640, 360)
-    await expectColors([0, 0, 0], [241, 190, 100])
+    await expectColors(ink, [241, 190, 100])
     await page.keyboard.press('AltLeft')
-    await expectColors([255, 255, 255], [100, 100, 100])
+    await expectColors(ink, [140, 140, 140])
 })
 
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
@@ -184,9 +200,9 @@ test('typing job control: a large paste actually loads through Replace, not just
     expect(out.length).toBeGreaterThan(2 ** 20)
 })
 
-test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) => {
+test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) => {
     /*
-        Below ~866px (see ToolsPanel.ts's setPosition doc comment) the
+        Below ~866px (see ShortcutBar.ts's setPosition doc comment) the
         unclamped position runs the panel off the right edge entirely. 800px
         is inside that range and still a real desktop width, not an extreme
         this project's UI otherwise ignores - mobile gets a different,
@@ -213,14 +229,14 @@ test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) =
     await expect
         .poll(() =>
             page.evaluate(() => {
-                const b = window.__fbe_test.toolsPanelBounds()
+                const b = window.__fbe_test.shortcutBarBounds()
                 return b.x >= 0 && b.x + b.width <= 800
             })
         )
         .toBe(true)
 })
 
-test('ToolsPanel does not run off the left edge below its own width (#242 review)', async ({
+test('ShortcutBar does not run off the left edge below its own width (#242 review)', async ({
     page,
 }) => {
     /*
@@ -236,5 +252,5 @@ test('ToolsPanel does not run off the left edge below its own width (#242 review
     */
     await page.setViewportSize({ width: 150, height: 720 })
 
-    await expect.poll(() => page.evaluate(() => window.__fbe_test.toolsPanelBounds().x)).toBe(0)
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.shortcutBarBounds().x)).toBe(0)
 })

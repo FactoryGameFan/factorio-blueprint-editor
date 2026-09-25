@@ -3,7 +3,7 @@ import { Dialog } from './controls/Dialog'
 import { TextInput } from './controls/TextInput'
 import { addDescribedButton, ROW_BUTTON_HEIGHT } from './controls/DescribedButton'
 
-// Exported for tests - tests/tools-panel.spec.ts and tests/quick-actions.spec.ts
+// Exported for tests - tests/shortcut-bar.spec.ts and tests/quick-actions.spec.ts
 // both used to carry their own hand-copied version of this layout as bare
 // literals (#242 review), which a change here could silently desync from
 // either without anything failing at the source of the change.
@@ -34,7 +34,7 @@ export const PLACEHOLDER = 'Paste a blueprint string here...'
 const IMPORT_FIELD_COLOR = 0xf0d9ab
 
 /**
- * A textarea alternative to ToolsPanel's one-click import buttons, for a
+ * A textarea alternative to ShortcutBar's one-click import buttons, for a
  * browser that blocks `navigator.clipboard`, or a string being hand-edited
  * rather than pasted whole.
  *
@@ -74,7 +74,7 @@ export class ImportDialog extends Dialog {
             `closeWindow` action (and `Dialog.closeLast()` behind it) never
             runs, and Dialog itself draws no close button. Without this, the
             only way out of the dialog's own primary flow - paste a string,
-            change your mind - is clicking the ToolsPanel slot again or
+            change your mind - is clicking the ShortcutBar slot again or
             clicking the canvas first to blur.
         */
         this.m_TextInput.htmlInput.addEventListener('keydown', e => {
@@ -154,7 +154,7 @@ export class ImportDialog extends Dialog {
         action(text)
             .then(success => {
                 // The dialog may already be gone by the time this resolves -
-                // closed by Escape, or by the ToolsPanel slot toggling it
+                // closed by Escape, or by the ShortcutBar slot toggling it
                 // again - and Dialog.close() is not safe to call twice.
                 if (success && Dialog.isOpen(this)) this.close()
             })

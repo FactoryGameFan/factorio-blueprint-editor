@@ -1,11 +1,117 @@
-import { Container, Graphics, Text } from 'pixi.js'
-import FD from '../core/factorioData'
+import { Container, Graphics, Rectangle, Sprite } from 'pixi.js'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
+import {
+    PathSegment,
+    SHORTCUT_ICON_FRAME,
+    ShortcutIconName,
+    shortcutIcon,
+} from '../core/shortcutIcons'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
-import F from './controls/functions'
-import { colors, styles } from './style'
+import { colors } from './style'
+
+/** The icon's drawn size inside a 36 px slot, the size every other slot icon uses. */
+const ICON_SIZE = 32
+const SUPERSAMPLE = 4
+
+/*
+    The game's shortcut button face, read off `__core__/graphics/gui-new.png`
+    at the `slot_sized_button` position. The game's icons are dark ink made
+    for this lighter grey: on the editor's usual 0x646464 slot the ink reads
+    at 2.85:1, and here at 5.0:1.
+*/
+const SHORTCUT_BUTTON_COLOR = 0x8c8c8c
+
+/*
+    Arcs are traced as short lines rather than with `Graphics.arc`. Pixi's arc
+    adds its start point even when the pen is already there, and a stroke
+    divides by that zero-length step: measured, it cut a wedge out of the
+    outer edge of each wire's ring. `lineTo` skips a repeated point. A full
+    circle leaves off its last point, which is its first, and `close` joins
+    the two.
+*/
+const ARC_STEP_DEGREES = 3
+
+function tracePath(g: Graphics, path: readonly PathSegment[]): void {
+    for (const s of path) {
+        switch (s.op) {
+            case 'move':
+                g.moveTo(s.x, s.y)
+                break
+            case 'line':
+                g.lineTo(s.x, s.y)
+                break
+            case 'arc': {
+                const sweep = s.to - s.from
+                const steps = Math.ceil(Math.abs(sweep) / ARC_STEP_DEGREES)
+                const last = Math.abs(sweep) >= 360 ? steps - 1 : steps
+                for (let i = 0; i <= last; i++) {
+                    const a = ((s.from + (sweep * i) / steps) * Math.PI) / 180
+                    g.lineTo(s.cx + s.r * Math.cos(a), s.cy + s.r * Math.sin(a))
+                }
+                break
+            }
+            case 'close':
+                g.closePath()
+                break
+        }
+    }
+}
+
+/**
+ * Draws one of `core/shortcutIcons.ts`'s icons, centred on its own origin.
+ *
+ * Baked to a texture, because the editor's canvas has antialiasing off and a
+ * bare `Graphics` at 32 px shows stair steps on every curve. The texture is
+ * drawn at `SUPERSAMPLE` times the screen pixels the icon covers and read
+ * back down through its mipmaps, which smooths the edges the way the game's
+ * own downscaled icon art is smooth. It is freed with the sprite.
+ */
+function createShortcutIcon(name: ShortcutIconName): Sprite {
+    const g = new Graphics()
+    for (const shape of shortcutIcon(name)) {
+        tracePath(g, shape.path)
+        if (shape.kind === 'fill') {
+            g.fill(shape.color)
+            /*
+                All holes go in one `cut()`. Pixi 8's `cut()` adds a hole to
+                the last fill and, when that fill already has one, to the fill
+                before it as well, so a second call would punch the previous
+                shape too.
+            */
+            if (shape.holes?.length) {
+                for (const hole of shape.holes) tracePath(g, hole)
+                g.cut()
+            }
+        } else {
+            g.stroke({ width: shape.width, color: shape.color, cap: 'butt', join: 'miter' })
+        }
+    }
+    const scale = ICON_SIZE / SHORTCUT_ICON_FRAME
+    const texture = G.app.renderer.generateTexture({
+        target: g,
+        frame: new Rectangle(0, 0, SHORTCUT_ICON_FRAME, SHORTCUT_ICON_FRAME),
+        resolution: SUPERSAMPLE * scale * G.app.renderer.resolution,
+        antialias: true,
+        textureSourceOptions: { scaleMode: 'linear', autoGenerateMipmaps: true },
+    })
+    g.destroy()
+
+    const icon = new Sprite(texture)
+    icon.label = `shortcut-icon:${name}`
+    icon.anchor.set(0.5)
+    icon.scale.set(scale)
+    icon.once('destroyed', () => texture.destroy(true))
+    return icon
+}
+
+/** A slot with the game's shortcut button colour, so the icons read the way they do in game. */
+class ShortcutSlot<Data> extends Slot<Data> {
+    protected override get background(): number {
+        return SHORTCUT_BUTTON_COLOR
+    }
+}
 
 /*
     Slot<string>, not the Slot<string | undefined> QuickbarSlot uses. The two
@@ -14,10 +120,10 @@ import { colors, styles } from './style'
     same breath below, and there are exactly three of them for as long as the
     panel exists. Nothing ever clears one.
 */
-class WireSlot extends Slot<string> {
-    public constructor(wireName: string) {
+class WireSlot extends ShortcutSlot<string> {
+    public constructor(wireName: string, icon: ShortcutIconName) {
         super(wireName)
-        this.content = F.SafeIcon(wireName, () => F.CreateIcon(wireName))
+        this.content = createShortcutIcon(icon)
 
         this.on('pointerdown', e => {
             if (e.button !== 0) return
@@ -44,29 +150,22 @@ class WireSlot extends Slot<string> {
  * see `QuickActions` in common/globals.ts for why the click reaches
  * `navigator.clipboard`/`saveBlob` through there rather than directly.
  */
-class ActionSlot extends Slot<undefined> {
-    public constructor(icon: Container, onClick: () => void) {
+class ActionSlot extends ShortcutSlot<undefined> {
+    public constructor(icon: ShortcutIconName, onClick: () => void) {
         super(undefined)
-        this.content = icon
+        this.content = createShortcutIcon(icon)
         this.on('pointerdown', e => {
             if (e.button === 0) onClick()
         })
     }
 }
 
-/**
- * A text-labelled slot, for Alt - there is no "ALT"-shaped icon anywhere in
- * vanilla Factorio's sprites, since the game spells its own key hints out as
- * text rather than drawing them (see ToolsPanel's `generateSlots` doc for the
- * icons that do exist).
- */
-function createTextIcon(text: string): Container {
-    const label = new Text({ text, style: styles.controls.checkbox.clone() })
-    label.style.fill = 0xffffff
-    label.anchor.set(0.5)
-    return label
-}
-
+/*
+    The game's selected shortcut button, from the same sheet as
+    `SHORTCUT_BUTTON_COLOR`. The Alt icon is one colour of dark ink, so it
+    needs no tint to read on either face - 5.0:1 on grey and 9.9:1 here. The
+    fill alone shows that Alt is on, as it does in the game.
+*/
 const ALT_ACTIVE_COLOR = 0xf1be64
 
 /**
@@ -136,21 +235,13 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 */
 const ROWS = 2
 
-/*
-    `safeIcon` used to live here. It is `F.SafeIcon` now, in
-    `controls/functions.ts` beside the two throwing icon builders it guards,
-    because `DisplayPanelEditor` needs the same guard for an icon a blueprint
-    names rather than one this file hardcodes (issue #280). Moved rather than
-    copied - what it does is unchanged, and its doc comment moved with it.
-*/
-
-export class ToolsPanel extends Panel {
+export class ShortcutBar extends Panel {
     private slotsContainer: Container
     private altHighlightTick: (() => void) | undefined
     public static Wires = WIRES
 
     public constructor() {
-        const initialCells = ToolsPanel.buildCells()
+        const initialCells = ShortcutBar.buildCells()
         const cols = Math.ceil(initialCells.cells.length / ROWS)
         super(
             24 + 38 * cols - 2,
@@ -187,16 +278,9 @@ export class ToolsPanel extends Panel {
      * dialog would have anything to show. Undo/Redo (Ctrl+Z/Ctrl+Y) call
      * `G.bp.history` directly, the same as their keybinds in Editor.ts -
      * unlike the clipboard/file actions, undoing a change needs nothing
-     * outside the editor package. Import/Export/Undo/Redo/export-image use
-     * the game's own GUI sprites and signal icons -
-     * `signal-anticlockwise-circle-arrow`/`signal-clockwise-circle-arrow`, a
-     * Space Age virtual signal, is the only "undo"/"redo"-shaped icon
-     * anywhere in vanilla Factorio's data, item or utility sprite alike, and
-     * `downloading` (a mip GUI icon, hence `CreateUtilitySpriteIcon` reading
-     * `size` as well as `width`/`height`) reads as "save this out" more than
-     * the blueprint icon it replaced did. Alt has no icon anywhere in the
-     * game's data at all, since the game spells its own key hints out as
-     * text.
+     * outside the editor package. Every icon is a vector from
+     * `core/shortcutIcons.ts`, traced from the game's own shortcut art where
+     * the game has a shortcut.
      *
      * Pure - builds and wires every cell fresh but touches nothing on `this`,
      * so the constructor can call it once before `super()` (cells aren't
@@ -206,72 +290,43 @@ export class ToolsPanel extends Panel {
      * point, calls it again for its own single fresh build.
      */
     private static buildCells(): { cells: Container[]; altSlot: ActionSlot } {
-        const altSlot = new ActionSlot(createTextIcon('ALT'), () =>
+        const altSlot = new ActionSlot('alt-mode', () =>
             G.BPC.overlayContainer.toggleEntityInfoVisibility()
         )
 
         const cells: Container[] = [
             altSlot,
-            new WireSlot(WIRES[0]),
-            new ActionSlot(
-                F.SafeIcon('import_slot', () =>
-                    F.CreateUtilitySpriteIcon(FD.utilitySprites.import_slot)
-                ),
-                () => G.UI.toggleImportDialog()
-            ),
-            new WireSlot(WIRES[1]),
-            new ActionSlot(
-                F.SafeIcon('export_slot', () =>
-                    F.CreateUtilitySpriteIcon(FD.utilitySprites.export_slot)
-                ),
-                () => G.UI.toggleExportDialog()
-            ),
-            new WireSlot(WIRES[2]),
-            new ActionSlot(
-                F.SafeIcon('signal-anticlockwise-circle-arrow', () =>
-                    F.CreateIcon('signal-anticlockwise-circle-arrow')
-                ),
-                () => G.bp.history.undo()
-            ),
-            new ActionSlot(
-                F.SafeIcon('signal-clockwise-circle-arrow', () =>
-                    F.CreateIcon('signal-clockwise-circle-arrow')
-                ),
-                () => G.bp.history.redo()
-            ),
-            new ActionSlot(
-                F.SafeIcon('downloading', () =>
-                    F.CreateUtilitySpriteIcon(FD.utilitySprites.downloading)
-                ),
-                () => G.quickActions.exportImage()
-            ),
+            new WireSlot(WIRES[0], 'copper-wire'),
+            new ActionSlot('import-string', () => G.UI.toggleImportDialog()),
+            new WireSlot(WIRES[1], 'red-wire'),
+            new ActionSlot('export-string', () => G.UI.toggleExportDialog()),
+            new WireSlot(WIRES[2], 'green-wire'),
+            new ActionSlot('undo', () => G.bp.history.undo()),
+            new ActionSlot('redo', () => G.bp.history.redo()),
+            new ActionSlot('export-image', () => G.quickActions.exportImage()),
         ]
 
         return { cells, altSlot }
     }
 
     /**
-     * Re-callable: clears whatever `slotsContainer` currently holds - and
-     * calls `destroy()` on each removed child, since `removeChildren()`
-     * alone only detaches - before placing a freshly built set, and replaces
-     * the ticker rather than accumulating a second one. Bare `destroy()`
-     * with no options does not cascade to a child's own children, only to
-     * the immediate container (pixi's own `Container.destroy` doc comment,
-     * `{children: true, texture: true, textureSource: true}` is what
-     * reaches further) - a claim this used to make and got wrong (#242
-     * review) - so each slot's own icon `Sprite`/texture is not released
-     * here; only the slot container itself is. Nothing calls this a second
-     * time today, but nothing should have to trust that either -
-     * `QuickbarPanel.generateSlots` is the precedent this mirrors, for
-     * row-count changes.
+     * Re-callable: clears whatever `slotsContainer` currently holds and
+     * destroys each removed child, since `removeChildren()` alone only
+     * detaches, before placing a freshly built set, and replaces the ticker
+     * rather than accumulating a second one. The destroy cascades to each
+     * slot's children, because a bare `destroy()` stops at the slot itself
+     * (#242 review) and each slot's icon sprite owns a baked texture that it
+     * frees only when it is destroyed. Nothing calls this a second time today,
+     * but nothing should have to trust that either - `QuickbarPanel.generateSlots`
+     * is the precedent this mirrors, for row-count changes.
      */
     public generateSlots(): void {
-        this.placeCells(ToolsPanel.buildCells())
+        this.placeCells(ShortcutBar.buildCells())
     }
 
     private placeCells({ cells, altSlot }: { cells: Container[]; altSlot: ActionSlot }): void {
         for (const child of this.slotsContainer.removeChildren()) {
-            child.destroy()
+            child.destroy({ children: true })
         }
 
         /*
@@ -288,9 +343,6 @@ export class ToolsPanel extends Panel {
         const altHighlight = addToggleHighlight(altSlot, ALT_ACTIVE_COLOR)
         this.altHighlightTick = () => {
             altHighlight.visible = G.BPC.overlayContainer.entityInfoVisible
-            if (altSlot.content) {
-                altSlot.content.tint = altHighlight.visible ? 0x000000 : 0xffffff
-            }
         }
         G.app.ticker.add(this.altHighlightTick)
 

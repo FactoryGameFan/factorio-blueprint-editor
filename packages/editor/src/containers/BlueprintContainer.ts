@@ -32,7 +32,7 @@ import { PaintWireContainer } from './PaintWireContainer'
 import { Axis, IllegalFlipError, PaintContainer } from './PaintContainer'
 import { PaintBlueprintContainer } from './PaintBlueprintContainer'
 import { GridData } from './GridData'
-import { ToolsPanel } from '../UI/ToolsPanel'
+import { ShortcutBar } from '../UI/ShortcutBar'
 
 export enum GridPattern {
     CHECKER = 'checker',
@@ -1685,7 +1685,7 @@ export class BlueprintContainer extends Container {
                     throw new UnplaceableItemError(`Item data not found: ${itemNameOrEntities}`)
 
                 const wireResult =
-                    ToolsPanel.Wires.includes(itemNameOrEntities) && itemNameOrEntities
+                    ShortcutBar.Wires.includes(itemNameOrEntities) && itemNameOrEntities
                 const tileResult = itemData.place_as_tile && itemData.place_as_tile.result
                 const placeResult = itemData.place_result || tileResult || wireResult
 
