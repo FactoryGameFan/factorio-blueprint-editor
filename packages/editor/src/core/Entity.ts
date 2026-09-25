@@ -56,8 +56,8 @@ export interface IFilter {
     count?: number
     /*
         The 2.0 fields this used to drop (issue #88). Optional because the
-        entities sharing this shape do not all have them - a splitter filter is
-        a bare name, and the pre-2.0 migration produces index/name/count - but
+        entities sharing this shape do not all have them - a splitter filter
+        reads back a name and its quality only, and the pre-2.0 migration produces index/name/count - but
         for logistic chests they are the norm rather than the exception: every
         one of the 4069 filters in the corpus carries `quality` and `comparator`
         and 90 carry `max_count`.
@@ -466,6 +466,14 @@ export class Entity extends EventEmitter<EntityEvents> {
         })
     }
 
+    /**
+     * The recipe's quality as the blueprint stores it, undefined when it is left
+     * out. Read-only, like `quality`: drawn as a badge on the recipe icon.
+     */
+    public get recipeQuality(): string | undefined {
+        return this.m_rawEntity.recipe_quality
+    }
+
     /** Recipes this entity can accept */
     public get acceptedRecipes(): string[] {
         const e = this.entityData
@@ -789,8 +797,10 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (typeof this.m_rawEntity.filter === 'string') {
             throw new Error('pre 2.0 format!')
         }
-        if (this.m_rawEntity.filter.name) {
-            return [{ index: 1, name: this.m_rawEntity.filter.name }]
+        const { name, quality } = this.m_rawEntity.filter
+        if (name) {
+            // Quality only when present, so a filter without one reads as before.
+            return [quality === undefined ? { index: 1, name } : { index: 1, name, quality }]
         }
         return []
     }

@@ -242,3 +242,151 @@ for (const quality of ['constructor', 'toString', '__proto__']) {
         })
     })
 }
+
+/*
+    Recipe and filter icons (#503). Measured the same way but read by matching
+    the game's own quality-legendary.png against the screenshot over a range of
+    sizes, which fits to a pixel; see ICON_BADGE_SCALE in qualityBadge.ts. The
+    expected frames are the game's best fits.
+*/
+const filters = (count: number, quality: string) =>
+    ['iron-plate', 'copper-plate', 'iron-gear-wheel', 'steel-plate']
+        .slice(0, count)
+        .map((name, i) => ({ index: i + 1, name, quality, comparator: '=' }))
+
+const ICON_BLUEPRINT = encodeBlueprint({
+    item: 'blueprint',
+    version: VERSION,
+    entities: [
+        {
+            entity_number: 1,
+            name: 'assembling-machine-3',
+            position: { x: 0.5, y: 0.5 },
+            recipe: 'iron-gear-wheel',
+            recipe_quality: 'legendary',
+        },
+        {
+            entity_number: 2,
+            name: 'electromagnetic-plant',
+            position: { x: 10, y: 0 },
+            recipe: 'productivity-module-3',
+            recipe_quality: 'legendary',
+        },
+        ...[1, 2, 3, 4].map(count => ({
+            entity_number: 2 + count,
+            name: 'bulk-inserter',
+            position: { x: 20.5 + 4 * count, y: 0.5 },
+            use_filters: true,
+            filters: filters(count, 'legendary'),
+        })),
+        {
+            entity_number: 7,
+            name: 'splitter',
+            position: { x: 50, y: 0.5 },
+            filter: { name: 'iron-plate', quality: 'legendary' },
+            output_priority: 'right',
+        },
+        {
+            entity_number: 8,
+            name: 'requester-chest',
+            position: { x: 60.5, y: 0.5 },
+            request_filters: {
+                sections: [
+                    {
+                        index: 1,
+                        filters: [
+                            {
+                                index: 1,
+                                name: 'iron-plate',
+                                quality: 'legendary',
+                                comparator: '=',
+                                count: 10,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+        // The control: a recipe and a filter set to normal quality.
+        {
+            entity_number: 9,
+            name: 'assembling-machine-3',
+            position: { x: 70.5, y: 0.5 },
+            recipe: 'iron-gear-wheel',
+            recipe_quality: 'normal',
+        },
+        {
+            entity_number: 10,
+            name: 'bulk-inserter',
+            position: { x: 80.5, y: 0.5 },
+            use_filters: true,
+            filters: filters(1, 'normal'),
+        },
+    ],
+})
+
+test.describe('recipe and filter icons', () => {
+    test.beforeEach(async ({ page }) => {
+        await loadBlueprint(page, ICON_BLUEPRINT)
+    })
+
+    const sorted = async (page: import('@playwright/test').Page, n: number) =>
+        (await frames(page, n)).sort((a, b) => a.y - b.y || a.x - b.x)
+
+    test('a recipe icon gets a badge from recipe_quality', async ({ page }) => {
+        // Game: 0.445 across; top-right on the icon's centre, 0.3 above the machine's.
+        const [am3, ...rest] = await sorted(page, 1)
+        expect(rest).toEqual([])
+        expectFrame(am3, { quality: 'legendary', left: -0.445, bottom: 0.148, size: 0.445 })
+        // Game: 0.453 across, the icon 0.25 above the plant's centre.
+        const [emp, ...rest2] = await sorted(page, 2)
+        expect(rest2).toEqual([])
+        expectFrame(emp, { quality: 'legendary', left: -0.453, bottom: 0.203, size: 0.453 })
+    })
+
+    test('each inserter filter gets a badge, at one to four filters', async ({ page }) => {
+        // Game: 29 px at 128 px per tile, the icons a quarter tile either side of centre.
+        const corners = [
+            [[-0.227, 0.227]],
+            [
+                [-0.477, 0.227],
+                [0.023, 0.227],
+            ],
+            [
+                [-0.477, -0.023],
+                [0.023, -0.023],
+                [-0.477, 0.477],
+            ],
+            [
+                [-0.477, -0.023],
+                [0.023, -0.023],
+                [-0.477, 0.477],
+                [0.023, 0.477],
+            ],
+        ]
+        for (const [i, expected] of corners.entries()) {
+            const got = await sorted(page, 3 + i)
+            expect(got).toHaveLength(expected.length)
+            for (const [j, [left, bottom]] of expected.entries()) {
+                expectFrame(got[j], { quality: 'legendary', left, bottom, size: 0.227 })
+            }
+        }
+    })
+
+    test("a splitter's filter icon gets a badge", async ({ page }) => {
+        // Game: the icon half a tile right of centre, for output priority right.
+        const [f, ...rest] = await sorted(page, 7)
+        expect(rest).toEqual([])
+        expectFrame(f, { quality: 'legendary', left: 0.273, bottom: 0.227, size: 0.227 })
+    })
+
+    test('a requester chest gets no request badge, as in the game', async ({ page }) => {
+        // 2.0.77 drew no request icons on it at all, though the request read back.
+        expect(await frames(page, 8)).toEqual([])
+    })
+
+    test('a normal recipe or filter draws no badge', async ({ page }) => {
+        expect(await frames(page, 9)).toEqual([])
+        expect(await frames(page, 10)).toEqual([])
+    })
+})

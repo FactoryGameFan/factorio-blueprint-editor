@@ -13,6 +13,7 @@ import FD, {
     mapBoundingBox,
 } from '../core/factorioData'
 import {
+    ICON_BADGE_SCALE,
     QUALITY_BADGE_FRAME,
     QUALITY_PIP_RADIUS,
     QUALITY_PIP_STROKE,
@@ -140,7 +141,13 @@ export class OverlayContainer extends Container {
             const shift = spec?.shift ? util.vectorToTuple(spec.shift) : [0, 0]
             const scale = spec?.scale || 1
             const recipeInfo = new Container()
-            createIconWithBackground(recipeInfo, entity.recipe)
+            createIconWithBackground(
+                recipeInfo,
+                entity.recipe,
+                undefined,
+                entity.recipeQuality,
+                ICON_BADGE_SCALE.recipe
+            )
             recipeInfo.scale.set(scale)
             recipeInfo.position.set(shift[0] * 32, shift[1] * 32)
             entityInfo.addChild(recipeInfo)
@@ -308,15 +315,31 @@ export class OverlayContainer extends Container {
                     break
                 }
 
-                createIconWithBackground(filterInfo, filterName, {
-                    x: (i % 2) * 32 - (filters.length === 1 ? 0 : 16),
-                    y: filters.length < 3 ? 0 : (i < 2 ? -1 : 1) * 16,
-                })
+                /*
+                    Only an inserter's filters are badged. A requester or buffer
+                    chest draws no request icons at all in 2.0.77's alt mode, even
+                    with a request that reads back, so there is no badge to copy;
+                    infinity filters were not measured.
+                */
+                createIconWithBackground(
+                    filterInfo,
+                    filterName,
+                    {
+                        x: (i % 2) * 32 - (filters.length === 1 ? 0 : 16),
+                        y: filters.length < 3 ? 0 : (i < 2 ? -1 : 1) * 16,
+                    },
+                    entity.type === 'inserter' ? filters[i].quality : undefined,
+                    ICON_BADGE_SCALE.filter
+                )
             }
+            /*
+                An inserter keeps 0.5 however many filters it has. This shrank
+                to 0.4 past one filter, but 2.0.77 draws two, three and four
+                filters at the same size as one, centred a quarter tile apart:
+                measured from their quality badges, whose corners sit on each
+                icon's centre.
+            */
             let S = 0.5
-            if (entity.type === 'inserter' && filters.length !== 1) {
-                S = 0.4
-            }
             if (entity.type === 'logistic-container' && filters.length === 1) {
                 S = 0.6
             }
@@ -391,7 +414,9 @@ export class OverlayContainer extends Container {
                         util.rotatePointBasedOnDir(
                             { x: entity.splitterOutputPriority === 'right' ? 32 : -32, y: 0 },
                             entity.direction
-                        )
+                        ),
+                        entity.filters[0].quality,
+                        ICON_BADGE_SCALE.filter
                     )
                 }
             } else if (entity.splitterOutputPriority) {
@@ -474,19 +499,22 @@ export class OverlayContainer extends Container {
         /*
             A quality badge goes inside the icon's own container rather than
             beside it, because the swap below assumes `container` holds
-            background and icon pairs. The game puts it at the icon's
-            bottom-left at half the icon's size: measured on an assembler's
-            module row, each badge's frame sat on its icon's corner to within
-            0.03 of a tile.
+            background and icon pairs. Its top-right corner sits on the icon's
+            centre, and `badgeScale` is its size as a fraction of the 32-unit
+            icon - see ICON_BADGE_SCALE. On an assembler's module row, each
+            module badge's frame sat on its icon's corner to within 0.03 of a
+            tile.
         */
         function createIconWithBackground(
             container: Container,
             itemName: string,
             position?: IPoint,
-            quality?: string
+            quality?: string,
+            badgeScale: number = ICON_BADGE_SCALE.module
         ): void {
             const bare = F.CreateIcon(itemName, undefined, true, true)
-            const badge = createQualityBadge(quality, { x: -16, y: 16 }, 16)
+            const badgeSize = 32 * badgeScale
+            const badge = createQualityBadge(quality, { x: -badgeSize, y: badgeSize }, badgeSize)
             const icon = badge ? new Container({ children: [bare, badge] }) : bare
             const background = new Sprite(textureOf(FD.utilitySprites.entity_info_dark_background))
             background.anchor.set(0.5, 0.5)

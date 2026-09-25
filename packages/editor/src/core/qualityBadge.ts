@@ -77,6 +77,19 @@ const STYLES: Readonly<Record<string, QualityBadgeStyle>> = {
     },
 }
 
+/*
+    On an icon, the badge's top-right corner sits on the icon's centre, and its
+    size is a fraction of the icon's: half on a module icon, 0.45 on a recipe or
+    filter icon. Measured in Factorio 2.0.77 at 128 px per tile by matching the
+    game's own quality-legendary.png against the screenshot over a range of
+    sizes. Every recipe and filter badge fitted best at 0.45 of its icon: 0.445
+    and 0.453 tiles on the scale-1 recipe icons of an assembling-machine-3 and
+    an electromagnetic-plant, and 29 px (0.227 tiles) on every scale-0.5 filter
+    icon of a bulk inserter holding one to four filters and of a splitter. Each
+    top-right corner came back on its icon's centre to within 0.005 of a tile.
+*/
+export const ICON_BADGE_SCALE = { module: 0.5, recipe: 0.45, filter: 0.45 } as const
+
 /**
  * The badge for a quality, or undefined for normal, for no quality at all, and
  * for a name this editor does not know - a modded quality has no art here, and
