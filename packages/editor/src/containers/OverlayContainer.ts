@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js'
+import { Container, Graphics, Rectangle, Sprite, Text, TextStyle, Texture } from 'pixi.js'
 import { IPoint } from '../types'
 import FD, {
     getFluidBoxes,
@@ -17,9 +17,23 @@ import util from '../common/util'
 import { Entity } from '../core/Entity'
 import { EditorMode, BlueprintContainer } from './BlueprintContainer'
 import { EntityContainer } from './EntityContainer'
-import { CursorBoxSpecification } from 'factorio:prototype'
 import { Sprite as SpriteData } from 'factorio:prototype'
 import { need } from '../core/need'
+import { drawShapes } from '../common/drawShapes'
+import { ZOOM_MAX } from '../core/zoomLevels'
+import type { IconShape } from '../core/shortcutIcons'
+import {
+    CURSOR_BOX_FRAME,
+    CornerSize,
+    CursorBoxType,
+    OVERLAY_ARROWS,
+    OVERLAY_ARROW_ALPHA,
+    OverlayArrowName,
+    cornerSizeFor,
+    cursorBoxCorner,
+    cursorBoxFull,
+    overlayArrow,
+} from '../core/overlayShapes'
 
 /**
  * Every sprite this file draws is a utility sprite or an entity sprite that the
@@ -30,6 +44,46 @@ import { need } from '../core/need'
  */
 function textureOf(data: SpriteData): ReturnType<typeof G.getTexture> {
     return G.getTexture(need(data, 'filename'), data.x, data.y, data.width, data.height)
+}
+
+/*
+    The arrows and cursor boxes are vectors (#509), baked to a texture on first
+    use and shared by every overlay after that: a few dozen small textures for
+    the life of the page.
+
+    Baked at twice the device pixels the closest zoom needs, then read back
+    down through mipmaps as the view zooms out, the way ShortcutBar bakes its
+    icons. The overlays sit in containers scaled to 0.5, so one unit of a
+    shape is half a world pixel, and ZOOM_MAX screen pixels per world pixel at
+    the closest zoom.
+*/
+const OVERLAY_SUPERSAMPLE = 2
+const overlayTextures = new Map<string, Texture>()
+
+function overlayTexture(key: string, frame: number, shapes: () => readonly IconShape[]): Texture {
+    const cached = overlayTextures.get(key)
+    if (cached) return cached
+    const g = drawShapes(new Graphics(), shapes())
+    const texture = G.app.renderer.generateTexture({
+        target: g,
+        frame: new Rectangle(0, 0, frame, frame),
+        resolution: OVERLAY_SUPERSAMPLE * 0.5 * ZOOM_MAX * G.app.renderer.resolution,
+        antialias: true,
+        textureSourceOptions: { scaleMode: 'linear', autoGenerateMipmaps: true },
+    })
+    g.destroy()
+    overlayTextures.set(key, texture)
+    return texture
+}
+
+function arrowTexture(name: OverlayArrowName): Texture {
+    return overlayTexture(`arrow:${name}`, OVERLAY_ARROWS[name].frame, () => overlayArrow(name))
+}
+
+function cursorBoxTexture(type: CursorBoxType, size: CornerSize | 'full'): Texture {
+    return overlayTexture(`cursor-box:${type}:${size}`, CURSOR_BOX_FRAME, () =>
+        size === 'full' ? cursorBoxFull(type) : cursorBoxCorner(type, size)
+    )
 }
 
 export class OverlayContainer extends Container {
@@ -435,17 +489,18 @@ export class OverlayContainer extends Container {
         // Narrowing the parameter to the three cases makes the switch exhaustive,
         // so it needs no default and cannot fall off the end returning undefined.
         function createArrow(position: IPoint, type: 0 | 1 | 2 = 0): Sprite {
-            const typeToPath = (type: 0 | 1 | 2): SpriteData => {
+            const typeToName = (type: 0 | 1 | 2): OverlayArrowName => {
                 switch (type) {
                     case 0:
-                        return FD.utilitySprites.indication_arrow
+                        return 'indication'
                     case 1:
-                        return FD.utilitySprites.fluid_indication_arrow
+                        return 'fluid'
                     case 2:
-                        return FD.utilitySprites.fluid_indication_arrow_both_ways
+                        return 'fluid-both-ways'
                 }
             }
-            const arrow = new Sprite(textureOf(typeToPath(type)))
+            const arrow = new Sprite(arrowTexture(typeToName(type)))
+            arrow.alpha = OVERLAY_ARROW_ALPHA
             arrow.anchor.set(0.5, 0.5)
             arrow.position.set(position.x, position.y)
             return arrow
@@ -516,7 +571,7 @@ export class OverlayContainer extends Container {
     public createCursorBox(
         position: IPoint,
         size: IPoint,
-        type: keyof CursorBoxSpecification = 'regular'
+        type: CursorBoxType = 'regular'
     ): Container {
         const cursorBox = new Container()
         cursorBox.scale.set(0.5, 0.5)
@@ -524,7 +579,7 @@ export class OverlayContainer extends Container {
         this.cursorBoxes.addChild(cursorBox)
 
         if (size.x === 1 && size.y === 1) {
-            const s = new Sprite(textureOf(FD.utilitySprites.cursor_box[type][0].sprite))
+            const s = new Sprite(cursorBoxTexture(type, 'full'))
             s.anchor.set(0.5, 0.5)
             cursorBox.addChild(s)
         } else {
@@ -534,14 +589,7 @@ export class OverlayContainer extends Container {
         return cursorBox
 
         function createCorners(minSideLength: number): Sprite[] {
-            const boxes = FD.utilitySprites.cursor_box[type]
-            // An entry with no max_side_length never matched before either, since
-            // `undefined > n` is false - it just falls through to the last box.
-            const box =
-                boxes.find(
-                    t => t.max_side_length !== undefined && t.max_side_length > minSideLength
-                )?.sprite ?? need(boxes[boxes.length - 1], 'sprite')
-            const texture = textureOf(box)
+            const texture = cursorBoxTexture(type, cornerSizeFor(minSideLength))
 
             const c0 = new Sprite(texture)
             const c1 = new Sprite(texture)

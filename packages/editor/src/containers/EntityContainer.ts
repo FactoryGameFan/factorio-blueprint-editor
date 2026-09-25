@@ -5,7 +5,7 @@ import G from '../common/globals'
 import { Entity } from '../core/Entity'
 import { EntitySprite } from './EntitySprite'
 import { VisualizationArea } from './VisualizationArea'
-import { CursorBoxSpecification } from 'factorio:prototype'
+import type { CursorBoxType } from '../core/overlayShapes'
 
 export class EntityContainer {
     public static readonly mappings: Map<number, EntityContainer> = new Map()
@@ -339,7 +339,7 @@ export class EntityContainer {
     }
 
     /** `undefined` removes the box, which is how every hover-out and mode exit clears it. */
-    public set cursorBox(type: keyof CursorBoxSpecification | undefined) {
+    public set cursorBox(type: CursorBoxType | undefined) {
         if (this.cursorBoxContainer) {
             this.cursorBoxContainer.destroy()
             this.cursorBoxContainer = undefined

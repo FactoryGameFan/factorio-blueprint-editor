@@ -1,12 +1,8 @@
 import { Container, Graphics, Rectangle, Sprite } from 'pixi.js'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
-import {
-    PathSegment,
-    SHORTCUT_ICON_FRAME,
-    ShortcutIconName,
-    shortcutIcon,
-} from '../core/shortcutIcons'
+import { drawShapes } from '../common/drawShapes'
+import { SHORTCUT_ICON_FRAME, ShortcutIconName, shortcutIcon } from '../core/shortcutIcons'
 import { withKeybind } from '../core/keyComboLabel'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
@@ -26,42 +22,6 @@ const SUPERSAMPLE = 4
 */
 const SHORTCUT_BUTTON_COLOR = 0x8c8c8c
 
-/*
-    Arcs are traced as short lines rather than with `Graphics.arc`. Pixi's arc
-    adds its start point even when the pen is already there, and a stroke
-    divides by that zero-length step: measured, it cut a wedge out of the
-    outer edge of each wire's ring. `lineTo` skips a repeated point. A full
-    circle leaves off its last point, which is its first, and `close` joins
-    the two.
-*/
-const ARC_STEP_DEGREES = 3
-
-function tracePath(g: Graphics, path: readonly PathSegment[]): void {
-    for (const s of path) {
-        switch (s.op) {
-            case 'move':
-                g.moveTo(s.x, s.y)
-                break
-            case 'line':
-                g.lineTo(s.x, s.y)
-                break
-            case 'arc': {
-                const sweep = s.to - s.from
-                const steps = Math.ceil(Math.abs(sweep) / ARC_STEP_DEGREES)
-                const last = Math.abs(sweep) >= 360 ? steps - 1 : steps
-                for (let i = 0; i <= last; i++) {
-                    const a = ((s.from + (sweep * i) / steps) * Math.PI) / 180
-                    g.lineTo(s.cx + s.r * Math.cos(a), s.cy + s.r * Math.sin(a))
-                }
-                break
-            }
-            case 'close':
-                g.closePath()
-                break
-        }
-    }
-}
-
 /**
  * Draws one of `core/shortcutIcons.ts`'s icons, centred on its own origin.
  *
@@ -72,25 +32,7 @@ function tracePath(g: Graphics, path: readonly PathSegment[]): void {
  * own downscaled icon art is smooth. It is freed with the sprite.
  */
 function createShortcutIcon(name: ShortcutIconName): Sprite {
-    const g = new Graphics()
-    for (const shape of shortcutIcon(name)) {
-        tracePath(g, shape.path)
-        if (shape.kind === 'fill') {
-            g.fill(shape.color)
-            /*
-                All holes go in one `cut()`. Pixi 8's `cut()` adds a hole to
-                the last fill and, when that fill already has one, to the fill
-                before it as well, so a second call would punch the previous
-                shape too.
-            */
-            if (shape.holes?.length) {
-                for (const hole of shape.holes) tracePath(g, hole)
-                g.cut()
-            }
-        } else {
-            g.stroke({ width: shape.width, color: shape.color, cap: 'butt', join: 'miter' })
-        }
-    }
+    const g = drawShapes(new Graphics(), shortcutIcon(name))
     const scale = ICON_SIZE / SHORTCUT_ICON_FRAME
     const texture = G.app.renderer.generateTexture({
         target: g,
