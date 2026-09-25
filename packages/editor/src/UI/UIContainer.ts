@@ -155,6 +155,11 @@ export class UIContainer extends Container {
         return { x: at.x, y: at.y, width: this.shortcutBar.width, height: this.shortcutBar.height }
     }
 
+    /** The hover text ShortcutBar is showing, or undefined when it shows none. */
+    public get shortcutTooltip(): string | undefined {
+        return this.shortcutBar.shortcutTooltip
+    }
+
     /**
      * Opens ImportDialog, or closes it if it is already open - the ShortcutBar
      * button that reaches this is a single toggle, not a spawner, so a

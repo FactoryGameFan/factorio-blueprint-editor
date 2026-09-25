@@ -319,6 +319,10 @@ export interface FbeTestApi {
      * answers in. See tests/shortcut-bar.spec.ts.
      */
     shortcutBarBounds: () => { x: number; y: number; width: number; height: number }
+    /** The shortcut bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
+    shortcutBarHoverText: () => string | undefined
+    /** Assigns one action's key combo, as the settings pane does. */
+    rebindAction: (name: string, keyCombo: string) => void
     /**
      * Whether `EntityContainer.entityInfo` is currently visible for this
      * entity - the persistent always-show label and the hover tooltip toggle

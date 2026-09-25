@@ -415,6 +415,11 @@ export class Editor {
         return G.UI.shortcutBarBounds
     }
 
+    /** The shortcut bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
+    public get shortcutTooltip(): string | undefined {
+        return G.UI.shortcutTooltip
+    }
+
     /**
      * Opens ImportDialog, the same as clicking ShortcutBar's Import slot -
      * there is no keybind for opening it (only for the paste/append it

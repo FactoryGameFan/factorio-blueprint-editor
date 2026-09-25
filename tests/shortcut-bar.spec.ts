@@ -128,6 +128,73 @@ test('Alt icon keeps its dark ink on grey and on amber (#429)', async ({ page })
     await expectColors(ink, [140, 140, 140])
 })
 
+/*
+    Hover text (#505): the game's name for each button, then its keybind in
+    brackets where it has one. The keybind is read from the action registry
+    when the hover starts, so a rebind shows on the next hover.
+
+    Pixi only knows where a slot is once a frame has drawn it, and a hover
+    uses the same hit test as a click, so each move waits two frames before
+    and after. Two, for the reason tests/chest-editor.spec.ts gives.
+*/
+async function nextFrames(page: import('@playwright/test').Page): Promise<void> {
+    await page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+}
+
+const HOVER_TEXTS: [col: number, row: number, text: string][] = [
+    [0, 0, 'Toggle "Alt-mode" (Left Alt)'],
+    [0, 1, 'Make copper wire'],
+    [1, 0, 'Import string'],
+    [1, 1, 'Make red wire'],
+    [2, 0, 'Export string'],
+    [2, 1, 'Make green wire'],
+    [3, 0, 'Undo (Control + Z)'],
+    [3, 1, 'Redo (Control + Y)'],
+    [4, 0, 'Export image (Control + S)'],
+]
+
+test('each button names itself and its keybind on hover, and follows a rebind (#505)', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const bounds = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
+    const hoverText = () => page.evaluate(() => window.__fbe_test.shortcutBarHoverText())
+    const hover = async (col: number, row: number) => {
+        await nextFrames(page)
+        await page.mouse.move(bounds.x + 12 + 38 * col + 18, bounds.y + 12 + 38 * row + 18)
+        await nextFrames(page)
+    }
+    const leave = async () => {
+        await page.mouse.move(640, 200)
+        await nextFrames(page)
+    }
+
+    await leave()
+    expect(await hoverText()).toBeUndefined()
+
+    for (const [col, row, text] of HOVER_TEXTS) {
+        await hover(col, row)
+        await expect.poll(hoverText).toBe(text)
+    }
+    await leave()
+    await expect.poll(hoverText).toBeUndefined()
+
+    await page.evaluate(() => {
+        window.__fbe_test.rebindAction('undo', 'Control+Shift+KeyU')
+        window.__fbe_test.rebindAction('showInfo', 'KeyT')
+    })
+    await hover(3, 0)
+    await expect.poll(hoverText).toBe('Undo (Control + Shift + U)')
+    await hover(0, 0)
+    await expect.poll(hoverText).toBe('Toggle "Alt-mode" (T)')
+})
+
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
     page,
 }) => {

@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle, Sprite } from 'pixi.js'
+import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
 import {
@@ -7,9 +7,10 @@ import {
     ShortcutIconName,
     shortcutIcon,
 } from '../core/shortcutIcons'
+import { withKeybind } from '../core/keyComboLabel'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
-import { colors } from './style'
+import { colors, styles } from './style'
 
 /** The icon's drawn size inside a 36 px slot, the size every other slot icon uses. */
 const ICON_SIZE = 32
@@ -235,9 +236,39 @@ const WIRES = ['copper-wire', 'red-wire', 'green-wire']
 */
 const ROWS = 2
 
+/**
+ * What a button's hover text says: its name, and the action whose keybind
+ * follows it in brackets. The names are the game's English ones, from the
+ * `[shortcut]` section of `base/locale/en/base.cfg`, where the game has a
+ * shortcut. Export and export image have none, so their names are the
+ * editor's own.
+ *
+ * The keybind is read when the hover starts rather than stored here, because
+ * a user can rebind any action in settings.
+ */
+interface HoverText {
+    name: string
+    action?: string
+}
+
+interface Cell {
+    slot: Container
+    hover: HoverText
+}
+
 export class ShortcutBar extends Panel {
     private slotsContainer: Container
     private altHighlightTick: (() => void) | undefined
+    /*
+        One box, shown above whichever slot the pointer is over, and reused
+        for every hover. A fresh `Text` per hover would leak: pixi's text
+        listens for changes on its style, which here is the shared
+        `styles.dialog.label`, and does not stop listening when destroyed.
+    */
+    private readonly hoverText = new Container()
+    private readonly hoverBackground = new Graphics()
+    private readonly hoverLabel = new Text({ style: styles.dialog.label })
+    private hoveredSlot: Container | undefined
     public static Wires = WIRES
 
     public constructor() {
@@ -253,9 +284,48 @@ export class ShortcutBar extends Panel {
 
         this.slotsContainer = new Container()
         this.slotsContainer.position.set(12, 12)
-        this.addChild(this.slotsContainer)
+        this.hoverLabel.position.set(8, 5)
+        this.hoverText.addChild(this.hoverBackground, this.hoverLabel)
+        this.hoverText.eventMode = 'none'
+        this.hoverText.visible = false
+        this.addChild(this.slotsContainer, this.hoverText)
 
         this.placeCells(initialCells)
+    }
+
+    /** The hover text on show, or undefined when there is none. */
+    public get shortcutTooltip(): string | undefined {
+        return this.hoverText.visible ? this.hoverLabel.text : undefined
+    }
+
+    private showHoverText(slot: Container, hover: HoverText): void {
+        const keyCombo =
+            hover.action === undefined ? undefined : G.actions.get(hover.action)?.keyCombo
+        this.hoverLabel.text = withKeybind(hover.name, keyCombo)
+
+        const width = Math.ceil(this.hoverLabel.width) + 16
+        const height = Math.ceil(this.hoverLabel.height) + 10
+        this.hoverBackground
+            .clear()
+            .rect(0, 0, width, height)
+            .fill(colors.dialog.background.color)
+            .stroke({ width: 1, color: colors.controls.button.background.color, alignment: 1 })
+
+        // Over the slot's left edge, and kept on screen at a narrow width.
+        const x = this.slotsContainer.x + slot.x
+        this.hoverText.position.set(
+            Math.max(-this.x, Math.min(x, G.app.screen.width - this.x - width)),
+            -height - 4
+        )
+        this.hoverText.visible = true
+        this.hoveredSlot = slot
+    }
+
+    private hideHoverText(slot: Container): void {
+        // pointerout on one slot can arrive after pointerover on the next.
+        if (this.hoveredSlot !== slot) return
+        this.hoverText.visible = false
+        this.hoveredSlot = undefined
     }
 
     public override destroy(): void {
@@ -289,21 +359,36 @@ export class ShortcutBar extends Panel {
      * grid twice at startup. `generateSlots`, the public re-callable entry
      * point, calls it again for its own single fresh build.
      */
-    private static buildCells(): { cells: Container[]; altSlot: ActionSlot } {
+    private static buildCells(): { cells: Cell[]; altSlot: ActionSlot } {
         const altSlot = new ActionSlot('alt-mode', () =>
             G.BPC.overlayContainer.toggleEntityInfoVisibility()
         )
 
-        const cells: Container[] = [
-            altSlot,
-            new WireSlot(WIRES[0], 'copper-wire'),
-            new ActionSlot('import-string', () => G.UI.toggleImportDialog()),
-            new WireSlot(WIRES[1], 'red-wire'),
-            new ActionSlot('export-string', () => G.UI.toggleExportDialog()),
-            new WireSlot(WIRES[2], 'green-wire'),
-            new ActionSlot('undo', () => G.bp.history.undo()),
-            new ActionSlot('redo', () => G.bp.history.redo()),
-            new ActionSlot('export-image', () => G.quickActions.exportImage()),
+        const cells: Cell[] = [
+            { slot: altSlot, hover: { name: 'Toggle "Alt-mode"', action: 'showInfo' } },
+            { slot: new WireSlot(WIRES[0], 'copper-wire'), hover: { name: 'Make copper wire' } },
+            {
+                slot: new ActionSlot('import-string', () => G.UI.toggleImportDialog()),
+                hover: { name: 'Import string' },
+            },
+            { slot: new WireSlot(WIRES[1], 'red-wire'), hover: { name: 'Make red wire' } },
+            {
+                slot: new ActionSlot('export-string', () => G.UI.toggleExportDialog()),
+                hover: { name: 'Export string' },
+            },
+            { slot: new WireSlot(WIRES[2], 'green-wire'), hover: { name: 'Make green wire' } },
+            {
+                slot: new ActionSlot('undo', () => G.bp.history.undo()),
+                hover: { name: 'Undo', action: 'undo' },
+            },
+            {
+                slot: new ActionSlot('redo', () => G.bp.history.redo()),
+                hover: { name: 'Redo', action: 'redo' },
+            },
+            {
+                slot: new ActionSlot('export-image', () => G.quickActions.exportImage()),
+                hover: { name: 'Export image', action: 'takePicture' },
+            },
         ]
 
         return { cells, altSlot }
@@ -329,10 +414,11 @@ export class ShortcutBar extends Panel {
         this.placeCells(ShortcutBar.buildCells())
     }
 
-    private placeCells({ cells, altSlot }: { cells: Container[]; altSlot: ActionSlot }): void {
+    private placeCells({ cells, altSlot }: { cells: Cell[]; altSlot: ActionSlot }): void {
         for (const child of this.slotsContainer.removeChildren()) {
             child.destroy()
         }
+        if (this.hoveredSlot) this.hideHoverText(this.hoveredSlot)
 
         /*
             Polls rather than listening for an event, because `G.BPC` - and so
@@ -351,10 +437,12 @@ export class ShortcutBar extends Panel {
         }
         G.app.ticker.add(this.altHighlightTick)
 
-        for (const [i, slot] of cells.entries()) {
+        for (const [i, { slot, hover }] of cells.entries()) {
             const col = Math.floor(i / ROWS)
             const row = i % ROWS
             slot.position.set((36 + 2) * col, (36 + 2) * row)
+            slot.on('pointerover', () => this.showHoverText(slot, hover))
+            slot.on('pointerout', () => this.hideHoverText(slot))
             this.slotsContainer.addChild(slot)
         }
     }
