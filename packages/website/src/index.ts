@@ -698,6 +698,15 @@ const testApi = {
     */
     entityModules: (entityNumber: number) => entityOf(entityNumber).modules,
     /*
+        A write through `Entity.set modules`, the list of names the module
+        dialog sends when one slot changes. The dialog is drawn with pixi, so
+        this says the same write without clicking through it
+        (tests/quality-edits.spec.ts).
+    */
+    setEntityModules: (entityNumber: number, modules: (string | undefined)[]) => {
+        entityOf(entityNumber).modules = modules
+    },
+    /*
         What the info panel says about an entity. Builds a panel of its own
         rather than reading the live one, the same way recipeShapeTally does, so
         the app's panel is not left showing whatever a spec last asked about.

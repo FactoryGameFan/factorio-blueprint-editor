@@ -295,6 +295,11 @@ export interface FbeTestApi {
      */
     entityModules: (entityNumber: number) => (string | undefined)[]
     /**
+     * A write through `Entity.set modules`, names only, as the module dialog
+     * sends it. See tests/quality-edits.spec.ts.
+     */
+    setEntityModules: (entityNumber: number, modules: (string | undefined)[]) => void
+    /**
      * The detail line EntityInfoPanel shows for this entity - the inserter or
      * belt speed line, the crafting block for a machine. See
      * tests/inserter-throughput.spec.ts.

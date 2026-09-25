@@ -67,6 +67,7 @@ const TEST_API_MARKERS = [
     '__fbe_arm_undrawable_wire',
     'qualityBadgeFrames',
     'liveOverlayPosition',
+    'setEntityModules',
 ]
 
 let bundledJs = ''

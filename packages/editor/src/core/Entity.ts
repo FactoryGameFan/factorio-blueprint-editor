@@ -554,10 +554,33 @@ export class Entity extends EventEmitter<EntityEvents> {
         return out
     }
 
-    /** The given list can be shorter than the one returned by the getter. */
+    /**
+     * The given list can be shorter than the one returned by the getter.
+     *
+     * Names only, because that is all the module dialog knows. A slot that
+     * still holds the module it held keeps that module's quality; the dialog
+     * sends every slot back when one changes, so without this a single edit
+     * made every module on the entity normal quality.
+     */
     public set modules(_modules: (string | undefined)[]) {
         const modules = _modules || []
-        if (this.modules.entries().every(([i, m]) => m === modules[i])) return
+        const names = this.modules
+        const qualities = this.moduleQualities
+        this.writeModules(
+            modules,
+            modules.map((m, i) => (m !== undefined && m === names[i] ? qualities[i] : undefined))
+        )
+    }
+
+    /**
+     * Writes each slot's module and its quality, slot for slot. `set modules`
+     * comes through here, and so does `pasteSettings`, which knows the source's
+     * qualities and passes them on rather than keeping the target's.
+     */
+    private writeModules(modules: (string | undefined)[], qualities: (string | undefined)[]): void {
+        const names = this.modules
+        const current = this.moduleQualities
+        if (names.every((m, i) => m === modules[i] && current[i] === qualities[i])) return
 
         let items = util.duplicate(this.m_rawEntity.items || [])
         if (!Array.isArray(items)) {
@@ -584,10 +607,13 @@ export class Entity extends EventEmitter<EntityEvents> {
         for (const [i, module] of modules.entries()) {
             if (!module) continue
 
+            // One entry per module and quality, so the same module at two
+            // qualities stays two entries.
+            const quality = qualities[i]
             let found_module_entry = false
             const inv_entry = { inventory, stack: i }
             for (const item of items) {
-                if (item.id.name === module) {
+                if (item.id.name === module && item.id.quality === quality) {
                     found_module_entry = true
 
                     if (item.items.in_inventory) {
@@ -599,7 +625,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
             if (!found_module_entry) {
                 items.push({
-                    id: { name: module },
+                    id: quality === undefined ? { name: module } : { name: module, quality },
                     items: { in_inventory: [inv_entry] },
                 })
             }
@@ -1529,9 +1555,14 @@ export class Entity extends EventEmitter<EntityEvents> {
                     target will not accept still goes, it just leaves its slot
                     empty instead of closing it.
                 */
-                    this.modules = sourceEntity.modules
+                    const modules = sourceEntity.modules
                         .map(m => (m !== undefined && aM.includes(m) ? m : undefined))
                         .slice(0, this.moduleSlots)
+                    const qualities = sourceEntity.moduleQualities
+                    this.writeModules(
+                        modules,
+                        modules.map((m, i) => (m === undefined ? undefined : qualities[i]))
+                    )
                 } else {
                     this.modules = []
                 }
