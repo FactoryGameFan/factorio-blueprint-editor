@@ -744,6 +744,17 @@ const testApi = {
     topDialogBounds: () => editor.topDialogBounds,
     shortcutBarBounds: () => editor.shortcutBarBounds,
     /*
+        The shortcut bar's hover text is drawn on the canvas, so a spec cannot
+        read it from the page. Undefined when none is showing.
+    */
+    shortcutBarHoverText: () => editor.shortcutTooltip,
+    /*
+        Rebinds one action the way the settings pane does, by assigning its
+        keyCombo, so a spec can check that something reading the keybind
+        follows the change.
+    */
+    rebindAction: (name: string, keyCombo: string) => EDITOR.importKeybinds({ [name]: keyCombo }),
+    /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but
         whether EntityContainer has it switched on right now. The display panel

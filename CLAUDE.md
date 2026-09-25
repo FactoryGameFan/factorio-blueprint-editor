@@ -709,6 +709,10 @@ against the CSP in `packages/website/public/_headers` that permits them.
   seam, so reproducing it needs a position hash we would be inventing. That
   applies to all 17 keys, not just the walls.
 - Logistic filters retain quality metadata but the UI has no quality picker.
+- Keybind labels in the shortcut bar's hover text name each key by its place on
+  a US QWERTY keyboard, because actions match `KeyboardEvent.code`. On other
+  layouts the printed letter differs: German Undo shows Z but works on the key
+  printed Y. `keyComboLabel.ts` says what a fix would need.
 - Blueprint icons round-trip, and an auto icon is never stored.
   `BlueprintInfoEditor`'s four slots are the one place a blueprint's own
   icons are set; a blueprint carrying none exports what `computeAutoIcons`
