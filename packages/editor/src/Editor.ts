@@ -420,6 +420,16 @@ export class Editor {
         return G.UI.shortcutTooltip
     }
 
+    /** Where the inventory bar sits in client coordinates. See tests/shortcut-bar.spec.ts. */
+    public get quickbarBounds(): { x: number; y: number; width: number; height: number } {
+        return G.UI.quickbarBounds
+    }
+
+    /** The inventory bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
+    public get quickbarTooltip(): string | undefined {
+        return G.UI.quickbarTooltip
+    }
+
     /**
      * Opens ImportDialog, the same as clicking ShortcutBar's Import slot -
      * there is no keybind for opening it (only for the paste/append it
