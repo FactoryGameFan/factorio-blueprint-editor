@@ -148,14 +148,14 @@ const { source: bpSource, index: bpIndex } = readSourceParams(window.location.se
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
 /**
- * The four actions ToolsPanel's quick-action buttons trigger through
+ * The four actions ShortcutBar's quick-action buttons trigger through
  * `G.quickActions` (see `QuickActions` in `packages/editor/src/common/globals.ts`) -
  * the same logic the `copy`/`paste` document listeners and the
  * `appendBlueprint`/`takePicture` keybinds below call, extracted so both the
  * keyboard and the button reach one implementation instead of two.
  *
  * `importReplace`/`importAppend` read the OS clipboard when called with no
- * argument - a key press or a ToolsPanel button - or use `source` directly
+ * argument - a key press or a ShortcutBar button - or use `source` directly
  * when ImportDialog's textarea calls them, which never touches the
  * clipboard at all.
  */
@@ -382,14 +382,14 @@ async function loadBp(bpOrBook: Blueprint | Book): Promise<void> {
  * Whether Ctrl+C and Ctrl+V belong to the canvas right now (issue #279).
  *
  * The focus half alone is not enough, and the reason is that the ordinary
- * route to ImportDialog leaves the canvas focused: clicking ToolsPanel's
+ * route to ImportDialog leaves the canvas focused: clicking ShortcutBar's
  * Import slot *is* a click on the canvas, and ImportDialog never focuses its
  * own field (only ExportDialog does). So Ctrl+V with that dialog open ran
  * `importReplace()` -> `loadBp` -> `Editor.loadBlueprint`, which assigns a
  * fresh `G.bp` and calls `Dialog.closeAll()`. The whole blueprint was replaced
  * from the OS clipboard, the dialog went with it along with anything typed
  * into its field, and the new blueprint's empty `History` meant neither Ctrl+Z
- * nor the ToolsPanel Undo slot brought the old one back. The dialog on screen
+ * nor the ShortcutBar Undo slot brought the old one back. The dialog on screen
  * offers Paste, Replace and Append as three separate choices, and the shortcut
  * silently picked Replace.
  *
@@ -523,7 +523,7 @@ const testApi = {
         bp.createEntity({ name, position: { x, y } })
     },
     /**
-     * Opens ImportDialog, ToolsPanel's Import slot with no keybind of its own
+     * Opens ImportDialog, ShortcutBar's Import slot with no keybind of its own
      * to reach it by. See tests/quick-actions.spec.ts.
      */
     openImportDialog: () => editor.openImportDialog(),
@@ -751,7 +751,21 @@ const testApi = {
     },
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
-    toolsPanelBounds: () => editor.toolsPanelBounds,
+    shortcutBarBounds: () => editor.shortcutBarBounds,
+    /*
+        The shortcut bar's hover text is drawn on the canvas, so a spec cannot
+        read it from the page. Undefined when none is showing.
+    */
+    shortcutBarHoverText: () => editor.shortcutTooltip,
+    quickbarBounds: () => editor.quickbarBounds,
+    // The row-swap triangle's hover text, drawn on the canvas like the shortcut bar's.
+    quickbarHoverText: () => editor.quickbarTooltip,
+    /*
+        Rebinds one action the way the settings pane does, by assigning its
+        keyCombo, so a spec can check that something reading the keybind
+        follows the change.
+    */
+    rebindAction: (name: string, keyCombo: string) => EDITOR.importKeybinds({ [name]: keyCombo }),
     /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but
@@ -1099,7 +1113,7 @@ function registerActions(): void {
  * chrome, under the GitHub tab, and deliberately not a toast (issue #430).
  *
  * A toast has to be click-through: the toast column sits on top of the
- * ToolsPanel, and #228 made every expiring toast `pointer-events: none` so it
+ * ShortcutBar, and #228 made every expiring toast `pointer-events: none` so it
  * stops taking clicks meant for the slots under it. This prompt needs a live
  * link and a live Dismiss button, and as a toast those two opted back into
  * pointer events - measured at 1280x720, five of the nine slots then lost part

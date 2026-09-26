@@ -36,7 +36,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
     THE THIRD TEST IS THE ONE TO READ FIRST. A "fix" that simply never registers
     the listener passes both of the others perfectly - nothing leaks if nothing
     is ever added - and quietly stops every panel following the window. That is
-    what test 3 is for, and `tests/tools-panel.spec.ts`'s narrow-viewport case
+    what test 3 is for, and `tests/shortcut-bar.spec.ts`'s narrow-viewport case
     would catch it too.
 
     Runs against the dev server like the rest of tests/ - see CLAUDE.md for the
@@ -143,7 +143,7 @@ test('an open dialog still follows a window resize', async ({ page }) => {
     /*
         The resize has to reach pixi's own renderer before the dialog is asked
         where it is: `setViewportSize` resolves once the browser has resized, not
-        once the page has handled the event. Same race tools-panel.spec.ts
+        once the page has handled the event. Same race shortcut-bar.spec.ts
         documents, and the same fix - wait for the value to settle rather than
         for a fixed delay.
     */

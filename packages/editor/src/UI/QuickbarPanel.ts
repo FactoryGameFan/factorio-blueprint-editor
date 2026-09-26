@@ -4,6 +4,15 @@ import G from '../common/globals'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
 import F from './controls/functions'
+import { HoverText } from './controls/HoverText'
+import { withKeybind } from '../core/keyComboLabel'
+import {
+    BAR_PADDING,
+    BAR_SLOT_PITCH,
+    QUICKBAR_MIDDLE_GAP,
+    QUICKBAR_WIDTH,
+    barLength,
+} from './barLayout'
 import { colors } from './style'
 
 class QuickbarSlot extends Slot<string | undefined> {
@@ -25,24 +34,22 @@ class QuickbarSlot extends Slot<string | undefined> {
 }
 
 export class QuickbarPanel extends Panel {
-    private iWidth = 442
-    private iHeight: number
     private rows: number
 
     private slots: QuickbarSlot[]
     private slotsContainer: Container
+    private readonly hoverText = new HoverText()
 
     public constructor(rows = 1, itemNames?: string[]) {
         super(
-            442,
-            24 + rows * 38,
+            QUICKBAR_WIDTH,
+            barLength(rows),
             colors.quickbar.background.color,
             colors.quickbar.background.alpha,
             colors.quickbar.background.border
         )
 
         this.rows = rows
-        this.iHeight = 24 + rows * 38
         // Dense, not sparse. generateSlots below fills every index 0..rows*10-1
         // before anything reads this, so the two are equivalent today - but
         // serialize() maps over it, and `.map` *skips* holes while it would call
@@ -53,15 +60,31 @@ export class QuickbarPanel extends Panel {
         this.slots = Array.from<QuickbarSlot>({ length: rows * 10 })
 
         this.slotsContainer = new Container()
-        this.slotsContainer.position.set(12, 12)
+        this.slotsContainer.position.set(BAR_PADDING, BAR_PADDING)
         this.addChild(this.slotsContainer)
 
         this.generateSlots(itemNames)
 
         const t = QuickbarPanel.createTriangleButton(15, 14)
-        t.position.set((this.iWidth - t.width) / 2, (this.iHeight - t.height) / 2)
+        t.position.set((this.width - t.width) / 2, (this.height - t.height) / 2)
         t.on('pointerdown', this.changeActiveQuickbar)
-        this.addChild(t)
+        /*
+            It swaps the two rows, and nothing on it says so (#509). The name
+            is the game's own for the action, `rotate-active-quick-bars` in
+            `core/locale/en/core.cfg`, and the keybind is read on each hover
+            because a user can rebind it.
+        */
+        t.on('pointerover', () => {
+            const keyCombo = G.actions.get('changeActiveQuickbar')?.keyCombo
+            this.hoverText.show(t, withKeybind('Rotate active quickbars', keyCombo), t.x)
+        })
+        t.on('pointerout', () => this.hoverText.hide(t))
+        this.addChild(t, this.hoverText)
+    }
+
+    /** The hover text on show, or undefined when there is none. */
+    public get hoverTextShown(): string | undefined {
+        return this.hoverText.shown
     }
 
     private static createTriangleButton(width: number, height: number): Graphics {
@@ -91,7 +114,10 @@ export class QuickbarPanel extends Panel {
         for (let r = 0; r < this.rows; r++) {
             for (let i = 0; i < 10; i++) {
                 const quickbarSlot = new QuickbarSlot(undefined)
-                quickbarSlot.position.set((36 + 2) * i + (i > 4 ? 38 : 0), 38 * r)
+                quickbarSlot.position.set(
+                    BAR_SLOT_PITCH * i + (i > 4 ? QUICKBAR_MIDDLE_GAP : 0),
+                    BAR_SLOT_PITCH * r
+                )
 
                 // Read into a local: the index is a loop `let`, so TypeScript
                 // will not carry the truthiness test across to the use.

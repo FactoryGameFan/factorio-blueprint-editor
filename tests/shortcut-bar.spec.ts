@@ -15,7 +15,7 @@ import {
 } from '../packages/editor/src/UI/controls/DescribedButton'
 
 /*
-    ToolsPanel (#221 review, then #242). Three things the review asked to be
+    ShortcutBar (#221 review, then #242). Three things the review asked to be
     pinned down, none of which any other spec touches: ImportDialog's
     textarea used to truncate a pasted blueprint string, the panel used to
     run off the right edge of a narrow viewport, and Replace's own click
@@ -49,7 +49,7 @@ function largestBlueprintFile(): BlueprintFile {
     const files = discoverBlueprintFiles()
     if (files.length === 0) {
         throw new Error(
-            'tools-panel.spec.ts: discoverBlueprintFiles() found no test-blueprints/ corpus - ' +
+            'shortcut-bar.spec.ts: discoverBlueprintFiles() found no test-blueprints/ corpus - ' +
                 'this spec needs one to pick its largest file from.'
         )
     }
@@ -65,16 +65,27 @@ test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
 })
 
-test('ALT label is black on amber and white on grey (#429)', async ({ page }) => {
+/*
+    The Alt icon is the game's dark ink, 0x1d1d1d, on the game's grey shortcut
+    button, 0x8c8c8c, and on its amber selected button, 0xf1be64, while Alt is
+    on (#429, #505). The icon is baked with antialiasing, so its colours are
+    matched to within a few steps rather than exactly; the ink still has
+    solid pixels in the middle of the bar.
+
+    The clip is the inside of the icon's bar, so the only face colour in it
+    shows through the letters cut out of the bar. A bar drawn without them
+    fails here.
+*/
+test('Alt icon keeps its dark ink on grey and on amber (#429)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
-    const bounds = await page.evaluate(() => window.__fbe_test.toolsPanelBounds())
+    const bounds = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
     const x = bounds.x + 12
     const y = bounds.y + 12
     const expectColors = async (foreground: number[], background: number[]) => {
         await expect
             .poll(async () => {
                 const png = await page.screenshot({
-                    clip: { x: x + 4, y: y + 8, width: 28, height: 20 },
+                    clip: { x: x + 7, y: y + 14, width: 22, height: 8 },
                 })
                 return page.evaluate(
                     async ({ data, foreground, background }) => {
@@ -90,7 +101,11 @@ test('ALT label is black on amber and white on grey (#429)', async ({ page }) =>
                         const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
                         return [foreground, background].every(color => {
                             for (let i = 0; i < pixels.length; i += 4) {
-                                if (color.every((channel, j) => pixels[i + j] === channel))
+                                if (
+                                    color.every(
+                                        (channel, j) => Math.abs(pixels[i + j] - channel) <= 3
+                                    )
+                                )
                                     return true
                             }
                             return false
@@ -102,14 +117,140 @@ test('ALT label is black on amber and white on grey (#429)', async ({ page }) =>
             .toBe(true)
     }
 
-    await expectColors([0, 0, 0], [241, 190, 100])
+    const ink = [29, 29, 29]
+    await expectColors(ink, [241, 190, 100])
     await page.keyboard.press('AltLeft')
-    await expectColors([255, 255, 255], [100, 100, 100])
+    await expectColors(ink, [140, 140, 140])
     await page.mouse.click(x + 18, y + 18)
     await page.mouse.move(640, 360)
-    await expectColors([0, 0, 0], [241, 190, 100])
+    await expectColors(ink, [241, 190, 100])
     await page.keyboard.press('AltLeft')
-    await expectColors([255, 255, 255], [100, 100, 100])
+    await expectColors(ink, [140, 140, 140])
+})
+
+/*
+    Hover text (#505): the game's name for each button, then its keybind in
+    brackets where it has one. The keybind is read from the action registry
+    when the hover starts, so a rebind shows on the next hover.
+
+    Pixi only knows where a slot is once a frame has drawn it, and a hover
+    uses the same hit test as a click, so each move waits two frames before
+    and after. Two, for the reason tests/chest-editor.spec.ts gives.
+*/
+async function nextFrames(page: import('@playwright/test').Page): Promise<void> {
+    await page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+}
+
+const HOVER_TEXTS: [col: number, row: number, text: string][] = [
+    [0, 0, 'Toggle "Alt-mode" (Left Alt or Right Alt)'],
+    [0, 1, 'Make copper wire'],
+    [1, 0, 'Import string'],
+    [1, 1, 'Make red wire'],
+    [2, 0, 'Export string'],
+    [2, 1, 'Make green wire'],
+    [3, 0, 'Undo (Control + Z)'],
+    [3, 1, 'Redo (Control + Y)'],
+    [4, 0, 'Export image (Control + S)'],
+]
+
+test('each button names itself and its keybind on hover, and follows a rebind (#505)', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const bounds = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
+    const hoverText = () => page.evaluate(() => window.__fbe_test.shortcutBarHoverText())
+    const hover = async (col: number, row: number) => {
+        await nextFrames(page)
+        await page.mouse.move(bounds.x + 12 + 38 * col + 18, bounds.y + 12 + 38 * row + 18)
+        await nextFrames(page)
+    }
+    const leave = async () => {
+        await page.mouse.move(640, 200)
+        await nextFrames(page)
+    }
+
+    await leave()
+    expect(await hoverText()).toBeUndefined()
+
+    for (const [col, row, text] of HOVER_TEXTS) {
+        await hover(col, row)
+        await expect.poll(hoverText).toBe(text)
+    }
+    await leave()
+    await expect.poll(hoverText).toBeUndefined()
+
+    await page.evaluate(() => {
+        window.__fbe_test.rebindAction('undo', 'Control+Shift+KeyU')
+        window.__fbe_test.rebindAction('showInfo', 'KeyT')
+    })
+    await hover(3, 0)
+    await expect.poll(hoverText).toBe('Undo (Control + Shift + U)')
+    await hover(0, 0)
+    await expect.poll(hoverText).toBe('Toggle "Alt-mode" (T or Right Alt)')
+})
+
+/*
+    The inventory bar and the shortcut bar sit side by side on the bottom
+    edge, so they have to be one height or their top edges step (#509). Both
+    use the game's rule: the same padding on every side, and gaps only
+    between slots, never after the last one. The game's own bars are one
+    96 px frame with 8 px above and below the slots; the editor's 36 px
+    slots and 12 px padding make that 98 (#513 covers the game's sizes).
+*/
+test('the inventory bar and the shortcut bar are one height and meet edge to edge (#509)', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const quickbar = await page.evaluate(() => window.__fbe_test.quickbarBounds())
+    const shortcutBar = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
+
+    expect(quickbar.height).toBe(98)
+    expect(shortcutBar.height).toBe(98)
+    expect(quickbar.y).toBe(shortcutBar.y)
+    // 10 slots, 9 gaps, 12 px each side, and the 38 px middle gap the triangle sits in
+    expect(quickbar.width).toBe(440)
+    expect(quickbar.x + quickbar.width).toBe(shortcutBar.x)
+})
+
+/*
+    The triangle between the inventory bar's two halves swaps its rows. The
+    game calls that "Rotate active quickbars" (`rotate-active-quick-bars` in
+    `core/locale/en/core.cfg`) and binds it to X, as the editor does. Its
+    hover text reads the keybind when the hover starts, like the shortcut
+    bar's, so a rebind shows on the next hover.
+*/
+test('the row-swap triangle names its action and keybind on hover (#509)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const bounds = await page.evaluate(() => window.__fbe_test.quickbarBounds())
+    const hoverText = () => page.evaluate(() => window.__fbe_test.quickbarHoverText())
+    const hoverTriangle = async () => {
+        await nextFrames(page)
+        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+        await nextFrames(page)
+    }
+    const leave = async () => {
+        await page.mouse.move(640, 200)
+        await nextFrames(page)
+    }
+
+    await leave()
+    expect(await hoverText()).toBeUndefined()
+    await hoverTriangle()
+    await expect.poll(hoverText).toBe('Rotate active quickbars (X)')
+    await leave()
+    await expect.poll(hoverText).toBeUndefined()
+
+    await page.evaluate(() => window.__fbe_test.rebindAction('changeActiveQuickbar', 'KeyQ'))
+    await hoverTriangle()
+    await expect.poll(hoverText).toBe('Rotate active quickbars (Q)')
 })
 
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
@@ -184,9 +325,9 @@ test('typing job control: a large paste actually loads through Replace, not just
     expect(out.length).toBeGreaterThan(2 ** 20)
 })
 
-test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) => {
+test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) => {
     /*
-        Below ~866px (see ToolsPanel.ts's setPosition doc comment) the
+        Below ~864px (see ShortcutBar.ts's setPosition doc comment) the
         unclamped position runs the panel off the right edge entirely. 800px
         is inside that range and still a real desktop width, not an extreme
         this project's UI otherwise ignores - mobile gets a different,
@@ -200,8 +341,8 @@ test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) =
 
         The poll asserts the *joint* condition, and that is the whole of it:
         `x >= 0` alone is already true before the resize lands, since the
-        stale 1280px layout puts the panel at `max(0, min(861, 1068))` =
-        861, so polling for that half resolves on its first check and adds
+        stale 1280px layout puts the panel at `max(0, min(860, 1068))` =
+        860, so polling for that half resolves on its first check and adds
         no wait whatsoever - leaving the right-edge assertion after it
         exposed to exactly the race the poll was added for. The sibling
         150px test below works only because its target (`x === 0`) is false
@@ -213,14 +354,14 @@ test('ToolsPanel stays on screen at a narrow viewport width', async ({ page }) =
     await expect
         .poll(() =>
             page.evaluate(() => {
-                const b = window.__fbe_test.toolsPanelBounds()
+                const b = window.__fbe_test.shortcutBarBounds()
                 return b.x >= 0 && b.x + b.width <= 800
             })
         )
         .toBe(true)
 })
 
-test('ToolsPanel does not run off the left edge below its own width (#242 review)', async ({
+test('ShortcutBar does not run off the left edge below its own width (#242 review)', async ({
     page,
 }) => {
     /*
@@ -236,5 +377,5 @@ test('ToolsPanel does not run off the left edge below its own width (#242 review
     */
     await page.setViewportSize({ width: 150, height: 720 })
 
-    await expect.poll(() => page.evaluate(() => window.__fbe_test.toolsPanelBounds().x)).toBe(0)
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.shortcutBarBounds().x)).toBe(0)
 })

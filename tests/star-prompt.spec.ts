@@ -7,7 +7,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
     It started life as a toast, with its link and Dismiss button opted back
     into `pointer-events: auto`. That put two live click targets into the
     toast column that #228 had made click-through - the column sits on top of
-    the ToolsPanel, and for the prompt's thirty seconds five of the nine slots
+    the ShortcutBar, and for the prompt's thirty seconds five of the nine slots
     lost part of their face to it. Measured at 1280x720 with the toast settled:
     Redo 1008 of its 1296 points, green-wire 224, Undo and Export image 108
     each, Export 24. Issue #430.
@@ -40,13 +40,13 @@ const SLOT_NAMES = [
 ]
 
 /**
- * Per ToolsPanel slot, how many points of its 36x36 face `elementFromPoint`
- * answers with something other than the canvas. The grid is ToolsPanel's own:
+ * Per ShortcutBar slot, how many points of its 36x36 face `elementFromPoint`
+ * answers with something other than the canvas. The grid is ShortcutBar's own:
  * cells at a 38px pitch from a 12px inset, two rows filled column-major.
  */
 async function blockedSlotPoints(page: Page): Promise<Record<string, number>> {
     return page.evaluate(names => {
-        const b = window.__fbe_test.toolsPanelBounds()
+        const b = window.__fbe_test.shortcutBarBounds()
         const out: Record<string, number> = {}
         names.forEach((name, i) => {
             const x0 = b.x + 12 + Math.floor(i / 2) * 38
@@ -185,7 +185,7 @@ test.describe('in a visible tab', () => {
         await expect(link).toHaveCount(0)
     })
 
-    test('star prompt leaves every ToolsPanel slot reachable (#430)', async ({ page }) => {
+    test('star prompt leaves every ShortcutBar slot reachable (#430)', async ({ page }) => {
         /*
         Deliberately without `suppressOverlays`: this is what a user gets.
 

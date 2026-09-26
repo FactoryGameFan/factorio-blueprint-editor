@@ -10,6 +10,52 @@ The default and deployment branch is `wormeyman-space-age-support`. Branch from
 it and target pull requests at it. Use a descriptive commit subject; put issue
 closing references such as `Closes #123` in the pull request body.
 
+### Stacked pull requests
+
+When one change builds on another that has not merged yet, open it as a
+GitHub stacked pull request rather than a plain pull request against the
+other branch. A stack is a chain: the bottom pull request targets
+`wormeyman-space-age-support`, and each one above targets the branch below it.
+It is a GitHub public preview, driven by the official `gh stack` extension
+(`gh extension install github/gh-stack`). The first stack here was #507 and
+#508.
+
+The reason is CI. `ci.yml` runs only for pull requests whose base is the
+default branch, so a plain pull request on top of another one gets the Claude
+review and nothing else - no checks and no Playwright - until the one below
+merges and someone retargets it by hand. Once the two are linked into a stack,
+the full CI runs on the upper one too. Measured on #508: its push got only the
+Claude review, and linking it started the full CI run within minutes, with no
+new push.
+
+Link pull requests into a stack bottom to top. Passing a stack's number first
+adds the rest to the top of that stack:
+
+```sh
+gh stack link 507 508
+```
+
+To merge a whole stack, pass its number. That is the stack's own number,
+which `gh stack link` prints and the stack map shows; it is not a pull request
+or issue number, so `gh pr view` cannot find it:
+
+```sh
+gh stack merge 510 --yes --squash
+```
+
+It merges every pull request in one step, all or nothing, and still writes one
+squash commit per pull request - stack 510 landed #507 and #508 as two
+commits, and closed the issue #508 named. It does not delete the branches.
+Merging only part of a stack goes from the bottom: a pull request merges with
+every one below it. GitHub's documentation says the lowest pull request left
+then targets the default branch on its own, and the rest stay chained above
+it. That has not been tried here yet.
+
+CodeRabbit reviews only pull requests whose base is the default branch, so it
+skips an upper layer (it did on #508). Comment `@coderabbitai review` to ask for
+one. Stacks need every branch in this repository, so a pull request from a fork
+cannot join one.
+
 ## Repository layout
 
 - `packages/editor` - blueprint model, PixiJS renderer, controls, and unit tests
@@ -136,6 +182,14 @@ FBE_BASE_URL=http://localhost:8090 npx playwright test
 The sprite server must stay on 8081 because Vite's development proxy targets
 that port. Run `npx playwright install` after changing `@playwright/test`.
 
+When 8081 is VS Code forwarding from the devcontainer, a full local run loses
+random specs to a timeout in `waitForEditor`, with the page on its loading
+screen. That is not the code under test: through Vite's `/data` proxy, about 1
+request in 7 gets its `200` and then no body, while requests straight to 8081
+all complete (#514). Check with `curl` through the proxy before blaming a
+change, and take the full-suite result from inside the devcontainer or from
+CI.
+
 ### Devcontainer
 
 `.devcontainer/devcontainer.json` builds a Linux container that runs
@@ -156,8 +210,8 @@ the host, and the Playwright suite passed, including the two canvas specs that
 fail under WSL (see below). The one exception came from memory, not from the
 container. On the 3.7 GiB laptop, the kernel's out-of-memory killer took
 Chromium's renderer, at about 1.5 GB, during the large-paste test in
-`tools-panel.spec.ts`. That test passed when run alone, so it is not a flake to
-chase. That run predates the switch from the Rust devcontainer feature to
+`shortcut-bar.spec.ts`. That test passed when run alone, so it is not a flake
+to chase. That run predates the switch from the Rust devcontainer feature to
 `.devcontainer/Dockerfile`, and has not been repeated on the current image.
 
 It does not do two things:
@@ -708,11 +762,17 @@ against the CSP in `packages/website/public/_headers` that permits them.
   measured on the bridges, which variant the game uses differs from seam to
   seam, so reproducing it needs a position hash we would be inventing. That
   applies to all 17 keys, not just the walls.
-- Quality is drawn but not editable. An entity's own quality and its modules'
-  get the alt-mode badge (#348), as vectors in `core/qualityBadge.ts` whose
-  placement and sizes were measured against 2.0.77 screenshots; the data export
-  carries no quality prototypes or icons. `recipe_quality` and filter quality
-  are kept but not drawn, and no editor has a quality picker.
+- Quality is drawn but not editable (#503). An entity's own quality, its
+  modules', its recipe's and its inserter or splitter filters' get the alt-mode
+  badge (#348), as vectors in `core/qualityBadge.ts` whose placement and sizes
+  were measured against 2.0.77 screenshots; the data export carries no quality
+  prototypes or icons. Requester and buffer chests get none, because the game
+  draws no request icons on them in alt mode. No editor has a quality picker,
+  so each setter keeps the quality its dialog cannot show.
+- Keybind labels in the shortcut bar's hover text name each key by its place on
+  a US QWERTY keyboard, because actions match `KeyboardEvent.code`. On other
+  layouts the printed letter differs: German Undo shows Z but works on the key
+  printed Y. `keyComboLabel.ts` says what a fix would need.
 - Blueprint icons round-trip, and an auto icon is never stored.
   `BlueprintInfoEditor`'s four slots are the one place a blueprint's own
   icons are set; a blueprint carrying none exports what `computeAutoIcons`

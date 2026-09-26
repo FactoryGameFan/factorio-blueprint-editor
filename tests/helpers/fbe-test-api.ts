@@ -330,10 +330,18 @@ export interface FbeTestApi {
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
     /**
-     * Where ToolsPanel sits, in the same client coordinates `topDialogBounds`
-     * answers in. See tests/tools-panel.spec.ts.
+     * Where ShortcutBar sits, in the same client coordinates `topDialogBounds`
+     * answers in. See tests/shortcut-bar.spec.ts.
      */
-    toolsPanelBounds: () => { x: number; y: number; width: number; height: number }
+    shortcutBarBounds: () => { x: number; y: number; width: number; height: number }
+    /** The shortcut bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
+    shortcutBarHoverText: () => string | undefined
+    /** Where the inventory bar (QuickbarPanel) sits, in the same coordinates as `shortcutBarBounds`. */
+    quickbarBounds: () => { x: number; y: number; width: number; height: number }
+    /** The inventory bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
+    quickbarHoverText: () => string | undefined
+    /** Assigns one action's key combo, as the settings pane does. */
+    rebindAction: (name: string, keyCombo: string) => void
     /**
      * Whether `EntityContainer.entityInfo` is currently visible for this
      * entity - the persistent always-show label and the hover tooltip toggle

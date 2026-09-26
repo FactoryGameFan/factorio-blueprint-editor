@@ -68,6 +68,8 @@ const TEST_API_MARKERS = [
     'qualityBadgeFrames',
     'liveOverlayPosition',
     'setEntityModules',
+    'shortcutBarHoverText',
+    'rebindAction',
 ]
 
 let bundledJs = ''
