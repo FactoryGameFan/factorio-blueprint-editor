@@ -56,8 +56,8 @@ export interface IFilter {
     count?: number
     /*
         The 2.0 fields this used to drop (issue #88). Optional because the
-        entities sharing this shape do not all have them - a splitter filter is
-        a bare name, and the pre-2.0 migration produces index/name/count - but
+        entities sharing this shape do not all have them - a splitter filter
+        reads back a name and its quality only, and the pre-2.0 migration produces index/name/count - but
         for logistic chests they are the norm rather than the exception: every
         one of the 4069 filters in the corpus carries `quality` and `comparator`
         and 90 carry `max_count`.
@@ -259,6 +259,15 @@ export class Entity extends EventEmitter<EntityEvents> {
         return FD.entities[this.name]
     }
 
+    /**
+     * The entity's own quality as the blueprint stores it, undefined when the
+     * blueprint leaves it out - which is how Factorio writes normal. Read-only
+     * for now: the editor draws it (#348) but has no picker for it.
+     */
+    public get quality(): string | undefined {
+        return this.m_rawEntity.quality
+    }
+
     /** Entity size */
     public get size(): IPoint {
         return getEntitySize(this.entityData, this.direction)
@@ -457,6 +466,14 @@ export class Entity extends EventEmitter<EntityEvents> {
         })
     }
 
+    /**
+     * The recipe's quality as the blueprint stores it, undefined when it is left
+     * out. Read-only, like `quality`: drawn as a badge on the recipe icon.
+     */
+    public get recipeQuality(): string | undefined {
+        return this.m_rawEntity.recipe_quality
+    }
+
     /** Recipes this entity can accept */
     public get acceptedRecipes(): string[] {
         const e = this.entityData
@@ -517,10 +534,53 @@ export class Entity extends EventEmitter<EntityEvents> {
         }
         return out
     }
-    /** The given list can be shorter than the one returned by the getter. */
+    /**
+     * Each module slot's quality, slot for slot with `modules`: undefined for an
+     * empty slot and for a module the blueprint gives no quality. A separate
+     * getter so `modules` stays a list of names for the code that writes it.
+     */
+    public get moduleQualities(): (string | undefined)[] {
+        const items = this.m_rawEntity.items
+        const out = Array.from<string | undefined>({ length: this.moduleSlots })
+        if (!Array.isArray(items)) return out
+        const inventory = getModuleInventoryIndex(this.entityData)
+        for (const item of items) {
+            for (const inv of item.items.in_inventory ?? []) {
+                if (inv.inventory === inventory) {
+                    out[inv.stack] = item.id.quality
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * The given list can be shorter than the one returned by the getter.
+     *
+     * Names only, because that is all the module dialog knows. A slot that
+     * still holds the module it held keeps that module's quality; the dialog
+     * sends every slot back when one changes, so without this a single edit
+     * made every module on the entity normal quality.
+     */
     public set modules(_modules: (string | undefined)[]) {
         const modules = _modules || []
-        if (this.modules.entries().every(([i, m]) => m === modules[i])) return
+        const names = this.modules
+        const qualities = this.moduleQualities
+        this.writeModules(
+            modules,
+            modules.map((m, i) => (m !== undefined && m === names[i] ? qualities[i] : undefined))
+        )
+    }
+
+    /**
+     * Writes each slot's module and its quality, slot for slot. `set modules`
+     * comes through here, and so does `pasteSettings`, which knows the source's
+     * qualities and passes them on rather than keeping the target's.
+     */
+    private writeModules(modules: (string | undefined)[], qualities: (string | undefined)[]): void {
+        const names = this.modules
+        const current = this.moduleQualities
+        if (names.every((m, i) => m === modules[i] && current[i] === qualities[i])) return
 
         let items = util.duplicate(this.m_rawEntity.items || [])
         if (!Array.isArray(items)) {
@@ -547,10 +607,13 @@ export class Entity extends EventEmitter<EntityEvents> {
         for (const [i, module] of modules.entries()) {
             if (!module) continue
 
+            // One entry per module and quality, so the same module at two
+            // qualities stays two entries.
+            const quality = qualities[i]
             let found_module_entry = false
             const inv_entry = { inventory, stack: i }
             for (const item of items) {
-                if (item.id.name === module) {
+                if (item.id.name === module && item.id.quality === quality) {
                     found_module_entry = true
 
                     if (item.items.in_inventory) {
@@ -562,7 +625,7 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
             if (!found_module_entry) {
                 items.push({
-                    id: { name: module },
+                    id: quality === undefined ? { name: module } : { name: module, quality },
                     items: { in_inventory: [inv_entry] },
                 })
             }
@@ -760,8 +823,10 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (typeof this.m_rawEntity.filter === 'string') {
             throw new Error('pre 2.0 format!')
         }
-        if (this.m_rawEntity.filter.name) {
-            return [{ index: 1, name: this.m_rawEntity.filter.name }]
+        const { name, quality } = this.m_rawEntity.filter
+        if (name) {
+            // Quality only when present, so a filter without one reads as before.
+            return [quality === undefined ? { index: 1, name } : { index: 1, name, quality }]
         }
         return []
     }
@@ -771,8 +836,16 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         this.m_BP.history.transaction(undefined, () => {
             // used to write { name: undefined } when clearing, which serialized as an
-            // empty filter object rather than as no filter at all
-            const f = filter === undefined ? undefined : { name: filter }
+            // empty filter object rather than as no filter at all. Quality goes
+            // with the name, the shape the getter reads back, so a pasted filter
+            // keeps it.
+            const quality = filters?.[0]?.quality
+            const f =
+                filter === undefined
+                    ? undefined
+                    : quality === undefined
+                      ? { name: filter }
+                      : { name: filter, quality }
 
             this.m_BP.history
                 .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
@@ -805,8 +878,21 @@ export class Entity extends EventEmitter<EntityEvents> {
     private get inserterFilters(): IFilter[] | undefined {
         return this.m_rawEntity.filters
     }
-    private set inserterFilters(filters: IFilter[] | undefined) {
-        if (filters === undefined && this.m_rawEntity.filters === undefined) return
+    private set inserterFilters(_filters: IFilter[] | undefined) {
+        if (_filters === undefined && this.m_rawEntity.filters === undefined) return
+
+        /*
+            The filter dialog sends every slot back when one changes, with its
+            index, name and count and nothing else. A slot still holding the
+            same item keeps the quality and comparator the dialog cannot show,
+            the same rule `logisticChestFilters` follows: what the incoming
+            filter carries still wins.
+        */
+        const held = this.m_rawEntity.filters ?? []
+        const filters = _filters?.map(f => {
+            const before = held.find(h => h.index === f.index && h.name === f.name)
+            return before === undefined ? f : { ...before, ...f }
+        })
         if (util.areArraysEquivalent(filters, this.m_rawEntity.filters)) return
 
         this.m_BP.history
@@ -1490,9 +1576,14 @@ export class Entity extends EventEmitter<EntityEvents> {
                     target will not accept still goes, it just leaves its slot
                     empty instead of closing it.
                 */
-                    this.modules = sourceEntity.modules
+                    const modules = sourceEntity.modules
                         .map(m => (m !== undefined && aM.includes(m) ? m : undefined))
                         .slice(0, this.moduleSlots)
+                    const qualities = sourceEntity.moduleQualities
+                    this.writeModules(
+                        modules,
+                        modules.map((m, i) => (m === undefined ? undefined : qualities[i]))
+                    )
                 } else {
                     this.modules = []
                 }

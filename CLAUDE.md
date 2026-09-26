@@ -764,7 +764,13 @@ against the CSP in `packages/website/public/_headers` that permits them.
   measured on the bridges, which variant the game uses differs from seam to
   seam, so reproducing it needs a position hash we would be inventing. That
   applies to all 17 keys, not just the walls.
-- Logistic filters retain quality metadata but the UI has no quality picker.
+- Quality is drawn but not editable (#503). An entity's own quality, its
+  modules', its recipe's and its inserter or splitter filters' get the alt-mode
+  badge (#348), as vectors in `core/qualityBadge.ts` whose placement and sizes
+  were measured against 2.0.77 screenshots; the data export carries no quality
+  prototypes or icons. Requester and buffer chests get none, because the game
+  draws no request icons on them in alt mode. No editor has a quality picker,
+  so each setter keeps the quality its dialog cannot show.
 - Keybind labels in the shortcut bar's hover text name each key by its place on
   a US QWERTY keyboard, because actions match `KeyboardEvent.code`. On other
   layouts the printed letter differs: German Undo shows Z but works on the key

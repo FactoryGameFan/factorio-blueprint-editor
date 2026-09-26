@@ -120,6 +120,16 @@ export interface FbeTestApi {
      * blueprint's containers - see tests/entity-container-mappings.spec.ts.
      */
     entityContainerCount: () => number
+    /** Actual displayed overlay origin, in pixels; absent when there is no overlay. */
+    liveOverlayPosition: (entityNumber: number) => { x: number; y: number } | undefined
+    /**
+     * Each quality badge on an entity's info overlay, as a frame in tiles from
+     * the entity's centre; undefined when no entity has that number. See
+     * tests/quality-badges.spec.ts.
+     */
+    qualityBadgeFrames: (
+        entityNumber: number
+    ) => { quality: string; x: number; y: number; size: number }[] | undefined
     overlayInfoTally: () => OverlayTally
     /**
      * Defaults to the loaded blueprint; pass one to tally a book entry instead.
@@ -284,6 +294,11 @@ export interface FbeTestApi {
      * so the positions matter, not just the set. See tests/paste-modules.spec.ts.
      */
     entityModules: (entityNumber: number) => (string | undefined)[]
+    /**
+     * A write through `Entity.set modules`, names only, as the module dialog
+     * sends it. See tests/quality-edits.spec.ts.
+     */
+    setEntityModules: (entityNumber: number, modules: (string | undefined)[]) => void
     /**
      * The detail line EntityInfoPanel shows for this entity - the inserter or
      * belt speed line, the crafting block for a machine. See

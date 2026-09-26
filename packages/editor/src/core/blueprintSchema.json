@@ -487,6 +487,9 @@
                             "recipe_quality": {
                                 "type": "string"
                             },
+                            "quality": {
+                                "type": "string"
+                            },
                             "bar": {
                                 "type": "integer",
                                 "$comment": "inventory size limitation, only present if entity has inventory_size"

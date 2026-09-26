@@ -65,6 +65,9 @@ const TEST_API_MARKERS = [
     'setWagonInventory',
     'armUndrawableWire',
     '__fbe_arm_undrawable_wire',
+    'qualityBadgeFrames',
+    'liveOverlayPosition',
+    'setEntityModules',
     'shortcutBarHoverText',
     'rebindAction',
 ]
