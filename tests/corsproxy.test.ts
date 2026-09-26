@@ -12,9 +12,10 @@ import {
 
     `packages/worker` is in `lint.ignorePatterns` (vite.config.ts) and no test
     project collects from it, so nothing in that package is linted, type-checked
-    or run by either gate. `checkProxyTarget` was split out of index.ts to be
-    reachable from here, where the `unit` project in vite.config.ts does collect
-    it and CI runs it in seconds.
+    or run by either gate. CI type-checks it in a separate step, and that is
+    all. `checkProxyTarget` was split out of index.ts to be reachable from here,
+    where the `unit` project in vite.config.ts does collect it and CI runs it in
+    seconds.
 
     Less of the handler is uncovered than this comment once said, but not all of
     it is covered. tests/gist-rate-limit.test.ts drives the real handler with a

@@ -11,8 +11,8 @@ import {
 /*
     The unique-visitor counter's decisions, which are the half of it a test can
     reach. tests/corsproxy.test.ts explains why that split exists at all:
-    `packages/worker` is linted, type-checked and collected by nothing, so only
-    a pure module imported from here runs in CI.
+    `packages/worker` is linted and collected by nothing, so only a pure module
+    imported from here runs in CI. CI does type-check it, in its own step.
 
     Uncovered, and it is the half that touches the network: the Cache API
     lookup, the writeDataPoint call and ctx.waitUntil all live in index.ts and

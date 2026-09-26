@@ -165,8 +165,10 @@ globals. Every package is at 0 under its own project. The root tsconfig does
 carry one `exclude`, `packages/worker`: its gitignored `worker-configuration.d.ts`
 merges Cloudflare's HTMLRewriter `Element` into the DOM's, which made
 `vp check` red on `document.body.append` in a Playwright spec on any machine
-that had run `wrangler types` while CI, which never has the file, stayed green.
-To check one package, name it, for example:
+that had run `wrangler types` while CI, which had no copy of the file, stayed
+green. CI's `checks` job now runs `wrangler types` before `vp check`, so it
+would catch that, and then type-checks the Worker under its own tsconfig. To
+check one package, name it, for example:
 
 ```sh
 npx tsc --noEmit -p packages/editor/tsconfig.json

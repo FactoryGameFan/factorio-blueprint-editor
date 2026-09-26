@@ -93,6 +93,32 @@ carried 15 unchecked type errors (issue #78).
 Measured 2026-09-02 over 11 successful runs: median 37s, range 31s to 42s. An
 earlier comment in `ci.yml` said 46s, which is above every sample in that set.
 
+### The Worker gets its own type check (#518)
+
+`vp check .` never looks at `packages/worker`. The root tsconfig excludes it and
+the lint pass ignores it, because its types come from `worker-configuration.d.ts`,
+a gitignored file that `wrangler types` writes. `deploy` bundles the Worker with
+esbuild, which strips types without checking them, so before this step a type
+error in the Worker would have shipped.
+
+The step runs `wrangler types`, then `tsc` under the Worker's own tsconfig. Both
+come from the lockfile. `npx --no` makes a missing one fail rather than fetch the
+latest from npm. `wrangler types` needs no Cloudflare login and no network for
+this config: measured 2026-09-25 on macOS with outbound network blocked and an
+empty wrangler config directory, it wrote the file and exited 0. Linux arm64 in
+the devcontainer image gave the same result.
+
+It runs **before** `vp check .` on purpose. The generated file then sits in the
+tree, as it does on any machine that has run `wrangler types`. That is the
+state where #413's bug showed up. Measured with the file present: `vp check .` stays green, and
+removing `packages/worker` from the root tsconfig's `exclude` turns it red with
+the TS2345 on `document.body.append`. Run after it, CI could not see that
+regression.
+
+`wrangler types --check` is not needed. It asks whether a file already on disk
+is up to date, and this step writes the file fresh on every run. It only makes
+sense for a committed copy, which this repo keeps out of git on purpose.
+
 ### `vp test` now runs a production build
 
 `tests/production-bundle.test.ts` (#322) calls Vite's `build()` in-process and

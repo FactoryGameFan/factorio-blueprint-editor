@@ -117,6 +117,16 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
+      # Before `vp check .` on purpose: the generated file is then present for
+      # it, as on any machine that has run `wrangler types`, so dropping the
+      # root tsconfig's `packages/worker` exclude turns CI red. `--no` stops npx
+      # from downloading a version the lockfile does not pin. See README.md.
+      - name: Type-check the Worker (wrangler types + tsc)
+        working-directory: packages/worker
+        run: |
+          npx --no -- wrangler types
+          npx --no -- tsc --noEmit --project .
+
       - name: Check (oxfmt + oxlint + tsc)
         if: ${{ !cancelled() }}
         run: vp check .
