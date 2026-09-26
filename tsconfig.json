@@ -31,8 +31,10 @@
     // worker-configuration.d.ts declares Cloudflare's HTMLRewriter `Element` -
     // and TypeScript merges that into the DOM's `Element`, so
     // `document.body.append(node)` in a Playwright spec fails to type (TS2345)
-    // on any machine that has run `wrangler types`. CI never has the file, so it
-    // stayed green while local `vp check` went red. The worker has its own
-    // tsconfig and is already outside the lint pass (vite.config.ts).
+    // on any machine that has run `wrangler types`. CI had no copy of the file,
+    // so it stayed green while local `vp check` went red. CI's `checks` job now
+    // generates it before `vp check`, so dropping this exclude turns CI red too.
+    // The worker has its own tsconfig, which that job type-checks, and is
+    // outside the lint pass (vite.config.ts).
     "exclude": ["node_modules", "packages/worker"]
 }

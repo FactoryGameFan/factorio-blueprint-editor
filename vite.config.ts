@@ -15,7 +15,8 @@ export default defineConfig({
             'packages/exporter',
             // Out of migration scope; its tsconfig references a gitignored,
             // wrangler-generated worker-configuration.d.ts that is absent on a
-            // fresh checkout (e.g. CI), which oxlint reports as an invalid tsconfig.
+            // fresh checkout, which oxlint reports as an invalid tsconfig. CI's
+            // `checks` job type-checks it on its own with `wrangler types` + tsc.
             'packages/worker',
         ],
         rules: {
