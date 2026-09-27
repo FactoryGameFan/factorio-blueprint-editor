@@ -46,10 +46,20 @@ gh stack merge 510 --yes --squash
 It merges every pull request in one step, all or nothing, and still writes one
 squash commit per pull request - stack 510 landed #507 and #508 as two
 commits, and closed the issue #508 named. It does not delete the branches.
-Merging only part of a stack goes from the bottom: a pull request merges with
-every one below it. GitHub's documentation says the lowest pull request left
-then targets the default branch on its own, and the rest stay chained above
-it. That has not been tried here yet.
+
+Merging only part of a stack goes from the bottom: pass a pull request number
+instead, and that pull request merges with every one below it:
+
+```sh
+gh stack merge 522 --yes --squash
+```
+
+A stack's number comes from the same sequence as pull requests and issues, so
+a bare number cannot name both. On stack 524 that landed #522 alone and closed
+the issue it named. #523, next up, retargeted to the default branch on its
+own and got the full CI, and #525 stayed chained above it. `gh pr merge` on
+any pull request in a stack fails with `This pull request is part of a stack
+and must be merged using the asynchronous merge REST API`.
 
 CodeRabbit reviews only pull requests whose base is the default branch, so it
 skips an upper layer (it did on #508). Comment `@coderabbitai review` to ask for
