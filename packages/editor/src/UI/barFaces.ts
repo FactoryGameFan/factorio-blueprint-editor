@@ -11,7 +11,7 @@ import { Graphics } from 'pixi.js'
 */
 
 /** `quick_bar_slot_window_frame`, and the shortcut bar's frame beside it. */
-const FRAME = {
+export const FRAME = {
     fill: 0x313131,
     top: [0x605e5d, 0x454342],
     bottom: [0x000000, 0x1a1817],
@@ -20,13 +20,16 @@ const FRAME = {
 }
 
 /** `quick_bar_inner_panel`, the sunken panel the slots and the page buttons sit in. */
-const PANEL = {
+export const PANEL = {
     fill: 0x251d1a,
     above: [0x191615, 0x000000],
     below: [0x474241, 0x605d5b],
     left: [0x2c2726, 0x272321],
     right: [0x2c2725, 0x231b18],
 }
+
+/** The frame's fill showing between its own edge and a panel's. */
+export const FRAME_FILL = 4
 
 /** `slot_button`: dark, lit along the top, with rounded corners. */
 const SLOT = {
@@ -73,12 +76,18 @@ export function drawBarFrame(width: number, height: number, panels: PanelBox[]):
     FRAME.top.forEach((c, i) => g.rect(0, i, width, 1).fill(c))
     FRAME.bottom.forEach((c, i) => g.rect(0, height - 1 - i, width, 1).fill(c))
 
+    // The panel's edges sit outside its box. barFaces.test.ts checks that
+    // they and the frame's own edges fit in BAR_PADDING.
+    const l = PANEL.left.length
+    const r = PANEL.right.length
+    const a = PANEL.above.length
+    const b = PANEL.below.length
     for (const { x, y, width: w, height: h } of panels) {
         g.rect(x, y, w, h).fill(PANEL.fill)
-        PANEL.left.forEach((c, i) => g.rect(x - 2 + i, y, 1, h).fill(c))
-        PANEL.right.forEach((c, i) => g.rect(x + w + 1 - i, y, 1, h).fill(c))
-        PANEL.above.forEach((c, i) => g.rect(x - 2, y - 2 + i, w + 4, 1).fill(c))
-        PANEL.below.forEach((c, i) => g.rect(x - 2, y + h + 1 - i, w + 4, 1).fill(c))
+        PANEL.left.forEach((c, i) => g.rect(x - l + i, y, 1, h).fill(c))
+        PANEL.right.forEach((c, i) => g.rect(x + w + r - 1 - i, y, 1, h).fill(c))
+        PANEL.above.forEach((c, i) => g.rect(x - l, y - a + i, w + l + r, 1).fill(c))
+        PANEL.below.forEach((c, i) => g.rect(x - l, y + h + b - 1 - i, w + l + r, 1).fill(c))
     }
     return g
 }
