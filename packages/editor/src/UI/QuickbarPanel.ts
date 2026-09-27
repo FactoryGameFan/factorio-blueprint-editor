@@ -241,9 +241,17 @@ export class QuickbarPanel extends Panel {
         return itemNames
     }
 
+    /**
+     * Centred, but clamped at 0. Below the bar's own width (448 px) the
+     * centred position goes negative, and the page buttons are the first
+     * thing it pushes off the left edge - at 320 px the bar starts at -64
+     * and both buttons with it. The triangle they replaced sat in the
+     * middle and stayed reachable. Clamped, the rightmost slots run off the
+     * right edge instead, which they already did at that width.
+     */
     protected override setPosition(): void {
         this.position.set(
-            G.app.screen.width / 2 - this.width / 2,
+            Math.max(0, G.app.screen.width / 2 - this.width / 2),
             G.app.screen.height - this.height + 1
         )
     }

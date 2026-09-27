@@ -417,3 +417,15 @@ test('ShortcutBar does not run off the left edge below its own width (#242 revie
 
     await expect.poll(() => page.evaluate(() => window.__fbe_test.shortcutBarBounds().x)).toBe(0)
 })
+
+test('the inventory bar keeps its page buttons on screen below its own width', async ({ page }) => {
+    /*
+        Centred, the 448 px bar starts at -64 in a 320 px viewport, and the
+        page buttons on its left went with it (#522 review). Polled for the
+        same resize race as the two tests above; the stale 1280 px layout
+        puts the bar at 416, so `x === 0` cannot pass before the resize lands.
+    */
+    await page.setViewportSize({ width: 320, height: 720 })
+
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.quickbarBounds().x)).toBe(0)
+})
