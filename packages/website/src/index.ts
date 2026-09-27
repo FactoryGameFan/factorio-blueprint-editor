@@ -710,11 +710,13 @@ const testApi = {
         What the info panel says about an entity. Builds a panel of its own
         rather than reading the live one, the same way recipeShapeTally does, so
         the app's panel is not left showing whatever a spec last asked about.
+        Given more than one entity, it shows each in turn on that one panel and
+        answers what the last left there.
     */
-    entityInfoText: (entityNumber: number) => {
+    entityInfoText: (...entityNumbers: number[]) => {
         const panel = new EntityInfoPanel()
         try {
-            panel.updateVisualization(entityOf(entityNumber))
+            for (const n of entityNumbers) panel.updateVisualization(entityOf(n))
             return panel.infoText
         } finally {
             panel.destroy()
@@ -727,6 +729,12 @@ const testApi = {
         refuses from one it accepts and then writes nothing for.
     */
     copyCursorBoxVisible: () => editor.copyCursorBoxVisible,
+    /*
+        What the app's own info panel shows, unlike entityInfoText above - so a
+        spec can see whether it refreshes when the hovered entity changes under
+        it (tests/train-schedule-panel.spec.ts).
+    */
+    liveEntityInfoText: () => editor.entityInfoText,
     /*
         Constructs a dialog whose constructor throws, and answers whether it did.
         Never added to the display tree, so with registration on the `added`

@@ -157,6 +157,14 @@ const ALLOWLIST: AllowedChord[] = [
             'gesture already blurs it via its own mousedown on the canvas, so no ' +
             'DOM input has focus by the time this chord is pressed.',
     },
+    {
+        file: 'train-schedule-panel.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. The spec only hovers and clicks " +
+            'the canvas and opens no dialog, so no DOM input ever has focus.',
+    },
 ]
 
 interface Found {

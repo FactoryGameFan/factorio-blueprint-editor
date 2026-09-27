@@ -301,10 +301,16 @@ export interface FbeTestApi {
     setEntityModules: (entityNumber: number, modules: (string | undefined)[]) => void
     /**
      * The detail line EntityInfoPanel shows for this entity - the inserter or
-     * belt speed line, the crafting block for a machine. See
-     * tests/inserter-throughput.spec.ts.
+     * belt speed line, the crafting block for a machine. Given several, one
+     * panel shows each in turn and this is what the last left. See
+     * tests/inserter-throughput.spec.ts and tests/train-schedule-panel.spec.ts.
      */
-    entityInfoText: (entityNumber: number) => string
+    entityInfoText: (...entityNumbers: number[]) => string
+    /**
+     * The detail line the app's live info panel is showing, or undefined while
+     * it is hidden. See tests/train-schedule-panel.spec.ts.
+     */
+    liveEntityInfoText: () => string | undefined
     /**
      * Constructs a dialog whose constructor throws after `super()`, without
      * adding it to the display tree, and answers whether it threw.

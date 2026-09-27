@@ -1271,6 +1271,12 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
                 next.length > 0 ? next : undefined,
                 'Change train schedule'
             )
+            /*
+                On the history entry rather than after `commit`, so an undo or
+                redo says so too. Only this locomotive's schedule changed: the
+                others on its old or new entry keep the same stops.
+            */
+            .onDone(() => this.entities.get(entityNumber)?.emit('schedule'))
             .commit()
     }
 

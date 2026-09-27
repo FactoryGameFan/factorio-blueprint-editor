@@ -420,6 +420,14 @@ export class Editor {
         return G.UI.shortcutTooltip
     }
 
+    /**
+     * What the app's own entity info panel is showing, or undefined while it is
+     * hidden. See tests/train-schedule-panel.spec.ts.
+     */
+    public get entityInfoText(): string | undefined {
+        return G.UI.entityInfoText
+    }
+
     /** Where the inventory bar sits in client coordinates. See tests/shortcut-bar.spec.ts. */
     public get quickbarBounds(): { x: number; y: number; width: number; height: number } {
         return G.UI.quickbarBounds

@@ -150,6 +150,7 @@ export class EntityContainer {
         this.m_Entity.on('displayPanelIcon', onDisplayPanelIconChange)
         this.m_Entity.on('displayPanelText', this.redrawEntityInfo)
         this.m_Entity.on('displayPanelAlwaysShow', this.redrawEntityInfo)
+        this.m_Entity.on('schedule', this.redrawEntityInfo)
 
         this.m_Entity.on('destroy', onEntityDestroy)
 
@@ -166,6 +167,7 @@ export class EntityContainer {
             this.m_Entity.off('displayPanelIcon', onDisplayPanelIconChange)
             this.m_Entity.off('displayPanelText', this.redrawEntityInfo)
             this.m_Entity.off('displayPanelAlwaysShow', this.redrawEntityInfo)
+            this.m_Entity.off('schedule', this.redrawEntityInfo)
 
             this.m_Entity.off('destroy', onEntityDestroy)
 

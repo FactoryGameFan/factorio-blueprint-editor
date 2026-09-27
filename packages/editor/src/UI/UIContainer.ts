@@ -155,6 +155,11 @@ export class UIContainer extends Container {
         return { x: at.x, y: at.y, width: this.shortcutBar.width, height: this.shortcutBar.height }
     }
 
+    /** The live info panel's detail line, or undefined while it is hidden. */
+    public get entityInfoText(): string | undefined {
+        return this.entityInfoPanel.visible ? this.entityInfoPanel.infoText : undefined
+    }
+
     /** The hover text ShortcutBar is showing, or undefined when it shows none. */
     public get shortcutTooltip(): string | undefined {
         return this.shortcutBar.shortcutTooltip

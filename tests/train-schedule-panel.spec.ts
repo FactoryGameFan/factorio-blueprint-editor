@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     What the info panel says about a locomotive (issue #346): its schedule, read
@@ -58,8 +59,33 @@ async function load(page: Page, src: string): Promise<void> {
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 }
 
-const infoText = (page: Page, n: number): Promise<string> =>
-    page.evaluate((e: number) => window.__fbe_test.entityInfoText(e), n)
+const infoText = (page: Page, ...n: number[]): Promise<string> =>
+    page.evaluate((e: number[]) => window.__fbe_test.entityInfoText(...e), n)
+
+const MEASURED_LINES = [
+    'Schedule (group Ore Run):',
+    '1. Alpha: Time passed 10 s',
+    '2. Beta: Full cargo',
+    'Interrupts:',
+    'Refuel - when Passenger not present',
+    '  -> Depot: Inactivity 5 s',
+].join('\n')
+
+/** Puts the pointer on an entity and waits until the editor agrees it is hovered. */
+async function hoverEntity(page: Page, entityNumber: number): Promise<void> {
+    const at = await page.evaluate(
+        (n: number) => window.__fbe_test.entityScreenPosition(n),
+        entityNumber
+    )
+    if (!at) throw new Error(`no entity ${entityNumber} in the loaded blueprint`)
+    await page.mouse.move(at.x, at.y)
+    await page.waitForFunction(n => window.__fbe_test.hoveredEntityNumber() === n, entityNumber, {
+        timeout: 10_000,
+    })
+}
+
+const liveText = (page: Page): Promise<string | undefined> =>
+    page.evaluate(() => window.__fbe_test.liveEntityInfoText())
 
 test('a locomotive shows its 2.0 schedule, and one on none says so', async ({ page }) => {
     await load(
@@ -73,16 +99,8 @@ test('a locomotive shows its 2.0 schedule, and one on none says so', async ({ pa
         })
     )
 
-    const lines = [
-        'Schedule (group Ore Run):',
-        '1. Alpha: Time passed 10 s',
-        '2. Beta: Full cargo',
-        'Interrupts:',
-        'Refuel - when Passenger not present',
-        '  -> Depot: Inactivity 5 s',
-    ].join('\n')
-    expect(await infoText(page, 1)).toBe(lines)
-    expect(await infoText(page, 3)).toBe(lines)
+    expect(await infoText(page, 1)).toBe(MEASURED_LINES)
+    expect(await infoText(page, 3)).toBe(MEASURED_LINES)
     expect(await infoText(page, 2)).toBe('Schedule: none')
 })
 
@@ -153,4 +171,76 @@ test('a schedule too long for the panel is cut short and counted', async ({ page
     expect(kept[1]).toBe('1. Stop 1: Inactivity 5 s')
     // One header line plus 40 stops in all.
     expect(kept.length - 1 + Number(match?.[1])).toBe(40)
+})
+
+test('an entity with no detail line does not keep the schedule shown before it', async ({
+    page,
+}) => {
+    /*
+        The panel is updated in place, not rebuilt, so every branch has to
+        replace the detail line or clear it. A chest writes none of its own,
+        and without the clear it went on showing the locomotive's schedule
+        under "Name: Steel chest".
+    */
+    await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: version(2, 0, 55),
+            entities: [
+                locomotive(1),
+                { entity_number: 2, name: 'steel-chest', position: { x: 0.5, y: 6.5 } },
+            ],
+            schedules: [{ locomotives: [1], schedule: MEASURED }],
+        })
+    )
+
+    expect(await infoText(page, 1)).toBe(MEASURED_LINES)
+    expect(await infoText(page, 1, 2)).toBe('')
+})
+
+test('the live panel follows a schedule pasted onto the hovered locomotive, and its undo', async ({
+    page,
+}) => {
+    /*
+        A paste lands on the entity under the pointer, so the panel is already
+        showing that locomotive when its schedule changes - no hover comes
+        after to redraw it. `Blueprint.setSchedule` emits `schedule` from its
+        history entry, which is what makes the undo and the redo refresh too.
+    */
+    const errors: string[] = []
+    page.on('pageerror', e => errors.push(String(e)))
+    await suppressOverlays(page)
+    await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: version(2, 0, 55),
+            entities: [locomotive(1), locomotive(2)],
+            schedules: [{ locomotives: [1], schedule: MEASURED }],
+        })
+    )
+
+    await hoverEntity(page, 2)
+    expect(await liveText(page)).toBe('Schedule: none')
+
+    // Shift+right-click copies from the source, Shift+click pastes on the target.
+    await hoverEntity(page, 1)
+    await page.keyboard.down('Shift')
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.up({ button: 'right' })
+    await hoverEntity(page, 2)
+    await page.mouse.down()
+    await page.mouse.up()
+    await page.keyboard.up('Shift')
+
+    expect(await liveText(page)).toBe(MEASURED_LINES)
+
+    await page.keyboard.press('Control+KeyZ')
+    expect(await liveText(page)).toBe('Schedule: none')
+
+    await page.keyboard.press('Control+KeyY')
+    expect(await liveText(page)).toBe(MEASURED_LINES)
+
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
