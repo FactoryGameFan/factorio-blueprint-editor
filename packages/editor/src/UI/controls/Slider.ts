@@ -30,12 +30,23 @@ export class Slider extends Container {
     private p_Value: number
 
     /**
-     * Create slider control
-     * @param values - Possible values
-     * @param value - Default value (If value is set to undefined - tri-state switch)
+     * The top of a linear 1..max scale, or undefined for the default one.
+     *
+     * The default runs 1 to 9 in ones and then in tens, hundreds and so on up
+     * to 20000, which suits a request count. An inserter's hand tops out at 4,
+     * 12 or 16, and on that scale 11 to 19 have no position at all (#339).
      */
-    public constructor(value = 1) {
+    private readonly m_Max: number | undefined
+
+    /**
+     * Create slider control
+     * @param value - Default value
+     * @param max - Top of a linear scale starting at 1, instead of the default one
+     */
+    public constructor(value = 1, max?: number) {
         super()
+
+        this.m_Max = max
 
         this.eventMode = 'static'
         const factor = 2
@@ -138,7 +149,10 @@ export class Slider extends Container {
     /** Update button position */
     private updateButtonPosition(): void {
         let x: number
-        if (this.value >= 20000) {
+        if (this.m_Max !== undefined) {
+            const value = Math.min(this.m_Max, Math.max(1, this.value))
+            x = this.m_Max > 1 ? ((value - 1) / (this.m_Max - 1)) * Slider.SLIDER_WIDTH : 0
+        } else if (this.value >= 20000) {
             x = Slider.SLIDER_WIDTH / 4
         } else if (this.value >= 10000) {
             x = this.value / 10000 + 35
@@ -153,7 +167,7 @@ export class Slider extends Container {
         } else {
             x = this.value - 1
         }
-        x *= 4
+        if (this.m_Max === undefined) x *= 4
         if (this.m_SliderButton.x !== x) {
             this.m_SliderButton.x = x
         }
@@ -210,7 +224,9 @@ export class Slider extends Container {
             }
 
             const value = Math.floor(x / 4) + 1
-            if (value > 36) {
+            if (this.m_Max !== undefined) {
+                this.value = Math.round((x / Slider.SLIDER_WIDTH) * (this.m_Max - 1)) + 1
+            } else if (value > 36) {
                 this.value = (value - 36) * 10000
             } else if (value > 27) {
                 this.value = (value - 27) * 1000

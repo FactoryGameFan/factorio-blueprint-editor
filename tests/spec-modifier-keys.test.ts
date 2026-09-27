@@ -157,6 +157,16 @@ const ALLOWLIST: AllowedChord[] = [
             'gesture already blurs it via its own mousedown on the canvas, so no ' +
             'DOM input has focus by the time this chord is pressed.',
     },
+    {
+        file: 'inserter-stack-size.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. One press follows a click on the " +
+            "dialog's pixi checkbox with its box never focused, the other follows " +
+            'closing the dialog with Escape and hovering the inserter, so no DOM ' +
+            'input has focus by then.',
+    },
 ]
 
 interface Found {

@@ -116,6 +116,16 @@ export class EntityContainer {
             }
         }
 
+        /*
+            The info panel's speed line reads the stack size, and nothing else
+            drawn for an inserter does. Only while hovered, because that is when
+            the panel is showing this entity - an undo pressed there would
+            otherwise leave it on the old number until the pointer moved (#339).
+        */
+        const onInserterStackSizeChange = (): void => {
+            if (G.BPC.hoverContainer === this) G.UI.updateEntityInfoPanel(this.m_Entity)
+        }
+
         const onDisplayPanelIconChange = (): void => {
             this.redraw()
         }
@@ -145,6 +155,7 @@ export class EntityContainer {
         this.m_Entity.on('modules', onModulesChange)
 
         this.m_Entity.on('filters', this.redrawEntityInfo)
+        this.m_Entity.on('inserterStackSize', onInserterStackSizeChange)
         this.m_Entity.on('splitterInputPriority', this.redrawEntityInfo)
         this.m_Entity.on('splitterOutputPriority', this.redrawEntityInfo)
         this.m_Entity.on('displayPanelIcon', onDisplayPanelIconChange)
@@ -161,6 +172,7 @@ export class EntityContainer {
             this.m_Entity.off('modules', onModulesChange)
 
             this.m_Entity.off('filters', this.redrawEntityInfo)
+            this.m_Entity.off('inserterStackSize', onInserterStackSizeChange)
             this.m_Entity.off('splitterInputPriority', this.redrawEntityInfo)
             this.m_Entity.off('splitterOutputPriority', this.redrawEntityInfo)
             this.m_Entity.off('displayPanelIcon', onDisplayPanelIconChange)
