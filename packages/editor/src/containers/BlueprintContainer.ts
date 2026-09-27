@@ -1662,8 +1662,9 @@ export class BlueprintContainer extends Container {
      *
      * The background grids are hidden for the render, so everything outside the
      * blueprint's own sprites is transparent (#341). `resolution` is clamped to
-     * what the GPU can hold - see `clampPictureResolution` - so a large request
-     * comes back smaller rather than failing.
+     * what the GPU can hold, and to 8192 px a side past that - see
+     * `clampPictureResolution` - so a large request comes back smaller rather
+     * than failing.
      */
     public async getPicture(resolution = this.pictureResolution): Promise<Blob> {
         if (this.bp.isEmpty()) throw new Error('Cannot take a picture of an empty blueprint')

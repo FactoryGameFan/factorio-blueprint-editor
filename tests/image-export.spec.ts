@@ -112,11 +112,9 @@ test('a resolution past the texture limit is clamped, not thrown', async ({ page
     const one = await readPictureSize(page, 1)
     const huge = await readPictureSize(page, 1000)
     const longest = Math.max(huge.width, huge.height)
-    // The limit is the WebGL context's under WebGL and pixi's default of 8192
-    // under WebGPU; the spec cannot see which renderer pixi picked, so it
-    // brackets the two.
+    // Capped at MAX_PICTURE_SIDE, 8192, or lower where the GPU's own limit is.
     expect(huge.maxTextureSize).toBeGreaterThan(0)
-    expect(longest).toBeLessThanOrEqual(Math.max(huge.maxTextureSize, 8192))
+    expect(longest).toBeLessThanOrEqual(8192)
     expect(longest).toBeGreaterThanOrEqual(Math.min(huge.maxTextureSize, 8192) - 1)
     // Scaled as a whole, not cropped: the strip keeps its shape.
     expect(huge.width / huge.height).toBeCloseTo(one.width / one.height, 1)
