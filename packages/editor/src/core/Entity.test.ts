@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
 import { Entity } from './Entity'
+import { Blueprint } from './Blueprint'
 import { loadData } from './factorioData'
 
 /*
@@ -30,6 +31,7 @@ beforeAll(() => {
                     place_result: 'captive-biter-spawner',
                 },
                 car: { name: 'car', place_result: 'car' },
+                'iron-plate': { name: 'iron-plate' },
             },
             fluids: {},
             signals: {},
@@ -40,6 +42,15 @@ beforeAll(() => {
                 'curved-rail-a': { name: 'curved-rail-a', minable: { result: 'rail' } },
                 'captive-biter-spawner': { name: 'captive-biter-spawner', minable: null },
                 'red-chest': { name: 'red-chest' },
+                'bulk-inserter': {
+                    type: 'inserter',
+                    name: 'bulk-inserter',
+                    filter_count: 5,
+                    collision_box: [
+                        [-0.15, -0.15],
+                        [0.15, 0.15],
+                    ],
+                },
             },
             tiles: {},
             inventoryLayout: [],
@@ -72,5 +83,65 @@ describe('Entity.getItemName', () => {
 
     it('answers undefined for a name that is not an entity, even one an item places', () => {
         expect(Entity.getItemName('car')).toBeUndefined()
+    })
+})
+
+describe('quality-only inserter filters (issue #493)', () => {
+    /*
+        A 2.0 inserter can filter on quality with no item, which a blueprint
+        writes as a filter with no `name`. Both writes below read a missing
+        name as an empty slot and dropped it.
+    */
+    const QUALITY_ONLY = { index: 1, quality: 'normal', comparator: '=' as const }
+
+    const twoInserters = (): Blueprint =>
+        new Blueprint({
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'bulk-inserter',
+                    position: { x: 0.5, y: 0.5 },
+                    filters: [QUALITY_ONLY],
+                },
+                { entity_number: 2, name: 'bulk-inserter', position: { x: 4.5, y: 0.5 } },
+            ],
+        })
+
+    it('pastes onto another inserter', () => {
+        const bp = twoInserters()
+        const [source, target] = [bp.entities.get(1), bp.entities.get(2)]
+        if (!source || !target) throw new Error('expected both inserters')
+
+        target.pasteSettings(source)
+
+        expect(target.filters).toEqual([QUALITY_ONLY])
+    })
+
+    it('survives the dialog writing every slot back', () => {
+        const bp = twoInserters()
+        const entity = bp.entities.get(1)
+        if (!entity) throw new Error('expected the inserter')
+
+        // What Filters sends when another slot changes: all five, the
+        // quality-only one carrying its fields and the rest empty.
+        entity.filters = [
+            { ...QUALITY_ONLY, name: undefined },
+            { index: 2, name: 'iron-plate' },
+            { index: 3, name: undefined },
+            { index: 4, name: undefined },
+            { index: 5, name: undefined },
+        ]
+
+        expect(entity.filters).toEqual([QUALITY_ONLY, { index: 2, name: 'iron-plate' }])
+    })
+
+    it('still drops a slot with no name, quality or comparator', () => {
+        const bp = twoInserters()
+        const entity = bp.entities.get(1)
+        if (!entity) throw new Error('expected the inserter')
+
+        entity.filters = [{ index: 1, name: undefined }]
+
+        expect(entity.filters).toEqual([])
     })
 })
