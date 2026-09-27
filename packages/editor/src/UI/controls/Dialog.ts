@@ -155,9 +155,24 @@ export abstract class Dialog extends Panel {
 
     /** Automatically sets position of dialog to center screen */
     protected override setPosition(): void {
+        this.centreOnScreen(this.height)
+    }
+
+    /**
+     * Centres the dialog on the screen as if it were `height` px tall, but
+     * never above the top edge (issue #347).
+     *
+     * A dialog cannot be dragged, so on a viewport shorter than it, plain
+     * centring cut off its top - the title, and the inventory's group tabs -
+     * as well as its bottom, with no way to bring either back. Clamping the
+     * top to 0 keeps the top of the dialog on screen and moves all of the
+     * clipping to the bottom. A dialog that fits is centred exactly as
+     * before; this changes nothing until the viewport is shorter than it.
+     */
+    protected centreOnScreen(height: number): void {
         this.position.set(
             G.app.screen.width / 2 - this.width / 2,
-            G.app.screen.height / 2 - this.height / 2
+            Math.max(0, G.app.screen.height / 2 - height / 2)
         )
     }
 

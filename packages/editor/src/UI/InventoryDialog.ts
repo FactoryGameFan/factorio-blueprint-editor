@@ -1,6 +1,5 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js'
 import FD, { localisedName, recipeIngredients, recipeResults } from '../core/factorioData'
-import G from '../common/globals'
 import F from './controls/functions'
 import { Dialog } from './controls/Dialog'
 import { Button } from './controls/Button'
@@ -297,6 +296,13 @@ export class InventoryDialog extends Dialog {
         }
 
         this.refreshScrollbar()
+
+        // Again, now that `m_ShowRecipePanel` is set. `Panel`'s constructor
+        // already ran this before that field was assigned, so it centred on
+        // 442 and the recipe panel opened 39px lower than a resize would put
+        // it - and off the bottom of a viewport the full 520 would fit
+        // (issue #347).
+        this.setPosition()
     }
 
     /** Update the scrollbar thumb to reflect the active group's scroll position */
@@ -324,10 +330,7 @@ export class InventoryDialog extends Dialog {
 
     /** Override automatically set position of dialog due to additional area for recipe */
     protected override setPosition(): void {
-        this.position.set(
-            G.app.screen.width / 2 - this.width / 2,
-            G.app.screen.height / 2 - (this.m_ShowRecipePanel ? 520 : 442) / 2
-        )
+        this.centreOnScreen(this.m_ShowRecipePanel ? 520 : 442)
     }
 
     /** Update recipe visualization */
