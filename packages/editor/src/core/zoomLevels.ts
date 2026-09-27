@@ -41,7 +41,7 @@ export const ZOOM_MAX = 3
  *
  * Factorio's world-view floor is a rule rather than a value - at most 200 tiles
  * across the window, capped at 500 - which is 0.3 on a 16:9 display. Adopting it
- * is not open to us: 30 of the 367 corpus blueprints are wider than 200 tiles
+ * is not open to us: 30 of the 372 corpus blueprints are wider than 200 tiles
  * and the widest is 397, needing 0.151 to fit at 1920px, so the game's own floor
  * would make 8% of real blueprints impossible to view whole. That limit exists
  * to stop a player seeing ungenerated chunks, which an editor does not do.
