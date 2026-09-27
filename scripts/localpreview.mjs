@@ -96,6 +96,21 @@ export async function isPortFree(port) {
     return results.every(Boolean)
 }
 
+/** The command that shows who is listening on the given ports, in the platform's own shell. */
+export function portHint(ports, platform = process.platform) {
+    if (platform === 'win32') {
+        return `Get-NetTCPConnection -State Listen -LocalPort ${[...new Set(ports)].join(',')} | Select-Object LocalPort, OwningProcess`
+    }
+    return 'lsof -nP -iTCP -sTCP:LISTEN'
+}
+
+// PowerShell, the Windows default, rejects the `NAME=value command` prefix form.
+export function playwrightHint(port, platform = process.platform) {
+    const url = `http://localhost:${port}`
+    if (platform === 'win32') return `$env:FBE_BASE_URL='${url}'; npx playwright test`
+    return `FBE_BASE_URL=${url} npx playwright test`
+}
+
 const children = []
 let shuttingDown = false
 
@@ -104,6 +119,8 @@ let shuttingDown = false
 export function spawnCli(module, args, cwd) {
     return spawn(process.execPath, [fileURLToPath(import.meta.resolve(module)), ...args], {
         cwd,
+        // On Unix, its own process group, so shutdown() can signal every
+        // descendant and none is left holding a port after the top pid exits.
         detached: true,
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -201,18 +218,20 @@ async function main() {
     const { port } = parseArgs(process.argv.slice(2))
 
     const taken = []
-    if (!(await isPortFree(port))) taken.push(`${port} (Vite)`)
-    if (!(await isPortFree(SPRITE_PORT))) taken.push(`${SPRITE_PORT} (sprite data)`)
+    if (!(await isPortFree(port))) taken.push({ port, what: 'Vite' })
+    if (!(await isPortFree(SPRITE_PORT))) taken.push({ port: SPRITE_PORT, what: 'sprite data' })
     if (taken.length > 0) {
-        console.error(`Port already in use: ${taken.join(', ')}.`)
-        console.error('Stop whatever is holding it, or find it with:  lsof -nP -iTCP -sTCP:LISTEN')
-        if (taken.some(t => t.startsWith(`${port} `))) {
+        console.error(`Port already in use: ${taken.map(t => `${t.port} (${t.what})`).join(', ')}.`)
+        console.error(
+            `Stop whatever is holding it, or find it with:  ${portHint(taken.map(t => t.port))}`
+        )
+        if (taken.some(t => t.what === 'Vite')) {
             console.error(
                 `To run Vite elsewhere instead:  npm run localpreview -- --port 8090\n` +
-                    `then point the Playwright specs at it with FBE_BASE_URL=http://localhost:8090.`
+                    `then point the Playwright specs at it with:  ${playwrightHint(8090)}`
             )
         }
-        if (taken.some(t => t.startsWith(`${SPRITE_PORT} `))) {
+        if (taken.some(t => t.what === 'sprite data')) {
             console.error(
                 `Port ${SPRITE_PORT} has no alternative - the Vite dev proxy targets it directly.`
             )
@@ -247,7 +266,7 @@ async function main() {
     console.log(`Editor:      http://localhost:${port}`)
     console.log(`Sprite data: http://localhost:${SPRITE_PORT}`)
     if (port !== 8080) {
-        console.log(`\nPlaywright:  FBE_BASE_URL=http://localhost:${port} npx playwright test`)
+        console.log(`\nPlaywright:  ${playwrightHint(port)}`)
     }
     console.log(`\nCtrl-C stops both.\n`)
 }
