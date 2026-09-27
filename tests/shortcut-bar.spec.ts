@@ -13,6 +13,15 @@ import {
     ROW_BUTTON_WIDTH,
     ROW_BUTTON_HEIGHT,
 } from '../packages/editor/src/UI/controls/DescribedButton'
+import { BAR_PADDING, BAR_SLOT_PITCH, BAR_SLOT_SIZE } from '../packages/editor/src/UI/barLayout'
+
+/** The centre of the slot at `col`, `row` in a bottom bar's grid, from the bar's corner. */
+function slotCentre(col: number, row: number): { x: number; y: number } {
+    return {
+        x: BAR_PADDING + BAR_SLOT_PITCH * col + BAR_SLOT_SIZE / 2,
+        y: BAR_PADDING + BAR_SLOT_PITCH * row + BAR_SLOT_SIZE / 2,
+    }
+}
 
 /*
     ShortcutBar (#221 review, then #242). Three things the review asked to be
@@ -79,13 +88,13 @@ test.beforeEach(async ({ page }) => {
 test('Alt icon keeps its dark ink on grey and on amber (#429)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
     const bounds = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
-    const x = bounds.x + 12
-    const y = bounds.y + 12
+    const x = bounds.x + slotCentre(0, 0).x
+    const y = bounds.y + slotCentre(0, 0).y
     const expectColors = async (foreground: number[], background: number[]) => {
         await expect
             .poll(async () => {
                 const png = await page.screenshot({
-                    clip: { x: x + 7, y: y + 14, width: 22, height: 8 },
+                    clip: { x: x - 11, y: y - 4, width: 22, height: 8 },
                 })
                 return page.evaluate(
                     async ({ data, foreground, background }) => {
@@ -121,7 +130,7 @@ test('Alt icon keeps its dark ink on grey and on amber (#429)', async ({ page })
     await expectColors(ink, [241, 190, 100])
     await page.keyboard.press('AltLeft')
     await expectColors(ink, [140, 140, 140])
-    await page.mouse.click(x + 18, y + 18)
+    await page.mouse.click(x, y)
     await page.mouse.move(640, 360)
     await expectColors(ink, [241, 190, 100])
     await page.keyboard.press('AltLeft')
@@ -167,7 +176,8 @@ test('each button names itself and its keybind on hover, and follows a rebind (#
     const hoverText = () => page.evaluate(() => window.__fbe_test.shortcutBarHoverText())
     const hover = async (col: number, row: number) => {
         await nextFrames(page)
-        await page.mouse.move(bounds.x + 12 + 38 * col + 18, bounds.y + 12 + 38 * row + 18)
+        const at = slotCentre(col, row)
+        await page.mouse.move(bounds.x + at.x, bounds.y + at.y)
         await nextFrames(page)
     }
     const leave = async () => {
@@ -199,9 +209,9 @@ test('each button names itself and its keybind on hover, and follows a rebind (#
     The inventory bar and the shortcut bar sit side by side on the bottom
     edge, so they have to be one height or their top edges step (#509). Both
     use the game's rule: the same padding on every side, and gaps only
-    between slots, never after the last one. The game's own bars are one
-    96 px frame with 8 px above and below the slots; the editor's 36 px
-    slots and 12 px padding make that 98 (#513 covers the game's sizes).
+    between slots, never after the last one. The sizes are the game's
+    (#513): one 96 px frame, 40 px slots that touch, and 8 px above and
+    below them.
 */
 test('the inventory bar and the shortcut bar are one height and meet edge to edge (#509)', async ({
     page,
@@ -211,12 +221,15 @@ test('the inventory bar and the shortcut bar are one height and meet edge to edg
     const quickbar = await page.evaluate(() => window.__fbe_test.quickbarBounds())
     const shortcutBar = await page.evaluate(() => window.__fbe_test.shortcutBarBounds())
 
-    expect(quickbar.height).toBe(98)
-    expect(shortcutBar.height).toBe(98)
+    expect(quickbar.height).toBe(96)
+    expect(shortcutBar.height).toBe(96)
     expect(quickbar.y).toBe(shortcutBar.y)
-    // 12 px each side, the page buttons and 8 px after them, and two halves of
-    // 5 slots with 2 px between slots and 4 px between the halves (#512)
-    expect(quickbar.width).toBe(12 + 36 + 8 + 5 * 36 + 4 * 2 + 4 + 5 * 36 + 4 * 2 + 12)
+    // 8 px each side, the page buttons and 8 px after them, and two halves
+    // of 5 touching slots with 4 px between them (#512). 468 is the game's
+    // `minimal_width` for the frame.
+    expect(quickbar.width).toBe(8 + 40 + 8 + 5 * 40 + 4 + 5 * 40 + 8)
+    // 8 px each side and 5 columns of touching slots
+    expect(shortcutBar.width).toBe(8 + 5 * 40 + 8)
     expect(quickbar.x + quickbar.width).toBe(shortcutBar.x)
 })
 
@@ -235,7 +248,8 @@ test('the page buttons name their action and keybind on hover (#509, #512)', asy
     const hoverText = () => page.evaluate(() => window.__fbe_test.quickbarHoverText())
     const hoverPageButton = async (row: number) => {
         await nextFrames(page)
-        await page.mouse.move(bounds.x + 12 + 18, bounds.y + 12 + 18 + 38 * row)
+        const at = slotCentre(0, row)
+        await page.mouse.move(bounds.x + at.x, bounds.y + at.y)
         await nextFrames(page)
     }
     const leave = async () => {
@@ -282,11 +296,13 @@ test('a page button click swaps which page each row shows (#512)', async ({ page
     expect(before[10]).toBe('inserter')
     expect(await pages()).toEqual([1, 2])
 
-    await page.mouse.click(bounds.x + 12 + 18, bounds.y + 12 + 18)
+    const top = slotCentre(0, 0)
+    const bottom = slotCentre(0, 1)
+    await page.mouse.click(bounds.x + top.x, bounds.y + top.y)
     await expect.poll(pages).toEqual([2, 1])
     expect(await items()).toEqual(before)
 
-    await page.mouse.click(bounds.x + 12 + 18, bounds.y + 12 + 18 + 38)
+    await page.mouse.click(bounds.x + bottom.x, bounds.y + bottom.y)
     await expect.poll(pages).toEqual([1, 2])
     expect(await items()).toEqual(before)
 })
@@ -365,7 +381,7 @@ test('typing job control: a large paste actually loads through Replace, not just
 
 test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) => {
     /*
-        Below ~872px (see ShortcutBar.ts's setPosition doc comment) the
+        Below ~900px (see ShortcutBar.ts's setPosition doc comment) the
         unclamped position runs the panel off the right edge entirely. 800px
         is inside that range and still a real desktop width, not an extreme
         this project's UI otherwise ignores - mobile gets a different,
@@ -379,8 +395,8 @@ test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) 
 
         The poll asserts the *joint* condition, and that is the whole of it:
         `x >= 0` alone is already true before the resize lands, since the
-        stale 1280px layout puts the panel at `max(0, min(864, 1068))` =
-        864, so polling for that half resolves on its first check and adds
+        stale 1280px layout puts the panel at `max(0, min(874, 1064))` =
+        874, so polling for that half resolves on its first check and adds
         no wait whatsoever - leaving the right-edge assertion after it
         exposed to exactly the race the poll was added for. The sibling
         150px test below works only because its target (`x === 0`) is false
@@ -404,7 +420,7 @@ test('ShortcutBar does not run off the left edge below its own width (#242 revie
 }) => {
     /*
         `setPosition`'s `Math.min` alone only ever clamps the *right* edge -
-        below ~212px (the panel's own width, `24 + 38*5 - 2` for its 5
+        below ~216px (the panel's own width, `16 + 40*5` for its 5
         columns) `screen.width - this.width` goes negative, and nothing
         stopped that from reaching `position.set`, pushing the panel off the
         *left* edge instead of merely overlapping the quickbar the way the
@@ -420,10 +436,10 @@ test('ShortcutBar does not run off the left edge below its own width (#242 revie
 
 test('the inventory bar keeps its page buttons on screen below its own width', async ({ page }) => {
     /*
-        Centred, the 448 px bar starts at -64 in a 320 px viewport, and the
+        Centred, the 468 px bar starts at -74 in a 320 px viewport, and the
         page buttons on its left went with it (#522 review). Polled for the
         same resize race as the two tests above; the stale 1280 px layout
-        puts the bar at 416, so `x === 0` cannot pass before the resize lands.
+        puts the bar at 406, so `x === 0` cannot pass before the resize lands.
     */
     await page.setViewportSize({ width: 320, height: 720 })
 

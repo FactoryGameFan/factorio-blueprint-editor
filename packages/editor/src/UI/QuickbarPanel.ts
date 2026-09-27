@@ -19,6 +19,10 @@ import {
 import { colors, styles } from './style'
 
 class QuickbarSlot extends Slot<string | undefined> {
+    public constructor() {
+        super(undefined, BAR_SLOT_SIZE, BAR_SLOT_SIZE)
+    }
+
     /** Undefined for an empty slot, which is what unassignItem leaves behind. */
     public get itemName(): string | undefined {
         return this.data
@@ -144,7 +148,7 @@ export class QuickbarPanel extends Panel {
         for (let r = 0; r < this.rows; r++) {
             const page = this.rowPages[r]
             for (let i = 0; i < 10; i++) {
-                const quickbarSlot = new QuickbarSlot(undefined)
+                const quickbarSlot = new QuickbarSlot()
                 quickbarSlot.position.set(
                     BAR_SLOT_PITCH * i + (i > 4 ? QUICKBAR_MIDDLE_GAP : 0),
                     BAR_SLOT_PITCH * r
@@ -242,9 +246,9 @@ export class QuickbarPanel extends Panel {
     }
 
     /**
-     * Centred, but clamped at 0. Below the bar's own width (448 px) the
+     * Centred, but clamped at 0. Below the bar's own width (468 px) the
      * centred position goes negative, and the page buttons are the first
-     * thing it pushes off the left edge - at 320 px the bar starts at -64
+     * thing it pushes off the left edge - at 320 px the bar starts at -74
      * and both buttons with it. The triangle they replaced sat in the
      * middle and stayed reachable. Clamped, the rightmost slots run off the
      * right edge instead, which they already did at that width.
