@@ -82,8 +82,9 @@ fn basisu_for(os: &str) -> &'static str {
     }
 }
 
-/// Atomically reserve a fresh workspace. Keep it for inspection on success and
-/// failure; callers print the location so it can be moved to Trash afterwards.
+/// Atomically reserve a fresh workspace. The export profile is kept for
+/// inspection on success and failure, and its location printed so it can be
+/// moved to Trash afterwards; padded sprites go as basisu consumes them.
 fn new_work_dir(parent: &Path, prefix: &str) -> std::io::Result<PathBuf> {
     let stamp = std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -186,6 +187,26 @@ async fn make_img_pow2<'a>(
     } else {
         Ok(Cow::Borrowed(path))
     }
+}
+
+/// Set FBE_KEEP_SPRITE_SCRATCH to keep every padded image, for when a sprite
+/// itself is under investigation (the README's encoder probe wants them).
+fn keep_sprite_scratch() -> bool {
+    env::var_os("FBE_KEEP_SPRITE_SCRATCH").is_some_and(|value| !value.is_empty())
+}
+
+/// Delete a padded copy once basisu has read it, with the directory
+/// `make_img_pow2` reserved for it. A borrowed path is the installation's own
+/// PNG and is never touched. Without this a full export leaves ~3,000
+/// uncompressed images in the system temporary directory (#361).
+async fn discard_padded(path: Cow<'_, Path>, keep: bool) -> std::io::Result<()> {
+    if let (Cow::Owned(padded), false) = (path, keep) {
+        tokio::fs::remove_file(&padded).await?;
+        if let Some(dir) = padded.parent() {
+            tokio::fs::remove_dir(dir).await?;
+        }
+    }
+    Ok(())
 }
 
 async fn content_to_lines(path: &Path) -> Result<String, Box<dyn Error>> {
@@ -294,7 +315,10 @@ async fn compress_sprites(
 
     let file_paths = Arc::new(Mutex::new(file_paths));
     let tmp_dir = new_work_dir(&std::env::temp_dir(), "fbe-sprites")?;
-    println!("Sprite scratch files retained at {}", tmp_dir.display());
+    let keep = keep_sprite_scratch();
+    if keep {
+        println!("Sprite scratch files retained at {}", tmp_dir.display());
+    }
     let available_parallelism =
         std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
 
@@ -302,6 +326,7 @@ async fn compress_sprites(
         compress_next_img(
             file_paths.clone(),
             &tmp_dir,
+            keep,
             progress.clone(),
             &old_metadata,
             new_metadata.clone(),
@@ -312,6 +337,13 @@ async fn compress_sprites(
     let new_metadata = serde_json::to_vec(&*new_metadata.lock().unwrap())?;
     tokio::fs::write(metadata_path, new_metadata).await?;
     progress.finish();
+    // Only the padded images of sprites basisu failed on are left by now.
+    if !keep && tokio::fs::remove_dir(&tmp_dir).await.is_err() {
+        println!(
+            "Padded images of failed sprites retained at {}",
+            tmp_dir.display()
+        );
+    }
     Ok(())
 }
 
@@ -475,6 +507,7 @@ async fn get_len_and_mtime(path: &Path) -> Result<(u64, u64), Box<dyn Error>> {
 async fn compress_next_img(
     file_paths: Arc<Mutex<Vec<(PathBuf, PathBuf)>>>,
     tmp_dir: &Path,
+    keep: bool,
     progress: ProgressBar,
     old_metadata: &HashMap<String, (u64, u64)>,
     new_metadata: Arc<Mutex<HashMap<String, (u64, u64)>>>,
@@ -515,6 +548,7 @@ async fn compress_next_img(
                     .lock()
                     .unwrap()
                     .insert(key.to_string(), (len, mtime));
+                discard_padded(path, keep).await?;
             } else {
                 progress.println(format!("FAILED: {:?}", path));
             }

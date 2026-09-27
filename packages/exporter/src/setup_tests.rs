@@ -172,6 +172,42 @@ async fn power_of_two_image_is_borrowed_without_rewriting() {
     assert_eq!(std::fs::read(&source).unwrap(), before);
 }
 
+#[tokio::test]
+async fn discarding_a_padded_image_removes_it_and_its_directory() {
+    let root = fixture_dir();
+    let source = root.join("sprite.png");
+    image::RgbaImage::new(3, 5).save(&source).unwrap();
+    let padded = make_img_pow2(&source, &root).await.unwrap();
+    let dir = padded.parent().unwrap().to_path_buf();
+    assert!(padded.is_file());
+    discard_padded(padded, false).await.unwrap();
+    assert!(!dir.exists());
+    assert!(source.is_file());
+    assert!(root.is_dir());
+}
+
+#[tokio::test]
+async fn discarding_a_borrowed_source_never_touches_it() {
+    let root = fixture_dir();
+    let source = root.join("sprite.png");
+    image::RgbaImage::new(4, 8).save(&source).unwrap();
+    let before = std::fs::read(&source).unwrap();
+    let path = make_img_pow2(&source, &root).await.unwrap();
+    assert!(matches!(path, Cow::Borrowed(_)));
+    discard_padded(path, false).await.unwrap();
+    assert_eq!(std::fs::read(&source).unwrap(), before);
+}
+
+#[tokio::test]
+async fn keeping_sprite_scratch_retains_the_padded_image() {
+    let root = fixture_dir();
+    let source = root.join("sprite.png");
+    image::RgbaImage::new(3, 5).save(&source).unwrap();
+    let padded = make_img_pow2(&source, &root).await.unwrap();
+    discard_padded(padded.clone(), true).await.unwrap();
+    assert!(padded.is_file());
+}
+
 #[cfg(unix)]
 fn fake_factorio(body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
