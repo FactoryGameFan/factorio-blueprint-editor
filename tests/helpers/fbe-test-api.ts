@@ -340,6 +340,10 @@ export interface FbeTestApi {
     quickbarBounds: () => { x: number; y: number; width: number; height: number }
     /** The inventory bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
     quickbarHoverText: () => string | undefined
+    /** The page each inventory bar row shows, top row first, as its page button reads. */
+    quickbarPages: () => number[]
+    /** The inventory bar's items in page order, as they are saved. */
+    quickbarItems: () => (string | undefined)[]
     /** Assigns one action's key combo, as the settings pane does. */
     rebindAction: (name: string, keyCombo: string) => void
     /**

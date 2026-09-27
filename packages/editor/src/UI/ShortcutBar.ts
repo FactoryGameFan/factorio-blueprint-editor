@@ -359,7 +359,7 @@ export class ShortcutBar extends Panel {
      * Flush against the quickbar's right edge at common viewport widths, the
      * same way the two-row layout above assumes - but clamped to the screen's
      * own right edge underneath that, since the unclamped position runs the
-     * panel off-screen entirely below ~864px (`screen.width / 2 + 220 +
+     * panel off-screen entirely below ~872px (`screen.width / 2 + 224 +
      * this.width > screen.width`, solved for `screen.width`). Below that
      * width the panel overlaps the quickbar instead of vanishing, which is
      * the same trade-off a real user can still click through. Also clamped

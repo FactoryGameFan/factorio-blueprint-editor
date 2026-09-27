@@ -214,26 +214,28 @@ test('the inventory bar and the shortcut bar are one height and meet edge to edg
     expect(quickbar.height).toBe(98)
     expect(shortcutBar.height).toBe(98)
     expect(quickbar.y).toBe(shortcutBar.y)
-    // 10 slots, 9 gaps, 12 px each side, and the 38 px middle gap the triangle sits in
-    expect(quickbar.width).toBe(440)
+    // 12 px each side, the page buttons and 8 px after them, and two halves of
+    // 5 slots with 2 px between slots and 4 px between the halves (#512)
+    expect(quickbar.width).toBe(12 + 36 + 8 + 5 * 36 + 4 * 2 + 4 + 5 * 36 + 4 * 2 + 12)
     expect(quickbar.x + quickbar.width).toBe(shortcutBar.x)
 })
 
 /*
-    The triangle between the inventory bar's two halves swaps its rows. The
-    game calls that "Rotate active quickbars" (`rotate-active-quick-bars` in
-    `core/locale/en/core.cfg`) and binds it to X, as the editor does. Its
+    Each row of the inventory bar has a page button on its left, as the
+    game's quickbar does, and a click swaps the rows (#512). The game calls
+    that "Rotate active quickbars" (`rotate-active-quick-bars` in
+    `core/locale/en/core.cfg`) and binds it to X, as the editor does. The
     hover text reads the keybind when the hover starts, like the shortcut
-    bar's, so a rebind shows on the next hover.
+    bar's, so a rebind shows on the next hover (#509).
 */
-test('the row-swap triangle names its action and keybind on hover (#509)', async ({ page }) => {
+test('the page buttons name their action and keybind on hover (#509, #512)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
     await nextFrames(page)
     const bounds = await page.evaluate(() => window.__fbe_test.quickbarBounds())
     const hoverText = () => page.evaluate(() => window.__fbe_test.quickbarHoverText())
-    const hoverTriangle = async () => {
+    const hoverPageButton = async (row: number) => {
         await nextFrames(page)
-        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+        await page.mouse.move(bounds.x + 12 + 18, bounds.y + 12 + 18 + 38 * row)
         await nextFrames(page)
     }
     const leave = async () => {
@@ -243,14 +245,50 @@ test('the row-swap triangle names its action and keybind on hover (#509)', async
 
     await leave()
     expect(await hoverText()).toBeUndefined()
-    await hoverTriangle()
+    await hoverPageButton(0)
     await expect.poll(hoverText).toBe('Rotate active quickbars (X)')
     await leave()
     await expect.poll(hoverText).toBeUndefined()
+    await hoverPageButton(1)
+    await expect.poll(hoverText).toBe('Rotate active quickbars (X)')
+    await leave()
 
     await page.evaluate(() => window.__fbe_test.rebindAction('changeActiveQuickbar', 'KeyQ'))
-    await hoverTriangle()
+    await hoverPageButton(0)
     await expect.poll(hoverText).toBe('Rotate active quickbars (Q)')
+})
+
+/*
+    A page keeps its items whichever row shows it, so after a swap the top
+    button reads 2 and the saved order does not change. Seeded through
+    localStorage, where the website keeps the quickbar between visits.
+*/
+test('a page button click swaps which page each row shows (#512)', async ({ page }) => {
+    const saved = Array.from<string | null>({ length: 20 }).fill(null)
+    saved[0] = 'transport-belt'
+    saved[10] = 'inserter'
+    await page.addInitScript(
+        items => localStorage.setItem('quickbarItemNames', JSON.stringify(items)),
+        saved
+    )
+    await waitForEditor(page)
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await nextFrames(page)
+    const bounds = await page.evaluate(() => window.__fbe_test.quickbarBounds())
+    const pages = () => page.evaluate(() => window.__fbe_test.quickbarPages())
+    const items = () => page.evaluate(() => window.__fbe_test.quickbarItems())
+    const before = await items()
+    expect(before[0]).toBe('transport-belt')
+    expect(before[10]).toBe('inserter')
+    expect(await pages()).toEqual([1, 2])
+
+    await page.mouse.click(bounds.x + 12 + 18, bounds.y + 12 + 18)
+    await expect.poll(pages).toEqual([2, 1])
+    expect(await items()).toEqual(before)
+
+    await page.mouse.click(bounds.x + 12 + 18, bounds.y + 12 + 18 + 38)
+    await expect.poll(pages).toEqual([1, 2])
+    expect(await items()).toEqual(before)
 })
 
 test("ImportDialog's textarea has no length cap and a large blueprint pastes without truncation", async ({
@@ -327,7 +365,7 @@ test('typing job control: a large paste actually loads through Replace, not just
 
 test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) => {
     /*
-        Below ~864px (see ShortcutBar.ts's setPosition doc comment) the
+        Below ~872px (see ShortcutBar.ts's setPosition doc comment) the
         unclamped position runs the panel off the right edge entirely. 800px
         is inside that range and still a real desktop width, not an extreme
         this project's UI otherwise ignores - mobile gets a different,
@@ -341,8 +379,8 @@ test('ShortcutBar stays on screen at a narrow viewport width', async ({ page }) 
 
         The poll asserts the *joint* condition, and that is the whole of it:
         `x >= 0` alone is already true before the resize lands, since the
-        stale 1280px layout puts the panel at `max(0, min(860, 1068))` =
-        860, so polling for that half resolves on its first check and adds
+        stale 1280px layout puts the panel at `max(0, min(864, 1068))` =
+        864, so polling for that half resolves on its first check and adds
         no wait whatsoever - leaving the right-edge assertion after it
         exposed to exactly the race the poll was added for. The sibling
         150px test below works only because its target (`x === 0`) is false
@@ -378,4 +416,16 @@ test('ShortcutBar does not run off the left edge below its own width (#242 revie
     await page.setViewportSize({ width: 150, height: 720 })
 
     await expect.poll(() => page.evaluate(() => window.__fbe_test.shortcutBarBounds().x)).toBe(0)
+})
+
+test('the inventory bar keeps its page buttons on screen below its own width', async ({ page }) => {
+    /*
+        Centred, the 448 px bar starts at -64 in a 320 px viewport, and the
+        page buttons on its left went with it (#522 review). Polled for the
+        same resize race as the two tests above; the stale 1280 px layout
+        puts the bar at 416, so `x === 0` cannot pass before the resize lands.
+    */
+    await page.setViewportSize({ width: 320, height: 720 })
+
+    await expect.poll(() => page.evaluate(() => window.__fbe_test.quickbarBounds().x)).toBe(0)
 })

@@ -430,6 +430,11 @@ export class Editor {
         return G.UI.quickbarTooltip
     }
 
+    /** The page each inventory bar row shows, top row first, as its page button reads. */
+    public get quickbarPages(): number[] {
+        return G.UI.quickbarPanel.pages
+    }
+
     /**
      * Opens ImportDialog, the same as clicking ShortcutBar's Import slot -
      * there is no keybind for opening it (only for the paste/append it

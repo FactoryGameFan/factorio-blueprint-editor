@@ -24,11 +24,25 @@ export function barLength(slots: number): number {
     return 2 * BAR_PADDING + slots * BAR_SLOT_PITCH - (BAR_SLOT_PITCH - BAR_SLOT_SIZE)
 }
 
-/**
- * The extra space between the inventory bar's two halves of five slots, which
- * the row-swap triangle sits in.
- */
-export const QUICKBAR_MIDDLE_GAP = 38
+/*
+    The gaps in the inventory bar, both from `core/prototypes/style.lua` and
+    both measured in a Factorio 2.0.77 screenshot at 100% UI scale. The page
+    buttons sit in the bar's frame, `quick_bar_slot_window_frame`, whose
+    parent `slot_window_frame` spaces its children 8 px apart. The slots sit
+    in `quick_bar_inner_panel`, which spaces its two halves of five 4 px apart.
+*/
 
-/** The inventory bar's width: ten slots and the middle gap. */
-export const QUICKBAR_WIDTH = barLength(10) + QUICKBAR_MIDDLE_GAP
+/** The space between the page buttons and the slots. */
+export const QUICKBAR_PAGE_GAP = 8
+
+/** The space between the two halves of five slots. */
+export const QUICKBAR_HALVES_GAP = 4
+
+/** Where the inventory bar's slots start: past the page buttons and the gap after them. */
+export const QUICKBAR_PAGE_COLUMN = BAR_SLOT_SIZE + QUICKBAR_PAGE_GAP
+
+/** Space added between the two halves, on top of the gap every slot already has after it. */
+export const QUICKBAR_MIDDLE_GAP = QUICKBAR_HALVES_GAP - (BAR_SLOT_PITCH - BAR_SLOT_SIZE)
+
+/** The inventory bar's width: the page buttons, ten slots and the gaps between them. */
+export const QUICKBAR_WIDTH = QUICKBAR_PAGE_COLUMN + barLength(10) + QUICKBAR_MIDDLE_GAP

@@ -758,8 +758,10 @@ const testApi = {
     */
     shortcutBarHoverText: () => editor.shortcutTooltip,
     quickbarBounds: () => editor.quickbarBounds,
-    // The row-swap triangle's hover text, drawn on the canvas like the shortcut bar's.
+    // The page buttons' hover text, drawn on the canvas like the shortcut bar's.
     quickbarHoverText: () => editor.quickbarTooltip,
+    quickbarPages: () => editor.quickbarPages,
+    quickbarItems: () => editor.quickbarItems,
     /*
         Rebinds one action the way the settings pane does, by assigning its
         keyCombo, so a spec can check that something reading the keybind
