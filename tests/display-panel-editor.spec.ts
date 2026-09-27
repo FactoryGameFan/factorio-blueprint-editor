@@ -284,6 +284,14 @@ test('picking an icon writes its name and signal type, and a right click clears 
         7 * 70 + 22. The width is asserted first because it is also what makes
         the tab indices below mean fluids and signals.
 
+        DisplayPanelIcon also passes showRecipePanel = false, since nothing it
+        offers has a recipe and the panel would be a permanently empty bar.
+        The bounds cannot see that: `Panel.height` answers its background's
+        height, 442 either way, and the recipe panel hangs below it. What the
+        panel does add is its label, an empty `Text`, so the picker drawing
+        its title and nothing else is the check - measured, dropping the
+        argument makes it `["Select Icon", ""]`.
+
         A fluid and a virtual signal rather than an item, because an item's
         signal type is written as nothing at all, so an item pick could not
         tell a lost `displayPanelIconType` from a working one.
@@ -295,7 +303,9 @@ test('picking an icon writes its name and signal type, and a right click clears 
     let slot = await iconSlotAt(page)
     await page.mouse.click(slot.x, slot.y)
     expect(await dialogCount(page)).toBe(2)
-    expect((await renderedDialogBounds(page)).width).toBe(7 * 70 + 22)
+    const picker = await renderedDialogBounds(page)
+    expect(picker.width).toBe(7 * 70 + 22)
+    expect(await page.evaluate(() => window.__fbe_test.topDialogTexts())).toEqual(['Select Icon'])
 
     await pickFirstItemOfTab(page, 5)
     expect(await dialogCount(page)).toBe(1)
