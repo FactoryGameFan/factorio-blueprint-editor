@@ -5,6 +5,7 @@ import {
     packVersion as version,
 } from './helpers/encode-blueprint'
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     A blueprint gives rolling stock an `orientation` (0 north, 0.25 east, 0.5
@@ -110,4 +111,64 @@ test('rolling stock keeps its orientation through an export', async ({ page }) =
         */
         expect(own.map(e => e.direction ?? 0)).toEqual([0, 0, 0, 0])
     }
+})
+
+/*
+    R on rolling stock turns `direction` by half a turn, since the editor lists
+    it as a 4-way non-square entity. Once the draw read `orientation`, a train
+    from a real blueprint ignored that: R changed nothing on screen, left an
+    undo step that did nothing visible, and exported `direction: 8` beside the
+    old orientation. So R turns `orientation` by the same amount, in the same
+    undo step.
+
+    A locomotive for the drawing, because a cargo wagon's back equals its front
+    and draws the same frame at 0.25 and 0.75. The wagon is still here for the
+    export.
+*/
+const WEST_TRAIN = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [
+        { entity_number: 1, name: 'locomotive', position: { x: 0, y: 0 }, orientation: 0.75 },
+        { entity_number: 2, name: 'cargo-wagon', position: { x: 8, y: 0 }, orientation: 0.75 },
+    ],
+})
+
+async function exportedOrientations(page: Page): Promise<(number | undefined)[]> {
+    const exported = decodeBlueprintString(
+        await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    )
+    return (exported.blueprint.entities as { entity_number: number; orientation?: number }[])
+        .sort((a, b) => a.entity_number - b.entity_number)
+        .map(e => e.orientation)
+}
+
+test('R turns a loaded train and undo turns it back', async ({ page }) => {
+    await suppressOverlays(page)
+    await waitForEditor(page)
+    await loadBlueprint(page, WEST_TRAIN)
+
+    const westDigest = await page.evaluate(() => window.__fbe_test.spriteDataTally().locomotive)
+
+    for (const n of [1, 2]) {
+        const at = await page.evaluate(id => window.__fbe_test.entityScreenPosition(id), n)
+        if (!at) throw new Error(`no entity ${n}`)
+        await page.mouse.move(at.x, at.y)
+        expect(await page.evaluate(() => window.__fbe_test.hoveredEntityNumber())).toBe(n)
+        await page.keyboard.press('KeyR')
+    }
+
+    expect(await exportedOrientations(page)).toEqual([0.25, 0.25])
+    const eastDigest = await page.evaluate(() => window.__fbe_test.spriteDataTally().locomotive)
+    expect(eastDigest).not.toEqual(westDigest)
+
+    await page.keyboard.down('Control')
+    await page.keyboard.press('KeyZ')
+    await page.keyboard.press('KeyZ')
+    await page.keyboard.up('Control')
+
+    expect(await exportedOrientations(page)).toEqual([0.75, 0.75])
+    expect(await page.evaluate(() => window.__fbe_test.spriteDataTally().locomotive)).toEqual(
+        westDigest
+    )
 })

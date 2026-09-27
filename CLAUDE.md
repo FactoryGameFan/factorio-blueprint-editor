@@ -681,10 +681,10 @@ against the CSP in `packages/website/public/_headers` that permits them.
   `direction`; an editor-placed one has a `direction`, read as sixteenths of a
   turn. The frame order and the diagonal projection come from data.json and
   the `RotatedSprite` docs, checked in the editor but never against the game's
-  own render. Only the drawing follows `orientation`: the position-grid
-  footprint still follows `direction`, so an east-west train keeps its
-  north-south box, and rotating or flipping a selection leaves `orientation`
-  where it was.
+  own render. R on one entity turns `orientation` with `direction`, in one
+  undo step. Nothing else does: the position-grid footprint still follows
+  `direction`, so an east-west train keeps its north-south box, and rotating
+  or flipping a selection or a paste leaves `orientation` where it was.
 - Planet (`space-location`) icons have no exported prototype, and `F.CreateIcon`
   ends in a bare `throw` for a name it cannot resolve. Below a `try` (an
   `OverlayContainer` or `SafeIcon` boundary) that is a missing icon; on a path

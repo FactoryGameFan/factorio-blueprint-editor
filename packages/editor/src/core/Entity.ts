@@ -1483,8 +1483,31 @@ export class Entity extends EventEmitter<EntityEvents> {
                 this.directionType = this.directionType === 'input' ? 'output' : 'input'
             }
 
+            const turned = (newDir - this.direction) / 16
             this.direction = newDir
+            this.turnOrientation(turned)
         })
+    }
+
+    /**
+     * Rolling stock from a blueprint draws by `orientation`, not `direction`
+     * (#520), so a rotate has to turn both or the drawing and the export stay
+     * where they were. Its own action, emitting `direction` on do and undo
+     * alike, because a transaction undoes in reverse: the `direction` action's
+     * redraw runs before this one's value comes back.
+     */
+    private turnOrientation(turns: number): void {
+        const orientation = this.m_rawEntity.orientation
+        if (orientation === undefined) return
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'orientation',
+                (((orientation + turns) % 1) + 1) % 1,
+                'Change orientation'
+            )
+            .onDone(() => this.emit('direction'))
+            .commit()
     }
 
     public canPasteSettings(sourceEntity: Entity): boolean {
