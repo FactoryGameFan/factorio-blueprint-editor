@@ -108,6 +108,19 @@ const styles = {
             fontSize: 14,
         }),
     },
+    quickbar: {
+        /*
+            The game's `quick_bar_page_button`: `default-bold`, 14 px, in
+            `button_hovered_font_color`, which is black. 500 is the heaviest
+            weight `index.css` loads.
+        */
+        page: new TextStyle({
+            fill: 0x000000,
+            fontFamily,
+            fontWeight: '500',
+            fontSize: 14,
+        }),
+    },
     icon: {
         amount: new TextStyle({
             fill: colors.text.normal,

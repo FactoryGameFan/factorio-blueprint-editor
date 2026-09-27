@@ -1,6 +1,7 @@
-import { Container, Graphics } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
+import { Button } from './controls/Button'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
 import F from './controls/functions'
@@ -9,11 +10,13 @@ import { withKeybind } from '../core/keyComboLabel'
 import {
     BAR_PADDING,
     BAR_SLOT_PITCH,
+    BAR_SLOT_SIZE,
     QUICKBAR_MIDDLE_GAP,
+    QUICKBAR_PAGE_COLUMN,
     QUICKBAR_WIDTH,
     barLength,
 } from './barLayout'
-import { colors } from './style'
+import { colors, styles } from './style'
 
 class QuickbarSlot extends Slot<string | undefined> {
     /** Undefined for an empty slot, which is what unassignItem leaves behind. */
@@ -33,8 +36,39 @@ class QuickbarSlot extends Slot<string | undefined> {
     }
 }
 
+/*
+    The game's page button face, `quick_bar_page_button`'s default graphical
+    set, read off `__core__/graphics/gui-new.png` at {312, 744}.
+*/
+const PAGE_BUTTON_COLOR = 0x8c8c8c
+
+/**
+ * The square left of a row that names the page the row shows, as the game's
+ * quickbar does (#512). Raised, where a slot is sunk.
+ */
+class PageButton extends Button {
+    private readonly caption = new Text({ style: styles.quickbar.page })
+
+    public constructor() {
+        super(undefined, BAR_SLOT_SIZE, BAR_SLOT_SIZE)
+        this.caption.anchor.set(0.5)
+        this.content = this.caption
+    }
+
+    public set page(page: number) {
+        this.caption.text = String(page + 1)
+    }
+
+    protected override get background(): number {
+        return PAGE_BUTTON_COLOR
+    }
+}
+
 export class QuickbarPanel extends Panel {
     private rows: number
+    /** The page each row shows, top row first, counting from 0. */
+    private rowPages: number[]
+    private readonly pageButtons: PageButton[]
 
     private slots: QuickbarSlot[]
     private slotsContainer: Container
@@ -50,36 +84,46 @@ export class QuickbarPanel extends Panel {
         )
 
         this.rows = rows
-        // Dense, not sparse. generateSlots below fills every index 0..rows*10-1
-        // before anything reads this, so the two are equivalent today - but
-        // serialize() maps over it, and `.map` *skips* holes while it would call
-        // `s.itemName` on a dense undefined. So if a slot ever did go unfilled,
-        // sparse would silently return a shorter array and slide the quickbar one
-        // place left on the next load, where dense throws instead. Loud beats
-        // silently wrong for something that persists.
+        this.rowPages = Array.from({ length: rows }, (_, r) => r)
+        // generateSlots below fills every index 0..rows*10-1 before anything
+        // reads this. serialize() reads each slot by index, so a slot left
+        // unfilled throws there rather than saving a quickbar with a gap in
+        // it. Loud beats silently wrong for something that persists.
         this.slots = Array.from<QuickbarSlot>({ length: rows * 10 })
 
         this.slotsContainer = new Container()
-        this.slotsContainer.position.set(BAR_PADDING, BAR_PADDING)
+        this.slotsContainer.position.set(BAR_PADDING + QUICKBAR_PAGE_COLUMN, BAR_PADDING)
         this.addChild(this.slotsContainer)
 
         this.generateSlots(itemNames)
 
-        const t = QuickbarPanel.createTriangleButton(15, 14)
-        t.position.set((this.width - t.width) / 2, (this.height - t.height) / 2)
-        t.on('pointerdown', this.changeActiveQuickbar)
         /*
-            It swaps the two rows, and nothing on it says so (#509). The name
-            is the game's own for the action, `rotate-active-quick-bars` in
+            In the game a click on a page button picks which of ten pages its
+            row shows. The editor has as many pages as rows, so picking the
+            other page is a swap, and a click does what X does. The hover text
+            is the game's name for that action, `rotate-active-quick-bars` in
             `core/locale/en/core.cfg`, and the keybind is read on each hover
-            because a user can rebind it.
+            because a user can rebind it (#509).
         */
-        t.on('pointerover', () => {
-            const keyCombo = G.actions.get('changeActiveQuickbar')?.keyCombo
-            this.hoverText.show(t, withKeybind('Rotate active quickbars', keyCombo), t.x)
+        this.pageButtons = this.rowPages.map((page, r) => {
+            const button = new PageButton()
+            button.page = page
+            button.position.set(BAR_PADDING, BAR_PADDING + BAR_SLOT_PITCH * r)
+            button.on('pointerdown', e => {
+                if (e.button === 0) this.changeActiveQuickbar()
+            })
+            button.on('pointerover', () => {
+                const keyCombo = G.actions.get('changeActiveQuickbar')?.keyCombo
+                this.hoverText.show(
+                    button,
+                    withKeybind('Rotate active quickbars', keyCombo),
+                    button.x
+                )
+            })
+            button.on('pointerout', () => this.hoverText.hide(button))
+            return button
         })
-        t.on('pointerout', () => this.hoverText.hide(t))
-        this.addChild(t, this.hoverText)
+        this.addChild(...this.pageButtons, this.hoverText)
     }
 
     /** The hover text on show, or undefined when there is none. */
@@ -87,31 +131,18 @@ export class QuickbarPanel extends Panel {
         return this.hoverText.shown
     }
 
-    private static createTriangleButton(width: number, height: number): Graphics {
-        const button = new Graphics()
-
-        button
-            .moveTo(0, height)
-            .lineTo(width / 2, 0)
-            .lineTo(width, height)
-            .lineTo(0, height)
-            .fill(colors.controls.button.background.color)
-
-        button.eventMode = 'static'
-
-        button.on('pointerover', () => {
-            button.alpha = 0.8
-        })
-        button.on('pointerout', () => {
-            button.alpha = 1
-        })
-
-        return button
+    /** The page each row shows, top row first, counting from 1 as its button does. */
+    public get pages(): number[] {
+        return this.rowPages.map(page => page + 1)
     }
 
-    /** Positional: index i is slot i, and a hole leaves that slot empty. */
+    /**
+     * Positional, in page order: index i is slot i % 10 of page i / 10, and a
+     * hole leaves that slot empty. Each row shows the page `rowPages` names.
+     */
     public generateSlots(itemNames?: (string | undefined)[]): void {
         for (let r = 0; r < this.rows; r++) {
+            const page = this.rowPages[r]
             for (let i = 0; i < 10; i++) {
                 const quickbarSlot = new QuickbarSlot(undefined)
                 quickbarSlot.position.set(
@@ -121,7 +152,7 @@ export class QuickbarPanel extends Panel {
 
                 // Read into a local: the index is a loop `let`, so TypeScript
                 // will not carry the truthiness test across to the use.
-                const itemName = itemNames?.[r * 10 + i]
+                const itemName = itemNames?.[page * 10 + i]
                 if (itemName) {
                     quickbarSlot.assignItem(itemName)
                 }
@@ -183,21 +214,31 @@ export class QuickbarPanel extends Panel {
 
     /** Arrow property: handed to a pointerdown listener. @see EntityContainer.redrawEntityInfo */
     public readonly changeActiveQuickbar = (): void => {
+        const itemNames = this.serialize()
         this.slotsContainer.removeChildren()
 
-        let itemNames = this.serialize()
-        // Left shift array by 10
-        itemNames = itemNames.concat(itemNames.splice(0, 10))
+        // Each row takes the page the row below it showed.
+        this.rowPages = [...this.rowPages.slice(1), this.rowPages[0]]
+        for (const [r, button] of this.pageButtons.entries()) {
+            button.page = this.rowPages[r]
+        }
         this.generateSlots(itemNames)
     }
 
     /*
-        One entry per slot, so an empty slot is a hole rather than a gap closed
-        up - generateSlots indexes this positionally, and compacting it would
-        slide every later item one place left on the next load.
+        One entry per slot, in page order, so what is saved does not depend on
+        which row shows which page. An empty slot is a hole rather than a gap
+        closed up - generateSlots indexes this positionally, and compacting it
+        would slide every later item one place left on the next load.
     */
     public serialize(): (string | undefined)[] {
-        return this.slots.map(s => s.itemName)
+        const itemNames = Array.from<string | undefined>({ length: this.slots.length })
+        for (const [r, page] of this.rowPages.entries()) {
+            for (let i = 0; i < 10; i++) {
+                itemNames[page * 10 + i] = this.slots[r * 10 + i].itemName
+            }
+        }
+        return itemNames
     }
 
     protected override setPosition(): void {
