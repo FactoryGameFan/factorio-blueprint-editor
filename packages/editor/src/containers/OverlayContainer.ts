@@ -348,17 +348,25 @@ export class OverlayContainer extends Container {
             }
         }
 
+        /*
+            A requester or buffer chest draws no request icons at all in
+            2.0.77's alt mode, at any quality and with one request or three,
+            while inserters and splitters in the same probe did draw their
+            filters (#506). So those two never reach this branch. A storage
+            chest's filter was not probed and still draws.
+        */
+        const drawsFilters =
+            entity.type === 'inserter' ||
+            (entity.type === 'logistic-container' &&
+                entity.name !== 'requester-chest' &&
+                entity.name !== 'buffer-chest') ||
+            entity.type === 'infinity-container' ||
+            entity.type === 'infinity-pipe'
         const filters =
             entity.filters === undefined
                 ? undefined
                 : entity.filters.filter(v => v.name !== undefined)
-        if (
-            filters !== undefined &&
-            (entity.type === 'inserter' ||
-                entity.type === 'logistic-container' ||
-                entity.type === 'infinity-container' ||
-                entity.type === 'infinity-pipe')
-        ) {
+        if (filters !== undefined && drawsFilters) {
             const filterInfo = new Container()
             for (let i = 0; i < filters.length; i++) {
                 if (i === 4) {
@@ -370,10 +378,8 @@ export class OverlayContainer extends Container {
                 }
 
                 /*
-                    Only an inserter's filters are badged. A requester or buffer
-                    chest draws no request icons at all in 2.0.77's alt mode, even
-                    with a request that reads back, so there is no badge to copy;
-                    infinity filters were not measured.
+                    Only an inserter's filters are badged. A storage chest's and
+                    the infinity filters were not measured.
                 */
                 createIconWithBackground(
                     filterInfo,

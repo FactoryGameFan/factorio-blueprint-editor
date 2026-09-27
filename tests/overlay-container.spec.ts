@@ -111,7 +111,6 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
     'arithmetic-combinator': [1],
     'big-mining-drill': [1],
     boiler: [2],
-    'buffer-chest': [1],
     'burner-mining-drill': [1],
     'decider-combinator': [1],
     'electric-mining-drill': [1],
@@ -126,7 +125,6 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
     'overflow-valve': [1],
     pump: [1],
     pumpjack: [1],
-    'requester-chest': [1],
     'selector-combinator': [1],
     'steam-engine': [2],
     'steam-turbine': [2],
@@ -157,6 +155,13 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
  * spec opens carry rare accumulators, and a badge is their only overlay, so they
  * read 1 where the normal ones read -1. It was the only change, and a pure
  * addition again: no key removed and no array shortened.
+ *
+ * `buffer-chest` and `requester-chest` left both fixtures on purpose (#506).
+ * Factorio 2.0.77 draws no request icons on either in alt mode, so they no
+ * longer reach the filter branch. That is a removal, the shape a branch that
+ * stopped firing would take, but here the branch was meant to stop: the keys
+ * went from both halves together, and `storage-chest`, which shares the branch,
+ * stayed at [1] in both.
  */
 const EXPECTED_REAL: Record<string, number[]> = {
     accumulator: [-1, 1],
@@ -166,7 +171,6 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'assembling-machine-3': [-1, 1, 2, 3, 4],
     biochamber: [2, 4],
     boiler: [2],
-    'buffer-chest': [1],
     'bulk-inserter': [-1, 1],
     'burner-inserter': [-1, 1],
     centrifuge: [2],
@@ -193,7 +197,6 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'oil-refinery': [3, 4],
     pump: [1],
     recycler: [-1, 1],
-    'requester-chest': [1],
     'rocket-silo': [1],
     splitter: [-1, 1],
     'stack-inserter': [-1, 1],
