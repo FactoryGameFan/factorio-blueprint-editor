@@ -139,22 +139,25 @@ test('viteArgs adds a bare --host when the container asks for one', () => {
 
 test('portHint names a lookup that exists on the platform (#496)', () => {
     // Windows has no lsof, so the Unix hint pointed a PowerShell user at nothing.
-    assert.equal(portHint([8080], 'linux'), 'lsof -nP -iTCP -sTCP:LISTEN')
-    assert.equal(portHint([8080], 'darwin'), 'lsof -nP -iTCP -sTCP:LISTEN')
-    assert.equal(
-        portHint([8080, 8081], 'win32'),
-        'Get-NetTCPConnection -State Listen -LocalPort 8080,8081 | Select-Object LocalPort, OwningProcess'
-    )
+    // The Windows line is labelled, since Git Bash and cmd.exe cannot run it.
+    assert.deepEqual(portHint([8080], 'linux'), ['lsof -nP -iTCP -sTCP:LISTEN'])
+    assert.deepEqual(portHint([8080], 'darwin'), ['lsof -nP -iTCP -sTCP:LISTEN'])
+    assert.deepEqual(portHint([8080, 8081], 'win32'), [
+        'PowerShell: Get-NetTCPConnection -State Listen -LocalPort 8080,8081 | Select-Object LocalPort, OwningProcess',
+    ])
 })
 
 test('playwrightHint sets FBE_BASE_URL in the syntax the shell accepts (#496)', () => {
-    // PowerShell reads the NAME=value prefix as a command name and fails.
-    assert.equal(
-        playwrightHint(8090, 'linux'),
-        'FBE_BASE_URL=http://localhost:8090 npx playwright test'
-    )
-    assert.equal(
-        playwrightHint(8090, 'win32'),
-        "$env:FBE_BASE_URL='http://localhost:8090'; npx playwright test"
-    )
+    /*
+        PowerShell reads the NAME=value prefix as a command name and fails, and
+        Git Bash fails on $env:. Windows can be either, so it gets both forms,
+        each labelled with the shell it is for.
+    */
+    assert.deepEqual(playwrightHint(8090, 'linux'), [
+        'FBE_BASE_URL=http://localhost:8090 npx playwright test',
+    ])
+    assert.deepEqual(playwrightHint(8090, 'win32'), [
+        "PowerShell:    $env:FBE_BASE_URL='http://localhost:8090'; npx playwright test",
+        'Git Bash/WSL:  FBE_BASE_URL=http://localhost:8090 npx playwright test',
+    ])
 })

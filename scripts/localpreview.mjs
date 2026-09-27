@@ -96,20 +96,41 @@ export async function isPortFree(port) {
     return results.every(Boolean)
 }
 
-/** The command that shows who is listening on the given ports, in the platform's own shell. */
+/*
+    The hints below come back as lines, because on Windows there is more than
+    one shell to answer for. The PowerShell forms are labelled rather than
+    printed bare: Git Bash and cmd.exe run the same node, and a PowerShell
+    command fails in both. Git Bash has no lsof either, so the port lookup has
+    no second line to offer.
+*/
+
+/** The command that shows who is listening on the given ports. */
 export function portHint(ports, platform = process.platform) {
     if (platform === 'win32') {
-        return `Get-NetTCPConnection -State Listen -LocalPort ${[...new Set(ports)].join(',')} | Select-Object LocalPort, OwningProcess`
+        const list = [...new Set(ports)].join(',')
+        return [
+            `PowerShell: Get-NetTCPConnection -State Listen -LocalPort ${list} | Select-Object LocalPort, OwningProcess`,
+        ]
     }
-    return 'lsof -nP -iTCP -sTCP:LISTEN'
+    return ['lsof -nP -iTCP -sTCP:LISTEN']
 }
 
 // PowerShell, the Windows default, rejects the `NAME=value command` prefix form.
 export function playwrightHint(port, platform = process.platform) {
     const url = `http://localhost:${port}`
-    if (platform === 'win32') return `$env:FBE_BASE_URL='${url}'; npx playwright test`
-    return `FBE_BASE_URL=${url} npx playwright test`
+    const posix = `FBE_BASE_URL=${url} npx playwright test`
+    if (platform === 'win32') {
+        return [
+            `PowerShell:    $env:FBE_BASE_URL='${url}'; npx playwright test`,
+            `Git Bash/WSL:  ${posix}`,
+        ]
+    }
+    return [posix]
 }
+
+// One line stays on the line that introduces it; several go below, indented.
+const showHint = lines =>
+    lines.length === 1 ? `  ${lines[0]}` : lines.map(line => `\n    ${line}`).join('')
 
 const children = []
 let shuttingDown = false
@@ -223,12 +244,12 @@ async function main() {
     if (taken.length > 0) {
         console.error(`Port already in use: ${taken.map(t => `${t.port} (${t.what})`).join(', ')}.`)
         console.error(
-            `Stop whatever is holding it, or find it with:  ${portHint(taken.map(t => t.port))}`
+            `Stop whatever is holding it, or find it with:${showHint(portHint(taken.map(t => t.port)))}`
         )
         if (taken.some(t => t.what === 'Vite')) {
             console.error(
                 `To run Vite elsewhere instead:  npm run localpreview -- --port 8090\n` +
-                    `then point the Playwright specs at it with:  ${playwrightHint(8090)}`
+                    `then point the Playwright specs at it with:${showHint(playwrightHint(8090))}`
             )
         }
         if (taken.some(t => t.what === 'sprite data')) {
@@ -266,7 +287,7 @@ async function main() {
     console.log(`Editor:      http://localhost:${port}`)
     console.log(`Sprite data: http://localhost:${SPRITE_PORT}`)
     if (port !== 8080) {
-        console.log(`\nPlaywright:  ${playwrightHint(port)}`)
+        console.log(`\nPlaywright:${showHint(playwrightHint(port))}`)
     }
     console.log(`\nCtrl-C stops both.\n`)
 }
