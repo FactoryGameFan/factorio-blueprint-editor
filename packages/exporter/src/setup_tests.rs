@@ -180,7 +180,7 @@ async fn discarding_a_padded_image_removes_it_and_its_directory() {
     let padded = make_img_pow2(&source, &root).await.unwrap();
     let dir = padded.parent().unwrap().to_path_buf();
     assert!(padded.is_file());
-    discard_padded(padded, false).await.unwrap();
+    assert!(discard_padded(padded, false, &ProgressBar::hidden()).await);
     assert!(!dir.exists());
     assert!(source.is_file());
     assert!(root.is_dir());
@@ -194,7 +194,7 @@ async fn discarding_a_borrowed_source_never_touches_it() {
     let before = std::fs::read(&source).unwrap();
     let path = make_img_pow2(&source, &root).await.unwrap();
     assert!(matches!(path, Cow::Borrowed(_)));
-    discard_padded(path, false).await.unwrap();
+    assert!(discard_padded(path, false, &ProgressBar::hidden()).await);
     assert_eq!(std::fs::read(&source).unwrap(), before);
 }
 
@@ -204,8 +204,16 @@ async fn keeping_sprite_scratch_retains_the_padded_image() {
     let source = root.join("sprite.png");
     image::RgbaImage::new(3, 5).save(&source).unwrap();
     let padded = make_img_pow2(&source, &root).await.unwrap();
-    discard_padded(padded.clone(), true).await.unwrap();
+    assert!(discard_padded(padded.clone(), true, &ProgressBar::hidden()).await);
     assert!(padded.is_file());
+}
+
+#[tokio::test]
+async fn a_failed_delete_is_reported_rather_than_fatal() {
+    let root = fixture_dir();
+    let missing = root.join("image-gone").join("padded.png");
+    assert!(!discard_padded(Cow::Owned(missing), false, &ProgressBar::hidden()).await);
+    assert!(root.is_dir());
 }
 
 #[test]

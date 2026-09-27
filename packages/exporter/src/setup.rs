@@ -202,14 +202,32 @@ fn keep_sprite_scratch(value: Option<&std::ffi::OsStr>) -> bool {
 /// `make_img_pow2` reserved for it. A borrowed path is the installation's own
 /// PNG and is never touched. Without this a full export leaves ~3,000
 /// uncompressed images in the system temporary directory (#361).
-async fn discard_padded(path: Cow<'_, Path>, keep: bool) -> std::io::Result<()> {
-    if let (Cow::Owned(padded), false) = (path, keep) {
+///
+/// Best effort: a failed delete (say, a Windows antivirus still holding the
+/// PNG) is reported and returns false. Failing the export instead would lose
+/// the metadata for every sprite already encoded.
+async fn discard_padded(path: Cow<'_, Path>, keep: bool, progress: &ProgressBar) -> bool {
+    let Cow::Owned(padded) = path else {
+        return true;
+    };
+    if keep {
+        return true;
+    }
+    let removed: std::io::Result<()> = async {
         tokio::fs::remove_file(&padded).await?;
         if let Some(dir) = padded.parent() {
             tokio::fs::remove_dir(dir).await?;
         }
+        Ok(())
     }
-    Ok(())
+    .await;
+    match removed {
+        Ok(()) => true,
+        Err(e) => {
+            progress.println(format!("Could not delete {}: {e}", padded.display()));
+            false
+        }
+    }
 }
 
 async fn content_to_lines(path: &Path) -> Result<String, Box<dyn Error>> {
@@ -319,13 +337,20 @@ async fn compress_sprites(
     let file_paths = Arc::new(Mutex::new(file_paths));
     let tmp_dir = new_work_dir(&std::env::temp_dir(), "fbe-sprites")?;
     let keep = keep_sprite_scratch(env::var_os("FBE_KEEP_SPRITE_SCRATCH").as_deref());
+    // Printed up front so a run that fails partway still says where it left
+    // its padded images.
     if keep {
         println!("Sprite scratch files retained at {}", tmp_dir.display());
+    } else {
+        println!(
+            "Sprite scratch files at {} (deleted as each sprite is encoded)",
+            tmp_dir.display()
+        );
     }
     let available_parallelism =
         std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
 
-    futures::future::try_join_all((0..available_parallelism).map(|_| {
+    let undeleted: usize = futures::future::try_join_all((0..available_parallelism).map(|_| {
         compress_next_img(
             file_paths.clone(),
             &tmp_dir,
@@ -335,15 +360,18 @@ async fn compress_sprites(
             new_metadata.clone(),
         )
     }))
-    .await?;
+    .await?
+    .into_iter()
+    .sum();
 
     let new_metadata = serde_json::to_vec(&*new_metadata.lock().unwrap())?;
     tokio::fs::write(metadata_path, new_metadata).await?;
     progress.finish();
-    // Only the padded images of sprites basisu failed on are left by now.
+    // Only the padded images of sprites basisu failed on, and any that could
+    // not be deleted, are left by now.
     if !keep && tokio::fs::remove_dir(&tmp_dir).await.is_err() {
         println!(
-            "Padded images of failed sprites retained at {}",
+            "Padded images of failed sprites and {undeleted} that could not be deleted retained at {}",
             tmp_dir.display()
         );
     }
@@ -514,7 +542,8 @@ async fn compress_next_img(
     progress: ProgressBar,
     old_metadata: &HashMap<String, (u64, u64)>,
     new_metadata: Arc<Mutex<HashMap<String, (u64, u64)>>>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<usize, Box<dyn Error>> {
+    let mut undeleted = 0;
     let get_paths = || file_paths.lock().unwrap().pop();
     while let Some((in_path, out_path)) = get_paths() {
         let (len, mtime) = get_len_and_mtime(&in_path).await?;
@@ -551,7 +580,9 @@ async fn compress_next_img(
                     .lock()
                     .unwrap()
                     .insert(key.to_string(), (len, mtime));
-                discard_padded(path, keep).await?;
+                if !discard_padded(path, keep, &progress).await {
+                    undeleted += 1;
+                }
             } else {
                 progress.println(format!("FAILED: {:?}", path));
             }
@@ -560,7 +591,7 @@ async fn compress_next_img(
         progress.inc(1);
     }
 
-    Ok(())
+    Ok(undeleted)
 }
 
 /*
