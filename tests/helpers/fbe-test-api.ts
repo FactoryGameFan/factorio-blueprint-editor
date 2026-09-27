@@ -114,6 +114,8 @@ export interface FbeTestApi {
     exportGuardResult: () => { exportString: boolean; exportImage: boolean }
     /** `encodeCurrent`'s own empty-blueprint guard result. See tests/quick-actions.spec.ts. */
     encodeCurrentResult: () => Promise<string | undefined>
+    /** The PNG the image export would save, without the download. See tests/image-export.spec.ts. */
+    getPicture: (resolution?: number) => Promise<Blob>
     /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that

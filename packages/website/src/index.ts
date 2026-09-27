@@ -563,6 +563,11 @@ const testApi = {
      * QuickActions members. See tests/quick-actions.spec.ts.
      */
     encodeCurrentResult: () => encodeCurrent(),
+    /**
+     * `Editor.getPicture` - the PNG `exportImage` would save, without the
+     * download. See tests/image-export.spec.ts.
+     */
+    getPicture: (resolution?: number) => editor.getPicture(resolution),
     /*
         The interaction mode the canvas is in, by name. The first thing any spec
         driving real pointer or keyboard input needs to assert on (issue #44).
