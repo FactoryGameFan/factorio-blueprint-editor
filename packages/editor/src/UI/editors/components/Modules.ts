@@ -7,6 +7,14 @@ import F from '../../controls/functions'
 
 /** Module Slots for Entity */
 export class Modules extends Container<Slot<number>> {
+    /**
+     * Slots to a row. Four is the most any vanilla machine has, so each of
+     * those still draws one row; the cryogenic plant's eight and the
+     * electromagnetic plant's five wrap onto a second one. Laid out in a single
+     * row, the cryogenic plant's reached x=510 in a 402-wide dialog (issue #345).
+     */
+    public static readonly COLUMNS = 4
+
     /** Blueprint Editor Entity reference */
     private readonly m_Entity: Entity
 
@@ -30,7 +38,10 @@ export class Modules extends Container<Slot<number>> {
         // Create slots for entity
         for (let slotIndex = 0; slotIndex < this.m_Modules.length; slotIndex++) {
             const slot = new Slot<number>(slotIndex)
-            slot.position.set(slotIndex * 38, 0)
+            slot.position.set(
+                (slotIndex % Modules.COLUMNS) * 38,
+                Math.floor(slotIndex / Modules.COLUMNS) * 38
+            )
             slot.on('pointerdown', this.onSlotPointerDown)
             // Read into a local first: `slotIndex` is a loop `let`, so
             // TypeScript will not carry a narrowing of `m_Modules[slotIndex]`

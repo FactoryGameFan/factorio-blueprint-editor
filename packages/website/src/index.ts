@@ -697,6 +697,8 @@ const testApi = {
         module that moved, which a set or a count could not (issue #100).
     */
     entityModules: (entityNumber: number) => entityOf(entityNumber).modules,
+    /** The entity's recipe, for a spec that sets one through its editor (tests/machine-editors.spec.ts). */
+    entityRecipe: (entityNumber: number) => entityOf(entityNumber).recipe,
     /*
         A write through `Entity.set modules`, the list of names the module
         dialog sends when one slot changes. The dialog is drawn with pixi, so
