@@ -17,6 +17,7 @@ import { Panel } from './controls/Panel'
 import { styles } from './style'
 import { suppliesEntity } from '../core/supplyArea'
 import { beltThroughput, inserterThroughput } from '../core/throughput'
+import { scheduleLines } from '../core/trainSchedule'
 
 /*
     A tagged template whose holes are either positions or names: `${0}` reads
@@ -111,7 +112,16 @@ export class EntityInfoPanel extends Panel {
         this.addChild(this.title)
 
         this.m_EntityName = new Text({ text: '', style: styles.dialog.label })
-        this.m_entityInfo = new Text({ text: '', style: styles.dialog.label })
+        /*
+            Wrapped at the panel's inner width, which only changes a line that
+            would otherwise run off the panel. A locomotive's schedule is the
+            text that needs it: a station name is free text of any length.
+        */
+        const infoStyle = styles.dialog.label.clone()
+        infoStyle.wordWrap = true
+        infoStyle.wordWrapWidth = 250
+        infoStyle.breakWords = true
+        this.m_entityInfo = new Text({ text: '', style: infoStyle })
         this.m_RecipeContainer = new Container()
         this.m_RecipeIOContainer = new Container()
 
@@ -153,6 +163,15 @@ export class EntityInfoPanel extends Panel {
         this.m_EntityName.text = `Name: ${localisedName(FD.entities[entity.name])}`
         this.m_EntityName.position.set(10, nextY)
         nextY = this.m_EntityName.position.y + this.m_EntityName.height + 10
+
+        // Each branch below writes its own line; an entity with none must not
+        // keep the last one's, least of all a whole schedule.
+        this.m_entityInfo.text = ''
+
+        if (entity.entityData.type === 'locomotive') {
+            this.showSchedule(entity, nextY)
+            return
+        }
 
         const machineData = entity.entityData
         if (machineData.type === 'assembling-machine' && isCraftingMachine(machineData)) {
@@ -354,6 +373,30 @@ export class EntityInfoPanel extends Panel {
             // Details for belts
             this.m_entityInfo.text = `Speed: ${roundToTwo(beltThroughput(beltData.speed))} items/s`
             this.m_entityInfo.position.set(10, nextY)
+        }
+    }
+
+    /*
+        A locomotive's schedule, read-only (issue #346). `Entity.schedule` is the
+        only way to it - a schedule lives in the blueprint's top-level
+        `schedules` list, not on the entity - and it answers undefined for a
+        locomotive on none, which `scheduleLines` says in words.
+
+        The panel is a fixed 270 px square and a schedule has no length limit,
+        so lines that would run past the bottom are dropped from the end and
+        counted on a last line instead.
+    */
+    private showSchedule(entity: Entity, top: number): void {
+        const lines = scheduleLines(entity.schedule)
+        this.m_entityInfo.position.set(10, top)
+        this.m_entityInfo.text = lines.join('\n')
+
+        const room = this.height - top - 10
+        for (let kept = lines.length - 1; kept > 0 && this.m_entityInfo.height > room; kept--) {
+            this.m_entityInfo.text = [
+                ...lines.slice(0, kept),
+                `... ${lines.length - kept} more lines`,
+            ].join('\n')
         }
     }
 

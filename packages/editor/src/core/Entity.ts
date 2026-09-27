@@ -1151,7 +1151,8 @@ export class Entity extends EventEmitter<EntityEvents> {
      * top-level `schedules` list naming the locomotives that share it, so this
      * reads and writes through `Blueprint` rather than through the raw entity.
      * That is why there is no `sameSetting` check and no `emit` - `setSchedule`
-     * owns the history entry, and nothing in the UI draws a schedule.
+     * owns the history entry, and the one place the UI shows a schedule, the
+     * entity info panel, redraws on every hover rather than listening.
      *
      * Undefined is a real value to write, not a no-op: Factorio's own copy from a
      * locomotive with no schedule **clears** the target's

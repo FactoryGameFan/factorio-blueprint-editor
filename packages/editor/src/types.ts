@@ -643,8 +643,9 @@ export interface ILegacyScheduleRecord {
  * `tools/oracle/fixtures/copy-settings-schedule.json`. Only four of the names
  * were observed there, so enumerating the rest from that sample would be a guess
  * that rejects valid data. `blueprintSchema.json` constrains this shape no
- * further than "an object" for the same reason, and the editor reads neither
- * spelling - it carries a schedule verbatim.
+ * further than "an object" for the same reason. The editor carries a schedule
+ * verbatim; `core/trainSchedule.ts` reads both spellings only to label them in
+ * the entity info panel.
  */
 export interface IScheduleWaitCondition {
     compare_type?: CompareType
@@ -652,6 +653,8 @@ export interface IScheduleWaitCondition {
 
     ticks?: number
     condition?: ICondition
+    /** The station an `at_station`-style condition names - seen in the corpus. */
+    station?: string
 }
 
 /**
