@@ -217,7 +217,13 @@ function CreateIcon(
         FD.recipes[itemName] ||
         FD.signals[itemName] ||
         // inventory group icon is not present in FD.items
-        FD.inventoryLayout.find(g => g.name === itemName)
+        FD.inventoryLayout.find(g => g.name === itemName) ||
+        /*
+            Last, so it can only answer a name that used to throw: an entity no
+            item places - `red-chest`, the dummy rails, the logo tiles - which
+            the bill of materials lists under the entity's own name (#342).
+        */
+        FD.entities[itemName]
 
     if (item === undefined) {
         // A bare throw, not a missing-icon fallback. Callers under a try/catch

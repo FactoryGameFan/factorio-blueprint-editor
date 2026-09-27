@@ -127,6 +127,19 @@ export class OverlayContainer extends Container {
     private readonly cursorBoxes = new Container()
     private readonly undergroundLines = new Container()
     private readonly selectionArea = new Graphics()
+    /*
+        How many entities the marquee covers, beside the pointer while copy,
+        delete or select is sweeping (issue #342). Entities only, because that
+        is all the three sweeps act on - none of them copies, deletes or
+        selects a tile.
+    */
+    private readonly selectionCount = new Text({
+        style: new TextStyle({
+            fontSize: 14,
+            fill: 0xffffff,
+            stroke: { color: 0x000000, width: 3 },
+        }),
+    })
     private readonly entityTooltip = new Container()
     private copyCursorBox: Container | undefined
     // Absent outside a selection drag, same as `copyCursorBox` above.
@@ -153,8 +166,10 @@ export class OverlayContainer extends Container {
             this.cursorBoxes,
             this.undergroundLines,
             this.selectionArea,
+            this.selectionCount,
             this.entityTooltip
         )
+        this.selectionCount.visible = false
     }
 
     /**
@@ -868,13 +883,34 @@ export class OverlayContainer extends Container {
                 .lineTo(X, Y + H)
                 .lineTo(X, Y)
                 .stroke({ width: 2 / this.bpc.getViewportScale(), color })
+            this.placeSelectionCount(endX, endY)
         }
 
+        this.placeSelectionCount(startPos.x, startPos.y)
         this.bpc.gridData.on('update', this.selectionAreaUpdateFn, this)
+    }
+
+    /** Below and right of the pointer, and the same size on screen at any zoom. */
+    private placeSelectionCount(x: number, y: number): void {
+        const scale = 1 / this.bpc.getViewportScale()
+        this.selectionCount.scale.set(scale)
+        this.selectionCount.position.set(x + 16 * scale, y + 16 * scale)
+    }
+
+    /** The entity count shown beside the marquee; see `selectionCount`. */
+    public setSelectionCount(count: number): void {
+        this.selectionCount.text = `${count} ${count === 1 ? 'entity' : 'entities'}`
+        this.selectionCount.visible = true
+    }
+
+    /** The count label's text while a marquee is sweeping, else undefined. See tests/bill-of-materials.spec.ts. */
+    public get selectionCountText(): string | undefined {
+        return this.selectionCount.visible ? this.selectionCount.text : undefined
     }
 
     public hideSelectionArea(): void {
         this.selectionArea.clear()
+        this.selectionCount.visible = false
         if (this.selectionAreaUpdateFn !== undefined) {
             this.bpc.gridData.off('update', this.selectionAreaUpdateFn, this)
             this.selectionAreaUpdateFn = undefined

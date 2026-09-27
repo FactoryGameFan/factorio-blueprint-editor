@@ -769,6 +769,13 @@ const testApi = {
     */
     rebindAction: (name: string, keyCombo: string) => EDITOR.importKeybinds({ [name]: keyCombo }),
     /*
+        The count beside a sweeping marquee and the open bill of materials'
+        tally. Both are drawn on the canvas, so a spec cannot read them from
+        the page (issue #342).
+    */
+    marqueeCountText: () => editor.selectionCountText,
+    billOfMaterialsTally: () => editor.billOfMaterials,
+    /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but
         whether EntityContainer has it switched on right now. The display panel

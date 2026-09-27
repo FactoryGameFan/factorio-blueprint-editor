@@ -347,6 +347,22 @@ export interface FbeTestApi {
     /** Assigns one action's key combo, as the settings pane does. */
     rebindAction: (name: string, keyCombo: string) => void
     /**
+     * The entity count drawn beside a copy, delete or select marquee, or
+     * undefined when none is sweeping. See tests/bill-of-materials.spec.ts.
+     */
+    marqueeCountText: () => string | undefined
+    /**
+     * What the open bill of materials was drawn from - item name and count,
+     * most first, tiles apart - or undefined when it is not open. See
+     * tests/bill-of-materials.spec.ts.
+     */
+    billOfMaterialsTally: () =>
+        | {
+              entities: { name: string; count: number }[]
+              tiles: { name: string; count: number }[]
+          }
+        | undefined
+    /**
      * Whether `EntityContainer.entityInfo` is currently visible for this
      * entity - the persistent always-show label and the hover tooltip toggle
      * it opposite each other so the two never stack. See

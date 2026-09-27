@@ -816,14 +816,14 @@ export class BlueprintContainer extends Container {
             const W = Math.abs(endX - startPos.x) + 1
             const H = Math.abs(endY - startPos.y) + 1
 
-            onChange(
-                this.bp.entityPositionGrid.getEntitiesInArea({
-                    x: X + W / 2,
-                    y: Y + H / 2,
-                    w: W,
-                    h: H,
-                })
-            )
+            const entities = this.bp.entityPositionGrid.getEntitiesInArea({
+                x: X + W / 2,
+                y: Y + H / 2,
+                w: W,
+                h: H,
+            })
+            this.overlayContainer.setSelectionCount(entities.length)
+            onChange(entities)
         }
         updateFn(startPos.x, startPos.y)
         this.gridData.on('update32', updateFn, this)
