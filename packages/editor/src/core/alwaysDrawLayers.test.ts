@@ -89,4 +89,29 @@ describe('drillLayers', () => {
         )
         expect(names(layers)).toEqual(['head.png'])
     })
+
+    it('skips an animated-shift entry switched off during a waypoint stop', () => {
+        // The two entries differ, so only the flag rule can remove one of them.
+        const layers = drillLayers(
+            [],
+            [
+                {
+                    always_draw: true,
+                    animated_shift: true,
+                    enabled_in_animated_shift_during_waypoint_stop: false,
+                    enabled_in_animated_shift_during_transition: true,
+                    north_animation: sprite('moving-wheels.png', { frame_count: 3 }),
+                },
+                {
+                    always_draw: true,
+                    animated_shift: true,
+                    enabled_in_animated_shift_during_waypoint_stop: true,
+                    enabled_in_animated_shift_during_transition: false,
+                    north_animation: sprite('parked-wheels.png', { frame_count: 1 }),
+                },
+            ] as never,
+            'north'
+        )
+        expect(names(layers)).toEqual(['parked-wheels.png'])
+    })
 })
