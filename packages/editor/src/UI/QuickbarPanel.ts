@@ -1,4 +1,4 @@
-import { Container, Text } from 'pixi.js'
+import { Container, Graphics, Text } from 'pixi.js'
 import { EditorMode } from '../containers/BlueprintContainer'
 import G from '../common/globals'
 import { Button } from './controls/Button'
@@ -7,6 +7,7 @@ import { Slot } from './controls/Slot'
 import F from './controls/functions'
 import { HoverText } from './controls/HoverText'
 import { withKeybind } from '../core/keyComboLabel'
+import { drawBarFrame, drawRaisedFace, drawSlotFace } from './barFaces'
 import {
     BAR_PADDING,
     BAR_SLOT_PITCH,
@@ -16,11 +17,15 @@ import {
     QUICKBAR_WIDTH,
     barLength,
 } from './barLayout'
-import { colors, styles } from './style'
+import { styles } from './style'
 
 class QuickbarSlot extends Slot<string | undefined> {
     public constructor() {
         super(undefined, BAR_SLOT_SIZE, BAR_SLOT_SIZE)
+    }
+
+    protected override drawBackground(width: number): Graphics {
+        return drawSlotFace(width)
     }
 
     /** Undefined for an empty slot, which is what unassignItem leaves behind. */
@@ -40,12 +45,6 @@ class QuickbarSlot extends Slot<string | undefined> {
     }
 }
 
-/*
-    The game's page button face, `quick_bar_page_button`'s default graphical
-    set, read off `__core__/graphics/gui-new.png` at {312, 744}.
-*/
-const PAGE_BUTTON_COLOR = 0x8c8c8c
-
 /**
  * The square left of a row that names the page the row shows, as the game's
  * quickbar does (#512). Raised, where a slot is sunk.
@@ -63,8 +62,8 @@ class PageButton extends Button {
         this.caption.text = String(page + 1)
     }
 
-    protected override get background(): number {
-        return PAGE_BUTTON_COLOR
+    protected override drawBackground(width: number): Graphics {
+        return drawRaisedFace(width)
     }
 }
 
@@ -79,13 +78,8 @@ export class QuickbarPanel extends Panel {
     private readonly hoverText = new HoverText()
 
     public constructor(rows = 1, itemNames?: string[]) {
-        super(
-            QUICKBAR_WIDTH,
-            barLength(rows),
-            colors.quickbar.background.color,
-            colors.quickbar.background.alpha,
-            colors.quickbar.background.border
-        )
+        // Transparent, because the frame is drawn below from the game's numbers.
+        super(QUICKBAR_WIDTH, barLength(rows), 0, 0, 0)
 
         this.rows = rows
         this.rowPages = Array.from({ length: rows }, (_, r) => r)
@@ -97,7 +91,20 @@ export class QuickbarPanel extends Panel {
 
         this.slotsContainer = new Container()
         this.slotsContainer.position.set(BAR_PADDING + QUICKBAR_PAGE_COLUMN, BAR_PADDING)
-        this.addChild(this.slotsContainer)
+        const rowsHeight = barLength(rows) - 2 * BAR_PADDING
+        this.addChild(
+            drawBarFrame(QUICKBAR_WIDTH, barLength(rows), [
+                // One panel for the page buttons and one for the slots.
+                { x: BAR_PADDING, y: BAR_PADDING, width: BAR_SLOT_SIZE, height: rowsHeight },
+                {
+                    x: BAR_PADDING + QUICKBAR_PAGE_COLUMN,
+                    y: BAR_PADDING,
+                    width: barLength(10) - 2 * BAR_PADDING + QUICKBAR_MIDDLE_GAP,
+                    height: rowsHeight,
+                },
+            ]),
+            this.slotsContainer
+        )
 
         this.generateSlots(itemNames)
 
