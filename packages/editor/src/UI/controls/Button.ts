@@ -7,7 +7,7 @@ import F from './functions'
  */
 export class Button<Data = undefined, Content extends Container = Container> extends Container {
     /** Background Graphic */
-    private readonly m_Background: Sprite
+    private readonly m_Background: Container
 
     /** Active Graphic */
     private readonly m_Active: Sprite
@@ -41,14 +41,7 @@ export class Button<Data = undefined, Content extends Container = Container> ext
         this.eventMode = 'static'
         this.cursor = 'pointer'
 
-        this.m_Background = F.DrawRectangle(
-            width,
-            height,
-            this.background,
-            colors.controls.button.background.alpha,
-            border,
-            this.pressed
-        )
+        this.m_Background = this.drawBackground(width, height, border)
         this.m_Background.position.set(0, 0)
 
         this.m_Active = F.DrawRectangle(
@@ -139,5 +132,22 @@ export class Button<Data = undefined, Content extends Container = Container> ext
     /** Shall button be raised or pressed (can be overridden) */
     protected get pressed(): boolean {
         return false
+    }
+
+    /**
+     * The button's resting face, drawn once by the constructor. Overridden by
+     * a control that draws a face of its own, such as the game's slots on the
+     * bottom bars. Called before a subclass's own fields are set, like
+     * `background` and `pressed`.
+     */
+    protected drawBackground(width: number, height: number, border: number): Container {
+        return F.DrawRectangle(
+            width,
+            height,
+            this.background,
+            colors.controls.button.background.alpha,
+            border,
+            this.pressed
+        )
     }
 }

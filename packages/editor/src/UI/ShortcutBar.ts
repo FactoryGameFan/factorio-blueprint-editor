@@ -8,19 +8,11 @@ import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
 import { HoverText } from './controls/HoverText'
 import { BAR_PADDING, BAR_SLOT_PITCH, BAR_SLOT_SIZE, QUICKBAR_WIDTH, barLength } from './barLayout'
-import { colors } from './style'
+import { drawBarFrame, drawRaisedFace } from './barFaces'
 
 /** The icon's drawn size, the size every other slot icon uses. The game also draws 32 px icons in its 40 px slots. */
 const ICON_SIZE = 32
 const SUPERSAMPLE = 4
-
-/*
-    The game's shortcut button face, read off `__core__/graphics/gui-new.png`
-    at the `slot_sized_button` position. The game's icons are dark ink made
-    for this lighter grey: on the editor's usual 0x646464 slot the ink reads
-    at 2.85:1, and here at 5.0:1.
-*/
-const SHORTCUT_BUTTON_COLOR = 0x8c8c8c
 
 /**
  * Draws one of `core/shortcutIcons.ts`'s icons, centred on its own origin.
@@ -51,14 +43,14 @@ function createShortcutIcon(name: ShortcutIconName): Sprite {
     return icon
 }
 
-/** A slot with the game's shortcut button colour, so the icons read the way they do in game. */
+/** A slot with the game's raised grey shortcut button face, so the icons read the way they do in game. */
 class ShortcutSlot<Data> extends Slot<Data> {
     public constructor(data: Data) {
         super(data, BAR_SLOT_SIZE, BAR_SLOT_SIZE)
     }
 
-    protected override get background(): number {
-        return SHORTCUT_BUTTON_COLOR
+    protected override drawBackground(width: number): Graphics {
+        return drawRaisedFace(width)
     }
 }
 
@@ -110,8 +102,8 @@ class ActionSlot extends ShortcutSlot<undefined> {
 }
 
 /*
-    The game's selected shortcut button, from the same sheet as
-    `SHORTCUT_BUTTON_COLOR`. The Alt icon is one colour of dark ink, so it
+    The game's selected shortcut button, from the same sheet as the raised
+    face in `barFaces.ts`. The Alt icon is one colour of dark ink, so it
     needs no tint to read on either face - 5.0:1 on grey and 9.9:1 here. The
     fill alone shows that Alt is on, as it does in the game.
 */
@@ -214,17 +206,23 @@ export class ShortcutBar extends Panel {
     public constructor() {
         const initialCells = ShortcutBar.buildCells()
         const cols = Math.ceil(initialCells.cells.length / ROWS)
-        super(
-            barLength(cols),
-            barLength(ROWS),
-            colors.quickbar.background.color,
-            colors.quickbar.background.alpha,
-            colors.quickbar.background.border
-        )
+        // Transparent, because the frame is drawn below from the game's numbers.
+        super(barLength(cols), barLength(ROWS), 0, 0, 0)
 
         this.slotsContainer = new Container()
         this.slotsContainer.position.set(BAR_PADDING, BAR_PADDING)
-        this.addChild(this.slotsContainer, this.hoverText)
+        this.addChild(
+            drawBarFrame(barLength(cols), barLength(ROWS), [
+                {
+                    x: BAR_PADDING,
+                    y: BAR_PADDING,
+                    width: barLength(cols) - 2 * BAR_PADDING,
+                    height: barLength(ROWS) - 2 * BAR_PADDING,
+                },
+            ]),
+            this.slotsContainer,
+            this.hoverText
+        )
 
         this.placeCells(initialCells)
     }
