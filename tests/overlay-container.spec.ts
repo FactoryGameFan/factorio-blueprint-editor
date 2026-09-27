@@ -157,6 +157,10 @@ const EXPECTED_SYNTHETIC: Record<string, number[]> = {
  * spec opens carry rare accumulators, and a badge is their only overlay, so they
  * read 1 where the normal ones read -1. It was the only change, and a pure
  * addition again: no key removed and no array shortened.
+ *
+ * `train-stop` arrived with the station name label (#340). Every train stop on
+ * the pages this spec opens is named, and the label is its only overlay, so
+ * they all read 1. Again the only change, and a pure addition.
  */
 const EXPECTED_REAL: Record<string, number[]> = {
     accumulator: [-1, 1],
@@ -200,5 +204,6 @@ const EXPECTED_REAL: Record<string, number[]> = {
     'steam-engine': [2],
     'steam-turbine': [2],
     'storage-chest': [1],
+    'train-stop': [1],
     'turbo-splitter': [-1, 1],
 }

@@ -32,6 +32,7 @@ import { need } from '../core/need'
 import { drawShapes } from '../common/drawShapes'
 import { ZOOM_MAX } from '../core/zoomLevels'
 import type { IconShape } from '../core/shortcutIcons'
+import { splitRichTextIcons } from '../core/richTextIcons'
 import {
     CURSOR_BOX_FRAME,
     CornerSize,
@@ -531,6 +532,18 @@ export class OverlayContainer extends Container {
         }
 
         /*
+            The station name, which the game shows over a train stop in alt mode.
+            Placed and styled like the display panel's label, just above the
+            stop's 2x2 footprint - the game's exact offset and font were not
+            measured.
+        */
+        if (entity.type === 'train-stop' && entity.station) {
+            const label = createStationNameLabel(entity.station)
+            label.position.set(0, -40)
+            entityInfo.addChild(label)
+        }
+
+        /*
             Last, so it draws over anything else near the corner. Entity info is
             32 px per tile, the units every other element here is placed in.
         */
@@ -893,20 +906,70 @@ function createDisplayPanelLabel(text: string): Container {
         style: new TextStyle({ fontSize: 16, fill: 0xffffff, align: 'center' }),
     })
     label.anchor.set(0.5, 1)
+    return withLabelBackground(label, label.width, label.height)
+}
 
+/**
+ * A train stop's name as one line, with its icon tags drawn as icons in line
+ * with the text - see core/richTextIcons.ts. A tag whose icon cannot be built
+ * is printed as typed rather than dropped. Same look and anchoring as
+ * `createDisplayPanelLabel`. Labelled `station-name`, and each icon
+ * `icon:<name>`, for the `stationNameRuns` test hook.
+ */
+function createStationNameLabel(text: string): Container {
+    const style = new TextStyle({ fontSize: 16, fill: 0xffffff })
+    const lineHeight = new Text({ text: ' ', style }).height
+    const iconSize = 20
+
+    const row = new Container()
+    let x = 0
+    for (const run of splitRichTextIcons(text)) {
+        if (run.kind === 'icon') {
+            let icon: Container | undefined
+            try {
+                icon = F.CreateIcon(run.name, iconSize)
+            } catch {
+                icon = undefined
+            }
+            if (icon !== undefined) {
+                icon.label = `icon:${run.name}`
+                icon.position.set(x + iconSize / 2, -lineHeight / 2)
+                row.addChild(icon)
+                x += iconSize
+                continue
+            }
+        }
+        const part = new Text({ text: run.kind === 'text' ? run.text : run.source, style })
+        part.anchor.set(0, 1)
+        part.position.set(x, 0)
+        row.addChild(part)
+        x += part.width
+    }
+    row.position.x = -x / 2
+
+    const label = withLabelBackground(row, x, lineHeight)
+    label.label = 'station-name'
+    return label
+}
+
+/**
+ * `content` on a padded semi-transparent background, at half scale. `content`
+ * is `width` by `height` and anchored at its bottom centre.
+ */
+function withLabelBackground(content: Container, width: number, height: number): Container {
     const paddingX = 10
     const paddingY = 6
     const background = new Graphics()
         .rect(
-            -label.width / 2 - paddingX,
-            -label.height - paddingY,
-            label.width + paddingX * 2,
-            label.height + paddingY * 2
+            -width / 2 - paddingX,
+            -height - paddingY,
+            width + paddingX * 2,
+            height + paddingY * 2
         )
         .fill({ color: 0x000000, alpha: 0.25 })
 
     const container = new Container()
-    container.addChild(background, label)
+    container.addChild(background, content)
     container.scale.set(0.5, 0.5)
     return container
 }

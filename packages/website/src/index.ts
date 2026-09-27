@@ -1,6 +1,6 @@
 import './index.css'
 
-import { Container, isMobile } from 'pixi.js'
+import { Container, Text, isMobile } from 'pixi.js'
 import EDITOR, {
     Editor,
     Blueprint,
@@ -827,6 +827,27 @@ const testApi = {
         }
         if (info) walk(info, 0, 0, 1)
         return out
+    },
+    /*
+        What a train stop's live name label shows, run by run: each text run's
+        text, and each icon as `icon:<name>`. Reads the overlay EntityContainer
+        is showing rather than building a fresh one, so a spec can tell a
+        rename that redrew it from one that only changed the model. Undefined
+        when there is no label.
+    */
+    stationNameRuns: (entityNumber: number) => {
+        const info = EntityContainer.containerOf(entityNumber).liveEntityInfo
+        const label = info?.children.find(c => c.label === 'station-name')
+        const row = label?.children[1]
+        if (row === undefined) return undefined
+        return row.children.map(c => (c instanceof Text ? c.text : c.label))
+    },
+    /*
+        A write through `Entity.set station`, which is what TrainStopEditor's
+        name field sends.
+    */
+    setStation: (entityNumber: number, station: string | undefined) => {
+        entityOf(entityNumber).station = station
     },
     overlayInfoTally: () => {
         const out: Record<string, number[]> = {}

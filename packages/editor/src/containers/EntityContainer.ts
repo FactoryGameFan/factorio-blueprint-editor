@@ -150,6 +150,7 @@ export class EntityContainer {
         this.m_Entity.on('displayPanelIcon', onDisplayPanelIconChange)
         this.m_Entity.on('displayPanelText', this.redrawEntityInfo)
         this.m_Entity.on('displayPanelAlwaysShow', this.redrawEntityInfo)
+        this.m_Entity.on('station', this.redrawEntityInfo)
 
         this.m_Entity.on('destroy', onEntityDestroy)
 
@@ -166,6 +167,7 @@ export class EntityContainer {
             this.m_Entity.off('displayPanelIcon', onDisplayPanelIconChange)
             this.m_Entity.off('displayPanelText', this.redrawEntityInfo)
             this.m_Entity.off('displayPanelAlwaysShow', this.redrawEntityInfo)
+            this.m_Entity.off('station', this.redrawEntityInfo)
 
             this.m_Entity.off('destroy', onEntityDestroy)
 
@@ -307,6 +309,11 @@ export class EntityContainer {
         return this.entityInfo ? { x: this.entityInfo.x, y: this.entityInfo.y } : undefined
     }
 
+    /** The live overlay itself, for test hooks that read what it currently shows. */
+    public get liveEntityInfo(): Container | undefined {
+        return this.entityInfo
+    }
+
     public get position(): IPoint {
         return {
             x: this.m_Entity.position.x * 32,
@@ -404,7 +411,8 @@ export class EntityContainer {
             this.m_Entity.type === 'decider-combinator' ||
             this.m_Entity.type === 'inserter' ||
             this.m_Entity.type === 'logistic-container' ||
-            this.m_Entity.type === 'display-panel'
+            this.m_Entity.type === 'display-panel' ||
+            this.m_Entity.type === 'train-stop'
         ) {
             if (this.entityInfo !== undefined) {
                 this.entityInfo.destroy()
