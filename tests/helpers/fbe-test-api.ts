@@ -330,6 +330,12 @@ export interface FbeTestApi {
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
     /**
+     * The strings the topmost open dialog's labels draw, in display-tree
+     * order - pixi text, so a spec has no other way to read it. Throws when
+     * nothing is open. See tests/display-panel-editor.spec.ts.
+     */
+    topDialogTexts: () => string[]
+    /**
      * Where ShortcutBar sits, in the same client coordinates `topDialogBounds`
      * answers in. See tests/shortcut-bar.spec.ts.
      */
