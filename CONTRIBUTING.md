@@ -244,7 +244,8 @@ not the installation's PNGs. Temporary profiles and logs are retained at the
 printed path; move them to Trash when finished inspecting them. Each padded
 image is deleted once `basisu` has encoded it, except for a sprite `basisu`
 fails on, whose path is printed. Set `FBE_KEEP_SPRITE_SCRATCH=1` (in the
-environment or `packages/exporter/.env`) to keep all of them.
+environment or `packages/exporter/.env`) to keep all of them; only exactly `1`
+counts, so `0`, `false` or an empty value leave the cleanup on.
 
 Before regenerating committed data, follow the
 [exporter validation and dataset review checklist](packages/exporter/README.md).

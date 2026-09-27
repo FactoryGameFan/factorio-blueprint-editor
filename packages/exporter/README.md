@@ -51,8 +51,8 @@ This establishes repeatability for these samples only. It does not establish
 cross-platform/compiler repeatability or equivalence of every Factorio sprite.
 The probe encodes the supplied PNG directly; exporter padding is covered by the
 Rust tests. Repeat with representative sprites from the intended installation
-(and padded images kept with `FBE_KEEP_SPRITE_SCRATCH=1`) before relying on it
-for a dataset refresh.
+(and padded images kept with `FBE_KEEP_SPRITE_SCRATCH=1`; no other value keeps
+them) before relying on it for a dataset refresh.
 
 ## Before committing a regenerated dataset
 

@@ -189,10 +189,13 @@ async fn make_img_pow2<'a>(
     }
 }
 
-/// Set FBE_KEEP_SPRITE_SCRATCH to keep every padded image, for when a sprite
-/// itself is under investigation (the README's encoder probe wants them).
-fn keep_sprite_scratch() -> bool {
-    env::var_os("FBE_KEEP_SPRITE_SCRATCH").is_some_and(|value| !value.is_empty())
+/// FBE_KEEP_SPRITE_SCRATCH=1 keeps every padded image, for when a sprite itself
+/// is under investigation (the README's encoder probe wants them). Only exactly
+/// "1" counts, as with FBE_DEV_HOST in scripts/localpreview.mjs: a non-empty
+/// check would make `=0` and `=false`, the values people reach for to switch
+/// something off, switch it on.
+fn keep_sprite_scratch(value: Option<&std::ffi::OsStr>) -> bool {
+    value.is_some_and(|value| value == "1")
 }
 
 /// Delete a padded copy once basisu has read it, with the directory
@@ -315,7 +318,7 @@ async fn compress_sprites(
 
     let file_paths = Arc::new(Mutex::new(file_paths));
     let tmp_dir = new_work_dir(&std::env::temp_dir(), "fbe-sprites")?;
-    let keep = keep_sprite_scratch();
+    let keep = keep_sprite_scratch(env::var_os("FBE_KEEP_SPRITE_SCRATCH").as_deref());
     if keep {
         println!("Sprite scratch files retained at {}", tmp_dir.display());
     }

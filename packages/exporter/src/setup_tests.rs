@@ -208,6 +208,16 @@ async fn keeping_sprite_scratch_retains_the_padded_image() {
     assert!(padded.is_file());
 }
 
+#[test]
+fn only_exactly_one_keeps_sprite_scratch() {
+    use std::ffi::OsStr;
+    assert!(keep_sprite_scratch(Some(OsStr::new("1"))));
+    for off in ["0", "", "false", "no", "true", " 1"] {
+        assert!(!keep_sprite_scratch(Some(OsStr::new(off))), "{off:?}");
+    }
+    assert!(!keep_sprite_scratch(None));
+}
+
 #[cfg(unix)]
 fn fake_factorio(body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
