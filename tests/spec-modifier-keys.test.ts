@@ -157,6 +157,14 @@ const ALLOWLIST: AllowedChord[] = [
             'gesture already blurs it via its own mousedown on the canvas, so no ' +
             'DOM input has focus by the time this chord is pressed.',
     },
+    {
+        file: 'unpaired-underground-markers.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. The spec opens no dialog at all, " +
+            'so no DOM input has focus.',
+    },
 ]
 
 interface Found {

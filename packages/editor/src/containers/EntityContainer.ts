@@ -49,6 +49,8 @@ export class EntityContainer {
     private cursorBoxContainer: Container | undefined
     /** This is only a reference */
     private undergroundLine: Container | undefined
+    /** The alt-mode box on an underground with no partner (#344); see updateUnpairedMarker. */
+    private unpairedMarker: Container | undefined
 
     private readonly m_Entity: Entity
     /*
@@ -70,8 +72,10 @@ export class EntityContainer {
         this.entityInfo = G.BPC.overlayContainer.createEntityInfo(this.m_Entity, this.position)
 
         this.redraw(false, sort)
+        this.updateUnpairedMarker()
         if (sort) {
             this.redrawSurroundingEntities()
+            this.updateUndergroundNeighbours()
         }
 
         const onRecipeChange = (): void => {
@@ -87,6 +91,8 @@ export class EntityContainer {
             this.redrawSurroundingEntities()
 
             this.updateUndergroundLine()
+            this.updateUnpairedMarker()
+            this.updateUndergroundNeighbours()
             this.redrawEntityInfo()
             G.BPC.wiresContainer.update(this.m_Entity.entityNumber)
         }
@@ -96,6 +102,8 @@ export class EntityContainer {
             this.redrawSurroundingEntities()
 
             this.updateUndergroundLine()
+            this.updateUnpairedMarker()
+            this.updateUndergroundNeighbours()
         }
 
         const onPositionChange = (newPos: IPoint, oldPos: IPoint): void => {
@@ -104,6 +112,9 @@ export class EntityContainer {
             this.redrawSurroundingEntities(newPos)
 
             this.updateUndergroundLine()
+            this.updateUnpairedMarker()
+            this.updateUndergroundNeighbours(oldPos)
+            this.updateUndergroundNeighbours(newPos)
             this.redrawEntityInfo()
             G.BPC.wiresContainer.update(this.m_Entity.entityNumber)
             this.visualizationArea.moveTo(this.position)
@@ -130,6 +141,10 @@ export class EntityContainer {
             EntityContainer.mappings.delete(this.m_Entity.entityNumber)
 
             this.cursorBox = undefined
+            this.destroyUnpairedMarker()
+            // the grid has already let go of this entity, so a neighbour it was
+            // paired with now finds nothing
+            this.updateUndergroundNeighbours()
 
             this.visualizationArea.destroy()
 
@@ -192,6 +207,7 @@ export class EntityContainer {
             if (this.entityInfo !== undefined) {
                 this.entityInfo.destroy()
             }
+            this.destroyUnpairedMarker()
         })
     }
 
@@ -341,6 +357,9 @@ export class EntityContainer {
         if (this.entityInfo !== undefined) {
             this.entityInfo.position.set(this.entityInfo.x + dx, this.entityInfo.y + dy)
         }
+        if (this.unpairedMarker !== undefined) {
+            this.unpairedMarker.position.set(this.unpairedMarker.x + dx, this.unpairedMarker.y + dy)
+        }
     }
 
     /** `undefined` removes the box, which is how every hover-out and mode exit clears it. */
@@ -358,15 +377,72 @@ export class EntityContainer {
         }
     }
 
+    /** The way an underground looks for its partner: back along itself for an output or a pipe. */
+    private get undergroundSearchDirection(): number {
+        return this.m_Entity.directionType === 'output' || this.m_Entity.type === 'pipe-to-ground'
+            ? (this.m_Entity.direction + 8) % 16
+            : this.m_Entity.direction
+    }
+
     private createUndergroundLine(): void {
         this.undergroundLine = G.BPC.overlayContainer.createUndergroundLine(
             this.m_Entity.name,
             this.m_Entity.position,
             this.m_Entity.direction,
-            this.m_Entity.directionType === 'output' || this.m_Entity.type === 'pipe-to-ground'
-                ? (this.m_Entity.direction + 8) % 16
-                : this.m_Entity.direction
+            this.undergroundSearchDirection
         )
+    }
+
+    private get isUnderground(): boolean {
+        return this.m_Entity.type === 'underground-belt' || this.m_Entity.type === 'pipe-to-ground'
+    }
+
+    /**
+     * Draws or clears the alt-mode marker, from the same partner lookup the
+     * hover line uses. Runs on every create, turn and move, and on the
+     * undergrounds `updateUndergroundNeighbours` finds around one.
+     */
+    private updateUnpairedMarker(): void {
+        this.destroyUnpairedMarker()
+        if (!this.isUnderground) return
+        const partner = G.bp.entityPositionGrid.getUndergroundPartner(
+            this.m_Entity.name,
+            this.m_Entity.position,
+            this.m_Entity.direction,
+            this.undergroundSearchDirection
+        )
+        if (partner !== undefined) return
+        this.unpairedMarker = G.BPC.overlayContainer.createUnpairedMarker(
+            this.m_Entity.entityNumber,
+            {
+                x: this.position.x + this.dragOffset.x,
+                y: this.position.y + this.dragOffset.y,
+            },
+            this.m_Entity.size
+        )
+    }
+
+    private destroyUnpairedMarker(): void {
+        if (this.unpairedMarker) {
+            this.unpairedMarker.destroy()
+            this.unpairedMarker = undefined
+        }
+    }
+
+    /**
+     * Re-checks the undergrounds whose pairing this one can have changed by
+     * arriving at, leaving or turning at `position`. Only needed after an edit:
+     * `initBP` builds every container against a grid that already holds the
+     * whole blueprint, so each one's own check is already final there.
+     */
+    private updateUndergroundNeighbours(position: IPoint = this.m_Entity.position): void {
+        if (!this.isUnderground) return
+        for (const entity of G.bp.entityPositionGrid.getUndergroundsInReach(
+            this.m_Entity.name,
+            position
+        )) {
+            EntityContainer.containerOf(entity.entityNumber).updateUnpairedMarker()
+        }
     }
 
     private destroyUndergroundLine(): void {

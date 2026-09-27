@@ -580,6 +580,7 @@ const testApi = {
     entityDragOffset: (entityNumber: number) => editor.entityDragOffset(entityNumber),
     historyRevision: () => editor.historyRevision,
     infoOverlayVisible: () => editor.infoOverlayVisible,
+    markedUnpairedUndergrounds: () => editor.unpairedUndergroundMarkers,
     /*
         Where an entity sits on screen, so a spec can put the pointer on it.
         Hovering is the only way into EDIT, and that is the entry point for

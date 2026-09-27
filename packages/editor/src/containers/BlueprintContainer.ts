@@ -924,6 +924,11 @@ export class BlueprintContainer extends Container {
         return this.overlayContainer.entityInfoVisible
     }
 
+    /** Which undergrounds alt mode marks as unpaired. See tests/unpaired-underground-markers.spec.ts. */
+    public get unpairedUndergroundMarkers(): number[] {
+        return this.overlayContainer.unpairedMarkerEntities
+    }
+
     /** Whether an entity's selection box is drawn as blocked. See tests/persistent-selection.spec.ts. */
     public selectionHighlightBlocked(entityNumber: number): boolean {
         return this.overlayContainer.selectionHighlightBlocked(entityNumber)

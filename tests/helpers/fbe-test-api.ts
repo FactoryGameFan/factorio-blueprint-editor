@@ -186,6 +186,12 @@ export interface FbeTestApi {
      */
     infoOverlayVisible: () => boolean
     /**
+     * The entity numbers of the undergrounds alt mode marks as having no
+     * partner, ascending; empty while alt mode is off. See
+     * tests/unpaired-underground-markers.spec.ts.
+     */
+    markedUnpairedUndergrounds: () => number[]
+    /**
      * Where the entity sits in client coordinates - the space a synthetic
      * pointer move takes - or undefined if the loaded blueprint has no such
      * entity. Hovering one is the only way into EDIT.

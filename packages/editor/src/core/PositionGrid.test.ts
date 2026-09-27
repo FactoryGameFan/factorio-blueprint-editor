@@ -433,3 +433,136 @@ describe('Entity.undergroundSearchDirection', () => {
         expect(entityAt(SOUTH)?.undergroundSearchDirection).toBe(NORTH)
     })
 })
+
+describe('getUndergroundPartner', () => {
+    /*
+        The predicate the hover line and the alt-mode marker for a lone
+        underground (#344) share: getOpposingEntity plus the "two inputs or two
+        outputs is not a pair" guard, which used to live inline in
+        OverlayContainer.createUndergroundLine. Each entity is asked the way
+        EntityContainer asks, searching back along itself when it is an output
+        or a pipe.
+    */
+    const partnerOf = (bp: Blueprint, entityNumber: number): number | undefined => {
+        const entity = bp.entities.get(entityNumber)
+        if (entity === undefined) throw new Error(`no entity ${entityNumber} in this blueprint`)
+        const searchDirection =
+            entity.directionType === 'output' || entity.type === 'pipe-to-ground'
+                ? (entity.direction + 8) % 16
+                : entity.direction
+        return bp.entityPositionGrid.getUndergroundPartner(
+            entity.name,
+            entity.position,
+            entity.direction,
+            searchDirection
+        )?.entityNumber
+    }
+
+    it('pairs an input and an output from both ends', () => {
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: WEST, directionType: 'input' },
+            { name: 'underground-belt', x: -3.5, y: 0.5, direction: WEST, directionType: 'output' }
+        )
+
+        expect(partnerOf(bp, 1)).toBe(2)
+        expect(partnerOf(bp, 2)).toBe(1)
+    })
+
+    it('does not pair two inputs facing the same way', () => {
+        // getOpposingEntity alone answers 2 for entity 1 here; the guard is what
+        // says two inputs are not a pair
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: SOUTH, directionType: 'input' },
+            { name: 'underground-belt', x: 0.5, y: 3.5, direction: SOUTH, directionType: 'input' }
+        )
+
+        expect(
+            bp.entityPositionGrid.getOpposingEntity(
+                'underground-belt',
+                SOUTH,
+                positionOf(bp, 1),
+                SOUTH,
+                MAX_DISTANCE['underground-belt']
+            )
+        ).toBe(2)
+        expect(partnerOf(bp, 1)).toBeUndefined()
+        expect(partnerOf(bp, 2)).toBeUndefined()
+    })
+
+    it('answers undefined for an underground on its own', () => {
+        const bp = blueprintOf({
+            name: 'fast-underground-belt',
+            x: 0.5,
+            y: 0.5,
+            direction: NORTH,
+            directionType: 'output',
+        })
+
+        expect(partnerOf(bp, 1)).toBeUndefined()
+    })
+
+    it('pairs two pipes to ground from both ends, and not a lone one', () => {
+        const bp = blueprintOf(
+            { name: 'pipe-to-ground', x: 0.5, y: 0.5, direction: EAST },
+            { name: 'pipe-to-ground', x: -9.5, y: 0.5, direction: WEST },
+            { name: 'pipe-to-ground', x: 0.5, y: 20.5, direction: EAST }
+        )
+
+        expect(partnerOf(bp, 1)).toBe(2)
+        expect(partnerOf(bp, 2)).toBe(1)
+        expect(partnerOf(bp, 3)).toBeUndefined()
+    })
+})
+
+describe('getUndergroundsInReach', () => {
+    /*
+        The undergrounds whose markers have to be re-checked after an edit at a
+        position: the same name, on the same row or column, within that name's
+        reach - and nothing else, so an edit costs the same in any size of
+        blueprint.
+    */
+    const numbersInReach = (bp: Blueprint, name: string, entityNumber: number): number[] =>
+        bp.entityPositionGrid
+            .getUndergroundsInReach(name, positionOf(bp, entityNumber))
+            .map(e => e.entityNumber)
+            .sort((a, b) => a - b)
+
+    it('finds the same name on all four sides out to the reach, whatever way it faces', () => {
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST, directionType: 'input' },
+            // at the reach on each side
+            { name: 'underground-belt', x: 5.5, y: 0.5, direction: EAST, directionType: 'output' },
+            { name: 'underground-belt', x: -4.5, y: 0.5, direction: WEST, directionType: 'input' },
+            { name: 'underground-belt', x: 0.5, y: 5.5, direction: NORTH, directionType: 'input' },
+            {
+                name: 'underground-belt',
+                x: 0.5,
+                y: -4.5,
+                direction: SOUTH,
+                directionType: 'output',
+            },
+            // one past it, off both axes, and another tier
+            { name: 'underground-belt', x: 6.5, y: 0.5, direction: EAST, directionType: 'output' },
+            { name: 'underground-belt', x: 2.5, y: 2.5, direction: EAST, directionType: 'output' },
+            {
+                name: 'fast-underground-belt',
+                x: 2.5,
+                y: 0.5,
+                direction: EAST,
+                directionType: 'output',
+            }
+        )
+
+        expect(numbersInReach(bp, 'underground-belt', 1)).toEqual([2, 3, 4, 5])
+    })
+
+    it('reaches 10 tiles for a pipe to ground', () => {
+        const bp = blueprintOf(
+            { name: 'pipe-to-ground', x: 0.5, y: 0.5, direction: EAST },
+            { name: 'pipe-to-ground', x: -9.5, y: 0.5, direction: WEST },
+            { name: 'pipe-to-ground', x: -10.5, y: 0.5, direction: WEST }
+        )
+
+        expect(numbersInReach(bp, 'pipe-to-ground', 1)).toEqual([2])
+    })
+})
