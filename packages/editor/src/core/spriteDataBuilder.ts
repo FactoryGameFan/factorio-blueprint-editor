@@ -169,6 +169,7 @@ import {
     type CargoBayBox,
 } from './cargoBayConnections'
 import { need } from './need'
+import { drillLayers } from './alwaysDrawLayers'
 
 /**
  * What a `draw_*` function gets to work with.
@@ -2498,34 +2499,11 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
         case 'big-mining-drill':
             return (data: IDrawData) => {
                 const dir = util.getDirName(data.dir)
-                const layers0 = dirLayers(need(e, 'graphics_set', 'animation'), dir)
-
-                const animDir = `${dir}_animation` as
-                    | 'north_animation'
-                    | 'east_animation'
-                    | 'south_animation'
-                    | 'west_animation'
-
-                /*
-                    An always_draw visualisation is either directional - one entry per
-                    facing, and absent for facings it does not apply to - or a single
-                    non-directional `animation` drawn the same way whichever way the
-                    drill points. electric-mining-drill only has the first kind, so it
-                    was enough to read the directional key and drop everything else.
-                    big-mining-drill has two of the second kind (a scorch mark and the
-                    drill head), which that would silently discard.
-
-                    The order matters: a directional entry that omits this facing has
-                    to stay dropped rather than fall back to a plain `animation` it
-                    does not have, which is what the filter below still does.
-                */
-                const layers1 = need(e, 'graphics_set', 'working_visualisations')
-                    .filter(vis => vis.always_draw)
-                    .map(vis => vis[animDir] ?? vis.animation)
-                    .filter(vis => !!vis)
-                    .flatMap(vis => (vis.layers ? vis.layers : [vis]))
-
-                return [...layers0, ...layers1]
+                return drillLayers(
+                    dirLayers(need(e, 'graphics_set', 'animation'), dir),
+                    need(e, 'graphics_set', 'working_visualisations'),
+                    dir
+                )
             }
 
         default:
