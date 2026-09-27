@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { waitForEditor } from './helpers/fbe-test-api'
+import { BAR_PADDING, BAR_SLOT_PITCH, BAR_SLOT_SIZE } from '../packages/editor/src/UI/barLayout'
 
 /*
     The one-time "give us a star" prompt (#427), and where it is allowed to sit.
@@ -40,28 +41,32 @@ const SLOT_NAMES = [
 ]
 
 /**
- * Per ShortcutBar slot, how many points of its 36x36 face `elementFromPoint`
- * answers with something other than the canvas. The grid is ShortcutBar's own:
- * cells at a 38px pitch from a 12px inset, two rows filled column-major.
+ * Per ShortcutBar slot, how many points of its face `elementFromPoint` answers
+ * with something other than the canvas. The grid is ShortcutBar's own, from
+ * `barLayout.ts`: two rows filled column-major.
  */
 async function blockedSlotPoints(page: Page): Promise<Record<string, number>> {
-    return page.evaluate(names => {
-        const b = window.__fbe_test.shortcutBarBounds()
-        const out: Record<string, number> = {}
-        names.forEach((name, i) => {
-            const x0 = b.x + 12 + Math.floor(i / 2) * 38
-            const y0 = b.y + 12 + (i % 2) * 38
-            let blocked = 0
-            for (let dx = 0; dx < 36; dx++) {
-                for (let dy = 0; dy < 36; dy++) {
-                    const el = document.elementFromPoint(x0 + dx, y0 + dy)
-                    if (!el || el.tagName !== 'CANVAS') blocked++
+    const grid = { padding: BAR_PADDING, pitch: BAR_SLOT_PITCH, size: BAR_SLOT_SIZE }
+    return page.evaluate(
+        ({ names, grid }) => {
+            const b = window.__fbe_test.shortcutBarBounds()
+            const out: Record<string, number> = {}
+            names.forEach((name, i) => {
+                const x0 = b.x + grid.padding + Math.floor(i / 2) * grid.pitch
+                const y0 = b.y + grid.padding + (i % 2) * grid.pitch
+                let blocked = 0
+                for (let dx = 0; dx < grid.size; dx++) {
+                    for (let dy = 0; dy < grid.size; dy++) {
+                        const el = document.elementFromPoint(x0 + dx, y0 + dy)
+                        if (!el || el.tagName !== 'CANVAS') blocked++
+                    }
                 }
-            }
-            out[name] = blocked
-        })
-        return out
-    }, SLOT_NAMES)
+                out[name] = blocked
+            })
+            return out
+        },
+        { names: SLOT_NAMES, grid }
+    )
 }
 
 const NONE_BLOCKED = Object.fromEntries(SLOT_NAMES.map(name => [name, 0]))
