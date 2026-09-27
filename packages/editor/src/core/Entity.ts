@@ -410,6 +410,16 @@ export class Entity extends EventEmitter<EntityEvents> {
             .commit()
     }
 
+    /**
+     * A rolling stock's heading, as a fraction of a clockwise turn from north.
+     * The game writes this and no `direction` for locomotives and wagons, so
+     * `direction` above reads 0 for every one of them in a real blueprint.
+     * Undefined for everything else, and for rolling stock the editor placed.
+     */
+    public get orientation(): number | undefined {
+        return this.m_rawEntity.orientation
+    }
+
     /** Rail layer (elevated) for rail signals on raised rails */
     public get railLayer(): string | undefined {
         return this.m_rawEntity.rail_layer

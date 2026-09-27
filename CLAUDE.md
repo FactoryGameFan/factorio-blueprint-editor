@@ -675,7 +675,16 @@ against the CSP in `packages/website/public/_headers` that permits them.
 
 - Mobile is a read-only viewer; editing remains desktop-only.
 - Some complex animations render only static base sprites.
-- Train sprites approximate 256 orientations with four cardinal frames.
+- Rolling stock draws the frame its `orientation` picks out of 256, or out of
+  128 over half a turn for the wagons with `back_equals_front`, through
+  `rotatedSprite.ts` (#520). A blueprint gives it an `orientation` and no
+  `direction`; an editor-placed one has a `direction`, read as sixteenths of a
+  turn. The frame order and the diagonal projection come from data.json and
+  the `RotatedSprite` docs, checked in the editor but never against the game's
+  own render. Only the drawing follows `orientation`: the position-grid
+  footprint still follows `direction`, so an east-west train keeps its
+  north-south box, and rotating or flipping a selection leaves `orientation`
+  where it was.
 - Planet (`space-location`) icons have no exported prototype, and `F.CreateIcon`
   ends in a bare `throw` for a name it cannot resolve. Below a `try` (an
   `OverlayContainer` or `SafeIcon` boundary) that is a missing icon; on a path
