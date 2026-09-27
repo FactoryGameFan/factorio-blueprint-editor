@@ -60,7 +60,12 @@ const BLUEPRINT = encodeBlueprint({
             name: 'splitter',
             position: { x: 2, y: 6.5 },
             output_priority: 'left',
-            filter: { name: 'iron-plate', quality: 'legendary' },
+            /*
+                Not the `=` every corpus splitter carries, so the paste below
+                can tell the source's comparator from the one the setter
+                supplies when there is none.
+            */
+            filter: { name: 'iron-plate', quality: 'legendary', comparator: '≥' },
         },
         { entity_number: 5, name: 'splitter', position: { x: 6, y: 6.5 } },
         {
@@ -69,7 +74,7 @@ const BLUEPRINT = encodeBlueprint({
             position: { x: 9.5, y: 6.5 },
             use_filters: true,
             filters: [
-                { index: 1, name: 'iron-plate', quality: 'legendary' },
+                { index: 1, name: 'iron-plate', quality: 'legendary', comparator: '=' },
                 { index: 2, name: 'copper-plate', quality: 'rare', comparator: '>' },
             ],
         },
@@ -176,14 +181,31 @@ test('pasted modules keep their quality', async ({ page }) => {
     ])
 })
 
-test('a pasted splitter filter keeps its quality', async ({ page }) => {
+/*
+    With its comparator too. A quality that arrives without one is a filter
+    Factorio refuses, dropping the whole entity (#497), and the paste used to
+    produce exactly that.
+*/
+test('a pasted splitter filter keeps its quality and comparator', async ({ page }) => {
     await pasteSettings(page, 4, 5)
     expect((await exportedEntity(page, 5)).filter).toEqual({
         name: 'iron-plate',
         quality: 'legendary',
+        comparator: '≥',
     })
     const badges = await page.evaluate(() => window.__fbe_test.qualityBadgeFrames(5))
     expect(badges?.map(b => b.quality)).toEqual(['legendary'])
+})
+
+test('a splitter filter set with a quality and no comparator gets =', async ({ page }) => {
+    await page.evaluate(() =>
+        window.__fbe_test.setEntityFilters(5, [{ index: 1, name: 'coal', quality: 'rare' }])
+    )
+    expect((await exportedEntity(page, 5)).filter).toEqual({
+        name: 'coal',
+        quality: 'rare',
+        comparator: '=',
+    })
 })
 
 test('changing one inserter filter keeps the quality of the others', async ({ page }) => {
@@ -197,7 +219,7 @@ test('changing one inserter filter keeps the quality of the others', async ({ pa
         ])
     )
     expect((await exportedEntity(page, 6)).filters).toEqual([
-        { index: 1, name: 'iron-plate', quality: 'legendary' },
+        { index: 1, name: 'iron-plate', quality: 'legendary', comparator: '=' },
         { index: 2, name: 'copper-plate', quality: 'rare', comparator: '>' },
         { index: 3, name: 'coal' },
     ])
