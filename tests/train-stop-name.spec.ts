@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { encodeBlueprint as encode, packVersion as version } from './helpers/encode-blueprint'
 import { loadBlueprint, waitForEditor } from './helpers/fbe-test-api'
+import { suppressOverlays } from './helpers/overlays'
 
 /*
     A train stop draws its station name in its info overlay (issue #340).
@@ -86,5 +87,44 @@ test('naming an unnamed train stop draws the name', async ({ page }) => {
 
     await setStation(page, 2, 'Depot')
     expect(await runs(page, 2)).toEqual(['Depot'])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+/*
+    The train stop editor's preview draws its overlay with the same
+    createEntityInfo, so it shows the name too - and has to rebuild when the
+    name box renames the stop, or it keeps the old name until reopened. Typed
+    into the real field and committed with Tab, the way a user renames it.
+*/
+test('the train stop editor preview follows a rename typed into it', async ({ page }) => {
+    await suppressOverlays(page)
+    const errors = await load(page)
+
+    const at = await page.evaluate(() => window.__fbe_test.entityScreenPosition(2))
+    if (!at) throw new Error('the unnamed train stop is not in the loaded blueprint')
+    await page.mouse.move(at.x, at.y + 240)
+    await page.mouse.move(at.x, at.y)
+    expect(await page.evaluate(() => window.__fbe_test.editorMode())).toBe('EDIT')
+    await page.mouse.down()
+    await page.mouse.up()
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    expect(await page.evaluate(() => window.__fbe_test.previewStationNameRuns())).toBeUndefined()
+
+    // The station box is the first TextInput element, and it starts empty.
+    await page.evaluate(() => {
+        const el = ([...document.querySelectorAll('input, textarea')] as HTMLInputElement[]).find(
+            i => i.style.cssText !== ''
+        )
+        if (!el) throw new Error('no TextInput element on the page')
+        el.focus()
+    })
+    await page.keyboard.type('Depot [item=iron-plate]')
+    await page.keyboard.press('Tab')
+
+    expect(await runs(page, 2)).toEqual(['Depot ', 'icon:iron-plate'])
+    expect(await page.evaluate(() => window.__fbe_test.previewStationNameRuns())).toEqual([
+        'Depot ',
+        'icon:iron-plate',
+    ])
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })

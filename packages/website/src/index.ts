@@ -61,6 +61,24 @@ function entityOf(entityNumber: number): Entity {
     return entity
 }
 
+/**
+ * The runs of the first train stop name label found under `root`, for the
+ * station name test hooks: each text run's text, and each icon as
+ * `icon:<name>`. Undefined when there is no label.
+ */
+function stationNameRunsIn(root: Container | undefined): string[] | undefined {
+    if (root === undefined) return undefined
+    for (const child of root.children) {
+        if (child.label === 'station-name') {
+            const row = child.children[1]
+            return row?.children.map(c => (c instanceof Text ? c.text : c.label))
+        }
+        const found = stationNameRunsIn(child)
+        if (found !== undefined) return found
+    }
+    return undefined
+}
+
 let t0 = performance.now()
 
 const CANVAS = element<HTMLCanvasElement>('editor')
@@ -835,13 +853,14 @@ const testApi = {
         rename that redrew it from one that only changed the model. Undefined
         when there is no label.
     */
-    stationNameRuns: (entityNumber: number) => {
-        const info = EntityContainer.containerOf(entityNumber).liveEntityInfo
-        const label = info?.children.find(c => c.label === 'station-name')
-        const row = label?.children[1]
-        if (row === undefined) return undefined
-        return row.children.map(c => (c instanceof Text ? c.text : c.label))
-    },
+    stationNameRuns: (entityNumber: number) =>
+        stationNameRunsIn(EntityContainer.containerOf(entityNumber).liveEntityInfo),
+    /*
+        The same, for the preview in the topmost open dialog - the entity
+        editor draws its preview's overlay with createEntityInfo too, so a
+        train stop editor shows the name there as well.
+    */
+    previewStationNameRuns: () => stationNameRunsIn(editor.topDialog),
     /*
         A write through `Entity.set station`, which is what TrainStopEditor's
         name field sends.

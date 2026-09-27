@@ -139,6 +139,12 @@ export class UIContainer extends Container {
         return { x: at.x, y: at.y, width: top.width, height: top.height }
     }
 
+    /** The topmost open dialog, or undefined when none is open. */
+    public get topDialog(): Container | undefined {
+        const dialogs = this.dialogsContainer.children
+        return dialogs[dialogs.length - 1]
+    }
+
     /** How many dialogs are open. 0 when the canvas has none. */
     public get openDialogCount(): number {
         return this.dialogsContainer.children.length

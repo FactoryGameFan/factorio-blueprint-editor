@@ -136,6 +136,8 @@ export interface FbeTestApi {
      * tests/train-stop-name.spec.ts.
      */
     stationNameRuns: (entityNumber: number) => string[] | undefined
+    /** The same, for the preview in the topmost open dialog. */
+    previewStationNameRuns: () => string[] | undefined
     /** Writes `Entity.station`, as TrainStopEditor's name field does. */
     setStation: (entityNumber: number, station: string | undefined) => void
     overlayInfoTally: () => OverlayTally
