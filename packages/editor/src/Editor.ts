@@ -400,6 +400,11 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
+    /** The string of every `Text` in the topmost open dialog, hidden ones included. Throws when nothing is open. */
+    public get topDialogTexts(): string[] {
+        return G.UI.topDialogTexts
+    }
+
     /**
      * Opens BlueprintInfoEditor, the same as clicking its persistent
      * top-left button - which sits at a fixed screen position a spec could

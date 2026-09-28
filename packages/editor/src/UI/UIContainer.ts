@@ -1,5 +1,5 @@
 import G from '../common/globals'
-import { Container, isMobile } from 'pixi.js'
+import { Container, Text, isMobile } from 'pixi.js'
 import { Entity } from '../core/Entity'
 import type { Blueprint } from '../core/Blueprint'
 import { DebugContainer } from './DebugContainer'
@@ -137,6 +137,29 @@ export class UIContainer extends Container {
         }
         const at = top.toGlobal({ x: 0, y: 0 })
         return { x: at.x, y: at.y, width: top.width, height: top.height }
+    }
+
+    /**
+     * The string of every `Text` built inside the topmost dialog, in
+     * display-tree order, hidden ones included - so a spec can tell a label
+     * that was never built from one that is merely not shown. Labels are drawn
+     * with pixi like everything else in a dialog, so nothing outside the
+     * canvas can read them. Throws when nothing is open.
+     * See tests/display-panel-editor.spec.ts.
+     */
+    public get topDialogTexts(): string[] {
+        const dialogs = this.dialogsContainer.children
+        const top = dialogs[dialogs.length - 1]
+        if (top === undefined) {
+            throw new Error('no dialog is open')
+        }
+        const texts: string[] = []
+        const walk = (node: Container): void => {
+            if (node instanceof Text) texts.push(node.text)
+            for (const child of node.children) walk(child)
+        }
+        walk(top)
+        return texts
     }
 
     /** How many dialogs are open. 0 when the canvas has none. */
