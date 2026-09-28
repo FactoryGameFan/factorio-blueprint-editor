@@ -381,19 +381,12 @@ export class EntityContainer {
         }
     }
 
-    /** The way an underground looks for its partner: back along itself for an output or a pipe. */
-    private get undergroundSearchDirection(): number {
-        return this.m_Entity.directionType === 'output' || this.m_Entity.type === 'pipe-to-ground'
-            ? (this.m_Entity.direction + 8) % 16
-            : this.m_Entity.direction
-    }
-
     private createUndergroundLine(): void {
         this.undergroundLine = G.BPC.overlayContainer.createUndergroundLine(
             this.m_Entity.name,
             this.m_Entity.position,
             this.m_Entity.direction,
-            this.undergroundSearchDirection
+            this.m_Entity.undergroundSearchDirection
         )
     }
 
@@ -413,7 +406,7 @@ export class EntityContainer {
             this.m_Entity.name,
             this.m_Entity.position,
             this.m_Entity.direction,
-            this.undergroundSearchDirection
+            this.m_Entity.undergroundSearchDirection
         )
         if (partner !== undefined) return
         this.unpairedMarker = G.BPC.overlayContainer.createUnpairedMarker(

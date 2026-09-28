@@ -229,3 +229,47 @@ test('a group mirror leaves a pair that flipped together unmarked, and so does u
 
     expect(pageErrors).toEqual([])
 })
+
+/*
+    A belt carrying no `type` - never written by the game, only by hand - is
+    drawn as an output, and pairing now reads it the same way, through
+    `Entity.undergroundSearchDirection`, from both ends. Entity 1 here used to
+    be searched from as an input: it found entity 2 ahead of it and went
+    unmarked, while entity 2 read it as an output, refused the pair, and was
+    marked alone. Two outputs are no pair, so both are marked.
+*/
+const UNTYPED_BELT = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [
+        {
+            entity_number: 1,
+            name: 'underground-belt',
+            position: { x: 0.5, y: 0.5 },
+            direction: EAST,
+        },
+        {
+            entity_number: 2,
+            name: 'underground-belt',
+            position: { x: 4.5, y: 0.5 },
+            direction: EAST,
+            type: 'output',
+        },
+    ],
+})
+
+test('a belt with no type is marked as the output it is drawn as, and so is the one ahead of it', async ({
+    page,
+}) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', e => pageErrors.push(String(e)))
+
+    await suppressOverlays(page)
+    await waitForEditor(page)
+    await loadBlueprint(page, UNTYPED_BELT)
+
+    expect(await page.evaluate(() => window.__fbe_test.infoOverlayVisible())).toBe(true)
+    expect(await marked(page)).toEqual([1, 2])
+
+    expect(pageErrors).toEqual([])
+})

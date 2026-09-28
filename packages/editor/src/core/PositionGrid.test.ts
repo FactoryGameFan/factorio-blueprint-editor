@@ -429,8 +429,22 @@ describe('Entity.undergroundSearchDirection', () => {
     })
 
     it('takes the output form when there is no direction type', () => {
-        // pipe-to-ground stores none, and every caller already treated it so
+        // a hand-made belt without one, drawn as an output by draw_underground_belt
         expect(entityAt(SOUTH)?.undergroundSearchDirection).toBe(NORTH)
+    })
+
+    it('searches behind a pipe to ground whatever type it carries', () => {
+        // the game writes none on a pipe; a stray `input` must not turn it round
+        for (const directionType of [undefined, 'input', 'output'] as const) {
+            const pipe = blueprintOf({
+                name: 'pipe-to-ground',
+                x: 0.5,
+                y: 0.5,
+                direction: EAST,
+                directionType,
+            }).entities.get(1)
+            expect(pipe?.undergroundSearchDirection).toBe(WEST)
+        }
     })
 })
 
@@ -440,21 +454,17 @@ describe('getUndergroundPartner', () => {
         underground (#344) share: getOpposingEntity plus the "two inputs or two
         outputs is not a pair" guard, which used to live inline in
         OverlayContainer.createUndergroundLine. Each entity is asked the way
-        EntityContainer asks, searching back along itself when it is an output
-        or a pipe.
+        EntityContainer asks, through Entity.undergroundSearchDirection - the
+        same getter the guard reads on the entity it finds.
     */
     const partnerOf = (bp: Blueprint, entityNumber: number): number | undefined => {
         const entity = bp.entities.get(entityNumber)
         if (entity === undefined) throw new Error(`no entity ${entityNumber} in this blueprint`)
-        const searchDirection =
-            entity.directionType === 'output' || entity.type === 'pipe-to-ground'
-                ? (entity.direction + 8) % 16
-                : entity.direction
         return bp.entityPositionGrid.getUndergroundPartner(
             entity.name,
             entity.position,
             entity.direction,
-            searchDirection
+            entity.undergroundSearchDirection
         )?.entityNumber
     }
 
@@ -499,6 +509,25 @@ describe('getUndergroundPartner', () => {
         })
 
         expect(partnerOf(bp, 1)).toBeUndefined()
+    })
+
+    it('treats a belt with no direction type as the output it is drawn as, from both ends', () => {
+        /*
+            Entity 1 carries no `type`, which the game never writes on a belt
+            but a hand-made string can. EntityContainer used to search from it
+            as an input, and so found entity 2 ahead of it and drew a line to
+            it, while entity 2's own check found entity 1 behind it, read it as
+            an output through Entity.undergroundSearchDirection, and refused
+            the pair - one end paired, the other marked alone. Asked the one
+            way, both ends agree: two outputs, no pair.
+        */
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST },
+            { name: 'underground-belt', x: 4.5, y: 0.5, direction: EAST, directionType: 'output' }
+        )
+
+        expect(partnerOf(bp, 1)).toBeUndefined()
+        expect(partnerOf(bp, 2)).toBeUndefined()
     })
 
     it('pairs two pipes to ground from both ends, and not a lone one', () => {
