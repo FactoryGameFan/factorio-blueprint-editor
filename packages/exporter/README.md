@@ -1,9 +1,11 @@
 # Exporter validation and dataset review
 
 See [CONTRIBUTING](../../CONTRIBUTING.md#regenerating-the-sprite-data-optional)
-for installation and invocation. `FACTORIO_DIR` selects the installed version;
-the download fallback still targets the version in `src/main.rs`. Accepting a
-2.1 installation does not mean the editor or export schema is 2.1-ready.
+for installation and invocation. `FACTORIO_DIR` selects the installed version.
+Without it, the download fallback takes the latest stable `expansion` release
+that factorio.com reports, or the version `FACTORIO_VERSION` pins, and runs on
+Linux and Windows only. Accepting a 2.1 installation does not mean the editor or
+export schema is 2.1-ready.
 
 ## Isolation checks (no Factorio required)
 
@@ -12,7 +14,7 @@ cargo test --locked --manifest-path packages/exporter/Cargo.toml
 cargo fmt --check --manifest-path packages/exporter/Cargo.toml
 ```
 
-Linux and Windows CI run the tests. Unix additionally runs fake executable
+CI runs the tests on Linux only. Unix hosts additionally run fake executable
 tests that check the launch arguments, working directory, intentional nonzero
 exit, missing fresh dump and invalid JSON. These are not a real-game smoke test.
 Test workspaces are retained under the system temporary directory with the
@@ -29,7 +31,8 @@ extraction guarantee.
 
 ## Encoder repeatability probe
 
-From the repository root, on macOS ARM64 (the bundled encoder's platform):
+From the repository root, on macOS ARM64 (the probe runs the macOS `basisu` by
+name, the build the committed textures came from):
 
 ```shell
 node tools/check-basisu-determinism.mjs packages/website/public/favicon.png .github/preview.png
