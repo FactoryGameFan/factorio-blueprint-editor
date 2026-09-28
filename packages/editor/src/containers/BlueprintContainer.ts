@@ -1501,6 +1501,8 @@ export class BlueprintContainer extends Container {
         this.bp.on('create-entity', onCreateEntity)
         this.bp.on('remove-entity', onRemoveEntity)
         this.bp.on('create-tile', onCreateTile)
+        // the alt-mode underground markers wait for a whole edit to land (#344)
+        const offSettled = this.bp.history.onSettled(() => EntityContainer.flushUnpairedChecks())
 
         const onConnectionCreated = (hash: string, connection: IConnection): void => {
             this.wiresContainer.connect(hash, connection)
@@ -1518,6 +1520,7 @@ export class BlueprintContainer extends Container {
             this.bp.off('create-entity', onCreateEntity)
             this.bp.off('remove-entity', onRemoveEntity)
             this.bp.off('create-tile', onCreateTile)
+            offSettled()
 
             this.bp.wireConnections.off('create', onConnectionCreated)
             this.bp.wireConnections.off('remove', onConnectionRemoved)

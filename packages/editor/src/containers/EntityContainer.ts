@@ -10,6 +10,11 @@ import type { CursorBoxType } from '../core/overlayShapes'
 export class EntityContainer {
     public static readonly mappings: Map<number, EntityContainer> = new Map()
 
+    /** Undergrounds whose marker waits for the edit batch to land; see queueUnpairedCheck. */
+    private static readonly pendingUnpairedChecks = new Set<number>()
+    /** Where those edits happened, to find the undergrounds in reach of each. */
+    private static readonly pendingNeighbourScans: { name: string; position: IPoint }[] = []
+
     /**
      * The container drawing `entityNumber`, for callers holding an entity that is
      * live in the current blueprint.
@@ -72,10 +77,13 @@ export class EntityContainer {
         this.entityInfo = G.BPC.overlayContainer.createEntityInfo(this.m_Entity, this.position)
 
         this.redraw(false, sort)
-        this.updateUnpairedMarker()
         if (sort) {
             this.redrawSurroundingEntities()
-            this.updateUndergroundNeighbours()
+            this.queueUnpairedCheck(this.m_Entity.position)
+        } else {
+            // initBP: the grid already holds the whole blueprint, so this
+            // check is final and there are no neighbours to revisit
+            this.updateUnpairedMarker()
         }
 
         const onRecipeChange = (): void => {
@@ -91,8 +99,7 @@ export class EntityContainer {
             this.redrawSurroundingEntities()
 
             this.updateUndergroundLine()
-            this.updateUnpairedMarker()
-            this.updateUndergroundNeighbours()
+            this.queueUnpairedCheck(this.m_Entity.position)
             this.redrawEntityInfo()
             G.BPC.wiresContainer.update(this.m_Entity.entityNumber)
         }
@@ -102,8 +109,7 @@ export class EntityContainer {
             this.redrawSurroundingEntities()
 
             this.updateUndergroundLine()
-            this.updateUnpairedMarker()
-            this.updateUndergroundNeighbours()
+            this.queueUnpairedCheck(this.m_Entity.position)
         }
 
         const onPositionChange = (newPos: IPoint, oldPos: IPoint): void => {
@@ -112,9 +118,7 @@ export class EntityContainer {
             this.redrawSurroundingEntities(newPos)
 
             this.updateUndergroundLine()
-            this.updateUnpairedMarker()
-            this.updateUndergroundNeighbours(oldPos)
-            this.updateUndergroundNeighbours(newPos)
+            this.queueUnpairedCheck(oldPos, newPos)
             this.redrawEntityInfo()
             G.BPC.wiresContainer.update(this.m_Entity.entityNumber)
             this.visualizationArea.moveTo(this.position)
@@ -144,7 +148,7 @@ export class EntityContainer {
             this.destroyUnpairedMarker()
             // the grid has already let go of this entity, so a neighbour it was
             // paired with now finds nothing
-            this.updateUndergroundNeighbours()
+            this.queueUnpairedCheck(this.m_Entity.position)
 
             this.visualizationArea.destroy()
 
@@ -399,8 +403,8 @@ export class EntityContainer {
 
     /**
      * Draws or clears the alt-mode marker, from the same partner lookup the
-     * hover line uses. Runs on every create, turn and move, and on the
-     * undergrounds `updateUndergroundNeighbours` finds around one.
+     * hover line uses. `initBP` calls it directly; every edit goes through
+     * `queueUnpairedCheck` instead.
      */
     private updateUnpairedMarker(): void {
         this.destroyUnpairedMarker()
@@ -430,18 +434,53 @@ export class EntityContainer {
     }
 
     /**
-     * Re-checks the undergrounds whose pairing this one can have changed by
-     * arriving at, leaving or turning at `position`. Only needed after an edit:
-     * `initBP` builds every container against a grid that already holds the
-     * whole blueprint, so each one's own check is already final there.
+     * Asks for this underground's marker to be re-checked, together with every
+     * same-name underground in reach of each of `positions` - the places it
+     * arrived at, left or turned at, the only ones whose pairing that edit can
+     * change. The check waits for the whole batch of edits to land
+     * (`flushUnpairedChecks`, on `History.onSettled`) and runs at once only
+     * outside one.
+     *
+     * The wait is what keeps a group edit right. A group move or mirror
+     * relocates its members one at a time, and `getOpposingEntity` only reads
+     * a cell holding a single entity, so partway through, a member sitting on
+     * a tile another member has not left yet hides everything past it. A pair
+     * checked at that moment kept its "unpaired" marker after the move had put
+     * it back together (tests/unpaired-underground-markers.spec.ts). Undo and
+     * redo replay the same one-at-a-time writes, so they wait too.
      */
-    private updateUndergroundNeighbours(position: IPoint = this.m_Entity.position): void {
+    private queueUnpairedCheck(...positions: IPoint[]): void {
         if (!this.isUnderground) return
-        for (const entity of G.bp.entityPositionGrid.getUndergroundsInReach(
-            this.m_Entity.name,
-            position
-        )) {
-            EntityContainer.containerOf(entity.entityNumber).updateUnpairedMarker()
+        EntityContainer.pendingUnpairedChecks.add(this.m_Entity.entityNumber)
+        for (const position of positions) {
+            EntityContainer.pendingNeighbourScans.push({
+                name: this.m_Entity.name,
+                position: { x: position.x, y: position.y },
+            })
+        }
+        if (!G.bp.history.busy) EntityContainer.flushUnpairedChecks()
+    }
+
+    /**
+     * Runs the checks `queueUnpairedCheck` held back, each underground once
+     * however many edits named it, against the grid as the batch left it.
+     * Numbers are looked up again rather than held as containers, so an
+     * underground deleted within the batch is skipped and one re-created under
+     * the same number (a fast replace, an undo) is checked as it is now.
+     */
+    public static flushUnpairedChecks(): void {
+        if (EntityContainer.pendingUnpairedChecks.size === 0) return
+        const numbers = new Set(EntityContainer.pendingUnpairedChecks)
+        const scans = EntityContainer.pendingNeighbourScans.splice(0)
+        EntityContainer.pendingUnpairedChecks.clear()
+
+        for (const { name, position } of scans) {
+            for (const entity of G.bp.entityPositionGrid.getUndergroundsInReach(name, position)) {
+                numbers.add(entity.entityNumber)
+            }
+        }
+        for (const entityNumber of numbers) {
+            EntityContainer.mappings.get(entityNumber)?.updateUnpairedMarker()
         }
     }
 
