@@ -1247,20 +1247,29 @@ function draw_artillery_wagon(
     ]
 }
 /**
- * The electromagnetic plant's idle animation is only its shell - its core is a
- * separate `working_visualisation` the draw never picked up, leaving a hole.
- * Its one unconditional entry (`always_draw`, no `name`, no `enabled_by_name`)
- * is that core.
+ * A crafting machine's unconditional `working_visualisation` - `always_draw`,
+ * no `name`, no `enabled_by_name`, no tint - is part of its body that the idle
+ * animation leaves out: the electromagnetic plant's core, which left a hole
+ * (#356), and the cryogenic plant's glass (#373). Swept over data.json, those
+ * are the only two assembling machines with one.
  *
- * Only the electromagnetic plant. Other crafting machines' `always_draw`
- * visualisations are `apply_runtime_tint` masks that read wrong without the
- * base they tint (cryogenic-plant) or recipe-gated (`enabled_by_name`, foundry);
- * folding those in is a wider change than fixing the hole this leaves.
+ * `!name` keeps one of the electromagnetic plant's two cores, which differ only
+ * in `frame_count`. The tint guard drops the cryogenic plant's five other
+ * `always_draw` entries, `apply_recipe_tint` masks that read wrong with no
+ * recipe colour to apply.
  */
 function restingCoreLayers(e: AssemblingMachinePrototype): readonly SpriteData[] {
-    if (e.name !== 'electromagnetic-plant') return []
-    const core = need(e, 'graphics_set').working_visualisations?.find(
-        wv => wv.always_draw && !wv.name && !wv.enabled_by_name && wv.animation
+    const wvs = need(e, 'graphics_set').working_visualisations
+    // An empty list exports as `{}`, which has no `find`.
+    if (!Array.isArray(wvs)) return []
+    const core = wvs.find(
+        wv =>
+            wv.always_draw &&
+            !wv.name &&
+            !wv.enabled_by_name &&
+            !wv.apply_recipe_tint &&
+            !wv.apply_tint &&
+            wv.animation
     )
     return core?.animation ? layersOf(core.animation) : []
 }
