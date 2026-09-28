@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
-import { billOfMaterials } from './billOfMaterials'
+import { billOfMaterials, materialAmountLabel } from './billOfMaterials'
 import { loadData } from './factorioData'
 
 /*
@@ -64,10 +64,19 @@ beforeAll(() => {
     )
 })
 
+/** Entities of normal quality, by name - most cases below do not care about quality. */
+const named = (...names: string[]): { name: string }[] => names.map(name => ({ name }))
+
 describe('billOfMaterials', () => {
     it('counts entities per item, most first', () => {
         const bom = billOfMaterials(
-            ['transport-belt', 'wooden-chest', 'transport-belt', 'transport-belt', 'wooden-chest'],
+            named(
+                'transport-belt',
+                'wooden-chest',
+                'transport-belt',
+                'transport-belt',
+                'wooden-chest'
+            ),
             []
         )
         expect(bom.entities).toEqual([
@@ -80,14 +89,14 @@ describe('billOfMaterials', () => {
     it('folds every rail shape into rail, at what each one costs to place', () => {
         // 1 + 3 + 3 + 2: counting pieces instead would read 4.
         const bom = billOfMaterials(
-            ['straight-rail', 'curved-rail-a', 'curved-rail-a', 'half-diagonal-rail'],
+            named('straight-rail', 'curved-rail-a', 'curved-rail-a', 'half-diagonal-rail'),
             []
         )
         expect(bom.entities).toEqual([{ name: 'rail', count: 9 }])
     })
 
     it('lists an entity no item places under its own name rather than dropping it', () => {
-        const bom = billOfMaterials(['red-chest', 'wooden-chest', 'red-chest'], [])
+        const bom = billOfMaterials(named('red-chest', 'wooden-chest', 'red-chest'), [])
         expect(bom.entities).toEqual([
             { name: 'red-chest', count: 2 },
             { name: 'wooden-chest', count: 1 },
@@ -95,16 +104,13 @@ describe('billOfMaterials', () => {
     })
 
     it('keeps tiles in their own list, per item', () => {
-        const bom = billOfMaterials(
-            ['wooden-chest'],
-            [
-                'hazard-concrete-left',
-                'concrete',
-                'hazard-concrete-right',
-                'hazard-concrete-left',
-                'landfill',
-            ]
-        )
+        const bom = billOfMaterials(named('wooden-chest'), [
+            'hazard-concrete-left',
+            'concrete',
+            'hazard-concrete-right',
+            'hazard-concrete-left',
+            'landfill',
+        ])
         expect(bom.entities).toEqual([{ name: 'wooden-chest', count: 1 }])
         expect(bom.tiles).toEqual([
             { name: 'hazard-concrete', count: 3 },
@@ -114,10 +120,58 @@ describe('billOfMaterials', () => {
     })
 
     it('breaks a tie in count by name, so the order does not depend on the input', () => {
-        const a = billOfMaterials(['wooden-chest', 'transport-belt'], ['landfill', 'concrete'])
-        const b = billOfMaterials(['transport-belt', 'wooden-chest'], ['concrete', 'landfill'])
+        const a = billOfMaterials(named('wooden-chest', 'transport-belt'), ['landfill', 'concrete'])
+        const b = billOfMaterials(named('transport-belt', 'wooden-chest'), ['concrete', 'landfill'])
         expect(a).toEqual(b)
         expect(a.entities.map(e => e.name)).toEqual(['transport-belt', 'wooden-chest'])
         expect(a.tiles.map(t => t.name)).toEqual(['concrete', 'landfill'])
+    })
+
+    it('keeps each quality of an item on its own line, and normal is no quality', () => {
+        const bom = billOfMaterials(
+            [
+                { name: 'wooden-chest', quality: 'legendary' },
+                { name: 'wooden-chest' },
+                { name: 'wooden-chest', quality: 'normal' },
+                { name: 'wooden-chest', quality: 'uncommon' },
+                { name: 'curved-rail-a', quality: 'legendary' },
+            ],
+            []
+        )
+        expect(bom.entities).toEqual([
+            { name: 'rail', quality: 'legendary', count: 3 },
+            { name: 'wooden-chest', count: 2 },
+            { name: 'wooden-chest', quality: 'uncommon', count: 1 },
+            { name: 'wooden-chest', quality: 'legendary', count: 1 },
+        ])
+    })
+})
+
+describe('materialAmountLabel', () => {
+    it('is exact up to four digits', () => {
+        expect(materialAmountLabel(1)).toBe('1')
+        expect(materialAmountLabel(1535)).toBe('1535')
+        expect(materialAmountLabel(1999)).toBe('1999')
+        expect(materialAmountLabel(9999)).toBe('9999')
+    })
+
+    it('goes to three significant figures past that, rounded down', () => {
+        expect(materialAmountLabel(10_000)).toBe('10.0k')
+        expect(materialAmountLabel(10_300)).toBe('10.3k')
+        expect(materialAmountLabel(12_345)).toBe('12.3k')
+        // Down, so the last tenth below a boundary does not roll over to it.
+        expect(materialAmountLabel(99_999)).toBe('99.9k')
+        expect(materialAmountLabel(100_000)).toBe('100k')
+        expect(materialAmountLabel(123_456)).toBe('123k')
+        expect(materialAmountLabel(999_999)).toBe('999k')
+        expect(materialAmountLabel(1_000_000)).toBe('1.00M')
+        expect(materialAmountLabel(1_259_999)).toBe('1.25M')
+        expect(materialAmountLabel(12_345_678)).toBe('12.3M')
+    })
+
+    it('is never wider than five characters below a billion', () => {
+        for (const n of [9999, 10_000, 99_999, 100_000, 999_999, 1_000_000, 999_999_999]) {
+            expect(materialAmountLabel(n).length).toBeLessThanOrEqual(5)
+        }
     })
 })

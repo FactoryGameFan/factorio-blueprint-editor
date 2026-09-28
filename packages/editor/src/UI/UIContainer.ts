@@ -13,7 +13,7 @@ import { BookDialog } from './BookDialog'
 import { ShortcutBar } from './ShortcutBar'
 import { BlueprintInfoButton } from './BlueprintInfoButton'
 import { BlueprintInfoEditor } from './BlueprintInfoEditor'
-import { BillOfMaterialsDialog } from './BillOfMaterialsDialog'
+import { BillOfMaterialsDialog, DrawnMaterialSlot } from './BillOfMaterialsDialog'
 import type { BillOfMaterials } from '../core/billOfMaterials'
 import { createEditor } from './editors/factory'
 
@@ -303,6 +303,11 @@ export class UIContainer extends Container {
     /** The open BillOfMaterialsDialog's tally, or undefined when none is open. */
     public get billOfMaterials(): BillOfMaterials | undefined {
         return this.billOfMaterialsDialog?.materials
+    }
+
+    /** What the open BillOfMaterialsDialog drew in each slot, or undefined when none is open. */
+    public get billOfMaterialsSlots(): DrawnMaterialSlot[] | undefined {
+        return this.billOfMaterialsDialog?.drawnSlots
     }
 
     // public changeQuickbarRows(rows: number): void {

@@ -1,6 +1,12 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js'
 import type { Blueprint } from '../core/Blueprint'
-import { BillOfMaterials, MaterialCount, billOfMaterials } from '../core/billOfMaterials'
+import {
+    BillOfMaterials,
+    MaterialCount,
+    billOfMaterials,
+    materialAmountLabel,
+} from '../core/billOfMaterials'
+import { ICON_BADGE_SCALE } from '../core/qualityBadge'
 import F from './controls/functions'
 import { Dialog } from './controls/Dialog'
 import { colors, styles } from './style'
@@ -32,15 +38,41 @@ function plural(n: number, one: string, many: string): string {
     return `${n} ${n === 1 ? one : many}`
 }
 
+/** What a slot drew, read back off the display tree. See tests/bill-of-materials.spec.ts. */
+export interface DrawnMaterialSlot {
+    name: string
+    quality?: string
+    /** The amount label's text, as drawn. */
+    amount: string
+    /** Whether a quality badge was drawn in the slot. */
+    badge: boolean
+}
+
+const SLOT_LABEL = 'bill-of-materials'
+const AMOUNT_LABEL = 'amount'
+
+/** Which material each slot was drawn for, so `drawnSlots` can pair the two. */
+const cellMaterial = new WeakMap<Container, MaterialCount>()
+
+/*
+    The badge sits in the slot's bottom-left corner with the amount in the
+    bottom-right, as in the game's own inventory slots. Its size is borrowed
+    from the alt-mode recipe and filter badges, 0.45 of the icon
+    (qualityBadge.ts); nobody has measured an inventory slot. The amount is
+    added last so a five-character label that reaches the badge still reads on
+    top of it.
+*/
+const BADGE_SIZE = 32 * ICON_BADGE_SCALE.filter
+
 /**
- * One slot: the icon with its count, as the inventory and filter slots draw
- * it. An entity no item places is listed under its own name, and draws its own
- * icon - `CreateIcon` falls back to the entity prototype for exactly that.
+ * One slot: the icon, its quality badge and its count. An entity no item
+ * places is listed under its own name, and draws its own icon - `CreateIcon`
+ * falls back to the entity prototype for exactly that.
  */
 function createCell(material: MaterialCount): Container {
-    const { name, count } = material
+    const { name, quality, count } = material
     const cell = new Container()
-    cell.label = `bill-of-materials:${name}`
+    cell.label = SLOT_LABEL
     cell.addChild(
         F.DrawRectangle(
             CELL,
@@ -49,13 +81,23 @@ function createCell(material: MaterialCount): Container {
             colors.controls.button.background.alpha,
             1,
             true
-        ),
-        F.SafeIcon(name, () => {
-            const icon = new Container()
-            F.CreateIconWithAmount(icon, 2, 2, name, count)
-            return icon
-        })
+        )
     )
+
+    const icon = F.SafeIcon(name, () => F.CreateIcon(name, undefined, false))
+    icon.position.set(2, 2)
+    cell.addChild(icon)
+
+    const badge = F.CreateQualityBadge(quality, { x: 2, y: 34 }, BADGE_SIZE)
+    if (badge) cell.addChild(badge)
+
+    const amount = new Text({ text: materialAmountLabel(count), style: styles.icon.amount })
+    amount.label = AMOUNT_LABEL
+    amount.anchor.set(1, 1)
+    amount.position.set(35, 35)
+    cell.addChild(amount)
+
+    cellMaterial.set(cell, material)
     return cell
 }
 
@@ -95,7 +137,7 @@ export class BillOfMaterialsDialog extends Dialog {
 
     public constructor(bp: Blueprint) {
         const materials = billOfMaterials(
-            bp.entities.valuesArray().map(e => e.name),
+            bp.entities.valuesArray(),
             bp.tiles.valuesArray().map(t => t.name)
         )
 
@@ -153,6 +195,27 @@ export class BillOfMaterialsDialog extends Dialog {
         })
 
         this.refreshScrollbar()
+    }
+
+    /**
+     * Every slot in drawing order, entities then tiles, with the text and badge
+     * it actually drew - what `materials` says is the input, this is the output.
+     * See tests/bill-of-materials.spec.ts.
+     */
+    public get drawnSlots(): DrawnMaterialSlot[] {
+        const slots: DrawnMaterialSlot[] = []
+        for (const cell of this.m_Rows.children) {
+            const material = cellMaterial.get(cell)
+            if (material === undefined) continue
+            const amount = cell.getChildByLabel(AMOUNT_LABEL)
+            slots.push({
+                name: material.name,
+                ...(material.quality === undefined ? {} : { quality: material.quality }),
+                amount: amount instanceof Text ? amount.text : '',
+                badge: cell.getChildByLabel(/^quality-badge:/) !== null,
+            })
+        }
+        return slots
     }
 
     private refreshScrollbar(): void {

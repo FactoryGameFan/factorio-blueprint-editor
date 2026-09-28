@@ -45,7 +45,33 @@ const SOURCE = encode({
     ],
 })
 
-async function openEditor(page: Page): Promise<void> {
+/*
+    A count past a thousand and two qualities of one item. 1535 concrete is the
+    number the shared icon formatter drew as "1k"; the dialog has to draw it
+    exactly. The chests are two normal (one written out, one left implicit, as
+    Factorio writes it) and one legendary, which is a separate line with a
+    badge rather than a third chest.
+*/
+const LARGE_SOURCE = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [
+        { entity_number: 1, name: 'wooden-chest', position: { x: 0.5, y: 0.5 } },
+        { entity_number: 2, name: 'wooden-chest', position: { x: 1.5, y: 0.5 }, quality: 'normal' },
+        {
+            entity_number: 3,
+            name: 'wooden-chest',
+            position: { x: 2.5, y: 0.5 },
+            quality: 'legendary',
+        },
+    ],
+    tiles: Array.from({ length: 1535 }, (_, i) => ({
+        name: 'concrete',
+        position: { x: i % 40, y: 4 + Math.floor(i / 40) },
+    })),
+})
+
+async function openEditor(page: Page, source = SOURCE): Promise<void> {
     await suppressOverlays(page)
     await page.goto('/')
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
@@ -53,7 +79,7 @@ async function openEditor(page: Page): Promise<void> {
     await page.evaluate(async (src: string) => {
         const t = (window as any).__fbe_test
         await t.loadBp(await t.getBlueprintOrBookFromSource(src))
-    }, SOURCE)
+    }, source)
 }
 
 const screenOf = async (page: Page, n: number): Promise<Point> => {
@@ -70,6 +96,9 @@ const countText = (page: Page): Promise<string | undefined> =>
 
 const tally = (page: Page): Promise<unknown> =>
     page.evaluate(() => (window as any).__fbe_test.billOfMaterialsTally())
+
+const slots = (page: Page): Promise<unknown> =>
+    page.evaluate(() => (window as any).__fbe_test.billOfMaterialsDrawn())
 
 const dialogs = (page: Page): Promise<number> =>
     page.evaluate(() => (window as any).__fbe_test.openDialogCount())
@@ -160,4 +189,28 @@ test('B opens a bill of materials counted per item, tiles apart, and closes it a
     await page.keyboard.press('KeyB')
     await expect.poll(() => dialogs(page)).toBe(0)
     expect(await tally(page)).toBeUndefined()
+})
+
+test('the bill of materials draws a count past a thousand exactly, and each quality on its own', async ({
+    page,
+}) => {
+    await openEditor(page, LARGE_SOURCE)
+    await page.locator(CANVAS).focus()
+    await page.keyboard.press('KeyB')
+    await expect.poll(() => dialogs(page)).toBe(1)
+
+    expect(await tally(page)).toEqual({
+        entities: [
+            { name: 'wooden-chest', count: 2 },
+            { name: 'wooden-chest', quality: 'legendary', count: 1 },
+        ],
+        tiles: [{ name: 'concrete', count: 1535 }],
+    })
+    // What was drawn, read off the slots themselves: "1535", where the shared
+    // icon formatter drew "1k", and the badge on the legendary line alone.
+    expect(await slots(page)).toEqual([
+        { name: 'wooden-chest', amount: '2', badge: false },
+        { name: 'wooden-chest', quality: 'legendary', amount: '1', badge: true },
+        { name: 'concrete', amount: '1535', badge: false },
+    ])
 })

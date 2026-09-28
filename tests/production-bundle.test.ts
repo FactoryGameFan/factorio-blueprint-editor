@@ -72,6 +72,7 @@ const TEST_API_MARKERS = [
     'rebindAction',
     'marqueeCountText',
     'billOfMaterialsTally',
+    'billOfMaterialsDrawn',
 ]
 
 let bundledJs = ''

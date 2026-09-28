@@ -352,15 +352,23 @@ export interface FbeTestApi {
      */
     marqueeCountText: () => string | undefined
     /**
-     * What the open bill of materials was drawn from - item name and count,
-     * most first, tiles apart - or undefined when it is not open. See
-     * tests/bill-of-materials.spec.ts.
+     * What the open bill of materials was drawn from - item name, quality
+     * when not normal, and count, most first, tiles apart - or undefined when
+     * it is not open. See tests/bill-of-materials.spec.ts.
      */
     billOfMaterialsTally: () =>
         | {
-              entities: { name: string; count: number }[]
-              tiles: { name: string; count: number }[]
+              entities: { name: string; quality?: string; count: number }[]
+              tiles: { name: string; quality?: string; count: number }[]
           }
+        | undefined
+    /**
+     * What each slot of the open bill of materials drew, entities then tiles:
+     * the amount label's text and whether a quality badge is there. Undefined
+     * when it is not open. See tests/bill-of-materials.spec.ts.
+     */
+    billOfMaterialsDrawn: () =>
+        | { name: string; quality?: string; amount: string; badge: boolean }[]
         | undefined
     /**
      * Whether `EntityContainer.entityInfo` is currently visible for this

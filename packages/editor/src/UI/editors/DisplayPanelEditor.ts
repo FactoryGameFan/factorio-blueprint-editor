@@ -28,7 +28,7 @@ const CONDITION_WIDTH = ICON_COL_WIDTH + COMPARATOR_COL_WIDTH + VALUE_COL_WIDTH
     (issue #280). `F.SafeIcon` is what keeps the cost to the icon.
 
     Not hypothetical. `data.json` exports no planet prototype at all, so
-    `nauvis`, `vulcanus`, `fulgora` and `gleba` are in none of the five
+    `nauvis`, `vulcanus`, `fulgora` and `gleba` are in none of the six
     collections `CreateIcon` searches and all four reach that throw - 19 icon
     references in the committed corpus use one (issue #231). A panel captioned
     for a planet is exactly the panel someone writes.

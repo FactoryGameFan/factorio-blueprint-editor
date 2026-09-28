@@ -12,15 +12,7 @@ import FD, {
     recipeResults,
     mapBoundingBox,
 } from '../core/factorioData'
-import {
-    ICON_BADGE_SCALE,
-    QUALITY_BADGE_FRAME,
-    QUALITY_PIP_RADIUS,
-    QUALITY_PIP_STROKE,
-    entityBadgeCorner,
-    entityBadgeSize,
-    qualityBadgeStyle,
-} from '../core/qualityBadge'
+import { ICON_BADGE_SCALE, entityBadgeCorner, entityBadgeSize } from '../core/qualityBadge'
 import F from '../UI/controls/functions'
 import G from '../common/globals'
 import util from '../common/util'
@@ -54,31 +46,6 @@ import {
  */
 function textureOf(data: SpriteData): ReturnType<typeof G.getTexture> {
     return G.getTexture(need(data, 'filename'), data.x, data.y, data.width, data.height)
-}
-
-/**
- * A quality badge `size` units across, placed by its frame's bottom-left corner,
- * or undefined for a quality that draws nothing. See core/qualityBadge.ts for
- * where the game puts it and how big.
- */
-function createQualityBadge(
-    quality: string | undefined,
-    bottomLeft: IPoint,
-    size: number
-): Graphics | undefined {
-    const style = qualityBadgeStyle(quality)
-    if (style === undefined) return undefined
-    const badge = new Graphics()
-    for (const [x, y] of style.pips) {
-        badge
-            .circle(x, y, QUALITY_PIP_RADIUS)
-            .fill(style.color)
-            .stroke({ width: QUALITY_PIP_STROKE, color: 0x000000 })
-    }
-    badge.label = `quality-badge:${quality}`
-    badge.scale.set(size / QUALITY_BADGE_FRAME)
-    badge.position.set(bottomLeft.x, bottomLeft.y - size)
-    return badge
 }
 
 /*
@@ -552,7 +519,7 @@ export class OverlayContainer extends Container {
         const selectionBox = entity.entityData.selection_box
         if (selectionBox !== undefined) {
             const corner = entityBadgeCorner(mapBoundingBox(selectionBox), entity.direction)
-            const badge = createQualityBadge(
+            const badge = F.CreateQualityBadge(
                 entity.quality,
                 { x: corner.x * 32, y: corner.y * 32 },
                 entityBadgeSize(entity.size) * 32
@@ -583,7 +550,7 @@ export class OverlayContainer extends Container {
         ): void {
             const bare = F.CreateIcon(itemName, undefined, true, true)
             const badgeSize = 32 * badgeScale
-            const badge = createQualityBadge(quality, { x: -badgeSize, y: badgeSize }, badgeSize)
+            const badge = F.CreateQualityBadge(quality, { x: -badgeSize, y: badgeSize }, badgeSize)
             const icon = badge ? new Container({ children: [bare, badge] }) : bare
             const background = new Sprite(textureOf(FD.utilitySprites.entity_info_dark_background))
             background.anchor.set(0.5, 0.5)
