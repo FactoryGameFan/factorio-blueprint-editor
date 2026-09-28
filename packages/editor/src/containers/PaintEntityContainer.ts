@@ -122,7 +122,8 @@ export class PaintEntityContainer extends PaintContainer {
                     : this.bpc.bp.entities.get(opposingEntityNumber)
 
             if (otherEntity) {
-                this.directionType = otherEntity.directionType === 'input' ? 'output' : 'input'
+                this.directionType =
+                    otherEntity.effectiveDirectionType === 'input' ? 'output' : 'input'
             } else if (this.directionType === 'output') {
                 this.directionType = 'input'
             }

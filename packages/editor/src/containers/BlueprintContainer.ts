@@ -777,7 +777,7 @@ export class BlueprintContainer extends Container {
             const itemName = Entity.getItemName(entity.name)
             if (itemName !== undefined) {
                 const direction =
-                    entity.directionType === 'output'
+                    entity.effectiveDirectionType === 'output'
                         ? (entity.direction + 8) % 16
                         : entity.direction
                 this.spawnPaintContainer(itemName, direction)

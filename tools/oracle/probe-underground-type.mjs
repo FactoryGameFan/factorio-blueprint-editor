@@ -2,10 +2,11 @@
     What the game does with an underground belt that carries no `type` (#547).
 
     Every underground belt in the committed corpus carries `type`, so a belt
-    without one only comes from a hand-made string. The editor reads a missing
-    `type` as an output - `Entity.undergroundSearchDirection` and the drawing
-    both do - and before #547 its hover-line code read it as an input. This asks
-    the game which it is.
+    without one only comes from a hand-made string. When this was written the
+    editor read a missing `type` as an output - `Entity.undergroundSearchDirection`
+    and the drawing both did - and before #547 its hover-line code read it as an
+    input. This asks the game which it is. The answer is an input, and
+    `Entity.effectiveDirectionType` now reads it that way.
 
     One case per blueprint string, so each import code is attributable. For each
     case the probe records what `import_stack` reads back, then builds the

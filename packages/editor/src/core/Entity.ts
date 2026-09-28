@@ -455,26 +455,43 @@ export class Entity extends EventEmitter<EntityEvents> {
     }
 
     /**
+     * `directionType` as the game reads it, which differs from the stored value
+     * in one case: an underground belt with no `type` is an input.
+     *
+     * The game writes `type` on every underground belt - all 28,660 in the
+     * committed corpus carry one - so a belt without one only comes from a
+     * hand-made string. Factorio 2.0.77 reads such a belt back as
+     * `type: "input"`, builds it with `belt_to_ground_type == "input"`, pairs it
+     * with an output downstream of it and not with an input upstream of it
+     * (`tools/oracle/fixtures/underground-type.json`). #547 read it as an
+     * output instead.
+     *
+     * The stored value is left alone, so a blueprint exports the way it came
+     * in. Loaders carry the same field, but what the game makes of a loader
+     * without one was not measured, so for them this is `directionType`
+     * unchanged.
+     */
+    public get effectiveDirectionType(): DirectionType | undefined {
+        return this.type === 'underground-belt'
+            ? (this.directionType ?? 'input')
+            : this.directionType
+    }
+
+    /**
      * The 16-way direction this entity's hidden underground connection runs in,
      * which is also the direction its partner has to be searched for in.
      *
      * An input faces the way it points; an output's connection comes from
      * behind it, and so does a pipe to ground's, whatever `type` it carries.
      *
-     * A belt without a directionType takes the output form too. The game
-     * writes `type` on every underground belt - all 28,660 in the committed
-     * corpus carry one - and on none of its 11,057 pipes to ground, so a belt
-     * without one only comes from a hand-made string. What the game makes of
-     * that string is unmeasured (`LuaSurface.create_entity`, a different path,
-     * defaults to input). The editor draws such a belt as an output -
-     * `draw_underground_belt` tests `dirType === 'input'` - and `rotate` turns
-     * it into an input, so pairing it as an output keeps the hover line and the
-     * alt-mode marker (#344) agreeing with the sprite. `EntityContainer` once
-     * kept its own copy that took the input form, so one end of such a pair
-     * saw its partner while the partner's check refused it.
+     * A belt without a directionType is an input, as the game reads it - see
+     * `effectiveDirectionType`. The hover line, the alt-mode marker (#344), the
+     * sprite and `rotate` all read it that way, so they agree with each other.
+     * `EntityContainer` once kept its own copy of this rule, so one end of a
+     * pair saw its partner while the partner's check refused it.
      */
     public get undergroundSearchDirection(): number {
-        return this.type !== 'pipe-to-ground' && this.directionType === 'input'
+        return this.type !== 'pipe-to-ground' && this.effectiveDirectionType === 'input'
             ? this.direction
             : (this.direction + 8) % 16
     }
@@ -1561,7 +1578,7 @@ export class Entity extends EventEmitter<EntityEvents> {
                     }
                 }
 
-                this.directionType = this.directionType === 'input' ? 'output' : 'input'
+                this.directionType = this.effectiveDirectionType === 'input' ? 'output' : 'input'
             }
 
             const turned = (newDir - this.direction) / 16
