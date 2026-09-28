@@ -18,7 +18,7 @@ import { Blueprint } from '../core/Blueprint'
 import { IConnection, WireConnections } from '../core/WireConnections'
 import { GroupRelocation } from '../core/PositionGrid'
 import { stepZoom, WheelZoom } from '../core/zoomLevels'
-import { clampPictureResolution } from '../core/pictureResolution'
+import { clampPictureResolution, pictureScaleNotice } from '../core/pictureResolution'
 import { IPoint } from '../types'
 import { Dialog } from '../UI/controls/Dialog'
 import { Viewport } from './Viewport'
@@ -1664,7 +1664,7 @@ export class BlueprintContainer extends Container {
      * blueprint's own sprites is transparent (#341). `resolution` is clamped to
      * what the GPU can hold, and to 8192 px a side past that - see
      * `clampPictureResolution` - so a large request comes back smaller rather
-     * than failing.
+     * than failing, with a warning through `G.logger` naming the scale used.
      */
     public async getPicture(resolution = this.pictureResolution): Promise<Blob> {
         if (this.bp.isEmpty()) throw new Error('Cannot take a picture of an empty blueprint')
@@ -1674,17 +1674,13 @@ export class BlueprintContainer extends Container {
         const chunkGridVisible = this.chunkGrid.visible
         this.grid.visible = false
         this.chunkGrid.visible = false
+        const used = clampPictureResolution(resolution, frame.width, frame.height, maxTextureSize())
         let texture: Texture
         try {
             texture = G.app.renderer.generateTexture({
                 target: this,
                 frame,
-                resolution: clampPictureResolution(
-                    resolution,
-                    frame.width,
-                    frame.height,
-                    maxTextureSize()
-                ),
+                resolution: used,
                 textureSourceOptions: {
                     scaleMode: 'linear',
                 },
@@ -1694,25 +1690,32 @@ export class BlueprintContainer extends Container {
             this.chunkGrid.visible = chunkGridVisible
         }
 
-        const canvas = G.app.renderer.extract.canvas(texture)
-        // Held as a local because narrowing a property does not survive into the
-        // closure below.
-        const toBlob = canvas.toBlob?.bind(canvas)
-        if (toBlob === undefined) {
+        let toBlob: (callback: (blob: Blob | null) => void) => void
+        try {
+            const canvas = G.app.renderer.extract.canvas(texture)
+            // Held as a local because narrowing a property does not survive into
+            // the closure below.
+            const bound = canvas.toBlob?.bind(canvas)
+            if (bound === undefined) throw new Error('Canvas cannot produce a blob')
+            toBlob = bound
+        } catch (error) {
             texture.destroy(true)
-            throw new Error('Canvas cannot produce a blob')
+            throw error
         }
 
-        return new Promise((resolve, reject) => {
-            toBlob(blob => {
+        const blob = await new Promise<Blob>((resolve, reject) => {
+            toBlob(result => {
                 texture.destroy(true)
-                if (blob === null) {
+                if (result === null) {
                     reject(new Error('Canvas failed to produce a blob'))
                 } else {
-                    resolve(blob)
+                    resolve(result)
                 }
             })
         })
+        const notice = pictureScaleNotice(resolution, used)
+        if (notice !== undefined) G.logger({ text: notice, type: 'warning' })
+        return blob
     }
 
     public spawnPaintContainer(itemNameOrEntities: string | Entity[], direction = 0): void {

@@ -106,6 +106,8 @@ test('resolution 2 exports twice the size of resolution 1', async ({ page }) => 
     expect(two.height).toBe(one.height * 2)
     expect(two.maxAlpha).toBe(255)
     expect(two.cornerAlpha).toBe(0)
+    // Nothing was clamped, so nothing is said.
+    await expect(page.locator('.toasts-text', { hasText: 'instead of' })).toHaveCount(0)
 })
 
 test('a resolution past the texture limit is clamped, not thrown', async ({ page }) => {
@@ -118,4 +120,6 @@ test('a resolution past the texture limit is clamped, not thrown', async ({ page
     expect(longest).toBeGreaterThanOrEqual(Math.min(huge.maxTextureSize, 8192) - 1)
     // Scaled as a whole, not cropped: the strip keeps its shape.
     expect(huge.width / huge.height).toBeCloseTo(one.width / one.height, 1)
+    // And the user is told the scale it came out at (#539 review).
+    await expect(page.locator('.toasts-warning .toasts-text')).toContainText('instead of 1000x')
 })

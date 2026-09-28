@@ -42,7 +42,7 @@ export function clampPictureResolution(
     height: number,
     maxTextureSize: number
 ): number {
-    const wanted = Number.isFinite(requested) && requested > 0 ? requested : 1
+    const wanted = normalizeResolution(requested)
     const longest = Math.max(width, height)
     const maxSide =
         maxTextureSize > 0 ? Math.min(maxTextureSize, MAX_PICTURE_SIDE) : MAX_PICTURE_SIDE
@@ -59,4 +59,22 @@ export function clampPictureResolution(
         of tiles, which is every real case; this is for the case that is not.
     */
     return longest * fitted > maxSide ? (maxSide - 0.5) / longest : fitted
+}
+
+/** `requested` if it is a positive number, else 1 - see `clampPictureResolution`. */
+function normalizeResolution(requested: number): number {
+    return Number.isFinite(requested) && requested > 0 ? requested : 1
+}
+
+/**
+ * The toast text for an export that `clampPictureResolution` shrank below the
+ * scale asked for, or undefined when it did not. Without it a 4x export of a
+ * 100-tile blueprint came back at 2x with nothing said. The scale used is
+ * rounded down to two decimals, so it never reads as the one requested.
+ */
+export function pictureScaleNotice(requested: number, used: number): string | undefined {
+    const wanted = normalizeResolution(requested)
+    if (!(used < wanted)) return undefined
+    const shown = Math.floor(used * 100) / 100 || Number(used.toPrecision(1))
+    return `Image exported at ${shown}x instead of ${wanted}x, the largest this blueprint fits at.`
 }

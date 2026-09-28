@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { clampPictureResolution, MAX_PICTURE_SIDE } from './pictureResolution'
+import { clampPictureResolution, MAX_PICTURE_SIDE, pictureScaleNotice } from './pictureResolution'
 
 describe('clampPictureResolution', () => {
     it('keeps a resolution that fits', () => {
@@ -45,5 +45,25 @@ describe('clampPictureResolution', () => {
         expect(clampPictureResolution(0, 320, 320, 8192)).toBe(1)
         expect(clampPictureResolution(-2, 320, 320, 8192)).toBe(1)
         expect(clampPictureResolution(Number.NaN, 320, 320, 8192)).toBe(1)
+    })
+})
+
+describe('pictureScaleNotice', () => {
+    it('says nothing when the requested scale was used', () => {
+        expect(pictureScaleNotice(4, 4)).toBeUndefined()
+        expect(pictureScaleNotice(0, 1)).toBeUndefined()
+    })
+
+    it('names the scale used when the clamp lowered it', () => {
+        expect(pictureScaleNotice(4, 2)).toBe(
+            'Image exported at 2x instead of 4x, the largest this blueprint fits at.'
+        )
+        // A 257-tile blueprint at the default 1x.
+        expect(pictureScaleNotice(1, 8192 / (257 * 32))).toContain('at 0.99x instead of 1x')
+    })
+
+    it('rounds down, so a scale just under the request never reads as it', () => {
+        expect(pictureScaleNotice(4, 3.999)).toContain('at 3.99x instead of 4x')
+        expect(pictureScaleNotice(1, 0.004)).toContain('at 0.004x instead of 1x')
     })
 })
