@@ -26,6 +26,7 @@ interface IEntityData {
     entityNumber?: number
     type?: string
     direction?: number
+    orientation?: number
     position?: IPoint
     generateConnector?: boolean
     directionType?: string
@@ -173,6 +174,7 @@ export class EntitySprite extends Sprite {
                 already applies further down when picking a filename by direction.
             */
             dir: entity.direction ?? 0,
+            orientation: entity.orientation,
 
             name: entity.name,
             entityNumber: entity.entityNumber,

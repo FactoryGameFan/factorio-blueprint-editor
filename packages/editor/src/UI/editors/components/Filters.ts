@@ -80,9 +80,9 @@ export class Filters extends Container<Slot<number>> {
 
     /** Field to hold data for module visualization */
     /*
-        One entry per slot, so an empty slot is present with no name - which is
-        what makes this IFilterSlot[] rather than IFilter[]. Entity's setter is
-        built for exactly this and strips the nameless entries on the way in.
+        One entry per slot, so an empty slot is present with no name. Entity's
+        setter is built for exactly this and strips the empty entries on the way
+        in - those with no name, quality or comparator.
     */
     private m_Filters: IFilterSlot[] = []
 
@@ -192,11 +192,23 @@ export class Filters extends Container<Slot<number>> {
         const filters = this.m_Entity.filters
         if (filters !== undefined) {
             for (const item of filters) {
-                this.m_Filters[item.index - 1] = {
-                    index: item.index,
-                    name: item.name,
-                    count: item.count,
-                }
+                /*
+                    A quality-only filter keeps its quality and comparator here,
+                    because this list is sent back whole when any slot changes
+                    and the setter would read that slot as empty without them
+                    (issue #493). A named filter does not need to: the setter
+                    keeps those fields while the slot holds the same item.
+                */
+                this.m_Filters[item.index - 1] =
+                    item.name === undefined
+                        ? {
+                              index: item.index,
+                              name: item.name,
+                              count: item.count,
+                              quality: item.quality,
+                              comparator: item.comparator,
+                          }
+                        : { index: item.index, name: item.name, count: item.count }
             }
         }
         for (let slotIndex = 0; slotIndex < slots; slotIndex++) {
@@ -301,7 +313,11 @@ export class Filters extends Container<Slot<number>> {
                 }
             }
         } else if (e.button === 2) {
+            // Clearing also takes a quality-only filter's fields, which are
+            // all that would otherwise keep the slot set.
             this.m_Filters[index].name = undefined
+            this.m_Filters[index].quality = undefined
+            this.m_Filters[index].comparator = undefined
             this.m_Entity.filters = this.m_Filters
             if (this.m_Amount) {
                 this.emit('selected', -1, 0)

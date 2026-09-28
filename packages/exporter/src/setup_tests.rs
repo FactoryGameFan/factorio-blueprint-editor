@@ -172,6 +172,60 @@ async fn power_of_two_image_is_borrowed_without_rewriting() {
     assert_eq!(std::fs::read(&source).unwrap(), before);
 }
 
+#[tokio::test]
+async fn discarding_a_padded_image_removes_it_and_its_directory() {
+    let root = fixture_dir();
+    let source = root.join("sprite.png");
+    image::RgbaImage::new(3, 5).save(&source).unwrap();
+    let padded = make_img_pow2(&source, &root).await.unwrap();
+    let dir = padded.parent().unwrap().to_path_buf();
+    assert!(padded.is_file());
+    assert!(discard_padded(padded, false, &ProgressBar::hidden()).await);
+    assert!(!dir.exists());
+    assert!(source.is_file());
+    assert!(root.is_dir());
+}
+
+#[tokio::test]
+async fn discarding_a_borrowed_source_never_touches_it() {
+    let root = fixture_dir();
+    let source = root.join("sprite.png");
+    image::RgbaImage::new(4, 8).save(&source).unwrap();
+    let before = std::fs::read(&source).unwrap();
+    let path = make_img_pow2(&source, &root).await.unwrap();
+    assert!(matches!(path, Cow::Borrowed(_)));
+    assert!(discard_padded(path, false, &ProgressBar::hidden()).await);
+    assert_eq!(std::fs::read(&source).unwrap(), before);
+}
+
+#[tokio::test]
+async fn keeping_sprite_scratch_retains_the_padded_image() {
+    let root = fixture_dir();
+    let source = root.join("sprite.png");
+    image::RgbaImage::new(3, 5).save(&source).unwrap();
+    let padded = make_img_pow2(&source, &root).await.unwrap();
+    assert!(discard_padded(padded.clone(), true, &ProgressBar::hidden()).await);
+    assert!(padded.is_file());
+}
+
+#[tokio::test]
+async fn a_failed_delete_is_reported_rather_than_fatal() {
+    let root = fixture_dir();
+    let missing = root.join("image-gone").join("padded.png");
+    assert!(!discard_padded(Cow::Owned(missing), false, &ProgressBar::hidden()).await);
+    assert!(root.is_dir());
+}
+
+#[test]
+fn only_exactly_one_keeps_sprite_scratch() {
+    use std::ffi::OsStr;
+    assert!(keep_sprite_scratch(Some(OsStr::new("1"))));
+    for off in ["0", "", "false", "no", "true", " 1"] {
+        assert!(!keep_sprite_scratch(Some(OsStr::new(off))), "{off:?}");
+    }
+    assert!(!keep_sprite_scratch(None));
+}
+
 #[cfg(unix)]
 fn fake_factorio(body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;

@@ -192,7 +192,7 @@ export class BlueprintAlignment extends Container {
      * into both Grid size boxes then - and the checkbox's on-branch reads
      * the size straight back out of those boxes, which were the only
      * carrier. So unticking and re-ticking replaced a 20x18 grid with 1x1,
-     * silently, on any of the 325 corpus blueprints that carry a size
+     * silently, on any of the 326 corpus blueprints that carry a size
      * (#243 review). Absolute/Relative and Absolute X/Y survive the same
      * toggle because their stores are untouched; this gives the size a
      * carrier of its own too, and the boxes keep showing it while greyed.

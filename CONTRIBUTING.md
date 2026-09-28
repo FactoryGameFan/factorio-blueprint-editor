@@ -215,8 +215,12 @@ then run:
 npm run start:exporter
 ```
 
-Note that the sprite compression step invokes `./basisu`, and the only binary
-committed for it is macOS ARM64, so that step will not run as-is on Linux.
+Sprite compression runs the tracked `basisu` binary for your platform: `basisu`
+on macOS ARM64, `basisu-linux` on Linux x86-64, `basisu.exe` on Windows. The
+three encode the same PNG to different bytes, and the committed textures came
+from the macOS build, so regenerating sprites anywhere else rewrites every
+`.basis` file with no visible change. CLAUDE.md's "Regenerating Factorio data"
+section has the measurements.
 
 ### Option A: Local Factorio installation (recommended - includes Space Age support)
 
@@ -240,20 +244,27 @@ Each extraction uses a fresh temporary config, write-data directory and mod
 directory. It enables only the installed official modules (`base`, `quality`,
 `elevated-rails`, `space-age`) plus the export mod; it does not use your normal
 profile or its mod settings. Sprite padding writes separate scratch images,
-not the installation's PNGs. Temporary profiles, logs and padded images are
-retained at the printed paths; move them to Trash when finished inspecting them.
+not the installation's PNGs. Temporary profiles and logs are retained at the
+printed path; move them to Trash when finished inspecting them. Each padded
+image is deleted once `basisu` has encoded it, except for a sprite `basisu`
+fails on, whose path is printed. Set `FBE_KEEP_SPRITE_SCRATCH=1` (in the
+environment or `packages/exporter/.env`) to keep all of them; only exactly `1`
+counts, so `0`, `false` or an empty value leave the cleanup on.
 
 Before regenerating committed data, follow the
 [exporter validation and dataset review checklist](packages/exporter/README.md).
 In particular, a game-version update is not a reason to re-record oracle
 fixtures wholesale.
 
-### Option B: Download base game data (no DLC support)
+### Option B: Download the game (Linux and Windows only)
 
 Add your `FACTORIO_USERNAME` and `FACTORIO_TOKEN` to `packages/exporter/.env`
 (you can get those [here](https://factorio.com/profile)).
-The exporter will download the base game data automatically.
-This option only supports base game items.
+The exporter downloads the Space Age (`expansion`) build of the latest stable
+release that factorio.com reports; set `FACTORIO_VERSION` to pin another one.
+The account behind the token has to own Space Age, or the download fails.
+This option does not run on macOS, whose distribution is a disk image; use
+Option A there.
 
 ## Working with AI agents
 

@@ -1,5 +1,5 @@
 import G from '../common/globals'
-import { Container, isMobile } from 'pixi.js'
+import { Container, Text, isMobile } from 'pixi.js'
 import { Entity } from '../core/Entity'
 import type { Blueprint } from '../core/Blueprint'
 import { DebugContainer } from './DebugContainer'
@@ -13,7 +13,10 @@ import { BookDialog } from './BookDialog'
 import { ShortcutBar } from './ShortcutBar'
 import { BlueprintInfoButton } from './BlueprintInfoButton'
 import { BlueprintInfoEditor } from './BlueprintInfoEditor'
+import { BillOfMaterialsDialog, DrawnMaterialSlot } from './BillOfMaterialsDialog'
+import type { BillOfMaterials } from '../core/billOfMaterials'
 import { createEditor } from './editors/factory'
+import { bottomBarTop } from './barLayout'
 
 export class UIContainer extends Container {
     private debugContainer: DebugContainer
@@ -28,6 +31,7 @@ export class UIContainer extends Container {
     private exportDialog: ExportDialog | undefined
     private blueprintInfoButton: BlueprintInfoButton
     private blueprintInfoEditor: BlueprintInfoEditor | undefined
+    private billOfMaterialsDialog: BillOfMaterialsDialog | undefined
 
     public constructor() {
         super()
@@ -56,6 +60,28 @@ export class UIContainer extends Container {
                 this.bookButton
             )
         }
+    }
+
+    /**
+     * The top of the bars along the bottom edge - the inventory bar and the
+     * shortcut bar - or the screen's bottom where neither is shown, as on
+     * mobile. Dialogs centre in the space above it (#347): both bars are
+     * added after `dialogsContainer`, so they draw over a dialog and take its
+     * clicks, and a dialog that reaches below this line is partly unusable.
+     *
+     * Worked out from each bar's height rather than read from its `y`, so a
+     * dialog repositioning on a resize gets the new value whether or not the
+     * bars have handled that resize yet.
+     */
+    public bottomBarsTop(): number {
+        const screenHeight = G.app.screen.height
+        let top = screenHeight
+        for (const bar of [this.quickbarPanel, this.shortcutBar]) {
+            if (bar.parent === this && bar.visible) {
+                top = Math.min(top, bottomBarTop(screenHeight, bar.height))
+            }
+        }
+        return top
     }
 
     public updateBookButton(): void {
@@ -142,6 +168,29 @@ export class UIContainer extends Container {
         }
         const at = top.toGlobal({ x: 0, y: 0 })
         return { x: at.x, y: at.y, width: top.width, height: top.height }
+    }
+
+    /**
+     * The string of every `Text` built inside the topmost dialog, in
+     * display-tree order, hidden ones included - so a spec can tell a label
+     * that was never built from one that is merely not shown. Labels are drawn
+     * with pixi like everything else in a dialog, so nothing outside the
+     * canvas can read them. Throws when nothing is open.
+     * See tests/display-panel-editor.spec.ts.
+     */
+    public get topDialogTexts(): string[] {
+        const dialogs = this.dialogsContainer.children
+        const top = dialogs[dialogs.length - 1]
+        if (top === undefined) {
+            throw new Error('no dialog is open')
+        }
+        const texts: string[] = []
+        const walk = (node: Container): void => {
+            if (node instanceof Text) texts.push(node.text)
+            for (const child of node.children) walk(child)
+        }
+        walk(top)
+        return texts
     }
 
     /** How many dialogs are open. 0 when the canvas has none. */
@@ -278,6 +327,38 @@ export class UIContainer extends Container {
             this.blueprintInfoEditor = undefined
         })
         this.dialogsContainer.addChild(this.blueprintInfoEditor)
+    }
+
+    /**
+     * Opens BillOfMaterialsDialog for `blueprint`, or closes it if it is the
+     * topmost dialog - the `billOfMaterials` keybind. Same rule as
+     * `toggleBlueprintInfoEditor`: with something stacked on top of it, the
+     * key does nothing rather than reaching past that dialog.
+     */
+    public toggleBillOfMaterials(blueprint: Blueprint): void {
+        if (this.billOfMaterialsDialog !== undefined) {
+            const dialogs = this.dialogsContainer.children
+            if (dialogs[dialogs.length - 1] === this.billOfMaterialsDialog) {
+                this.billOfMaterialsDialog.close()
+            }
+            return
+        }
+
+        this.billOfMaterialsDialog = new BillOfMaterialsDialog(blueprint)
+        this.billOfMaterialsDialog.once('destroyed', () => {
+            this.billOfMaterialsDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.billOfMaterialsDialog)
+    }
+
+    /** The open BillOfMaterialsDialog's tally, or undefined when none is open. */
+    public get billOfMaterials(): BillOfMaterials | undefined {
+        return this.billOfMaterialsDialog?.materials
+    }
+
+    /** What the open BillOfMaterialsDialog drew in each slot, or undefined when none is open. */
+    public get billOfMaterialsSlots(): DrawnMaterialSlot[] | undefined {
+        return this.billOfMaterialsDialog?.drawnSlots
     }
 
     // public changeQuickbarRows(rows: number): void {
