@@ -13,6 +13,8 @@ import { BookDialog } from './BookDialog'
 import { ShortcutBar } from './ShortcutBar'
 import { BlueprintInfoButton } from './BlueprintInfoButton'
 import { BlueprintInfoEditor } from './BlueprintInfoEditor'
+import { BillOfMaterialsDialog, DrawnMaterialSlot } from './BillOfMaterialsDialog'
+import type { BillOfMaterials } from '../core/billOfMaterials'
 import { createEditor } from './editors/factory'
 
 export class UIContainer extends Container {
@@ -28,6 +30,7 @@ export class UIContainer extends Container {
     private exportDialog: ExportDialog | undefined
     private blueprintInfoButton: BlueprintInfoButton
     private blueprintInfoEditor: BlueprintInfoEditor | undefined
+    private billOfMaterialsDialog: BillOfMaterialsDialog | undefined
 
     public constructor() {
         super()
@@ -296,6 +299,38 @@ export class UIContainer extends Container {
             this.blueprintInfoEditor = undefined
         })
         this.dialogsContainer.addChild(this.blueprintInfoEditor)
+    }
+
+    /**
+     * Opens BillOfMaterialsDialog for `blueprint`, or closes it if it is the
+     * topmost dialog - the `billOfMaterials` keybind. Same rule as
+     * `toggleBlueprintInfoEditor`: with something stacked on top of it, the
+     * key does nothing rather than reaching past that dialog.
+     */
+    public toggleBillOfMaterials(blueprint: Blueprint): void {
+        if (this.billOfMaterialsDialog !== undefined) {
+            const dialogs = this.dialogsContainer.children
+            if (dialogs[dialogs.length - 1] === this.billOfMaterialsDialog) {
+                this.billOfMaterialsDialog.close()
+            }
+            return
+        }
+
+        this.billOfMaterialsDialog = new BillOfMaterialsDialog(blueprint)
+        this.billOfMaterialsDialog.once('destroyed', () => {
+            this.billOfMaterialsDialog = undefined
+        })
+        this.dialogsContainer.addChild(this.billOfMaterialsDialog)
+    }
+
+    /** The open BillOfMaterialsDialog's tally, or undefined when none is open. */
+    public get billOfMaterials(): BillOfMaterials | undefined {
+        return this.billOfMaterialsDialog?.materials
+    }
+
+    /** What the open BillOfMaterialsDialog drew in each slot, or undefined when none is open. */
+    public get billOfMaterialsSlots(): DrawnMaterialSlot[] | undefined {
+        return this.billOfMaterialsDialog?.drawnSlots
     }
 
     // public changeQuickbarRows(rows: number): void {

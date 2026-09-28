@@ -21,6 +21,8 @@ import { UIContainer } from './UI/UIContainer'
 import { Dialog } from './UI/controls/Dialog'
 import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
+import type { BillOfMaterials } from './core/billOfMaterials'
+import type { DrawnMaterialSlot } from './UI/BillOfMaterialsDialog'
 
 /**
  * A single object rather than trailing positional parameters, so a caller
@@ -387,6 +389,14 @@ export class Editor {
         return G.BPC.overlayContainer.copyCursorBoxVisible
     }
 
+    /**
+     * The entity count drawn beside a copy, delete or select marquee, or
+     * undefined when none is sweeping. See tests/bill-of-materials.spec.ts.
+     */
+    public get selectionCountText(): string | undefined {
+        return G.BPC.overlayContainer.selectionCountText
+    }
+
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     public get openDialogCount(): number {
         return G.UI.openDialogCount
@@ -413,6 +423,23 @@ export class Editor {
      */
     public openBlueprintInfoEditor(): void {
         G.UI.toggleBlueprintInfoEditor(G.bp)
+    }
+
+    /**
+     * The tally the open bill of materials was drawn from, or undefined when
+     * none is open. See tests/bill-of-materials.spec.ts.
+     */
+    public get billOfMaterials(): BillOfMaterials | undefined {
+        return G.UI.billOfMaterials
+    }
+
+    /**
+     * What the open bill of materials drew in each slot - amount text and
+     * quality badge - or undefined when none is open. See
+     * tests/bill-of-materials.spec.ts.
+     */
+    public get billOfMaterialsSlots(): DrawnMaterialSlot[] | undefined {
+        return G.UI.billOfMaterialsSlots
     }
 
     /** Where ShortcutBar sits in client coordinates. See tests/shortcut-bar.spec.ts. */
@@ -781,6 +808,18 @@ export class Editor {
                                 G.BPC.spawnPaintContainer.bind(G.BPC)
                             )
                         }
+                        return true
+                    },
+                },
+            },
+            // No ShortcutBar slot yet; the keybind is the only way in (issue #342).
+            billOfMaterials: {
+                trigger: {
+                    code: 'KeyB',
+                },
+                callbacks: {
+                    onPress: () => {
+                        G.UI.toggleBillOfMaterials(G.bp)
                         return true
                     },
                 },
