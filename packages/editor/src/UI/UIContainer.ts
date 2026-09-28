@@ -16,6 +16,7 @@ import { BlueprintInfoEditor } from './BlueprintInfoEditor'
 import { BillOfMaterialsDialog, DrawnMaterialSlot } from './BillOfMaterialsDialog'
 import type { BillOfMaterials } from '../core/billOfMaterials'
 import { createEditor } from './editors/factory'
+import { bottomBarTop } from './barLayout'
 
 export class UIContainer extends Container {
     private debugContainer: DebugContainer
@@ -59,6 +60,28 @@ export class UIContainer extends Container {
                 this.bookButton
             )
         }
+    }
+
+    /**
+     * The top of the bars along the bottom edge - the inventory bar and the
+     * shortcut bar - or the screen's bottom where neither is shown, as on
+     * mobile. Dialogs centre in the space above it (#347): both bars are
+     * added after `dialogsContainer`, so they draw over a dialog and take its
+     * clicks, and a dialog that reaches below this line is partly unusable.
+     *
+     * Worked out from each bar's height rather than read from its `y`, so a
+     * dialog repositioning on a resize gets the new value whether or not the
+     * bars have handled that resize yet.
+     */
+    public bottomBarsTop(): number {
+        const screenHeight = G.app.screen.height
+        let top = screenHeight
+        for (const bar of [this.quickbarPanel, this.shortcutBar]) {
+            if (bar.parent === this && bar.visible) {
+                top = Math.min(top, bottomBarTop(screenHeight, bar.height))
+            }
+        }
+        return top
     }
 
     public updateBookButton(): void {
