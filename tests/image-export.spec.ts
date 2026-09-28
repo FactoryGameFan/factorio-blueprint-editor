@@ -121,5 +121,7 @@ test('a resolution past the texture limit is clamped, not thrown', async ({ page
     // Scaled as a whole, not cropped: the strip keeps its shape.
     expect(huge.width / huge.height).toBeCloseTo(one.width / one.height, 1)
     // And the user is told the scale it came out at (#539 review).
-    await expect(page.locator('.toasts-warning .toasts-text')).toContainText('instead of 1000x')
+    await expect(
+        page.locator('.toasts-warning .toasts-text', { hasText: 'instead of' })
+    ).toContainText('instead of 1000x')
 })
