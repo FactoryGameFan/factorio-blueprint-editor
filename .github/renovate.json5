@@ -116,7 +116,7 @@
     // What CI actually covers: `vp check` (oxfmt + oxlint + tsc), `vp test`
     // (vitest units), the Playwright suite in the `e2e` job
     // sharded across four runners, and a compile of packages/exporter on ubuntu
-    // and Windows. That is real coverage, and it is MORE than this paragraph
+    // only. That is real coverage, and it is MORE than this paragraph
     // claimed until 2026-09-01 - see the corrections below.
     //
     // What a green check still does not prove is that a bump is CORRECT. The
@@ -127,8 +127,9 @@
     //
     // TWO CORRECTIONS LIVE HERE, both of claims this file stated as measured fact
     // and got wrong. First: it used to end "it also never compiles
-    // packages/exporter", which the `Rust exporter` and `Rust exporter (Windows)`
-    // jobs contradict. Second, found 2026-09-01: it said in three places that CI
+    // packages/exporter", which the `Rust exporter` job contradicts (a
+    // `Rust exporter (Windows)` job stood beside it then; #474 removed it).
+    // Second, found 2026-09-01: it said in three places that CI
     // does NOT run Playwright, and that was the load-bearing half of this
     // argument. The `e2e` job runs 229 `test(` calls across 52 spec files under
     // tests/, counted with `grep -c -E "^\s*test\(" tests/*.spec.ts`, and
@@ -350,8 +351,9 @@
             //
             // The note used to end by asking for a local macOS run on image, zip, tar
             // or compression bumps. Half of that is unreachable and it is corrected
-            // below: `download()` panics on macOS, on its unsupported-OS arm, before it
-            // reaches either extractor, so no macOS run can exercise an archive crate.
+            // below: a download run on macOS panics in main.rs, on the unsupported-OS
+            // arm, before it reaches either extractor, so no macOS run can exercise
+            // an archive crate.
             // Since #474 the two extractors are arms of a runtime match rather than
             // cfg blocks, so the Linux job type-checks both - zip for the Windows
             // download, tokio-tar over an async-compression LzmaDecoder for the Linux
@@ -376,7 +378,7 @@
             // note through.
             groupName: 'rust crates',
             prBodyNotes: [
-                'CI compiles this crate (the `Rust exporter` job, on ubuntu only) but **cannot run it** - the exporter needs a Factorio install to extract from. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching **image** handling, run the exporter locally before merging. For **zip, tar or compression**, a macOS run is not an option and should not be attempted: `download()` panics on macOS before it reaches an extractor. Both extraction arms are type-checked on ubuntu - `zip` for the Windows download and `tokio-tar` over an `async-compression` `LzmaDecoder` for the Linux one - but only a download run on Windows or Linux exercises them, and nothing checks that the dependency tree still builds on windows-msvc.',
+                'CI compiles this crate (the `Rust exporter` job, on ubuntu only) but **cannot run it** - the exporter needs a Factorio install to extract from. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching **image** handling, run the exporter locally before merging. For **zip, tar or compression**, a macOS run is not an option and should not be attempted: a download run panics in `main.rs` on macOS before it reaches an extractor. Both extraction arms are type-checked on ubuntu - `zip` for the Windows download and `tokio-tar` over an `async-compression` `LzmaDecoder` for the Linux one - but only a download run on Windows or Linux exercises them, and nothing checks that the dependency tree still builds on windows-msvc.',
             ],
         },
         {
