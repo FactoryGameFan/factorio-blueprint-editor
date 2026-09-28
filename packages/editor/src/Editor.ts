@@ -21,6 +21,8 @@ import { UIContainer } from './UI/UIContainer'
 import { Dialog } from './UI/controls/Dialog'
 import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
+import type { BillOfMaterials } from './core/billOfMaterials'
+import type { DrawnMaterialSlot } from './UI/BillOfMaterialsDialog'
 
 /**
  * A single object rather than trailing positional parameters, so a caller
@@ -178,6 +180,14 @@ export class Editor {
         G.BPC.limitWireReach = limit
     }
 
+    /** The resolution the image export renders at: 1 is 32 px per tile. */
+    public get pictureResolution(): number {
+        return G.BPC.pictureResolution
+    }
+    public set pictureResolution(resolution: number) {
+        G.BPC.pictureResolution = resolution
+    }
+
     public get oilOutpostSettings(): IOilOutpostSettings {
         return oilOutpostSettings
     }
@@ -234,6 +244,15 @@ export class Editor {
      */
     public get infoOverlayVisible(): boolean {
         return G.BPC.infoOverlayVisible
+    }
+
+    /**
+     * The entity numbers of the underground belts and pipes to ground alt mode
+     * marks as having no partner (#344), none while alt mode is off. See
+     * tests/unpaired-underground-markers.spec.ts.
+     */
+    public get unpairedUndergroundMarkers(): number[] {
+        return G.BPC.unpairedUndergroundMarkers
     }
 
     /**
@@ -387,9 +406,22 @@ export class Editor {
         return G.BPC.overlayContainer.copyCursorBoxVisible
     }
 
+    /**
+     * The entity count drawn beside a copy, delete or select marquee, or
+     * undefined when none is sweeping. See tests/bill-of-materials.spec.ts.
+     */
+    public get selectionCountText(): string | undefined {
+        return G.BPC.overlayContainer.selectionCountText
+    }
+
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     public get openDialogCount(): number {
         return G.UI.openDialogCount
+    }
+
+    /** What the live entity info panel says, or undefined while it is hidden. */
+    public get entityInfoPanelText(): string | undefined {
+        return G.UI.entityInfoPanelText
     }
 
     /**
@@ -400,6 +432,11 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
+    /** The string of every `Text` in the topmost open dialog, hidden ones included. Throws when nothing is open. */
+    public get topDialogTexts(): string[] {
+        return G.UI.topDialogTexts
+    }
+
     /**
      * Opens BlueprintInfoEditor, the same as clicking its persistent
      * top-left button - which sits at a fixed screen position a spec could
@@ -408,6 +445,23 @@ export class Editor {
      */
     public openBlueprintInfoEditor(): void {
         G.UI.toggleBlueprintInfoEditor(G.bp)
+    }
+
+    /**
+     * The tally the open bill of materials was drawn from, or undefined when
+     * none is open. See tests/bill-of-materials.spec.ts.
+     */
+    public get billOfMaterials(): BillOfMaterials | undefined {
+        return G.UI.billOfMaterials
+    }
+
+    /**
+     * What the open bill of materials drew in each slot - amount text and
+     * quality badge - or undefined when none is open. See
+     * tests/bill-of-materials.spec.ts.
+     */
+    public get billOfMaterialsSlots(): DrawnMaterialSlot[] | undefined {
+        return G.UI.billOfMaterialsSlots
     }
 
     /** Where ShortcutBar sits in client coordinates. See tests/shortcut-bar.spec.ts. */
@@ -486,8 +540,9 @@ export class Editor {
         }
     }
 
-    public getPicture(): Promise<Blob> {
-        return G.BPC.getPicture()
+    /** `resolution` defaults to `pictureResolution`. */
+    public getPicture(resolution?: number): Promise<Blob> {
+        return G.BPC.getPicture(resolution)
     }
 
     public haveBlueprint(): boolean {
@@ -776,6 +831,18 @@ export class Editor {
                                 G.BPC.spawnPaintContainer.bind(G.BPC)
                             )
                         }
+                        return true
+                    },
+                },
+            },
+            // No ShortcutBar slot yet; the keybind is the only way in (issue #342).
+            billOfMaterials: {
+                trigger: {
+                    code: 'KeyB',
+                },
+                callbacks: {
+                    onPress: () => {
+                        G.UI.toggleBillOfMaterials(G.bp)
                         return true
                     },
                 },

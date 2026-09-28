@@ -311,7 +311,9 @@
                 "comparator": {
                     "$ref": "blueprintSchema.json#/definitions/ComparatorString"
                 }
-            }
+            },
+            "dependencies": { "quality": ["comparator"] },
+            "$comment": "a quality without a comparator makes Factorio's import_stack return -1 and drop the entity, measured on 2.0.77 and 2.1.20 on an inserter, a loader and a cargo wagon's inventory (issue #497)"
         },
         "InventoryWithFilters": {
             "type": ["object", "null"],

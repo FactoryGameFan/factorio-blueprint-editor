@@ -70,7 +70,8 @@ import { suppressOverlays } from './helpers/overlays'
        `DisplayPanelEditor.ts` (the narrow half reverted, registry fix kept):
          - test 1 FAILS: `expect(received).toEqual(expected)` on the page-error
            list, `["Error: No item, fluid, recipe, signal or inventory group
-           named nauvis"]` against `[]`; the dialog count assertion that follows
+           named nauvis"]` against `[]` (since #342 the message reads "signal,
+           inventory group or entity"); the dialog count assertion that follows
            would have failed too, 0 against 1.
          - test 2 FAILS the same way, naming `vulcanus`.
          - test 3 PASSES - it never opens a display panel.

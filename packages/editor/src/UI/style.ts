@@ -52,9 +52,6 @@ const colors = {
     editor: {
         sprite: { background: { color: 0x646464, alpha: 0.7 } },
     },
-    quickbar: {
-        background: { color: 0x303030, alpha: 1, border: 2 },
-    },
 }
 
 const fontFamily = "'Roboto', sans-serif"

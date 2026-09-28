@@ -563,6 +563,11 @@ const testApi = {
      * QuickActions members. See tests/quick-actions.spec.ts.
      */
     encodeCurrentResult: () => encodeCurrent(),
+    /**
+     * `Editor.getPicture` - the PNG `exportImage` would save, without the
+     * download. See tests/image-export.spec.ts.
+     */
+    getPicture: (resolution?: number) => editor.getPicture(resolution),
     /*
         The interaction mode the canvas is in, by name. The first thing any spec
         driving real pointer or keyboard input needs to assert on (issue #44).
@@ -580,6 +585,7 @@ const testApi = {
     entityDragOffset: (entityNumber: number) => editor.entityDragOffset(entityNumber),
     historyRevision: () => editor.historyRevision,
     infoOverlayVisible: () => editor.infoOverlayVisible,
+    markedUnpairedUndergrounds: () => editor.unpairedUndergroundMarkers,
     /*
         Where an entity sits on screen, so a spec can put the pointer on it.
         Hovering is the only way into EDIT, and that is the entry point for
@@ -697,6 +703,8 @@ const testApi = {
         module that moved, which a set or a count could not (issue #100).
     */
     entityModules: (entityNumber: number) => entityOf(entityNumber).modules,
+    /** The entity's recipe, for a spec that sets one through its editor (tests/machine-editors.spec.ts). */
+    entityRecipe: (entityNumber: number) => entityOf(entityNumber).recipe,
     /*
         A write through `Entity.set modules`, the list of names the module
         dialog sends when one slot changes. The dialog is drawn with pixi, so
@@ -720,6 +728,12 @@ const testApi = {
             panel.destroy()
         }
     },
+    /*
+        What the app's own info panel says right now, or undefined while it is
+        hidden - the live one, which entityInfoText above deliberately is not,
+        for a spec checking that the panel follows an edit (#339).
+    */
+    entityInfoPanelText: () => editor.entityInfoPanelText,
     /*
         Whether the copy cursor box is drawn - the outline shown on a settings
         copy source while hovering a valid target. The only visible consequence
@@ -751,6 +765,7 @@ const testApi = {
     },
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
+    topDialogTexts: () => editor.topDialogTexts,
     shortcutBarBounds: () => editor.shortcutBarBounds,
     /*
         The shortcut bar's hover text is drawn on the canvas, so a spec cannot
@@ -768,6 +783,14 @@ const testApi = {
         follows the change.
     */
     rebindAction: (name: string, keyCombo: string) => EDITOR.importKeybinds({ [name]: keyCombo }),
+    /*
+        The count beside a sweeping marquee, the open bill of materials'
+        tally, and what each of its slots drew. All are drawn on the canvas,
+        so a spec cannot read them from the page (issue #342).
+    */
+    marqueeCountText: () => editor.selectionCountText,
+    billOfMaterialsTally: () => editor.billOfMaterials,
+    billOfMaterialsDrawn: () => editor.billOfMaterialsSlots,
     /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but

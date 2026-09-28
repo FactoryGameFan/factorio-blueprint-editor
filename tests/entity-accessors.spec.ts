@@ -259,7 +259,7 @@ test('Entity accessors report the same shape across every test blueprint', async
     The original fixed point here was captured from the accessors as they
     behaved before the strictNullChecks cleanup (issue #22), against the
     578-blueprint wormeyman-tests/ corpus. That corpus is gone: it was
-    replaced by the 367-blueprint test-blueprints/ (issue #186), which did not
+    replaced by the 372-blueprint test-blueprints/ (issue #186), which did not
     exist at cleanup time, so the counts below are not "before cleanup"
     values - they are a live capture, taken 2026-08-05 by a throwaway recorder
     run against test-blueprints/ with the accessors as they behave today,

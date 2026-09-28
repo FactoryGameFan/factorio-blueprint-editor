@@ -70,6 +70,10 @@ const TEST_API_MARKERS = [
     'setEntityModules',
     'shortcutBarHoverText',
     'rebindAction',
+    'markedUnpairedUndergrounds',
+    'marqueeCountText',
+    'billOfMaterialsTally',
+    'billOfMaterialsDrawn',
 ]
 
 let bundledJs = ''

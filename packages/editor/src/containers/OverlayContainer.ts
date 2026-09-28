@@ -12,15 +12,7 @@ import FD, {
     recipeResults,
     mapBoundingBox,
 } from '../core/factorioData'
-import {
-    ICON_BADGE_SCALE,
-    QUALITY_BADGE_FRAME,
-    QUALITY_PIP_RADIUS,
-    QUALITY_PIP_STROKE,
-    entityBadgeCorner,
-    entityBadgeSize,
-    qualityBadgeStyle,
-} from '../core/qualityBadge'
+import { ICON_BADGE_SCALE, entityBadgeCorner, entityBadgeSize } from '../core/qualityBadge'
 import F from '../UI/controls/functions'
 import G from '../common/globals'
 import util from '../common/util'
@@ -54,31 +46,6 @@ import {
  */
 function textureOf(data: SpriteData): ReturnType<typeof G.getTexture> {
     return G.getTexture(need(data, 'filename'), data.x, data.y, data.width, data.height)
-}
-
-/**
- * A quality badge `size` units across, placed by its frame's bottom-left corner,
- * or undefined for a quality that draws nothing. See core/qualityBadge.ts for
- * where the game puts it and how big.
- */
-function createQualityBadge(
-    quality: string | undefined,
-    bottomLeft: IPoint,
-    size: number
-): Graphics | undefined {
-    const style = qualityBadgeStyle(quality)
-    if (style === undefined) return undefined
-    const badge = new Graphics()
-    for (const [x, y] of style.pips) {
-        badge
-            .circle(x, y, QUALITY_PIP_RADIUS)
-            .fill(style.color)
-            .stroke({ width: QUALITY_PIP_STROKE, color: 0x000000 })
-    }
-    badge.label = `quality-badge:${quality}`
-    badge.scale.set(size / QUALITY_BADGE_FRAME)
-    badge.position.set(bottomLeft.x, bottomLeft.y - size)
-    return badge
 }
 
 /*
@@ -124,9 +91,30 @@ function cursorBoxTexture(type: CursorBoxType, size: CornerSize | 'full'): Textu
 export class OverlayContainer extends Container {
     private readonly bpc: BlueprintContainer
     private readonly entityInfos = new Container()
+    /*
+        A box round every underground belt and pipe to ground with no partner
+        (#344), shown and hidden with the entity infos as part of alt mode. The
+        game draws nothing for a lone underground, so the look is ours: the
+        `not_allowed` cursor box, red for "this does not connect". Drawn under
+        `cursorBoxes`, so the hover box covers it on the entity under the cursor.
+    */
+    private readonly unpairedMarkers = new Container()
     private readonly cursorBoxes = new Container()
     private readonly undergroundLines = new Container()
     private readonly selectionArea = new Graphics()
+    /*
+        How many entities the marquee covers, beside the pointer while copy,
+        delete or select is sweeping (issue #342). Entities only, because that
+        is all the three sweeps act on - none of them copies, deletes or
+        selects a tile.
+    */
+    private readonly selectionCount = new Text({
+        style: new TextStyle({
+            fontSize: 14,
+            fill: 0xffffff,
+            stroke: { color: 0x000000, width: 3 },
+        }),
+    })
     private readonly entityTooltip = new Container()
     private copyCursorBox: Container | undefined
     // Absent outside a selection drag, same as `copyCursorBox` above.
@@ -150,11 +138,14 @@ export class OverlayContainer extends Container {
 
         this.addChild(
             this.entityInfos,
+            this.unpairedMarkers,
             this.cursorBoxes,
             this.undergroundLines,
             this.selectionArea,
+            this.selectionCount,
             this.entityTooltip
         )
+        this.selectionCount.visible = false
     }
 
     /**
@@ -348,17 +339,25 @@ export class OverlayContainer extends Container {
             }
         }
 
+        /*
+            A requester or buffer chest draws no request icons at all in
+            2.0.77's alt mode, at any quality and with one request or three,
+            while inserters and splitters in the same probe did draw their
+            filters (#506). So those two never reach this branch. A storage
+            chest's filter was not probed and still draws.
+        */
+        const drawsFilters =
+            entity.type === 'inserter' ||
+            (entity.type === 'logistic-container' &&
+                entity.name !== 'requester-chest' &&
+                entity.name !== 'buffer-chest') ||
+            entity.type === 'infinity-container' ||
+            entity.type === 'infinity-pipe'
         const filters =
             entity.filters === undefined
                 ? undefined
                 : entity.filters.filter(v => v.name !== undefined)
-        if (
-            filters !== undefined &&
-            (entity.type === 'inserter' ||
-                entity.type === 'logistic-container' ||
-                entity.type === 'infinity-container' ||
-                entity.type === 'infinity-pipe')
-        ) {
+        if (filters !== undefined && drawsFilters) {
             const filterInfo = new Container()
             for (let i = 0; i < filters.length; i++) {
                 if (i === 4) {
@@ -370,10 +369,8 @@ export class OverlayContainer extends Container {
                 }
 
                 /*
-                    Only an inserter's filters are badged. A requester or buffer
-                    chest draws no request icons at all in 2.0.77's alt mode, even
-                    with a request that reads back, so there is no badge to copy;
-                    infinity filters were not measured.
+                    Only an inserter's filters are badged. A storage chest's and
+                    the infinity filters were not measured.
                 */
                 createIconWithBackground(
                     filterInfo,
@@ -537,7 +534,7 @@ export class OverlayContainer extends Container {
         const selectionBox = entity.entityData.selection_box
         if (selectionBox !== undefined) {
             const corner = entityBadgeCorner(mapBoundingBox(selectionBox), entity.direction)
-            const badge = createQualityBadge(
+            const badge = F.CreateQualityBadge(
                 entity.quality,
                 { x: corner.x * 32, y: corner.y * 32 },
                 entityBadgeSize(entity.size) * 32
@@ -568,7 +565,7 @@ export class OverlayContainer extends Container {
         ): void {
             const bare = F.CreateIcon(itemName, undefined, true, true)
             const badgeSize = 32 * badgeScale
-            const badge = createQualityBadge(quality, { x: -badgeSize, y: badgeSize }, badgeSize)
+            const badge = F.CreateQualityBadge(quality, { x: -badgeSize, y: badgeSize }, badgeSize)
             const icon = badge ? new Container({ children: [bare, badge] }) : bare
             const background = new Sprite(textureOf(FD.utilitySprites.entity_info_dark_background))
             background.anchor.set(0.5, 0.5)
@@ -654,6 +651,30 @@ export class OverlayContainer extends Container {
 
     public toggleEntityInfoVisibility(): void {
         this.entityInfos.visible = !this.entityInfos.visible
+        this.unpairedMarkers.visible = this.entityInfos.visible
+    }
+
+    /**
+     * The marker for a lone underground; `EntityContainer` decides when one is
+     * needed and owns the result. Labelled with the entity number for
+     * `unpairedMarkerEntities`.
+     */
+    public createUnpairedMarker(entityNumber: number, position: IPoint, size: IPoint): Container {
+        const marker = this.createCursorBox(position, size, 'not_allowed')
+        marker.label = `unpaired-underground:${entityNumber}`
+        this.unpairedMarkers.addChild(marker)
+        return marker
+    }
+
+    /**
+     * The entity numbers of the lone-underground markers on screen, none while
+     * alt mode is off. See tests/unpaired-underground-markers.spec.ts.
+     */
+    public get unpairedMarkerEntities(): number[] {
+        if (!this.unpairedMarkers.visible) return []
+        return this.unpairedMarkers.children
+            .map(c => Number(c.label.slice('unpaired-underground:'.length)))
+            .sort((a, b) => a - b)
     }
 
     public createEntityInfo(entity: Entity, position: IPoint): Container | undefined {
@@ -721,81 +742,54 @@ export class OverlayContainer extends Container {
             result in a `Container | undefined` field and checks it.
         */
     ): Container | undefined {
+        const otherEntity = this.bpc.bp.entityPositionGrid.getUndergroundPartner(
+            name,
+            position,
+            direction,
+            searchDirection
+        )
+        const step = util.getDirOffset(searchDirection)
+
+        if (otherEntity === undefined || step === undefined) return
+
         const fd = FD.entities[name]
-        if (fd.type === 'underground-belt' || fd.type === 'pipe-to-ground') {
-            const opposingEntityNumber = this.bpc.bp.entityPositionGrid.getOpposingEntity(
-                name,
-                fd.type === 'pipe-to-ground' ? searchDirection : direction,
-                position,
-                searchDirection,
-                (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
-            )
-            const otherEntity =
-                opposingEntityNumber === undefined
-                    ? undefined
-                    : this.bpc.bp.entities.get(opposingEntityNumber)
+        const distance =
+            step.x === 0
+                ? Math.abs(otherEntity.position.y - position.y)
+                : Math.abs(otherEntity.position.x - position.x)
 
-            const step = util.getDirOffset(searchDirection)
+        const lineParts = new Container()
+        lineParts.x = position.x * 32
+        lineParts.y = position.y * 32
+        this.undergroundLines.addChild(lineParts)
 
-            if (otherEntity && step) {
-                /*
-                    Return if the two connections run the same way - two inputs
-                    or two outputs, which is not a pair.
+        const data = isUndergroundBelt(fd)
+            ? need(fd, 'underground_sprite')
+            : FD.utilitySprites.underground_pipe_connection
 
-                    This read `otherEntity.direction + (8 % 16)` until #329. The
-                    misplaced bracket makes it `direction + 8`, which agrees
-                    with the intended `(direction + 8) % 16` only below 8: a
-                    south-facing output gave 16 and a west-facing one 20, and
-                    neither can equal a searchDirection, so the guard silently
-                    stopped firing on half the directions and a line was drawn
-                    between two entities that are not partners.
-                */
-                if (
-                    fd.type === 'underground-belt' &&
-                    otherEntity.undergroundSearchDirection === searchDirection
-                ) {
-                    return
-                }
-
-                const distance =
-                    step.x === 0
-                        ? Math.abs(otherEntity.position.y - position.y)
-                        : Math.abs(otherEntity.position.x - position.x)
-
-                const lineParts = new Container()
-                lineParts.x = position.x * 32
-                lineParts.y = position.y * 32
-                this.undergroundLines.addChild(lineParts)
-
-                const data = isUndergroundBelt(fd)
-                    ? need(fd, 'underground_sprite')
-                    : FD.utilitySprites.underground_pipe_connection
-
-                for (let i = 1; i < distance; i++) {
-                    const s = new Sprite(textureOf(data))
-                    s.rotation = direction * Math.PI * 0.125
-                    if (data.scale) {
-                        s.scale.set(data.scale)
-                    }
-                    s.anchor.set(0.5)
-                    s.x = step.x * i * 32
-                    s.y = step.y * i * 32
-                    lineParts.addChild(s)
-                }
-
-                const otherEntityCursorBox = this.createCursorBox(
-                    {
-                        x: step.x * distance * 32,
-                        y: step.y * distance * 32,
-                    },
-                    otherEntity.size,
-                    'pair'
-                )
-                lineParts.addChild(otherEntityCursorBox)
-
-                return lineParts
+        for (let i = 1; i < distance; i++) {
+            const s = new Sprite(textureOf(data))
+            s.rotation = direction * Math.PI * 0.125
+            if (data.scale) {
+                s.scale.set(data.scale)
             }
+            s.anchor.set(0.5)
+            s.x = step.x * i * 32
+            s.y = step.y * i * 32
+            lineParts.addChild(s)
         }
+
+        const otherEntityCursorBox = this.createCursorBox(
+            {
+                x: step.x * distance * 32,
+                y: step.y * distance * 32,
+            },
+            otherEntity.size,
+            'pair'
+        )
+        lineParts.addChild(otherEntityCursorBox)
+
+        return lineParts
     }
 
     /**
@@ -868,13 +862,34 @@ export class OverlayContainer extends Container {
                 .lineTo(X, Y + H)
                 .lineTo(X, Y)
                 .stroke({ width: 2 / this.bpc.getViewportScale(), color })
+            this.placeSelectionCount(endX, endY)
         }
 
+        this.placeSelectionCount(startPos.x, startPos.y)
         this.bpc.gridData.on('update', this.selectionAreaUpdateFn, this)
+    }
+
+    /** Below and right of the pointer, and the same size on screen at any zoom. */
+    private placeSelectionCount(x: number, y: number): void {
+        const scale = 1 / this.bpc.getViewportScale()
+        this.selectionCount.scale.set(scale)
+        this.selectionCount.position.set(x + 16 * scale, y + 16 * scale)
+    }
+
+    /** The entity count shown beside the marquee; see `selectionCount`. */
+    public setSelectionCount(count: number): void {
+        this.selectionCount.text = `${count} ${count === 1 ? 'entity' : 'entities'}`
+        this.selectionCount.visible = true
+    }
+
+    /** The count label's text while a marquee is sweeping, else undefined. See tests/bill-of-materials.spec.ts. */
+    public get selectionCountText(): string | undefined {
+        return this.selectionCount.visible ? this.selectionCount.text : undefined
     }
 
     public hideSelectionArea(): void {
         this.selectionArea.clear()
+        this.selectionCount.visible = false
         if (this.selectionAreaUpdateFn !== undefined) {
             this.bpc.gridData.off('update', this.selectionAreaUpdateFn, this)
             this.selectionAreaUpdateFn = undefined
