@@ -563,6 +563,11 @@ const testApi = {
      * QuickActions members. See tests/quick-actions.spec.ts.
      */
     encodeCurrentResult: () => encodeCurrent(),
+    /**
+     * `Editor.getPicture` - the PNG `exportImage` would save, without the
+     * download. See tests/image-export.spec.ts.
+     */
+    getPicture: (resolution?: number) => editor.getPicture(resolution),
     /*
         The interaction mode the canvas is in, by name. The first thing any spec
         driving real pointer or keyboard input needs to assert on (issue #44).
@@ -753,6 +758,7 @@ const testApi = {
     },
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
+    topDialogTexts: () => editor.topDialogTexts,
     shortcutBarBounds: () => editor.shortcutBarBounds,
     /*
         The shortcut bar's hover text is drawn on the canvas, so a spec cannot
@@ -770,6 +776,14 @@ const testApi = {
         follows the change.
     */
     rebindAction: (name: string, keyCombo: string) => EDITOR.importKeybinds({ [name]: keyCombo }),
+    /*
+        The count beside a sweeping marquee, the open bill of materials'
+        tally, and what each of its slots drew. All are drawn on the canvas,
+        so a spec cannot read them from the page (issue #342).
+    */
+    marqueeCountText: () => editor.selectionCountText,
+    billOfMaterialsTally: () => editor.billOfMaterials,
+    billOfMaterialsDrawn: () => editor.billOfMaterialsSlots,
     /*
         Whether the entity's info overlay container is currently visible - not
         what it was built with, which overlayInfoTally already covers, but

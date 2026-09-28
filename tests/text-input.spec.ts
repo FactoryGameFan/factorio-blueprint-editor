@@ -174,12 +174,56 @@ test('the input carries the styles TextInput was constructed with', async ({ pag
     })
 })
 
-/** Focuses the DOM input currently holding `value`. */
+/*
+    A frame has to run before a TextInput's element is read or focused. _onAdded
+    hides the element and only onRender -> _updateDOMInput puts it back, so
+    anything done straight after the click that opened the dialog races the
+    renderer. For a read, measured in the dialog test below: 1 run in 6 came back
+    with all eight fields hidden and the test failing on its first assertion. For
+    a focus, see focusInputWithValue.
+
+    Two frames rather than one, because the first callback can be queued ahead of
+    pixi's own render. A timeout would also have worked and would have hidden the
+    reason - and it matters in the dialog test beyond flakiness: its middle
+    assertion expects everything hidden, which an unrendered frame satisfies for
+    the wrong reason.
+*/
+const nextFrame = (page: Page): Promise<void> =>
+    page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+
+/*
+    Focuses the TextInput element currently holding `value`, and fails if the
+    focus did not land. The inline-style filter is textInputValues', so a
+    settings-pane input holding the same value cannot be picked instead.
+
+    focus() on a `display: none` element is a silent no-op, and the element is
+    `display: none` until a frame has rendered it (see nextFrame). The keys typed
+    next then go to the canvas, the box keeps its old value, and the failure
+    surfaces later as a value read coming back undefined, with nothing pointing
+    at the cause - issues #384 and #501, the second reporting 1 whole-file run in
+    5. Checking activeElement here names it instead. Measured with requestAnimationFrame held
+    back after the click: 10 of 10 focus calls left the element at `display:
+    none` and the canvas focused, and the value stayed 4; letting two frames
+    through first focused it and gave 47 in 10 of 10.
+*/
 async function focusInputWithValue(page: Page, value: string): Promise<void> {
     await page.evaluate((v: string) => {
-        const el = [...document.querySelectorAll('input')].find(i => i.value === v)
+        const el = [...document.querySelectorAll('input')].find(
+            i => i.style.cssText !== '' && i.value === v
+        )
         if (!el) throw new Error(`no input holding ${v}`)
         el.focus()
+        if (document.activeElement !== el) {
+            throw new Error(
+                `focusing the input holding ${v} left ${document.activeElement?.tagName} focused ` +
+                    `(display: ${el.style.display})`
+            )
+        }
     }, value)
 }
 
@@ -205,6 +249,7 @@ test('a numeric-only box rejects what does not match its restriction', async ({ 
         the kind of thing that only shows up when a second character is typed.
     */
     await openEntityEditor(page)
+    await nextFrame(page)
     await focusInputWithValue(page, '4')
 
     await page.keyboard.press('End')
@@ -230,25 +275,6 @@ const textInputVisibility = (page: Page): Promise<{ value: string; shown: boolea
         ([...document.querySelectorAll('input, textarea')] as HTMLInputElement[])
             .filter(el => el.style.cssText !== '')
             .map(el => ({ value: el.value, shown: el.style.display !== 'none' }))
-    )
-
-/*
-    A frame has to run before any of these reads. _onAdded hides the element and
-    only onRender -> _updateDOMInput puts it back, so a read taken straight after
-    the click that opened the dialog races the renderer: measured, 1 run in 6 came
-    back with all eight fields hidden and the test failing on its first assertion.
-
-    Two frames rather than one, because the first callback can be queued ahead of
-    pixi's own render. A timeout would also have worked and would have hidden the
-    reason - and it matters here beyond flakiness: the middle assertion expects
-    everything hidden, which an unrendered frame satisfies for the wrong reason.
-*/
-const nextFrame = (page: Page): Promise<void> =>
-    page.evaluate(
-        () =>
-            new Promise<void>(resolve =>
-                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-            )
     )
 
 test('a dialog opened on top hides the DOM fields of the one underneath', async ({ page }) => {

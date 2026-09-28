@@ -7,7 +7,14 @@ import { withKeybind } from '../core/keyComboLabel'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
 import { HoverText } from './controls/HoverText'
-import { BAR_PADDING, BAR_SLOT_PITCH, BAR_SLOT_SIZE, QUICKBAR_WIDTH, barLength } from './barLayout'
+import {
+    BAR_PADDING,
+    BAR_SLOT_PITCH,
+    BAR_SLOT_SIZE,
+    QUICKBAR_WIDTH,
+    barLength,
+    bottomBarTop,
+} from './barLayout'
 import { drawBarFrame, drawRaisedFace } from './barFaces'
 
 /** The icon's drawn size, the size every other slot icon uses. The game also draws 32 px icons in its 40 px slots. */
@@ -378,6 +385,6 @@ export class ShortcutBar extends Panel {
             0,
             Math.min(G.app.screen.width / 2 + QUICKBAR_WIDTH / 2, G.app.screen.width - this.width)
         )
-        this.position.set(x, G.app.screen.height - this.height + 1)
+        this.position.set(x, bottomBarTop(G.app.screen.height, this.height))
     }
 }

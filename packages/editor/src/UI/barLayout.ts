@@ -26,6 +26,17 @@ export function barLength(slots: number): number {
     return 2 * BAR_PADDING + slots * BAR_SLOT_PITCH - (BAR_SLOT_PITCH - BAR_SLOT_SIZE)
 }
 
+/**
+ * The y of a bar's top edge, for a bar `height` px tall on a screen
+ * `screenHeight` px tall. Both bars sit on the bottom edge with their last
+ * pixel row just off it. The bars place themselves with this, and dialogs
+ * read it through `UIContainer.bottomBarsTop` to centre in the space the
+ * bars leave free (#347).
+ */
+export function bottomBarTop(screenHeight: number, height: number): number {
+    return screenHeight - height + 1
+}
+
 /*
     The gaps in the inventory bar, both from `core/prototypes/style.lua` and
     both measured in a Factorio 2.0.77 screenshot at 100% UI scale. The page
