@@ -104,7 +104,7 @@ export class Viewport {
         /*
             Capped at the ceiling but deliberately **not** at the floor: a
             blueprint wider than `ZOOM_MIN` allows still has to fit exactly, and
-            30 of the 367 corpus blueprints are wide enough to need it. Keeping
+            30 of the 372 corpus blueprints are wide enough to need it. Keeping
             the fit exact is why the continuous scale stays the source of truth
             rather than a ladder index (#206).
         */

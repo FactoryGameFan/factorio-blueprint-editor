@@ -9,7 +9,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
 
     Nothing pinned this before. `blueprint-round-trip.spec.ts` did catch PR
     #222 dropping `position-relative-to-grid`, but only by accident of the
-    corpus: exactly ONE of its 367 blueprints carries a grid position ("Biolabs
+    corpus: exactly ONE of its 372 blueprints carries a grid position ("Biolabs
     750 SPM" in test-blueprints/EARN/pocket-base-space-age-v22.1.2.txt, at
     {80, 106}). Re-capture that fixture, or swap the corpus the way #186 did,
     and the coverage leaves with it. What it reports is also a changed hash
@@ -27,7 +27,7 @@ import { waitForEditor } from './helpers/fbe-test-api'
     the one that fails under its rule.
 
     Synthetic, and it has to be: the corpus cannot reach relative snapping at
-    all. All 325 of its blueprints that carry snapping are absolute, so a test
+    all. All 326 of its blueprints that carry snapping are absolute, so a test
     built from real exports could not tell the two modes apart - which is
     exactly why the corpus could not have answered the question and the binary
     had to.
@@ -95,7 +95,7 @@ test('an absolute grid position survives the round trip', async ({ page }) => {
     /*
         THE ONE THAT MATTERS. This is the configuration the game itself
         produces - absolute snapping with an offset - and the one PR #222
-        dropped, taking the field off 325 of the corpus's 367 blueprints.
+        dropped, taking the field off 326 of the corpus's 372 blueprints.
     */
     const out = await serializedSnapping(page, {
         'snap-to-grid': { x: 2, y: 2 },
@@ -136,7 +136,7 @@ test('a blueprint with no snapping serializes none of the three keys', async ({ 
     /*
         The control, and it can fail while the three above pass: a change that
         wrote a default grid onto every blueprint would satisfy every
-        assertion up there and be caught only here. 42 of the corpus's 367
+        assertion up there and be caught only here. 46 of the corpus's 372
         blueprints are in this state.
     */
     const out = await serializedSnapping(page, {})
