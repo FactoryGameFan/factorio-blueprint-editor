@@ -140,9 +140,11 @@ export class UIContainer extends Container {
     }
 
     /**
-     * Every string a `Text` inside the topmost dialog draws, in display-tree
-     * order. Labels are drawn with pixi like everything else in a dialog, so
-     * nothing outside the canvas can read them. Throws when nothing is open.
+     * The string of every `Text` built inside the topmost dialog, in
+     * display-tree order, hidden ones included - so a spec can tell a label
+     * that was never built from one that is merely not shown. Labels are drawn
+     * with pixi like everything else in a dialog, so nothing outside the
+     * canvas can read them. Throws when nothing is open.
      * See tests/display-panel-editor.spec.ts.
      */
     public get topDialogTexts(): string[] {

@@ -330,9 +330,10 @@ export interface FbeTestApi {
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
     /**
-     * The strings the topmost open dialog's labels draw, in display-tree
-     * order - pixi text, so a spec has no other way to read it. Throws when
-     * nothing is open. See tests/display-panel-editor.spec.ts.
+     * The string of every `Text` in the topmost open dialog, in display-tree
+     * order and hidden ones included - pixi text, so a spec has no other way
+     * to read it. Throws when nothing is open.
+     * See tests/display-panel-editor.spec.ts.
      */
     topDialogTexts: () => string[]
     /**

@@ -247,11 +247,12 @@ test('the alt-mode checkbox writes always_show, and undo restores it', async ({ 
         off - and off is written as the field's absence, the way Factorio
         itself omits it, not as `false`.
 
-        The last click is what checks the dialog followed the undo. If
-        `onEntityChange` stopped updating the checkbox, it would still read
-        unchecked after the undo, that click would try to turn always_show on,
-        the setter would find it already on and do nothing, and the export
-        would stay `true`.
+        The click straight after the undo is what checks the dialog followed
+        it. If `onEntityChange` stopped updating the checkbox, it would still
+        read unchecked after the undo, that click would try to turn always_show
+        on, the setter would find it already on and do nothing, and the export
+        would stay `true` where the assertion after it expects the field gone.
+        The last click only turns the setting back on.
     */
     const errors = await load(page, DISPLAY_PANEL)
     await openEditorOn(page, 1)

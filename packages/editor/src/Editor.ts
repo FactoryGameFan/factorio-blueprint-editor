@@ -400,7 +400,7 @@ export class Editor {
         return G.UI.topDialogBounds
     }
 
-    /** The strings the topmost open dialog's labels draw. Throws when nothing is open. */
+    /** The string of every `Text` in the topmost open dialog, hidden ones included. Throws when nothing is open. */
     public get topDialogTexts(): string[] {
         return G.UI.topDialogTexts
     }
