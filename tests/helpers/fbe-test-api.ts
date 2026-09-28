@@ -294,6 +294,8 @@ export interface FbeTestApi {
      * so the positions matter, not just the set. See tests/paste-modules.spec.ts.
      */
     entityModules: (entityNumber: number) => (string | undefined)[]
+    /** An entity's recipe, or undefined. See tests/machine-editors.spec.ts. */
+    entityRecipe: (entityNumber: number) => string | undefined
     /**
      * A write through `Entity.set modules`, names only, as the module dialog
      * sends it. See tests/quality-edits.spec.ts.
