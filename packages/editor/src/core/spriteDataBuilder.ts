@@ -80,6 +80,7 @@ import {
     Sprite as SpriteData,
     HeatConnection,
     PipeConnectionDefinition,
+    FluidBox,
     Sprite4Way,
     AccumulatorPrototype,
     AgriculturalTowerPrototype,
@@ -1274,6 +1275,49 @@ function restingCoreLayers(e: AssemblingMachinePrototype): readonly SpriteData[]
     return core?.animation ? layersOf(core.animation) : []
 }
 
+/**
+ * The pipe artwork a fluid box switches on by name rather than carrying in its
+ * own `pipe_picture`. The foundry's four boxes all set `pipe_picture` to
+ * `empty.png` and name `input-pipe` or `output-pipe` in
+ * `enable_working_visualisations` instead, and those two visualisations hold
+ * the connectors, one sprite per facing covering both pipes on that side
+ * (#372). Swept over data.json, the foundry is the only assembling machine
+ * whose fluid boxes name any.
+ *
+ * `fbs` is already cut down to the boxes the recipe uses, so a side with no
+ * fluid draws no connector, the same gating `pipe_picture` gets. A negative
+ * `<dir>_secondary_draw_order` - the connector on the far side, behind the
+ * body - goes in `back`; everything else in `front`.
+ */
+function namedPipeLayers(
+    e: AssemblingMachinePrototype,
+    fbs: readonly FluidBox[],
+    dirValue: number
+): { back: SpriteData[]; front: SpriteData[] } {
+    const back: SpriteData[] = []
+    const front: SpriteData[] = []
+    const names = new Set(
+        fbs.flatMap(fb =>
+            Array.isArray(fb.enable_working_visualisations) ? fb.enable_working_visualisations : []
+        )
+    )
+    const wvs = need(e, 'graphics_set').working_visualisations
+    if (names.size === 0 || !Array.isArray(wvs)) return { back, front }
+
+    const dir = util.getDirName(dirValue) as 'north' | 'east' | 'south' | 'west'
+    for (const wv of wvs) {
+        if (!wv.always_draw || wv.name === undefined || !names.has(wv.name)) continue
+        // A non-directional `animation` draws the same whichever way the entity
+        // faces, as the mining drill's always_draw pass reads it. The foundry's
+        // two are directional throughout, so this changes nothing drawn today.
+        const anim = wv[`${dir}_animation`] ?? wv.animation
+        if (!anim) continue
+        const order = wv[`${dir}_secondary_draw_order`] ?? wv.secondary_draw_order ?? 0
+        ;(order < 0 ? back : front).push(...layersOf(anim))
+    }
+    return { back, front }
+}
+
 function draw_assembling_machine(
     e: AssemblingMachinePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
@@ -1282,11 +1326,6 @@ function draw_assembling_machine(
         if (need(e, 'graphics_set').always_draw_idle_animation) {
             return [...layersOf(need(e, 'graphics_set', 'idle_animation')), ...core]
         } else {
-            const out = [
-                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
-                ...core,
-            ]
-
             const fbs = getFluidBoxes(
                 e,
                 data.assemblerHasFluidInputs || data.assemblerHasFluidOutputs
@@ -1295,6 +1334,14 @@ function draw_assembling_machine(
                     (data.assemblerHasFluidInputs && conn.production_type === 'input') ||
                     (data.assemblerHasFluidOutputs && conn.production_type === 'output')
             )
+
+            const pipes = namedPipeLayers(e, fbs, data.dir)
+            const out = [
+                ...pipes.back,
+                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
+                ...core,
+                ...pipes.front,
+            ]
 
             for (const fb of fbs) {
                 if (!fb.pipe_picture) continue
@@ -1305,7 +1352,8 @@ function draw_assembling_machine(
 
                     const dir = (data.dir + need(conn, 'direction')) % 16
                     // pipe_picture can be a directional map {north, east, south, west}
-                    // or a single sprite object (e.g. foundry). The latter has no
+                    // or a single sprite object (e.g. the foundry's blank, whose real
+                    // connectors come from namedPipeLayers). The latter has no
                     // directional keys, so fall back to it as a SpriteData.
                     const pipePic =
                         dirEntry(fb.pipe_picture, util.getDirName(dir)) ||

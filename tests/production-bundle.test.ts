@@ -74,6 +74,7 @@ const TEST_API_MARKERS = [
     'marqueeCountText',
     'billOfMaterialsTally',
     'billOfMaterialsDrawn',
+    'spriteLayerFiles',
 ]
 
 let bundledJs = ''
