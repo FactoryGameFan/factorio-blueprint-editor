@@ -457,12 +457,24 @@ export class Entity extends EventEmitter<EntityEvents> {
      * which is also the direction its partner has to be searched for in.
      *
      * An input faces the way it points; an output's connection comes from
-     * behind it. Anything without a directionType - a pipe-to-ground, which
-     * stores none - takes the output form, which is the convention every caller
-     * already used before this getter collected them.
+     * behind it, and so does a pipe to ground's, whatever `type` it carries.
+     *
+     * A belt without a directionType takes the output form too. The game
+     * writes `type` on every underground belt - all 28,660 in the committed
+     * corpus carry one - and on none of its 11,057 pipes to ground, so a belt
+     * without one only comes from a hand-made string. What the game makes of
+     * that string is unmeasured (`LuaSurface.create_entity`, a different path,
+     * defaults to input). The editor draws such a belt as an output -
+     * `draw_underground_belt` tests `dirType === 'input'` - and `rotate` turns
+     * it into an input, so pairing it as an output keeps the hover line and the
+     * alt-mode marker (#344) agreeing with the sprite. `EntityContainer` once
+     * kept its own copy that took the input form, so one end of such a pair
+     * saw its partner while the partner's check refused it.
      */
     public get undergroundSearchDirection(): number {
-        return this.directionType === 'input' ? this.direction : (this.direction + 8) % 16
+        return this.type !== 'pipe-to-ground' && this.directionType === 'input'
+            ? this.direction
+            : (this.direction + 8) % 16
     }
 
     /** Entity recipe */
