@@ -36,7 +36,7 @@ export class Slider extends Container {
      * to 20000, which suits a request count. An inserter's hand tops out at 4,
      * 12 or 16, and on that scale 11 to 19 have no position at all (#339).
      */
-    private readonly m_Max: number | undefined
+    private m_Max: number | undefined
 
     /**
      * Create slider control
@@ -144,6 +144,17 @@ export class Slider extends Container {
                 this.updateButtonPosition()
             }
         }
+    }
+
+    /**
+     * Raise or lower the top of the linear scale, keeping the value and moving
+     * the button to where that value now sits. The inserter dialog raises it
+     * when an undo brings back an override above the range it opened with.
+     */
+    public set max(max: number) {
+        if (this.m_Max === max) return
+        this.m_Max = max
+        if (this.m_Dragpoint === undefined) this.updateButtonPosition()
     }
 
     /** Update button position */

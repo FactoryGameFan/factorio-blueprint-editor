@@ -163,9 +163,11 @@ const ALLOWLIST: AllowedChord[] = [
         reason:
             "drives the editor's own undo keybind through actions.ts, same as " +
             "chest-filters.spec.ts's entry above. One press follows a click on the " +
-            "dialog's pixi checkbox with its box never focused, the other follows " +
-            'closing the dialog with Escape and hovering the inserter, so no DOM ' +
-            'input has focus by then.',
+            "dialog's pixi checkbox with its box never focused. Another follows " +
+            'that click, Escape to close the dialog and a hover on the canvas. The ' +
+            "last follows a click on the dialog's title bar, which blurs the typed " +
+            'box, Escape, and a click on the inserter that opens a fresh dialog ' +
+            'whose box is not focused, so no DOM input has focus by then.',
     },
 ]
 

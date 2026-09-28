@@ -70,11 +70,24 @@ export class InserterEditor extends Editor {
         force's hand size, and opening the dialog must not be what clamps it.
     */
     private addStackSize(y: number): void {
-        const max = Math.max(
-            this.m_Entity.inserterStackSizeLimit ?? 1,
-            this.m_Entity.inserterStackSizeOverride ?? 0
-        )
-        const shown = (): number => Math.min(max, this.m_Entity.inserterStackSize ?? max)
+        /*
+            Raised again whenever the entity changes, and never lowered while
+            the dialog is open. An undo can bring back a value above the range
+            the dialog opened with - lower the fast inserter's 12 to 3, reopen,
+            undo - and the box, the slider and what the box accepts have to
+            cover what the entity holds, the same as when the dialog opened on
+            it. Lowering it again would shrink the slider under a drag.
+        */
+        const rangeFor = (): number =>
+            Math.max(
+                this.m_Entity.inserterStackSizeLimit ?? 1,
+                this.m_Entity.inserterStackSizeOverride ?? 0
+            )
+        let max = rangeFor()
+        // No clamp needed: an override is never above `max`, and the fallback
+        // `inserterStackSize` shows without one (3, or 12 for bulk) never
+        // exceeds `inserterStackSizeLimit`.
+        const shown = (): number => this.m_Entity.inserterStackSize ?? max
 
         const checkbox = new Checkbox(
             this.m_Entity.inserterStackSizeOverride !== undefined,
@@ -112,7 +125,9 @@ export class InserterEditor extends Editor {
         })
 
         this.onEntityChange('inserterStackSize', () => {
+            max = Math.max(max, rangeFor())
             syncing = true
+            slider.max = max
             checkbox.checked = this.m_Entity.inserterStackSizeOverride !== undefined
             slider.value = shown()
             textbox.text = `${shown()}`

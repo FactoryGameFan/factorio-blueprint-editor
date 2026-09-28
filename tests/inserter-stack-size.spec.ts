@@ -128,6 +128,19 @@ async function clickCheckbox(page: Page): Promise<void> {
     await page.mouse.click(dialog.x + CHECKBOX_X + 8, dialog.y + CHECKBOX_Y + 8)
 }
 
+/*
+    Closes the dialog after its box has been typed into. Escape alone does not:
+    the keybinds skip a key aimed at a focused input, so the press is lost and
+    the dialog stays open. A click on the dialog's own title bar, away from any
+    control, blurs the box first, as tests/blueprint-info-editor.spec.ts does.
+*/
+async function closeDialog(page: Page): Promise<void> {
+    const dialog = await renderedDialogBounds(page)
+    await page.mouse.click(dialog.x + 30, dialog.y + 14)
+    await page.keyboard.press('Escape')
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+}
+
 /** The values of the DOM inputs TextInput has put on the page. See tests/chest-editor.spec.ts. */
 const textInputValues = (page: Page): Promise<string[]> =>
     page.evaluate(() =>
@@ -208,7 +221,7 @@ test('a typed size survives an export and a reload', async ({ page }) => {
     expect((await exported(page, 'bulk-inserter')).override_stack_size).toBe(10)
 
     const source = await page.evaluate(() => window.__fbe_test.encodeLoaded())
-    await page.keyboard.press('Escape')
+    await closeDialog(page)
     await page.evaluate(async (src: string) => {
         const t = window.__fbe_test
         await t.loadBp(await t.getBlueprintOrBookFromSource(src))
@@ -235,7 +248,7 @@ test('the box stops at the largest hand the inserter can have', async ({ page })
     await typeSize(page, '0')
     expect((await exported(page, 'inserter')).override_stack_size).toBe(1)
 
-    await page.keyboard.press('Escape')
+    await closeDialog(page)
     await openEditorOn(page, 4)
     await typeSize(page, '16')
     expect((await exported(page, 'stack-inserter')).override_stack_size).toBe(16)
@@ -254,6 +267,30 @@ test('an override above the limit is kept as found', async ({ page }) => {
 
     expect(await textInputValues(page)).toEqual(['12'])
     expect((await exported(page, 'fast-inserter')).override_stack_size).toBe(12)
+    expect(errors).toEqual([])
+})
+
+test('an undo past the limit raises the range to the restored value', async ({ page }) => {
+    /*
+        Lowered to 3 and reopened, the dialog's range stops at the fast
+        inserter's own 4. An undo then brings the 12 back. The range used to be
+        fixed when the dialog opened, so the box was clamped to it and read 4
+        while the entity held 12, and a typed 10 was cut down to 4.
+    */
+    const errors = await load(page, INSERTERS)
+    await openEditorOn(page, 2)
+    await typeSize(page, '3')
+    await closeDialog(page)
+
+    await openEditorOn(page, 2)
+    expect(await textInputValues(page)).toEqual(['3'])
+
+    await page.keyboard.press('Control+KeyZ')
+    expect((await exported(page, 'fast-inserter')).override_stack_size).toBe(12)
+    expect(await textInputValues(page)).toEqual(['12'])
+
+    await typeSize(page, '10')
+    expect((await exported(page, 'fast-inserter')).override_stack_size).toBe(10)
     expect(errors).toEqual([])
 })
 
