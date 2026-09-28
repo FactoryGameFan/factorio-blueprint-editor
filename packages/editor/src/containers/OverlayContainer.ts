@@ -32,7 +32,7 @@ import { need } from '../core/need'
 import { drawShapes } from '../common/drawShapes'
 import { ZOOM_MAX } from '../core/zoomLevels'
 import type { IconShape } from '../core/shortcutIcons'
-import { splitRichTextIcons } from '../core/richTextIcons'
+import { iconTagSource, splitRichTextIcons } from '../core/richTextIcons'
 import {
     CURSOR_BOX_FRAME,
     CornerSize,
@@ -925,9 +925,10 @@ function createStationNameLabel(text: string): Container {
     let x = 0
     for (const run of splitRichTextIcons(text)) {
         if (run.kind === 'icon') {
+            const source = iconTagSource(run.type, run.name)
             let icon: Container | undefined
             try {
-                icon = F.CreateIcon(run.name, iconSize)
+                icon = source === undefined ? undefined : F.CreateIconFrom(source, iconSize)
             } catch {
                 icon = undefined
             }

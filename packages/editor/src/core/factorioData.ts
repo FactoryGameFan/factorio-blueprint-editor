@@ -132,6 +132,33 @@ export function recipeResults(recipe: RecipePrototype): readonly ProductPrototyp
     return Array.isArray(recipe.results) ? recipe.results : []
 }
 
+/** What an icon is drawn from: a prototype's `icons` layers, or its single `icon`. */
+export interface IconSource {
+    icon?: string
+    icon_size?: number
+    icons?: readonly IconData[]
+}
+
+export const hasIcon = (p: IconSource | undefined): boolean => Boolean(p?.icons || p?.icon)
+
+/**
+ * Where a recipe's icon comes from: its own, or else its product's.
+ *
+ * A recipe that produces one thing carries no icon of its own and inherits the
+ * product's, which is what Factorio displays for it - 241 of the 653 recipes.
+ * Resolved one level deep: the product is an item or a fluid, both of which
+ * carry their own icon, and a product resolving to another recipe would
+ * otherwise be a cycle.
+ */
+export function recipeIconSource(recipe: RecipePrototype): IconSource | undefined {
+    if (hasIcon(recipe)) return recipe
+    const results = recipeResults(recipe)
+    const productName = recipe.main_product || (results.length === 1 ? results[0].name : undefined)
+    if (productName === undefined) return undefined
+    const product = FD.items[productName] || FD.fluids[productName]
+    return hasIcon(product) ? product : undefined
+}
+
 /**
  * A prototype's display name, as a string that can go straight into a `Text`.
  *

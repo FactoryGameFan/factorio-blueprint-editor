@@ -91,6 +91,22 @@ test('naming an unnamed train stop draws the name', async ({ page }) => {
 })
 
 /*
+    Resolves after two rendered frames. A TextInput's element is `display: none`
+    from _onAdded until pixi's first render after the dialog opens shows it, and
+    focus() on a hidden element is a silent no-op - the keys typed next would go
+    to the canvas as keybinds. Two frames because the first callback can be
+    queued ahead of pixi's own render. The same race and fix as
+    text-input.spec.ts's nextFrame.
+*/
+const nextFrame = (page: Page): Promise<void> =>
+    page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+
+/*
     The train stop editor's preview draws its overlay with the same
     createEntityInfo, so it shows the name too - and has to rebuild when the
     name box renames the stop, or it keeps the old name until reopened. Typed
@@ -111,12 +127,19 @@ test('the train stop editor preview follows a rename typed into it', async ({ pa
     expect(await page.evaluate(() => window.__fbe_test.previewStationNameRuns())).toBeUndefined()
 
     // The station box is the first TextInput element, and it starts empty.
+    await nextFrame(page)
     await page.evaluate(() => {
         const el = ([...document.querySelectorAll('input, textarea')] as HTMLInputElement[]).find(
             i => i.style.cssText !== ''
         )
         if (!el) throw new Error('no TextInput element on the page')
         el.focus()
+        if (document.activeElement !== el) {
+            throw new Error(
+                `focusing the station box left ${document.activeElement?.tagName} focused ` +
+                    `(display: ${el.style.display})`
+            )
+        }
     })
     await page.keyboard.type('Depot [item=iron-plate]')
     await page.keyboard.press('Tab')
