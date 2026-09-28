@@ -644,8 +644,10 @@ export interface ILegacyScheduleRecord {
  * were observed there, so enumerating the rest from that sample would be a guess
  * that rejects valid data. `blueprintSchema.json` constrains this shape no
  * further than "an object" for the same reason. The editor carries a schedule
- * verbatim; `core/trainSchedule.ts` reads both spellings only to label them in
- * the entity info panel.
+ * verbatim; `core/trainSchedule.ts` reads the underscored names only to label
+ * them in the entity info panel. The hyphenated enum above is not what a 1.1
+ * export holds either - the 1.1 API spells it `passenger_not_present` too -
+ * and that file says where it came from.
  */
 export interface IScheduleWaitCondition {
     compare_type?: CompareType

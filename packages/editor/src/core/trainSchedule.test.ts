@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { ScheduleData } from '../types'
-import { describeWaitCondition, normaliseSchedule, scheduleLines } from './trainSchedule'
+import {
+    describeWaitCondition,
+    moreLines,
+    normaliseSchedule,
+    scheduleLines,
+    truncateLines,
+} from './trainSchedule'
 
 /*
     The text behind the locomotive's schedule lines in the entity info panel
@@ -106,6 +112,12 @@ describe('describeWaitCondition', () => {
         // Not an inherited property of the label table either.
         expect(describeWaitCondition({ type: 'toString' })).toBe('toString')
     })
+
+    it('leaves the hyphenated schema spelling raw, since no game writes it', () => {
+        expect(describeWaitCondition({ type: 'passenger-not-present' })).toBe(
+            'passenger-not-present'
+        )
+    })
 })
 
 describe('scheduleLines', () => {
@@ -147,5 +159,86 @@ describe('scheduleLines', () => {
     it('says so for a locomotive on no schedule, or a schedule with no stops', () => {
         expect(scheduleLines(undefined)).toEqual(['Schedule: none'])
         expect(scheduleLines({ records: [] })).toEqual(['Schedule:', '  no stops'])
+    })
+})
+
+describe('truncateLines', () => {
+    /*
+        A stand-in for the panel's word wrap: every `WIDTH` characters of a line
+        is one row, and a text fits in `rows` rows. `measured` adds up how many
+        lines each call was handed, which is what a real wrap costs.
+    */
+    const WIDTH = 20
+    const rowsOf = (shown: readonly string[]): number =>
+        shown.reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / WIDTH)), 0)
+    function panel(rows: number) {
+        const counter = { calls: 0, measured: 0 }
+        const fits = (shown: readonly string[]): boolean => {
+            counter.calls++
+            counter.measured += shown.length
+            return rowsOf(shown) <= rows
+        }
+        return { fits, counter }
+    }
+
+    /** The loop this replaced: drop one line, re-measure everything, repeat. */
+    function oneAtATime(lines: readonly string[], rows: number): string[] {
+        let shown = [...lines]
+        for (let kept = lines.length - 1; kept > 0 && rowsOf(shown) > rows; kept--) {
+            shown = [...lines.slice(0, kept), moreLines(lines.length - kept)]
+        }
+        return shown
+    }
+
+    const stops = (n: number): string[] => [
+        'Schedule:',
+        ...Array.from({ length: n }, (_, i) => `${i + 1}. Stop ${i + 1}`),
+    ]
+
+    it('returns lines that fit as they are', () => {
+        const { fits } = panel(12)
+        expect(truncateLines(stops(11), fits)).toEqual(stops(11))
+    })
+
+    it('keeps the first lines of a long schedule and counts the rest', () => {
+        const { fits, counter } = panel(12)
+        const shown = truncateLines(stops(200), fits)
+        expect(shown).toEqual([...stops(10), '... 190 more lines'])
+        // One full-length measurement, then short ones: not one per dropped line.
+        expect(counter.calls).toBeLessThanOrEqual(10)
+        expect(counter.measured).toBeLessThan(201 + 12 * 10)
+    })
+
+    it('says "1 more line" when only the last line is dropped', () => {
+        /*
+            Swapping the last line for the count is the same number of lines, so
+            dropping exactly one only frees room when the last line wraps - a
+            long station name as the final stop.
+        */
+        const lines = [...stops(9), `10. ${'Long station name '.repeat(3)}`]
+        expect(rowsOf(lines)).toBe(13)
+        const { fits } = panel(12)
+        expect(truncateLines(lines, fits)).toEqual([...stops(9), '... 1 more line'])
+    })
+
+    it('keeps the first line even when nothing fits', () => {
+        const { fits } = panel(1)
+        expect(truncateLines(stops(5), fits)).toEqual(['Schedule:', '... 5 more lines'])
+        expect(truncateLines(['Schedule: none'], panel(0).fits)).toEqual(['Schedule: none'])
+    })
+
+    it('cuts exactly where dropping one line at a time did', () => {
+        // Every length against every panel height, with a wrapped line every
+        // few stops so the cut does not fall on a regular grid.
+        for (let n = 0; n <= 60; n++) {
+            const lines = stops(n).map((line, i) =>
+                i % 7 === 3 ? `${line} ${'x'.repeat(15 + (i % 3) * 20)}` : line
+            )
+            for (let rows = 0; rows <= 30; rows++) {
+                expect(truncateLines(lines, panel(rows).fits), `${n} lines, ${rows} rows`).toEqual(
+                    oneAtATime(lines, rows)
+                )
+            }
+        }
     })
 })

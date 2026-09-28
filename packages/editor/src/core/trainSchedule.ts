@@ -71,12 +71,20 @@ const seconds = (ticks: number | undefined): string =>
     typeof ticks === 'number' ? ` ${Math.round((ticks / 60) * 100) / 100} s` : ''
 
 /*
-    Labels for the condition names that are known. Every 2.0 name here was
-    observed in a game-written blueprint: `time`, `inactivity`, `full` and
+    Labels for the condition names that are known. Every name here was observed
+    in a game-written blueprint: `time`, `inactivity`, `full` and
     `passenger_not_present` in `copy-settings-schedule.json`, the rest in the
-    schedules of the committed corpus (test-blueprints/EARN). The hyphenated ones
-    are the pre-2.0 schema's own enum (`WaitConditionType`), which spells
-    `passenger-not-present` where 2.0 writes `passenger_not_present`.
+    schedules of the committed corpus (test-blueprints/EARN).
+
+    The game has spelled these with underscores since before 2.0 - the 1.1
+    runtime API's `WaitCondition.type` lists `passenger_not_present`,
+    `item_count` and `fluid_count` - so the table serves a 1.1 export as well.
+    The hyphenated `WaitConditionType` in `types.ts` and `blueprintSchema.json`
+    (`passenger-not-present`, `item-count`, ...) is not a spelling any game
+    wrote. It came from upstream's bulk "remove mapping of - to _" (49480f3d),
+    which swept this enum along with the prototype names it was meant for. So
+    the table has no hyphenated entries: one would never fire on a real
+    blueprint, and a hyphenated name falls to the raw type below like any other.
 
     Anything else shows its raw type rather than a guessed label, and so do the
     ones that carry a circuit condition (`circuit`, `item_count`, `fluid_count`,
@@ -94,8 +102,6 @@ const LABELS: Record<string, (c: IScheduleWaitCondition) => string> = {
     not_at_station: c => `Not at station ${c.station ?? '?'}`,
     specific_destination_not_full: c => `Destination not full ${c.station ?? '?'}`,
     destination_full_or_no_path: () => 'Destination full or no path',
-    'passenger-present': () => 'Passenger present',
-    'passenger-not-present': () => 'Passenger not present',
 }
 
 const operand = (c: ICondition): string => {
@@ -157,4 +163,56 @@ export function scheduleLines(schedule: ScheduleData | undefined): string[] {
         }
     }
     return lines
+}
+
+/** The last line of a cut schedule, counting the lines it stands in for. */
+export const moreLines = (count: number): string =>
+    `... ${count} more ${count === 1 ? 'line' : 'lines'}`
+
+/**
+ * The longest start of `lines` that `fits`, followed by a line counting the
+ * rest - or `lines` whole when they fit as they are. At least the first line
+ * is kept even when nothing fits, so the text still says what it is.
+ *
+ * `fits` is the only measurement, and the entity info panel's is a full word
+ * wrap of the text it is given, run on every hover. Dropping one line at a time
+ * and re-measuring re-wrapped the whole schedule once per dropped line: 190
+ * wraps of up to 200 lines for a 200-stop schedule, every hover. Here only the
+ * whole text is measured at full length. The cut is then found by doubling
+ * from the top (2, 3, 5, 9, ... lines) until one does not fit, and bisecting
+ * between the last two, so every other measurement is of a text about as long
+ * as what the panel can show.
+ *
+ * That finds the same cut as the one-at-a-time loop because whether a cut fits
+ * only gets worse as it keeps more lines: the kept lines' height grows with
+ * each one, and the count line under them is one short line whatever it says.
+ */
+export function truncateLines(
+    lines: readonly string[],
+    fits: (shown: readonly string[]) => boolean
+): string[] {
+    if (lines.length <= 1 || fits(lines)) return [...lines]
+
+    const cut = (kept: number): string[] => [
+        ...lines.slice(0, kept),
+        moreLines(lines.length - kept),
+    ]
+
+    // `good` is the most lines known to fit, or 1, the floor; `bad` the fewest
+    // known not to - keeping them all, with no count line, is known not to.
+    let good = 1
+    let bad = lines.length
+    for (let step = 1; good + step < bad; step *= 2) {
+        if (!fits(cut(good + step))) {
+            bad = good + step
+            break
+        }
+        good += step
+    }
+    while (bad - good > 1) {
+        const mid = Math.floor((good + bad) / 2)
+        if (fits(cut(mid))) good = mid
+        else bad = mid
+    }
+    return cut(good)
 }

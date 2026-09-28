@@ -17,7 +17,7 @@ import { Panel } from './controls/Panel'
 import { styles } from './style'
 import { suppliesEntity } from '../core/supplyArea'
 import { beltThroughput, inserterThroughput } from '../core/throughput'
-import { scheduleLines } from '../core/trainSchedule'
+import { scheduleLines, truncateLines } from '../core/trainSchedule'
 
 /*
     A tagged template whose holes are either positions or names: `${0}` reads
@@ -384,20 +384,17 @@ export class EntityInfoPanel extends Panel {
 
         The panel is a fixed 270 px square and a schedule has no length limit,
         so lines that would run past the bottom are dropped from the end and
-        counted on a last line instead.
+        counted on a last line instead. `truncateLines` decides where to cut, in
+        a handful of measurements rather than one per dropped line.
     */
     private showSchedule(entity: Entity, top: number): void {
-        const lines = scheduleLines(entity.schedule)
         this.m_entityInfo.position.set(10, top)
-        this.m_entityInfo.text = lines.join('\n')
-
         const room = this.height - top - 10
-        for (let kept = lines.length - 1; kept > 0 && this.m_entityInfo.height > room; kept--) {
-            this.m_entityInfo.text = [
-                ...lines.slice(0, kept),
-                `... ${lines.length - kept} more lines`,
-            ].join('\n')
-        }
+        const shown = truncateLines(scheduleLines(entity.schedule), candidate => {
+            this.m_entityInfo.text = candidate.join('\n')
+            return this.m_entityInfo.height <= room
+        })
+        this.m_entityInfo.text = shown.join('\n')
     }
 
     protected override setPosition(): void {

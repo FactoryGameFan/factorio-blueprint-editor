@@ -173,6 +173,68 @@ test('a schedule too long for the panel is cut short and counted', async ({ page
     expect(kept.length - 1 + Number(match?.[1])).toBe(40)
 })
 
+test('a schedule cut by one line says "1 more line"', async ({ page }) => {
+    /*
+        Swapping the last line for the count leaves the same number of lines,
+        so dropping exactly one only makes room when the last line wraps - a
+        long station name on the final stop. How many short stops put that case
+        in reach depends on the font, so each locomotive here gets one more
+        short stop than the last, all ending on the same long one, and the sweep
+        has to pass through it: at some count everything fits, at the next the
+        long stop alone is dropped.
+    */
+    const LONG = `Terminus ${'with a very long station name '.repeat(3)}`
+    const short = (i: number) => ({
+        station: `Stop ${i + 1}`,
+        wait_conditions: [{ type: 'inactivity', compare_type: 'and', ticks: 300 }],
+    })
+    const count = 16
+    await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: version(2, 0, 55),
+            entities: Array.from({ length: count }, (_, i) => locomotive(i + 1)),
+            schedules: Array.from({ length: count }, (_, i) => ({
+                locomotives: [i + 1],
+                schedule: {
+                    records: [
+                        ...Array.from({ length: i }, (_, j) => short(j)),
+                        { station: LONG, wait_conditions: [] },
+                    ],
+                },
+            })),
+        })
+    )
+
+    const endings: string[] = []
+    for (let i = 0; i < count; i++) {
+        const shown = (await infoText(page, i + 1)).split('\n')
+        const total = i + 2 // the header, i short stops, the long one
+        const last = shown.at(-1) ?? ''
+        const match = /^\.\.\. (\d+) more (lines?)$/.exec(last)
+        if (match === null) {
+            expect(shown, `locomotive ${i + 1} shown whole`).toHaveLength(total)
+            expect(last).toBe(`${i + 1}. ${LONG}`)
+            endings.push('whole')
+            continue
+        }
+        const dropped = Number(match[1])
+        expect(match[2], `"${last}"`).toBe(dropped === 1 ? 'line' : 'lines')
+        expect(shown.length - 1 + dropped, `locomotive ${i + 1}`).toBe(total)
+        endings.push(last)
+    }
+
+    const one = endings.indexOf('... 1 more line')
+    expect(one, endings.join(' | ')).toBeGreaterThan(0)
+    // Every schedule shorter than that one fits; the one cut by one is the
+    // first that does not.
+    expect(
+        endings.slice(0, one).every(e => e === 'whole'),
+        endings.join(' | ')
+    ).toBe(true)
+})
+
 test('an entity with no detail line does not keep the schedule shown before it', async ({
     page,
 }) => {
