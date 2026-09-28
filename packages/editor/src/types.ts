@@ -49,7 +49,8 @@ export interface ICondition {
 
 export interface ItemFilter {
     index: number
-    name: string
+    /** Absent on a quality-only filter, which 2.0 inserters can hold (issue #493). */
+    name?: string
     quality?: string
     comparator?: ComparatorString
 }
