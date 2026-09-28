@@ -62,7 +62,7 @@ describe('the ladder', () => {
     it('takes the ceiling from the game and the floor from its map editor', () => {
         // fixture: characterController.readbackClosest
         expect(ZOOM_MAX).toBe(3)
-        // 30 of 367 corpus blueprints exceed the game's own 200-tile world-view
+        // 30 of 372 corpus blueprints exceed the game's own 200-tile world-view
         // floor, so the editor takes the game's map editor floor instead.
         expect(ZOOM_MIN).toBe(0.1)
     })

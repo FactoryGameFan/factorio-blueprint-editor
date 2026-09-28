@@ -15,6 +15,12 @@ import FD, {
     recipeIconSource,
 } from '../../core/factorioData'
 import { styles } from '../style'
+import {
+    QUALITY_BADGE_FRAME,
+    QUALITY_PIP_RADIUS,
+    QUALITY_PIP_STROKE,
+    qualityBadgeStyle,
+} from '../../core/qualityBadge'
 import G from '../../common/globals'
 import util from '../../common/util'
 import { IngredientPrototype, IconData, ProductPrototype } from 'factorio:prototype'
@@ -227,7 +233,14 @@ function CreateIcon(
         FD.recipes[itemName] ||
         FD.signals[itemName] ||
         // inventory group icon is not present in FD.items
-        FD.inventoryLayout.find(g => g.name === itemName)
+        FD.inventoryLayout.find(g => g.name === itemName) ||
+        /*
+            Last, so it can only answer a name that used to throw: an entity no
+            item places - `red-chest`, the dummy rails, the `factorio-logo-*`
+            entities - which the bill of materials lists under the entity's own
+            name (#342).
+        */
+        FD.entities[itemName]
 
     if (item === undefined) {
         // A bare throw, not a missing-icon fallback. Callers under a try/catch
@@ -235,7 +248,9 @@ function CreateIcon(
         // with none - e.g. a blueprint-level planet icon, which resolves to
         // nothing here because data.json exports no planet prototype - loses
         // the whole blueprint. Tracked as issue #231.
-        throw new Error(`No item, fluid, recipe, signal or inventory group named ${itemName}`)
+        throw new Error(
+            `No item, fluid, recipe, signal, inventory group or entity named ${itemName}`
+        )
     }
 
     if (hasIcon(item)) return CreateIconFrom(item, maxSize, setAnchor)
@@ -300,6 +315,31 @@ function CreateIconFrom(source: IconSource, maxSize = 32, setAnchor = true): Con
         }
         return img
     }
+}
+
+/**
+ * A quality badge `size` units across, placed by its frame's bottom-left corner,
+ * or undefined for a quality that draws nothing. See core/qualityBadge.ts for
+ * where the game puts it and how big.
+ */
+function CreateQualityBadge(
+    quality: string | undefined,
+    bottomLeft: { x: number; y: number },
+    size: number
+): Graphics | undefined {
+    const style = qualityBadgeStyle(quality)
+    if (style === undefined) return undefined
+    const badge = new Graphics()
+    for (const [x, y] of style.pips) {
+        badge
+            .circle(x, y, QUALITY_PIP_RADIUS)
+            .fill(style.color)
+            .stroke({ width: QUALITY_PIP_STROKE, color: 0x000000 })
+    }
+    badge.label = `quality-badge:${quality}`
+    badge.scale.set(size / QUALITY_BADGE_FRAME)
+    badge.position.set(bottomLeft.x, bottomLeft.y - size)
+    return badge
 }
 
 /**
@@ -414,6 +454,7 @@ export default {
     CreateIcon,
     CreateIconFrom,
     CreateIconWithAmount,
+    CreateQualityBadge,
     CreateRecipe,
     SafeIcon,
     applyTint,
