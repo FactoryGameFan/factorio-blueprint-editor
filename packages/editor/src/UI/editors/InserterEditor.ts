@@ -66,8 +66,8 @@ export class InserterEditor extends Editor {
 
         The top of the range is the largest hand research can give this
         inserter, raised to whatever the blueprint already carries - the corpus
-        has a fast inserter set to 12, which the game keeps and caps to the
-        force's hand size, and opening the dialog must not be what clamps it.
+        has a fast inserter set to 12, three times what research can give it,
+        and opening the dialog must not be what clamps it.
     */
     private addStackSize(y: number): void {
         /*

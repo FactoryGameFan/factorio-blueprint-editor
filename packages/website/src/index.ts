@@ -711,12 +711,6 @@ const testApi = {
         rather than reading the live one, the same way recipeShapeTally does, so
         the app's panel is not left showing whatever a spec last asked about.
     */
-    /*
-        What the app's own info panel says right now, or undefined while it is
-        hidden - the live one, which entityInfoText above deliberately is not,
-        for a spec checking that the panel follows an edit (#339).
-    */
-    entityInfoPanelText: () => editor.entityInfoPanelText,
     entityInfoText: (entityNumber: number) => {
         const panel = new EntityInfoPanel()
         try {
@@ -726,6 +720,12 @@ const testApi = {
             panel.destroy()
         }
     },
+    /*
+        What the app's own info panel says right now, or undefined while it is
+        hidden - the live one, which entityInfoText above deliberately is not,
+        for a spec checking that the panel follows an edit (#339).
+    */
+    entityInfoPanelText: () => editor.entityInfoPanelText,
     /*
         Whether the copy cursor box is drawn - the outline shown on a settings
         copy source while hovering a valid target. The only visible consequence
