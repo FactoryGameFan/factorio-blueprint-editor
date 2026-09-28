@@ -1302,7 +1302,10 @@ function namedPipeLayers(
     const dir = util.getDirName(dirValue) as 'north' | 'east' | 'south' | 'west'
     for (const wv of wvs) {
         if (!wv.always_draw || wv.name === undefined || !names.has(wv.name)) continue
-        const anim = wv[`${dir}_animation`]
+        // A non-directional `animation` draws the same whichever way the entity
+        // faces, as the mining drill's always_draw pass reads it. The foundry's
+        // two are directional throughout, so this changes nothing drawn today.
+        const anim = wv[`${dir}_animation`] ?? wv.animation
         if (!anim) continue
         const order = wv[`${dir}_secondary_draw_order`] ?? wv.secondary_draw_order ?? 0
         ;(order < 0 ? back : front).push(...layersOf(anim))

@@ -18,9 +18,14 @@ import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
     covers.
 
     Every guard in namedPipeLayers returns nothing, so a regression drops the
-    connectors with no error; this counts layers per facing to catch it. The
-    order - the far-side connector before the body, the near one after - is
-    in the sprite-data fixture's hash, not here.
+    connectors with no error; the first test counts layers per facing to catch
+    it. The second pins the order, which a count cannot see: at facings 0 and 8
+    the connector on the far (north) side carries a negative
+    `<dir>_secondary_draw_order` and is drawn before the body, the near (south)
+    one after it. The sheets are named for the side they sit on, so at both
+    facings `-north.png` must precede the body and `-south.png` follow it,
+    whichever fluid box put them there. Swapping namedPipeLayers' back/front
+    split, or reading `north_animation` at every facing, breaks that.
 */
 
 const FACINGS = [0, 4, 8, 12] as const
@@ -84,6 +89,72 @@ test('the foundry draws a pipe connector for each fluid side of its recipe', asy
             `${recipe}: expected every facing at ${total} layers ` +
                 `(${CONNECTOR_LAYERS[recipe]} of them connectors)`
         ).toEqual(FACINGS.map(() => String(total)))
+    }
+
+    expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
+})
+
+/** Where each connector sheet lands relative to the body, by its side suffix. */
+interface ConnectorOrder {
+    before: string[]
+    after: string[]
+}
+
+/**
+ * Facing -> recipe -> connector sheets drawn before and after the body. At
+ * facing 0 output-pipe is the north sheet, behind; input-pipe the south one,
+ * in front. Facing 8 swaps which box owns which sheet but not where each goes.
+ */
+const ORDER: Record<0 | 8, Record<Exclude<(typeof RECIPES)[number], 'none'>, ConnectorOrder>> = {
+    0: {
+        'casting-iron': { before: [], after: ['south'] },
+        'molten-iron': { before: ['north'], after: [] },
+        'molten-iron-from-lava': { before: ['north'], after: ['south'] },
+    },
+    8: {
+        'casting-iron': { before: ['north'], after: [] },
+        'molten-iron': { before: [], after: ['south'] },
+        'molten-iron-from-lava': { before: ['north'], after: ['south'] },
+    },
+}
+
+const CONNECTOR_SHEET = /foundry-pipe-connections-(north|east|south|west)\.png$/
+const BODY_SHEET = /foundry-main-\d\.png/
+
+test('the far-side connector is drawn behind the foundry body, the near one in front', async ({
+    page,
+}) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', e => pageErrors.push(String(e)))
+
+    await waitForEditor(page)
+
+    for (const recipe of Object.keys(ORDER[0]) as (keyof (typeof ORDER)[0])[]) {
+        await loadBlueprint(page, foundries(recipe))
+        for (const facing of [0, 8] as const) {
+            // foundries() numbers entities in FACINGS order.
+            const entityNumber = FACINGS.indexOf(facing) + 1
+            const files = await page.evaluate(
+                n => window.__fbe_test.spriteLayerFiles(n, { withGrid: false }),
+                entityNumber
+            )
+            expect(files, `${recipe} at ${facing}: generator failed`).not.toBe('FAILED')
+            const layers = files as string[]
+            const body = layers.findIndex(f => BODY_SHEET.test(f))
+            expect(
+                body,
+                `${recipe} at ${facing}: no body layer in ${layers.join(' | ')}`
+            ).toBeGreaterThanOrEqual(0)
+            const sides = (from: number, to: number) =>
+                layers
+                    .slice(from, to)
+                    .map(f => CONNECTOR_SHEET.exec(f)?.[1])
+                    .filter((side): side is string => side !== undefined)
+            expect(
+                { before: sides(0, body), after: sides(body + 1, layers.length) },
+                `${recipe} at ${facing}: connector sheets either side of the body`
+            ).toEqual(ORDER[facing][recipe])
+        }
     }
 
     expect(pageErrors, `page errors: ${pageErrors.join(' | ')}`).toEqual([])
