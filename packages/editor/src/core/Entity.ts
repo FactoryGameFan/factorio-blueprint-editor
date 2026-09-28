@@ -1492,9 +1492,12 @@ export class Entity extends EventEmitter<EntityEvents> {
     /**
      * Rolling stock from a blueprint draws by `orientation`, not `direction`
      * (#520), so a rotate has to turn both or the drawing and the export stay
-     * where they were. Its own action, emitting `direction` on do and undo
-     * alike, because a transaction undoes in reverse: the `direction` action's
-     * redraw runs before this one's value comes back.
+     * where they were. Its own action, emitting `direction` itself, because on
+     * do and redo a transaction applies its actions in order: the `direction`
+     * action redraws first, while the old orientation is still set, so without
+     * this emit R would show no change. Undo runs them in reverse, restoring
+     * the orientation before the `direction` action redraws, so there the emit
+     * only repeats a redraw.
      */
     private turnOrientation(turns: number): void {
         const orientation = this.m_rawEntity.orientation

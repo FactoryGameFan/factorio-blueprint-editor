@@ -22,7 +22,9 @@
                                  data.dir / 4)
       Y-offset spritesheet     duplicateAndSetPropertyUsing(l,'y','height',  draw_ammo_turret
                                  data.dir / 4)
-      Rotated (256 frames)     rollingStockLayers(e.pictures, data)          draw_locomotive, draw_cargo_wagon
+      Rotated (256 frames, or  rollingStockLayers(e.pictures, data)          draw_locomotive, draw_cargo_wagon
+        128 over half a turn
+        for back_equals_front)
       Rail 8-way               e.pictures[getDirName8Way(dir)], pick keys    draw_rail
       Flatten picture array    e.graphics_set.picture.flatMap(p => p.layers) draw_cargo_bay
       Chargable graphics       e.chargable_graphics.picture.layers          draw_accumulator
