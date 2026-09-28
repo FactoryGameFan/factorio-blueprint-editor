@@ -120,6 +120,16 @@ describe('quality-only item filters (#382)', () => {
         [{ index: 1, quality: 'normal', comparator: '=' }, false],
         [{ index: 1, quality: 'normal', comparator: '=', unexpected: true }, true],
         [{ quality: 'normal', comparator: '=' }, true],
+        /*
+            A quality with no comparator, named or not. Factorio refuses both -
+            `import_stack` returns -1 and the entity is gone (#497) - so they
+            load with a warning, and the first case above stays the silent
+            control. The name is the one item the synthetic data above holds,
+            so a named case is not flagged for the name instead.
+        */
+        [{ index: 1, name: 'decider-combinator', quality: 'normal', comparator: '=' }, false],
+        [{ index: 1, name: 'decider-combinator', quality: 'normal' }, true],
+        [{ index: 1, quality: 'normal' }, true],
     ])('preserves %j and warns only for invalid shapes', async (filter, warns) => {
         const bp = await getBlueprintOrBookFromSource(
             await encodeRoot({

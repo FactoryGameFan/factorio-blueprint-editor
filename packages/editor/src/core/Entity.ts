@@ -13,6 +13,7 @@ import {
     LogisticSection,
     LogisticSections,
     ScheduleData,
+    SplitterFilter,
 } from '../types'
 import util from '../common/util'
 import { IllegalFlipError } from '../containers/PaintContainer'
@@ -50,14 +51,18 @@ import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'fac
 export interface IFilter {
     /** Slot index (1 based ... not 0 like arrays) */
     index: number
-    /** Name of entity to be filtered */
-    name: string
+    /**
+        Name of entity to be filtered. Absent on a quality-only filter - an
+        inserter can filter on `quality` and `comparator` with no item - so a
+        filter is only empty when it has none of the three (issue #493).
+    */
+    name?: string
     /** If stacking is allowed, how many shall be stacked */
     count?: number
     /*
         The 2.0 fields this used to drop (issue #88). Optional because the
         entities sharing this shape do not all have them - a splitter filter
-        reads back a name and its quality only, and the pre-2.0 migration produces index/name/count - but
+        reads back a name, quality and comparator only, and the pre-2.0 migration produces index/name/count - but
         for logistic chests they are the norm rather than the exception: every
         one of the 4069 filters in the corpus carries `quality` and `comparator`
         and 90 carry `max_count`.
@@ -76,12 +81,21 @@ export interface IFilter {
  * than one per set filter - so an empty slot is present with no name.
  *
  * Only the `filters` setter takes these, and it drops the empty ones on the way
- * in (`list.filter(f => !!f.name)`), which is why the getter can still answer
- * the narrower `IFilter[]`: nothing without a name is ever stored.
+ * in (`isSetFilter`). This used to be a wider type than `IFilter`, whose name
+ * was required, but a quality-only inserter filter has no name either and is
+ * not empty (issue #493), so the two are now the same shape.
  */
-export interface IFilterSlot extends Omit<IFilter, 'name'> {
-    name: string | undefined
-}
+export type IFilterSlot = IFilter
+
+/**
+ * Whether a filter says anything: an item, a quality or a comparator. A
+ * quality-only filter - `{ index, quality: 'normal', comparator: '=' }` - is one
+ * an inserter really holds, so a missing name alone does not make a slot empty
+ * (issue #493). `!!name` rather than `!== undefined` keeps the empty-string
+ * name the old `!!f.name` check treated as no name.
+ */
+const isSetFilter = (f: IFilter): boolean =>
+    !!f.name || f.quality !== undefined || f.comparator !== undefined
 
 /**
  * The types that carry a top-level `bar` - a chest's inventory limiter.
@@ -408,6 +422,16 @@ export class Entity extends EventEmitter<EntityEvents> {
             .updateValue(this.m_rawEntity, 'direction', direction, 'Change direction')
             .onDone(() => this.emit('direction'))
             .commit()
+    }
+
+    /**
+     * A rolling stock's heading, as a fraction of a clockwise turn from north.
+     * The game writes this and no `direction` for locomotives and wagons, so
+     * `direction` above reads 0 for every one of them in a real blueprint.
+     * Undefined for everything else, and for rolling stock the editor placed.
+     */
+    public get orientation(): number | undefined {
+        return this.m_rawEntity.orientation
     }
 
     /** Rail layer (elevated) for rail signals on raised rails */
@@ -738,18 +762,11 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
         }
     }
-    /*
-        Takes the wider slot shape while the getter above answers IFilter[].
-        TypeScript only asks that the getter type be assignable to the setter
-        type, and the filter below is what makes the difference safe.
-    */
     public set filters(list: IFilterSlot[] | undefined) {
-        // The predicate is the whole point of this filter, and saying so is what
-        // lets the narrower IFilter[] reach the per-entity setters below.
+        // Drops the empty slots the dialog sends, and only those - a slot with
+        // no name but a quality or comparator is a filter (issue #493).
         const FILTERS =
-            list === undefined || list.length === 0
-                ? undefined
-                : list.filter((f): f is IFilter => !!f.name)
+            list === undefined || list.length === 0 ? undefined : list.filter(isSetFilter)
         switch (this.name) {
             case 'splitter':
             case 'fast-splitter':
@@ -823,10 +840,20 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (typeof this.m_rawEntity.filter === 'string') {
             throw new Error('pre 2.0 format!')
         }
-        const { name, quality } = this.m_rawEntity.filter
+        const { name, quality, comparator } = this.m_rawEntity.filter
         if (name) {
-            // Quality only when present, so a filter without one reads as before.
-            return [quality === undefined ? { index: 1, name } : { index: 1, name, quality }]
+            // Quality and comparator only when present, so a filter without them
+            // reads as before. The comparator is read back with the quality
+            // because a paste goes through this getter, and a quality that
+            // arrives without its comparator is a shape Factorio refuses (#497).
+            return [
+                {
+                    index: 1,
+                    name,
+                    ...(quality === undefined ? {} : { quality }),
+                    ...(comparator === undefined ? {} : { comparator }),
+                },
+            ]
         }
         return []
     }
@@ -836,16 +863,26 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         this.m_BP.history.transaction(undefined, () => {
             // used to write { name: undefined } when clearing, which serialized as an
-            // empty filter object rather than as no filter at all. Quality goes
-            // with the name, the shape the getter reads back, so a pasted filter
-            // keeps it.
+            // empty filter object rather than as no filter at all. Quality and
+            // comparator go with the name, the shape the getter reads back, so a
+            // pasted filter keeps them.
+            //
+            // A quality never goes out alone. Measured on an inserter, a loader
+            // and a cargo wagon, Factorio drops the whole entity for an item
+            // filter holding a quality and no comparator (#497), and the engine
+            // always writes one beside it. All 987 splitter filters with a
+            // quality in the committed corpus carry `=`, so a source that had no
+            // comparator gets that one.
             const quality = filters?.[0]?.quality
-            const f =
+            const comparator = filters?.[0]?.comparator ?? (quality === undefined ? undefined : '=')
+            const f: SplitterFilter | undefined =
                 filter === undefined
                     ? undefined
-                    : quality === undefined
-                      ? { name: filter }
-                      : { name: filter, quality }
+                    : {
+                          name: filter,
+                          ...(quality === undefined ? {} : { quality }),
+                          ...(comparator === undefined ? {} : { comparator }),
+                      }
 
             this.m_BP.history
                 .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
@@ -883,10 +920,11 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         /*
             The filter dialog sends every slot back when one changes, with its
-            index, name and count and nothing else. A slot still holding the
-            same item keeps the quality and comparator the dialog cannot show,
-            the same rule `logisticChestFilters` follows: what the incoming
-            filter carries still wins.
+            index, name and count and nothing else - bar a quality-only slot,
+            which carries its own quality and comparator (issue #493). A slot
+            still holding the same item keeps the quality and comparator the
+            dialog cannot show, the same rule `logisticChestFilters` follows:
+            what the incoming filter carries still wins.
         */
         const held = this.m_rawEntity.filters ?? []
         const filters = _filters?.map(f => {
@@ -1473,8 +1511,34 @@ export class Entity extends EventEmitter<EntityEvents> {
                 this.directionType = this.directionType === 'input' ? 'output' : 'input'
             }
 
+            const turned = (newDir - this.direction) / 16
             this.direction = newDir
+            this.turnOrientation(turned)
         })
+    }
+
+    /**
+     * Rolling stock from a blueprint draws by `orientation`, not `direction`
+     * (#520), so a rotate has to turn both or the drawing and the export stay
+     * where they were. Its own action, emitting `direction` itself, because on
+     * do and redo a transaction applies its actions in order: the `direction`
+     * action redraws first, while the old orientation is still set, so without
+     * this emit R would show no change. Undo runs them in reverse, restoring
+     * the orientation before the `direction` action redraws, so there the emit
+     * only repeats a redraw.
+     */
+    private turnOrientation(turns: number): void {
+        const orientation = this.m_rawEntity.orientation
+        if (orientation === undefined) return
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'orientation',
+                (((orientation + turns) % 1) + 1) % 1,
+                'Change orientation'
+            )
+            .onDone(() => this.emit('direction'))
+            .commit()
     }
 
     public canPasteSettings(sourceEntity: Entity): boolean {
@@ -1604,9 +1668,13 @@ export class Entity extends EventEmitter<EntityEvents> {
                     draws. This read `filterSlots`, so a requester or buffer
                     chest silently dropped everything past the 30th filter -
                     a UI layout constant deciding how much data survived a copy.
+
+                    A filter with no name is not an item the target could
+                    refuse, so `aF` has nothing to say about it: a quality-only
+                    inserter filter is carried like a named one (issue #493).
                 */
                     this.filters = sourceEntity.filters
-                        .filter(f => aF.includes(f.name))
+                        .filter(f => (f.name ? aF.includes(f.name) : isSetFilter(f)))
                         .slice(0, this.maxFilters)
                 } else {
                     this.filters = []

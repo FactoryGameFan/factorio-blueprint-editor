@@ -5,7 +5,7 @@
         "agricultural-tower": ["3:aee8ae27"],
         "arithmetic-combinator": ["3:0bc34c26", "3:339accdf", "3:8884e549", "3:97476b7e"],
         "artillery-turret": ["4:09767d50", "4:849b53d8", "4:c2a8f70d", "4:ec9d7e67"],
-        "artillery-wagon": ["6:3c92482e", "6:5a10aff6", "6:81f48d06", "6:9e18233e"],
+        "artillery-wagon": ["6:06d30016", "6:f2c5ef4e", "6:f508e26a", "6:f9b912da"],
         "assembling-machine-1": ["2:8c126754"],
         "assembling-machine-2": ["2:05686fc8"],
         "assembling-machine-3": ["2:3f084360"],
@@ -27,7 +27,7 @@
         "cargo-bay": ["26:cbfac3bd"],
         "cargo-landing-pad": ["73:53672163"],
         "cargo-pod-container": ["2:69ebec7c"],
-        "cargo-wagon": ["3:595d3990", "3:5ce699af", "3:74b86925", "3:f31225fe"],
+        "cargo-wagon": ["3:83f095ba", "3:f06056a4"],
         "centrifuge": ["6:5ca9d563"],
         "chemical-plant": ["6:b122c853", "6:c4a6f09c", "6:fc1864f3", "6:fd5c56ec"],
         "constant-combinator": ["2:118fa040", "2:64f4f99d", "2:7b6ceb11", "2:8b39342d"],
@@ -66,7 +66,7 @@
         "fast-transport-belt": ["3:0199143e", "3:5e80de94", "3:9f341680", "3:b96d0530"],
         "fast-underground-belt": ["5:0823b02a", "5:260b50ef", "5:d749d806", "5:f200dc37"],
         "flamethrower-turret": ["8:132bfba9", "8:6d1dcf61", "8:72c4bf05", "8:c24c280d"],
-        "fluid-wagon": ["2:3ddaa52f", "2:3f74dcbb", "2:634b11bf", "2:e4b2c563"],
+        "fluid-wagon": ["2:5094224b", "2:ab0d1e87"],
         "foundry": ["2:49dcb421"],
         "fulgoran-ruin-attractor": ["FAILED"],
         "fusion-generator": ["4:1b041bf3", "4:363119cf", "4:a143a0e6", "4:e2261a67"],
@@ -79,7 +79,7 @@
         "heat-pipe": ["1:bc42ba65"],
         "heating-tower": ["6:69d3325b"],
         "hidden-electric-energy-interface": ["FAILED"],
-        "infinity-cargo-wagon": ["3:06695c6d", "3:0914b6de", "3:71253f40", "3:98889d5f"],
+        "infinity-cargo-wagon": ["3:843f6523", "3:b93ef581"],
         "infinity-chest": ["2:78cd9b62"],
         "infinity-pipe": ["1:48de4745"],
         "inserter": ["3:07706f62", "3:30259dbc", "3:675d229b", "3:8dfb56b5"],
@@ -96,7 +96,7 @@
         "linked-chest": ["2:8be9bb75"],
         "loader": ["3:0c477b12", "3:1883c1b9", "3:48f42815", "3:4db192ea"],
         "loader-1x1": ["3:0c477b12", "3:1883c1b9", "3:48f42815", "3:4db192ea"],
-        "locomotive": ["3:476c2af2", "3:5c48d579", "3:859e5327", "3:b90ad8f0"],
+        "locomotive": ["3:0606f596", "3:489a404c", "3:cffe03fa", "3:e15da700"],
         "long-handed-inserter": ["3:2917c75e", "3:6f7203fc", "3:a605f1c6", "3:c5f9faab"],
         "market": ["1:11985d9d"],
         "medium-electric-pole": ["1:a9ef2e21"],
@@ -162,7 +162,7 @@
         "agricultural-tower": ["3:aee8ae27"],
         "arithmetic-combinator": ["3:0bc34c26", "3:339accdf", "3:8884e549", "3:97476b7e"],
         "artillery-turret": ["4:09767d50", "4:849b53d8", "4:c2a8f70d", "4:ec9d7e67"],
-        "artillery-wagon": ["6:3c92482e", "6:5a10aff6", "6:81f48d06", "6:9e18233e"],
+        "artillery-wagon": ["6:06d30016", "6:f2c5ef4e", "6:f508e26a", "6:f9b912da"],
         "assembling-machine-1": ["2:8c126754"],
         "assembling-machine-2": ["2:05686fc8"],
         "assembling-machine-3": ["2:3f084360"],
@@ -184,7 +184,7 @@
         "cargo-bay": ["7:7958b553"],
         "cargo-landing-pad": ["18:c17f30df"],
         "cargo-pod-container": ["2:69ebec7c"],
-        "cargo-wagon": ["3:595d3990", "3:5ce699af", "3:74b86925", "3:f31225fe"],
+        "cargo-wagon": ["3:83f095ba", "3:f06056a4"],
         "centrifuge": ["6:5ca9d563"],
         "chemical-plant": ["6:b122c853", "6:c4a6f09c", "6:fc1864f3", "6:fd5c56ec"],
         "constant-combinator": ["2:118fa040", "2:64f4f99d", "2:7b6ceb11", "2:8b39342d"],
@@ -223,7 +223,7 @@
         "fast-transport-belt": ["3:0199143e", "3:5e80de94", "3:9f341680", "3:b96d0530"],
         "fast-underground-belt": ["5:0823b02a", "5:260b50ef", "5:d749d806", "5:f200dc37"],
         "flamethrower-turret": ["8:132bfba9", "8:6d1dcf61", "8:72c4bf05", "8:c24c280d"],
-        "fluid-wagon": ["2:3ddaa52f", "2:3f74dcbb", "2:634b11bf", "2:e4b2c563"],
+        "fluid-wagon": ["2:5094224b", "2:ab0d1e87"],
         "foundry": ["2:49dcb421"],
         "fulgoran-ruin-attractor": ["FAILED"],
         "fusion-generator": ["4:1b041bf3", "4:363119cf", "4:a143a0e6", "4:e2261a67"],
@@ -236,7 +236,7 @@
         "heat-pipe": ["1:bc42ba65"],
         "heating-tower": ["6:69d3325b"],
         "hidden-electric-energy-interface": ["FAILED"],
-        "infinity-cargo-wagon": ["3:06695c6d", "3:0914b6de", "3:71253f40", "3:98889d5f"],
+        "infinity-cargo-wagon": ["3:843f6523", "3:b93ef581"],
         "infinity-chest": ["2:78cd9b62"],
         "infinity-pipe": ["1:48de4745"],
         "inserter": ["3:07706f62", "3:30259dbc", "3:675d229b", "3:8dfb56b5"],
@@ -253,7 +253,7 @@
         "linked-chest": ["2:8be9bb75"],
         "loader": ["3:0c477b12", "3:1883c1b9", "3:48f42815", "3:4db192ea"],
         "loader-1x1": ["3:0c477b12", "3:1883c1b9", "3:48f42815", "3:4db192ea"],
-        "locomotive": ["3:476c2af2", "3:5c48d579", "3:859e5327", "3:b90ad8f0"],
+        "locomotive": ["3:0606f596", "3:489a404c", "3:cffe03fa", "3:e15da700"],
         "long-handed-inserter": ["3:2917c75e", "3:6f7203fc", "3:a605f1c6", "3:c5f9faab"],
         "market": ["1:11985d9d"],
         "medium-electric-pole": ["1:a9ef2e21"],
@@ -346,7 +346,7 @@
             "7:b5d05ad8",
             "7:c1265d73"
         ],
-        "artillery-wagon": ["6:3c92482e"],
+        "artillery-wagon": ["6:f2c5ef4e"],
         "assembling-machine-1": ["2:8c126754", "5:f90d5236"],
         "assembling-machine-2": [
             "2:05686fc8",
@@ -403,7 +403,7 @@
         ],
         "cargo-bay": ["7:7958b553"],
         "cargo-landing-pad": ["18:c17f30df"],
-        "cargo-wagon": ["3:f31225fe"],
+        "cargo-wagon": ["3:83f095ba", "3:f06056a4"],
         "centrifuge": ["6:5ca9d563", "9:8bd93858"],
         "chemical-plant": [
             "6:b122c853",
@@ -728,7 +728,7 @@
             "5:f200dc37"
         ],
         "flamethrower-turret": ["8:6d1dcf61", "8:c24c280d"],
-        "fluid-wagon": ["2:3f74dcbb"],
+        "fluid-wagon": ["2:ab0d1e87"],
         "foundry": [
             "10:b5c236f9",
             "12:ecc6cd48",
@@ -767,7 +767,7 @@
         "laser-turret": ["4:d59a91db"],
         "lightning-collector": ["2:3bfde8e0"],
         "loader": ["3:1883c1b9", "3:48f42815", "3:4db192ea"],
-        "locomotive": ["3:b90ad8f0"],
+        "locomotive": ["3:0606f596", "3:489a404c", "3:e15da700"],
         "long-handed-inserter": [
             "3:2917c75e",
             "3:6f7203fc",
@@ -1015,7 +1015,7 @@
             "2:34aa592f"
         ],
         "artillery-turret": ["4:c2a8f70d", "4:849b53d8", "4:09767d50", "4:ec9d7e67", "4:c2a8f70d"],
-        "artillery-wagon": ["6:3c92482e", "6:9e18233e", "6:5a10aff6", "6:81f48d06", "6:3c92482e"],
+        "artillery-wagon": ["6:f508e26a", "6:f2c5ef4e", "6:f9b912da", "6:06d30016", "6:f508e26a"],
         "assembling-machine-1": [
             "2:8c126754",
             "2:8c126754",
@@ -1091,7 +1091,7 @@
             "2:69ebec7c",
             "2:69ebec7c"
         ],
-        "cargo-wagon": ["3:f31225fe", "3:74b86925", "3:595d3990", "3:5ce699af", "3:f31225fe"],
+        "cargo-wagon": ["3:f06056a4", "3:83f095ba", "3:f06056a4", "3:83f095ba", "3:f06056a4"],
         "centrifuge": ["6:5ca9d563", "6:5ca9d563", "6:5ca9d563", "6:5ca9d563", "6:5ca9d563"],
         "chemical-plant": ["6:fd5c56ec", "6:b122c853", "6:c4a6f09c", "6:fc1864f3", "6:fd5c56ec"],
         "constant-combinator": [
@@ -1256,7 +1256,7 @@
             "8:c24c280d",
             "8:72c4bf05"
         ],
-        "fluid-wagon": ["2:3f74dcbb", "2:3ddaa52f", "2:e4b2c563", "2:634b11bf", "2:3f74dcbb"],
+        "fluid-wagon": ["2:5094224b", "2:ab0d1e87", "2:5094224b", "2:ab0d1e87", "2:5094224b"],
         "foundry": ["2:19459e2d", "2:19459e2d", "2:19459e2d", "2:19459e2d", "2:19459e2d"],
         "fulgoran-ruin-attractor": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
         "fusion-generator": ["4:e2261a67", "4:363119cf", "4:a143a0e6", "4:1b041bf3", "4:e2261a67"],
@@ -1276,11 +1276,11 @@
         "heating-tower": ["6:69d3325b", "6:69d3325b", "6:69d3325b", "6:69d3325b", "6:69d3325b"],
         "hidden-electric-energy-interface": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
         "infinity-cargo-wagon": [
-            "3:06695c6d",
-            "3:0914b6de",
-            "3:98889d5f",
-            "3:71253f40",
-            "3:06695c6d"
+            "3:843f6523",
+            "3:b93ef581",
+            "3:843f6523",
+            "3:b93ef581",
+            "3:843f6523"
         ],
         "infinity-chest": ["2:78cd9b62", "2:78cd9b62", "2:78cd9b62", "2:78cd9b62", "2:78cd9b62"],
         "infinity-pipe": ["1:48de4745", "1:48de4745", "1:48de4745", "1:48de4745", "1:48de4745"],
@@ -1316,7 +1316,7 @@
         "linked-chest": ["2:8be9bb75", "2:8be9bb75", "2:8be9bb75", "2:8be9bb75", "2:8be9bb75"],
         "loader": ["3:4db192ea", "3:48f42815", "3:0c477b12", "3:1883c1b9", "3:4db192ea"],
         "loader-1x1": ["3:4db192ea", "3:48f42815", "3:0c477b12", "3:1883c1b9", "3:4db192ea"],
-        "locomotive": ["3:b90ad8f0", "3:859e5327", "3:476c2af2", "3:5c48d579", "3:b90ad8f0"],
+        "locomotive": ["3:cffe03fa", "3:e15da700", "3:0606f596", "3:489a404c", "3:cffe03fa"],
         "long-handed-inserter": [
             "3:6f7203fc",
             "3:c5f9faab",
@@ -1481,7 +1481,7 @@
             "7:b5d05ad8",
             "7:c1265d73"
         ],
-        "artillery-wagon": ["6:3c92482e"],
+        "artillery-wagon": ["6:f2c5ef4e"],
         "assembling-machine-1": ["2:8c126754", "5:f90d5236"],
         "assembling-machine-2": [
             "2:05686fc8",
@@ -1561,7 +1561,7 @@
             "31:71ce61a6"
         ],
         "cargo-landing-pad": ["65:4ca256e8", "65:ea60c732", "73:53672163", "74:ff64bfad"],
-        "cargo-wagon": ["3:f31225fe"],
+        "cargo-wagon": ["3:83f095ba", "3:f06056a4"],
         "centrifuge": ["6:5ca9d563", "9:8bd93858"],
         "chemical-plant": [
             "2:4a547e9a",
@@ -2183,7 +2183,7 @@
             "7:aedcda0c",
             "7:dae61479"
         ],
-        "fluid-wagon": ["2:3f74dcbb"],
+        "fluid-wagon": ["2:ab0d1e87"],
         "foundry": [
             "10:1f55c9a8",
             "2:19459e2d",
@@ -2325,7 +2325,7 @@
         "laser-turret": ["4:d59a91db"],
         "lightning-collector": ["2:3bfde8e0"],
         "loader": ["2:41fbcae8", "2:8649c5d3", "2:dc52eec7"],
-        "locomotive": ["3:b90ad8f0"],
+        "locomotive": ["3:0606f596", "3:489a404c", "3:e15da700"],
         "long-handed-inserter": [
             "3:2917c75e",
             "3:6f7203fc",

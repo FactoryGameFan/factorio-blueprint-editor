@@ -16,6 +16,7 @@ import {
     QUICKBAR_PAGE_COLUMN,
     QUICKBAR_WIDTH,
     barLength,
+    bottomBarTop,
 } from './barLayout'
 import { styles } from './style'
 
@@ -263,7 +264,7 @@ export class QuickbarPanel extends Panel {
     protected override setPosition(): void {
         this.position.set(
             Math.max(0, G.app.screen.width / 2 - this.width / 2),
-            G.app.screen.height - this.height + 1
+            bottomBarTop(G.app.screen.height, this.height)
         )
     }
 }
