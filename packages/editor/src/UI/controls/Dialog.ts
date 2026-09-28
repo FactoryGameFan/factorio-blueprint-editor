@@ -56,10 +56,11 @@ export abstract class Dialog extends Panel {
             `added` is the point a subclass cannot skip and cannot reach early.
             Pixi emits it from `addChild`/`addChildAt` on the child, and every
             dialog in this codebase is constructed and then added by its
-            creator - the five sites are `UIContainer`'s `createEditor`,
-            `toggleImportDialog`, `toggleExportDialog`,
-            `toggleBlueprintInfoEditor` and `createInventory`, each of which
-            adds to `dialogsContainer` on the next line. A constructor that
+            creator - the sites are all in `UIContainer`: `createEditor`,
+            `toggleBookDialog`, `toggleImportDialog`, `toggleExportDialog`,
+            `toggleBlueprintInfoEditor`, `toggleBillOfMaterials` and
+            `createInventory`, each of which adds to `dialogsContainer` in the
+            same synchronous call that constructed it. A constructor that
             throws never returns the object to be added, so it never
             registers. Nothing here adds a dialog to anything else, and
             `Panel`'s own `addChild` of its background emits on the
