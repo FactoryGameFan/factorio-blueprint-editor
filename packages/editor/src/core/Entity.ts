@@ -411,6 +411,16 @@ export class Entity extends EventEmitter<EntityEvents> {
             .commit()
     }
 
+    /**
+     * A rolling stock's heading, as a fraction of a clockwise turn from north.
+     * The game writes this and no `direction` for locomotives and wagons, so
+     * `direction` above reads 0 for every one of them in a real blueprint.
+     * Undefined for everything else, and for rolling stock the editor placed.
+     */
+    public get orientation(): number | undefined {
+        return this.m_rawEntity.orientation
+    }
+
     /** Rail layer (elevated) for rail signals on raised rails */
     public get railLayer(): string | undefined {
         return this.m_rawEntity.rail_layer
@@ -1494,8 +1504,34 @@ export class Entity extends EventEmitter<EntityEvents> {
                 this.directionType = this.directionType === 'input' ? 'output' : 'input'
             }
 
+            const turned = (newDir - this.direction) / 16
             this.direction = newDir
+            this.turnOrientation(turned)
         })
+    }
+
+    /**
+     * Rolling stock from a blueprint draws by `orientation`, not `direction`
+     * (#520), so a rotate has to turn both or the drawing and the export stay
+     * where they were. Its own action, emitting `direction` itself, because on
+     * do and redo a transaction applies its actions in order: the `direction`
+     * action redraws first, while the old orientation is still set, so without
+     * this emit R would show no change. Undo runs them in reverse, restoring
+     * the orientation before the `direction` action redraws, so there the emit
+     * only repeats a redraw.
+     */
+    private turnOrientation(turns: number): void {
+        const orientation = this.m_rawEntity.orientation
+        if (orientation === undefined) return
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'orientation',
+                (((orientation + turns) % 1) + 1) % 1,
+                'Change orientation'
+            )
+            .onDone(() => this.emit('direction'))
+            .commit()
     }
 
     public canPasteSettings(sourceEntity: Entity): boolean {
