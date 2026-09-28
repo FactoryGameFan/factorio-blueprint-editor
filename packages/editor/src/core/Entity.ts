@@ -180,6 +180,7 @@ export interface EntityEvents {
     splitterFilter: []
     filters: []
     inserterFilters: []
+    inserterStackSize: []
     filterMode: [mode: FilterMode]
     logisticChestFilters: []
     requestFromBufferChest: []
@@ -457,12 +458,24 @@ export class Entity extends EventEmitter<EntityEvents> {
      * which is also the direction its partner has to be searched for in.
      *
      * An input faces the way it points; an output's connection comes from
-     * behind it. Anything without a directionType - a pipe-to-ground, which
-     * stores none - takes the output form, which is the convention every caller
-     * already used before this getter collected them.
+     * behind it, and so does a pipe to ground's, whatever `type` it carries.
+     *
+     * A belt without a directionType takes the output form too. The game
+     * writes `type` on every underground belt - all 28,660 in the committed
+     * corpus carry one - and on none of its 11,057 pipes to ground, so a belt
+     * without one only comes from a hand-made string. What the game makes of
+     * that string is unmeasured (`LuaSurface.create_entity`, a different path,
+     * defaults to input). The editor draws such a belt as an output -
+     * `draw_underground_belt` tests `dirType === 'input'` - and `rotate` turns
+     * it into an input, so pairing it as an output keeps the hover line and the
+     * alt-mode marker (#344) agreeing with the sprite. `EntityContainer` once
+     * kept its own copy that took the input form, so one end of such a pair
+     * saw its partner while the partner's check refused it.
      */
     public get undergroundSearchDirection(): number {
-        return this.directionType === 'input' ? this.direction : (this.direction + 8) % 16
+        return this.type !== 'pipe-to-ground' && this.directionType === 'input'
+            ? this.direction
+            : (this.direction + 8) % 16
     }
 
     /** Entity recipe */
@@ -1107,6 +1120,44 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
         }
         return null
+    }
+
+    /**
+     * The hand size override exactly as the blueprint carries it: undefined
+     * when the inserter has none, which `inserterStackSize` above hides behind
+     * its fallback. Setting undefined deletes the field rather than writing a
+     * value, so a cleared override exports the same as one never set (#339).
+     */
+    public get inserterStackSizeOverride(): number | undefined {
+        return this.m_rawEntity.override_stack_size
+    }
+
+    public set inserterStackSizeOverride(size: number | undefined) {
+        if (this.m_rawEntity.override_stack_size === size) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'override_stack_size', size, 'Change stack size')
+            .onDone(() => this.emit('inserterStackSize'))
+            .commit()
+    }
+
+    /*
+        The largest hand the game can give this inserter with every technology
+        researched, or undefined for an entity that is not an inserter. The
+        technologies are not in data.json, so their totals are written here,
+        read from factorio-data 2.0.77's technology.lua:
+
+        - Every inserter starts at 1.
+        - `inserter-stack-size-bonus` adds 1 each in inserter-capacity-bonus-2
+          and -7, and Space Age's transport-belt-capacity-2 adds a third: 4.
+        - `bulk-inserter-capacity-bonus` adds 1 in the bulk-inserter technology
+          and 1, 1, 1, 1, 2, 2, 2 in inserter-capacity-bonus-1 to -7: 12.
+        - The prototype's own `stack_size_bonus` goes on top, which only the
+          stack inserter has (4): 16.
+    */
+    public get inserterStackSizeLimit(): number | undefined {
+        if (!isInserter(this.entityData)) return undefined
+        return (this.entityData.bulk ? 12 : 4) + (this.entityData.stack_size_bonus ?? 0)
     }
 
     public get constantCombinatorFilters(): string[] {

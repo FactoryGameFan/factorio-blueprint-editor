@@ -155,6 +155,13 @@ export interface FbeTestApi {
      */
     spriteDataTally: (blueprint?: unknown, opts?: { withGrid?: boolean }) => SpriteDataTally
     /**
+     * The sheet each sprite layer of one entity in the loaded blueprint is cut
+     * from, in draw order - what the tally's digest hashes away. A multi-file
+     * layer's `filenames` are joined with ",". See
+     * tests/foundry-pipe-connectors.spec.ts.
+     */
+    spriteLayerFiles: (entityNumber: number, opts?: { withGrid?: boolean }) => string[] | 'FAILED'
+    /**
      * The bare-object path PaintEntityContainer draws with, for each direction.
      * An `undefined` entry omits `direction` entirely, which is what exercises
      * EntitySprite.getDrawData's `dir` default.
@@ -202,6 +209,12 @@ export interface FbeTestApi {
      * selection sweep does not. See tests/persistent-selection.spec.ts.
      */
     infoOverlayVisible: () => boolean
+    /**
+     * The entity numbers of the undergrounds alt mode marks as having no
+     * partner, ascending; empty while alt mode is off. See
+     * tests/unpaired-underground-markers.spec.ts.
+     */
+    markedUnpairedUndergrounds: () => number[]
     /**
      * Where the entity sits in client coordinates - the space a synthetic
      * pointer move takes - or undefined if the loaded blueprint has no such
@@ -324,6 +337,8 @@ export interface FbeTestApi {
      * tests/inserter-throughput.spec.ts.
      */
     entityInfoText: (entityNumber: number) => string
+    /** The live info panel's text, or undefined while it is hidden. See tests/inserter-stack-size.spec.ts. */
+    entityInfoPanelText: () => string | undefined
     /**
      * Constructs a dialog whose constructor throws after `super()`, without
      * adding it to the display tree, and answers whether it threw.

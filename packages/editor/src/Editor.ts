@@ -247,6 +247,15 @@ export class Editor {
     }
 
     /**
+     * The entity numbers of the underground belts and pipes to ground alt mode
+     * marks as having no partner (#344), none while alt mode is off. See
+     * tests/unpaired-underground-markers.spec.ts.
+     */
+    public get unpairedUndergroundMarkers(): number[] {
+        return G.BPC.unpairedUndergroundMarkers
+    }
+
+    /**
      * `History.revision`. A group move or mirror has to be *one* undo step, and
      * counting transactions is the only way a spec can tell one from two - the
      * end state of the entities is the same either way. See
@@ -413,6 +422,11 @@ export class Editor {
     /** The topmost open dialog, for test hooks that read what it draws. */
     public get topDialog(): Container | undefined {
         return G.UI.topDialog
+    }
+
+    /** What the live entity info panel says, or undefined while it is hidden. */
+    public get entityInfoPanelText(): string | undefined {
+        return G.UI.entityInfoPanelText
     }
 
     /**

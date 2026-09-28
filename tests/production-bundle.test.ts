@@ -72,9 +72,11 @@ const TEST_API_MARKERS = [
     'rebindAction',
     'stationNameRuns',
     'stationNameIconFiles',
+    'markedUnpairedUndergrounds',
     'marqueeCountText',
     'billOfMaterialsTally',
     'billOfMaterialsDrawn',
+    'spriteLayerFiles',
 ]
 
 let bundledJs = ''

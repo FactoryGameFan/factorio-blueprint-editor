@@ -202,6 +202,37 @@ export class History {
     private activeTransaction: Transaction | undefined
     private transactionHistory: Transaction[] = []
 
+    /** True while `undo`, `redo` or a deferred `Transaction.apply` is replaying actions. */
+    private replaying = false
+
+    private readonly settleListeners = new Set<() => void>()
+
+    /**
+     * True while a batch of edits is still landing: a transaction is open, or
+     * an undo, a redo or a deferred apply is replaying one. An observer that
+     * reacts to single edits can read this to hold its reaction until
+     * `onSettled` fires, instead of judging a half-applied batch - a group
+     * move relocates its members one at a time, so between two of them one
+     * member can share a tile with another that has not moved away yet.
+     */
+    public get busy(): boolean {
+        return this.transactionCount > 0 || this.replaying
+    }
+
+    /**
+     * Calls `fn` each time a whole batch has landed: after the outermost
+     * `commitTransaction`, and after every `undo` and `redo`. Returns the
+     * function that removes it.
+     */
+    public onSettled(fn: () => void): () => void {
+        this.settleListeners.add(fn)
+        return () => this.settleListeners.delete(fn)
+    }
+
+    private settle(): void {
+        for (const fn of this.settleListeners) fn()
+    }
+
     /**
      * A cheap "did anything happen" signal for a caller that wants to react
      * to edits without diffing the blueprint itself (`ExportDialog`'s own
@@ -311,7 +342,7 @@ export class History {
     public undo(): boolean {
         if (this.historyIndex === 0) return false
         const historyEntry = this.transactionHistory[this.historyIndex - 1]
-        historyEntry.undo()
+        this.replay(() => historyEntry.undo())
         this.historyIndex -= 1
 
         if (this.logging) {
@@ -328,7 +359,7 @@ export class History {
     public redo(): boolean {
         if (this.historyIndex === this.transactionHistory.length) return false
         const historyEntry = this.transactionHistory[this.historyIndex]
-        historyEntry.redo()
+        this.replay(() => historyEntry.redo())
         this.historyIndex += 1
 
         if (this.logging) {
@@ -388,6 +419,7 @@ export class History {
             const transaction = this.openTransaction
             if (transaction.empty()) {
                 this.activeTransaction = undefined
+                this.settle()
                 return false
             }
 
@@ -396,7 +428,12 @@ export class History {
                     this.transactionHistory.pop()
                 }
 
-                transaction.apply()
+                this.replaying = true
+                try {
+                    transaction.apply()
+                } finally {
+                    this.replaying = false
+                }
                 this.transactionHistory.push(transaction)
                 if (this.logging) {
                     if (this.historyIndex !== 0 && this.historyIndex % 20 === 0) {
@@ -418,10 +455,22 @@ export class History {
                 return true
             } finally {
                 this.activeTransaction = undefined
+                this.settle()
             }
         }
 
         return false
+    }
+
+    /** Runs an undo or redo with `busy` held true, then lets the listeners see the result. */
+    private replay(fn: () => void): void {
+        this.replaying = true
+        try {
+            fn()
+        } finally {
+            this.replaying = false
+            this.settle()
+        }
     }
 
     /** Gets the value of the `Array` or `Object` at the specified key  */

@@ -10,6 +10,11 @@ import type { CursorBoxType } from '../core/overlayShapes'
 export class EntityContainer {
     public static readonly mappings: Map<number, EntityContainer> = new Map()
 
+    /** Undergrounds whose marker waits for the edit batch to land; see queueUnpairedCheck. */
+    private static readonly pendingUnpairedChecks = new Set<number>()
+    /** Where those edits happened, to find the undergrounds in reach of each. */
+    private static readonly pendingNeighbourScans: { name: string; position: IPoint }[] = []
+
     /**
      * The container drawing `entityNumber`, for callers holding an entity that is
      * live in the current blueprint.
@@ -49,6 +54,8 @@ export class EntityContainer {
     private cursorBoxContainer: Container | undefined
     /** This is only a reference */
     private undergroundLine: Container | undefined
+    /** The alt-mode box on an underground with no partner (#344); see updateUnpairedMarker. */
+    private unpairedMarker: Container | undefined
 
     private readonly m_Entity: Entity
     /*
@@ -72,6 +79,11 @@ export class EntityContainer {
         this.redraw(false, sort)
         if (sort) {
             this.redrawSurroundingEntities()
+            this.queueUnpairedCheck(this.m_Entity.position)
+        } else {
+            // initBP: the grid already holds the whole blueprint, so this
+            // check is final and there are no neighbours to revisit
+            this.updateUnpairedMarker()
         }
 
         const onRecipeChange = (): void => {
@@ -87,6 +99,7 @@ export class EntityContainer {
             this.redrawSurroundingEntities()
 
             this.updateUndergroundLine()
+            this.queueUnpairedCheck(this.m_Entity.position)
             this.redrawEntityInfo()
             G.BPC.wiresContainer.update(this.m_Entity.entityNumber)
         }
@@ -96,6 +109,7 @@ export class EntityContainer {
             this.redrawSurroundingEntities()
 
             this.updateUndergroundLine()
+            this.queueUnpairedCheck(this.m_Entity.position)
         }
 
         const onPositionChange = (newPos: IPoint, oldPos: IPoint): void => {
@@ -104,6 +118,7 @@ export class EntityContainer {
             this.redrawSurroundingEntities(newPos)
 
             this.updateUndergroundLine()
+            this.queueUnpairedCheck(oldPos, newPos)
             this.redrawEntityInfo()
             G.BPC.wiresContainer.update(this.m_Entity.entityNumber)
             this.visualizationArea.moveTo(this.position)
@@ -114,6 +129,16 @@ export class EntityContainer {
             if (this.m_Entity.type === 'beacon') {
                 this.redraw()
             }
+        }
+
+        /*
+            The info panel's speed line reads the stack size, and nothing else
+            drawn for an inserter does. Only while hovered, because that is when
+            the panel is showing this entity - an undo pressed there would
+            otherwise leave it on the old number until the pointer moved (#339).
+        */
+        const onInserterStackSizeChange = (): void => {
+            if (G.BPC.hoverContainer === this) G.UI.updateEntityInfoPanel(this.m_Entity)
         }
 
         const onDisplayPanelIconChange = (): void => {
@@ -130,6 +155,10 @@ export class EntityContainer {
             EntityContainer.mappings.delete(this.m_Entity.entityNumber)
 
             this.cursorBox = undefined
+            this.destroyUnpairedMarker()
+            // the grid has already let go of this entity, so a neighbour it was
+            // paired with now finds nothing
+            this.queueUnpairedCheck(this.m_Entity.position)
 
             this.visualizationArea.destroy()
 
@@ -145,6 +174,7 @@ export class EntityContainer {
         this.m_Entity.on('modules', onModulesChange)
 
         this.m_Entity.on('filters', this.redrawEntityInfo)
+        this.m_Entity.on('inserterStackSize', onInserterStackSizeChange)
         this.m_Entity.on('splitterInputPriority', this.redrawEntityInfo)
         this.m_Entity.on('splitterOutputPriority', this.redrawEntityInfo)
         this.m_Entity.on('displayPanelIcon', onDisplayPanelIconChange)
@@ -162,6 +192,7 @@ export class EntityContainer {
             this.m_Entity.off('modules', onModulesChange)
 
             this.m_Entity.off('filters', this.redrawEntityInfo)
+            this.m_Entity.off('inserterStackSize', onInserterStackSizeChange)
             this.m_Entity.off('splitterInputPriority', this.redrawEntityInfo)
             this.m_Entity.off('splitterOutputPriority', this.redrawEntityInfo)
             this.m_Entity.off('displayPanelIcon', onDisplayPanelIconChange)
@@ -194,6 +225,7 @@ export class EntityContainer {
             if (this.entityInfo !== undefined) {
                 this.entityInfo.destroy()
             }
+            this.destroyUnpairedMarker()
         })
     }
 
@@ -348,6 +380,9 @@ export class EntityContainer {
         if (this.entityInfo !== undefined) {
             this.entityInfo.position.set(this.entityInfo.x + dx, this.entityInfo.y + dy)
         }
+        if (this.unpairedMarker !== undefined) {
+            this.unpairedMarker.position.set(this.unpairedMarker.x + dx, this.unpairedMarker.y + dy)
+        }
     }
 
     /** `undefined` removes the box, which is how every hover-out and mode exit clears it. */
@@ -370,10 +405,95 @@ export class EntityContainer {
             this.m_Entity.name,
             this.m_Entity.position,
             this.m_Entity.direction,
-            this.m_Entity.directionType === 'output' || this.m_Entity.type === 'pipe-to-ground'
-                ? (this.m_Entity.direction + 8) % 16
-                : this.m_Entity.direction
+            this.m_Entity.undergroundSearchDirection
         )
+    }
+
+    private get isUnderground(): boolean {
+        return this.m_Entity.type === 'underground-belt' || this.m_Entity.type === 'pipe-to-ground'
+    }
+
+    /**
+     * Draws or clears the alt-mode marker, from the same partner lookup the
+     * hover line uses. `initBP` calls it directly; every edit goes through
+     * `queueUnpairedCheck` instead.
+     */
+    private updateUnpairedMarker(): void {
+        this.destroyUnpairedMarker()
+        if (!this.isUnderground) return
+        const partner = G.bp.entityPositionGrid.getUndergroundPartner(
+            this.m_Entity.name,
+            this.m_Entity.position,
+            this.m_Entity.direction,
+            this.m_Entity.undergroundSearchDirection
+        )
+        if (partner !== undefined) return
+        this.unpairedMarker = G.BPC.overlayContainer.createUnpairedMarker(
+            this.m_Entity.entityNumber,
+            {
+                x: this.position.x + this.dragOffset.x,
+                y: this.position.y + this.dragOffset.y,
+            },
+            this.m_Entity.size
+        )
+    }
+
+    private destroyUnpairedMarker(): void {
+        if (this.unpairedMarker) {
+            this.unpairedMarker.destroy()
+            this.unpairedMarker = undefined
+        }
+    }
+
+    /**
+     * Asks for this underground's marker to be re-checked, together with every
+     * same-name underground in reach of each of `positions` - the places it
+     * arrived at, left or turned at, the only ones whose pairing that edit can
+     * change. The check waits for the whole batch of edits to land
+     * (`flushUnpairedChecks`, on `History.onSettled`) and runs at once only
+     * outside one.
+     *
+     * The wait is what keeps a group edit right. A group move or mirror
+     * relocates its members one at a time, and `getOpposingEntity` only reads
+     * a cell holding a single entity, so partway through, a member sitting on
+     * a tile another member has not left yet hides everything past it. A pair
+     * checked at that moment kept its "unpaired" marker after the move had put
+     * it back together (tests/unpaired-underground-markers.spec.ts). Undo and
+     * redo replay the same one-at-a-time writes, so they wait too.
+     */
+    private queueUnpairedCheck(...positions: IPoint[]): void {
+        if (!this.isUnderground) return
+        EntityContainer.pendingUnpairedChecks.add(this.m_Entity.entityNumber)
+        for (const position of positions) {
+            EntityContainer.pendingNeighbourScans.push({
+                name: this.m_Entity.name,
+                position: { x: position.x, y: position.y },
+            })
+        }
+        if (!G.bp.history.busy) EntityContainer.flushUnpairedChecks()
+    }
+
+    /**
+     * Runs the checks `queueUnpairedCheck` held back, each underground once
+     * however many edits named it, against the grid as the batch left it.
+     * Numbers are looked up again rather than held as containers, so an
+     * underground deleted within the batch is skipped and one re-created under
+     * the same number (a fast replace, an undo) is checked as it is now.
+     */
+    public static flushUnpairedChecks(): void {
+        if (EntityContainer.pendingUnpairedChecks.size === 0) return
+        const numbers = new Set(EntityContainer.pendingUnpairedChecks)
+        const scans = EntityContainer.pendingNeighbourScans.splice(0)
+        EntityContainer.pendingUnpairedChecks.clear()
+
+        for (const { name, position } of scans) {
+            for (const entity of G.bp.entityPositionGrid.getUndergroundsInReach(name, position)) {
+                numbers.add(entity.entityNumber)
+            }
+        }
+        for (const entityNumber of numbers) {
+            EntityContainer.mappings.get(entityNumber)?.updateUnpairedMarker()
+        }
     }
 
     private destroyUndergroundLine(): void {

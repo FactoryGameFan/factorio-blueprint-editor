@@ -627,6 +627,7 @@ const testApi = {
     entityDragOffset: (entityNumber: number) => editor.entityDragOffset(entityNumber),
     historyRevision: () => editor.historyRevision,
     infoOverlayVisible: () => editor.infoOverlayVisible,
+    markedUnpairedUndergrounds: () => editor.unpairedUndergroundMarkers,
     /*
         Where an entity sits on screen, so a spec can put the pointer on it.
         Hovering is the only way into EDIT, and that is the entry point for
@@ -769,6 +770,12 @@ const testApi = {
             panel.destroy()
         }
     },
+    /*
+        What the app's own info panel says right now, or undefined while it is
+        hidden - the live one, which entityInfoText above deliberately is not,
+        for a spec checking that the panel follows an edit (#339).
+    */
+    entityInfoPanelText: () => editor.entityInfoPanelText,
     /*
         Whether the copy cursor box is drawn - the outline shown on a settings
         copy source while hovering a valid target. The only visible consequence
@@ -966,6 +973,23 @@ const testApi = {
             Math.random = realRandom
         }
         return out
+    },
+    /*
+        The sheet each sprite layer of one loaded entity is cut from, in draw
+        order: `filename`, or a multi-file layer's `filenames` joined with ",".
+        The digest above hashes the order away into a number, so a spec that
+        needs to say which sheet lands in front of which reads this instead.
+        Same grid choice as spriteDataTally; "FAILED" where the generator threw.
+    */
+    spriteLayerFiles: (entityNumber: number, opts?: { withGrid?: boolean }) => {
+        const grid = opts?.withGrid === false ? undefined : bp.entityPositionGrid
+        const data = getSpriteData(
+            EntitySprite.getDrawData(entityOf(entityNumber), grid)
+        ) as unknown
+        if (data === SPRITE_GENERATION_FAILED) return 'FAILED' as const
+        return (data as readonly { filename?: string; filenames?: readonly string[] }[]).map(
+            layer => layer.filename ?? layer.filenames?.join(',') ?? ''
+        )
     },
     /*
         The same digest for the bare `{ name, direction, directionType }` object

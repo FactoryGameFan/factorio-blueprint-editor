@@ -105,6 +105,11 @@ export class UIContainer extends Container {
         this.dialogsContainer.addChild(this.bookDialog)
     }
 
+    /** What the entity info panel says, or undefined while it is hidden. */
+    public get entityInfoPanelText(): string | undefined {
+        return this.entityInfoPanel.visible ? this.entityInfoPanel.infoText : undefined
+    }
+
     /** `undefined` hides the panel, which is what a hover-out sends. */
     public updateEntityInfoPanel(entity: Entity | undefined): void {
         this.entityInfoPanel.updateVisualization(entity)
