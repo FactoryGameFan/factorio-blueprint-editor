@@ -24,7 +24,7 @@ import { need } from '../core/need'
 import { drawShapes } from '../common/drawShapes'
 import { ZOOM_MAX } from '../core/zoomLevels'
 import type { IconShape } from '../core/shortcutIcons'
-import { iconTagSource, splitRichTextIcons } from '../core/richTextIcons'
+import { IconTagType, iconTagSource, splitRichTextIcons } from '../core/richTextIcons'
 import {
     CURSOR_BOX_FRAME,
     CornerSize,
@@ -934,13 +934,7 @@ function createStationNameLabel(text: string): Container {
     let x = 0
     for (const run of splitRichTextIcons(text)) {
         if (run.kind === 'icon') {
-            const source = iconTagSource(run.type, run.name)
-            let icon: Container | undefined
-            try {
-                icon = source === undefined ? undefined : F.CreateIconFrom(source, iconSize)
-            } catch {
-                icon = undefined
-            }
+            const icon = createIconTagIcon(run.type, run.name, iconSize)
             if (icon !== undefined) {
                 icon.label = `icon:${run.name}`
                 icon.position.set(x + iconSize / 2, -lineHeight / 2)
@@ -960,6 +954,32 @@ function createStationNameLabel(text: string): Container {
     const label = withLabelBackground(row, x, lineHeight)
     label.label = 'station-name'
     return label
+}
+
+/**
+ * The icon an icon tag draws, from the collection its type names (see
+ * `iconTagSource`), or undefined when there is none or it cannot be built.
+ *
+ * The drawn icon sits in a wrapper so it can keep a label of its own: the
+ * file, or files joined with ` + `, it was drawn from, which the
+ * `stationNameIconFiles` test hook reads. The run's `icon:<name>` says only
+ * that some icon was drawn for the tag; the file says which prototype it came
+ * from, and so whether `[recipe=pentapod-egg]` drew the recipe's icon or the
+ * item's.
+ */
+function createIconTagIcon(type: IconTagType, name: string, size: number): Container | undefined {
+    const source = iconTagSource(type, name)
+    if (source === undefined) return undefined
+    let drawn: Container
+    try {
+        drawn = F.CreateIconFrom(source, size)
+    } catch {
+        return undefined
+    }
+    drawn.label = source.icons ? source.icons.map(i => i.icon).join(' + ') : (source.icon ?? '')
+    const icon = new Container()
+    icon.addChild(drawn)
+    return icon
 }
 
 /**

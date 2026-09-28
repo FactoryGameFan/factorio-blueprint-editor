@@ -79,6 +79,30 @@ function stationNameRunsIn(root: Container | undefined): string[] | undefined {
     return undefined
 }
 
+/**
+ * The file each icon in the first train stop name label under `root` was drawn
+ * from, in order - the label on the drawn icon inside each `icon:<name>` run
+ * (see OverlayContainer's createIconTagIcon). Undefined when there is no label.
+ */
+function stationNameIconFilesIn(root: Container | undefined): string[] | undefined {
+    if (root === undefined) return undefined
+    for (const child of root.children) {
+        if (child.label === 'station-name') {
+            const row = child.children[1]
+            return (row?.children ?? [])
+                .filter(c => !(c instanceof Text))
+                .map(c => {
+                    // Typed string, but null at runtime on a node nobody labelled.
+                    const file: string | null = c.children[0]?.label ?? null
+                    return file ?? ''
+                })
+        }
+        const found = stationNameIconFilesIn(child)
+        if (found !== undefined) return found
+    }
+    return undefined
+}
+
 let t0 = performance.now()
 
 const CANVAS = element<HTMLCanvasElement>('editor')
@@ -877,6 +901,13 @@ const testApi = {
         train stop editor shows the name there as well.
     */
     previewStationNameRuns: () => stationNameRunsIn(editor.topDialog),
+    /*
+        Which file each icon in that live label was drawn from. The runs say an
+        icon was drawn for a tag; this says which prototype it came from - for
+        `[recipe=pentapod-egg]`, whether it was the recipe's icon or the item's.
+    */
+    stationNameIconFiles: (entityNumber: number) =>
+        stationNameIconFilesIn(EntityContainer.containerOf(entityNumber).liveEntityInfo),
     /*
         A write through `Entity.set station`, which is what TrainStopEditor's
         name field sends.

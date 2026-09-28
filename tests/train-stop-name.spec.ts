@@ -36,8 +36,19 @@ const TRAIN_STOPS = encode({
             name: 'train-stop',
             position: { x: 21, y: 1 },
             direction: 0,
-            // No item or signal named `character`, so no icon to draw.
+            /*
+                An `[entity=]` tag is looked up in the entities alone, and the
+                exported data carries no `character` entity (nor anything else
+                by that name), so there is no icon to draw.
+            */
             station: '[entity=character] Station',
+        },
+        {
+            entity_number: 4,
+            name: 'train-stop',
+            position: { x: 31, y: 1 },
+            direction: 0,
+            station: '[entity=straight-rail] [recipe=pentapod-egg]',
         },
     ],
 })
@@ -71,6 +82,26 @@ test('a tag with no icon to draw is printed as typed', async ({ page }) => {
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
 
+/*
+    Each tag type resolves in its own collection (`iconTagSource`), and these two
+    tags are the names that tell a scoped lookup from a name-only one.
+    `straight-rail` is an entity and no item, so a lookup that went to the items
+    finds nothing and prints the tag raw. `pentapod-egg` is both a recipe and an
+    item, with different icons - the recipe's is `pentapod-egg-3.png` - so a
+    lookup that tried the items first still draws an icon, just the wrong one,
+    and only the file it was drawn from shows it.
+*/
+test('an icon tag draws the icon of the prototype its type names', async ({ page }) => {
+    const errors = await load(page)
+
+    expect(await runs(page, 4)).toEqual(['icon:straight-rail', ' ', 'icon:pentapod-egg'])
+    expect(await page.evaluate(() => window.__fbe_test.stationNameIconFiles(4))).toEqual([
+        '__base__/graphics/icons/rail.png',
+        '__space-age__/graphics/icons/pentapod-egg-3.png',
+    ])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
 test('renaming a train stop redraws its name', async ({ page }) => {
     const errors = await load(page)
 
@@ -89,22 +120,6 @@ test('naming an unnamed train stop draws the name', async ({ page }) => {
     expect(await runs(page, 2)).toEqual(['Depot'])
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
-
-/*
-    Resolves after two rendered frames. A TextInput's element is `display: none`
-    from _onAdded until pixi's first render after the dialog opens shows it, and
-    focus() on a hidden element is a silent no-op - the keys typed next would go
-    to the canvas as keybinds. Two frames because the first callback can be
-    queued ahead of pixi's own render. The same race and fix as
-    text-input.spec.ts's nextFrame.
-*/
-const nextFrame = (page: Page): Promise<void> =>
-    page.evaluate(
-        () =>
-            new Promise<void>(resolve =>
-                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-            )
-    )
 
 /*
     The train stop editor's preview draws its overlay with the same
@@ -126,8 +141,22 @@ test('the train stop editor preview follows a rename typed into it', async ({ pa
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
     expect(await page.evaluate(() => window.__fbe_test.previewStationNameRuns())).toBeUndefined()
 
-    // The station box is the first TextInput element, and it starts empty.
-    await nextFrame(page)
+    /*
+        The station box is the first TextInput element - the one with an inline
+        style, which the settings pane's inputs lack - and it starts empty.
+
+        TextInput appends it `display: none`, and only pixi's first render after
+        the dialog opens shows it; focus() on a hidden element is a silent no-op,
+        and the keys typed next would go to the canvas as keybinds. So wait for
+        it to be shown rather than for a number of frames, the same race
+        text-input.spec.ts's nextFrame waits out.
+    */
+    await page.waitForFunction(() => {
+        const el = ([...document.querySelectorAll('input, textarea')] as HTMLInputElement[]).find(
+            i => i.style.cssText !== ''
+        )
+        return el !== undefined && el.style.display !== 'none'
+    })
     await page.evaluate(() => {
         const el = ([...document.querySelectorAll('input, textarea')] as HTMLInputElement[]).find(
             i => i.style.cssText !== ''

@@ -140,6 +140,11 @@ export interface FbeTestApi {
     stationNameRuns: (entityNumber: number) => string[] | undefined
     /** The same, for the preview in the topmost open dialog. */
     previewStationNameRuns: () => string[] | undefined
+    /**
+     * The file each icon in a train stop's live name label was drawn from, in
+     * order; layered icons join their files with ` + `.
+     */
+    stationNameIconFiles: (entityNumber: number) => string[] | undefined
     /** Writes `Entity.station`, as TrainStopEditor's name field does. */
     setStation: (entityNumber: number, station: string | undefined) => void
     overlayInfoTally: () => OverlayTally

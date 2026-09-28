@@ -71,6 +71,7 @@ const TEST_API_MARKERS = [
     'shortcutBarHoverText',
     'rebindAction',
     'stationNameRuns',
+    'stationNameIconFiles',
     'marqueeCountText',
     'billOfMaterialsTally',
     'billOfMaterialsDrawn',
