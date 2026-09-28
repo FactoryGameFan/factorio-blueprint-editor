@@ -51,8 +51,12 @@ import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'fac
 export interface IFilter {
     /** Slot index (1 based ... not 0 like arrays) */
     index: number
-    /** Name of entity to be filtered */
-    name: string
+    /**
+        Name of entity to be filtered. Absent on a quality-only filter - an
+        inserter can filter on `quality` and `comparator` with no item - so a
+        filter is only empty when it has none of the three (issue #493).
+    */
+    name?: string
     /** If stacking is allowed, how many shall be stacked */
     count?: number
     /*
@@ -77,12 +81,21 @@ export interface IFilter {
  * than one per set filter - so an empty slot is present with no name.
  *
  * Only the `filters` setter takes these, and it drops the empty ones on the way
- * in (`list.filter(f => !!f.name)`), which is why the getter can still answer
- * the narrower `IFilter[]`: nothing without a name is ever stored.
+ * in (`isSetFilter`). This used to be a wider type than `IFilter`, whose name
+ * was required, but a quality-only inserter filter has no name either and is
+ * not empty (issue #493), so the two are now the same shape.
  */
-export interface IFilterSlot extends Omit<IFilter, 'name'> {
-    name: string | undefined
-}
+export type IFilterSlot = IFilter
+
+/**
+ * Whether a filter says anything: an item, a quality or a comparator. A
+ * quality-only filter - `{ index, quality: 'normal', comparator: '=' }` - is one
+ * an inserter really holds, so a missing name alone does not make a slot empty
+ * (issue #493). `!!name` rather than `!== undefined` keeps the empty-string
+ * name the old `!!f.name` check treated as no name.
+ */
+const isSetFilter = (f: IFilter): boolean =>
+    !!f.name || f.quality !== undefined || f.comparator !== undefined
 
 /**
  * The types that carry a top-level `bar` - a chest's inventory limiter.
@@ -749,18 +762,11 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
         }
     }
-    /*
-        Takes the wider slot shape while the getter above answers IFilter[].
-        TypeScript only asks that the getter type be assignable to the setter
-        type, and the filter below is what makes the difference safe.
-    */
     public set filters(list: IFilterSlot[] | undefined) {
-        // The predicate is the whole point of this filter, and saying so is what
-        // lets the narrower IFilter[] reach the per-entity setters below.
+        // Drops the empty slots the dialog sends, and only those - a slot with
+        // no name but a quality or comparator is a filter (issue #493).
         const FILTERS =
-            list === undefined || list.length === 0
-                ? undefined
-                : list.filter((f): f is IFilter => !!f.name)
+            list === undefined || list.length === 0 ? undefined : list.filter(isSetFilter)
         switch (this.name) {
             case 'splitter':
             case 'fast-splitter':
@@ -914,10 +920,11 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         /*
             The filter dialog sends every slot back when one changes, with its
-            index, name and count and nothing else. A slot still holding the
-            same item keeps the quality and comparator the dialog cannot show,
-            the same rule `logisticChestFilters` follows: what the incoming
-            filter carries still wins.
+            index, name and count and nothing else - bar a quality-only slot,
+            which carries its own quality and comparator (issue #493). A slot
+            still holding the same item keeps the quality and comparator the
+            dialog cannot show, the same rule `logisticChestFilters` follows:
+            what the incoming filter carries still wins.
         */
         const held = this.m_rawEntity.filters ?? []
         const filters = _filters?.map(f => {
@@ -1661,9 +1668,13 @@ export class Entity extends EventEmitter<EntityEvents> {
                     draws. This read `filterSlots`, so a requester or buffer
                     chest silently dropped everything past the 30th filter -
                     a UI layout constant deciding how much data survived a copy.
+
+                    A filter with no name is not an item the target could
+                    refuse, so `aF` has nothing to say about it: a quality-only
+                    inserter filter is carried like a named one (issue #493).
                 */
                     this.filters = sourceEntity.filters
-                        .filter(f => aF.includes(f.name))
+                        .filter(f => (f.name ? aF.includes(f.name) : isSetFilter(f)))
                         .slice(0, this.maxFilters)
                 } else {
                     this.filters = []
