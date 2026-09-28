@@ -760,11 +760,13 @@ const testApi = {
         What the info panel says about an entity. Builds a panel of its own
         rather than reading the live one, the same way recipeShapeTally does, so
         the app's panel is not left showing whatever a spec last asked about.
+        Given more than one entity, it shows each in turn on that one panel and
+        answers what the last left there.
     */
-    entityInfoText: (entityNumber: number) => {
+    entityInfoText: (...entityNumbers: number[]) => {
         const panel = new EntityInfoPanel()
         try {
-            panel.updateVisualization(entityOf(entityNumber))
+            for (const n of entityNumbers) panel.updateVisualization(entityOf(n))
             return panel.infoText
         } finally {
             panel.destroy()
@@ -773,7 +775,8 @@ const testApi = {
     /*
         What the app's own info panel says right now, or undefined while it is
         hidden - the live one, which entityInfoText above deliberately is not,
-        for a spec checking that the panel follows an edit (#339).
+        for a spec checking that the panel follows an edit (#339, and
+        tests/train-schedule-panel.spec.ts for a schedule change).
     */
     entityInfoPanelText: () => editor.entityInfoPanelText,
     /*

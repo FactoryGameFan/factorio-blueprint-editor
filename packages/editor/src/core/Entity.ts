@@ -187,6 +187,7 @@ export interface EntityEvents {
     station: []
     manualTrainsLimit: []
     color: []
+    schedule: []
     speakerParameters: []
     speakerAlertParameters: []
     inventoryBar: []
@@ -1239,8 +1240,9 @@ export class Entity extends EventEmitter<EntityEvents> {
      * `m_rawEntity` at all. A schedule lives on the blueprint, as an entry in a
      * top-level `schedules` list naming the locomotives that share it, so this
      * reads and writes through `Blueprint` rather than through the raw entity.
-     * That is why there is no `sameSetting` check and no `emit` - `setSchedule`
-     * owns the history entry, and nothing in the UI draws a schedule.
+     * That is why there is no `sameSetting` check and no `emit` here -
+     * `setSchedule` owns the history entry, and emits `schedule` on this entity
+     * from it, so a paste, an undo and a redo all refresh the info panel.
      *
      * Undefined is a real value to write, not a no-op: Factorio's own copy from a
      * locomotive with no schedule **clears** the target's

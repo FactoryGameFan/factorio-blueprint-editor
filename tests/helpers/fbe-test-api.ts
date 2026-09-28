@@ -333,11 +333,15 @@ export interface FbeTestApi {
     setEntityModules: (entityNumber: number, modules: (string | undefined)[]) => void
     /**
      * The detail line EntityInfoPanel shows for this entity - the inserter or
-     * belt speed line, the crafting block for a machine. See
-     * tests/inserter-throughput.spec.ts.
+     * belt speed line, the crafting block for a machine. Given several, one
+     * panel shows each in turn and this is what the last left. See
+     * tests/inserter-throughput.spec.ts and tests/train-schedule-panel.spec.ts.
      */
-    entityInfoText: (entityNumber: number) => string
-    /** The live info panel's text, or undefined while it is hidden. See tests/inserter-stack-size.spec.ts. */
+    entityInfoText: (...entityNumbers: number[]) => string
+    /**
+     * The live info panel's text, or undefined while it is hidden. See
+     * tests/inserter-stack-size.spec.ts and tests/train-schedule-panel.spec.ts.
+     */
     entityInfoPanelText: () => string | undefined
     /**
      * Constructs a dialog whose constructor throws after `super()`, without

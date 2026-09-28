@@ -166,6 +166,14 @@ const ALLOWLIST: AllowedChord[] = [
             'so no DOM input has focus.',
     },
     {
+        file: 'train-schedule-panel.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. The spec only hovers and clicks " +
+            'the canvas and opens no dialog, so no DOM input ever has focus.',
+    },
+    {
         file: 'display-panel-editor.spec.ts',
         chord: 'Control+KeyZ',
         reason:
