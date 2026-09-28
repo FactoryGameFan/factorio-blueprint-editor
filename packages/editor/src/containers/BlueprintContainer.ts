@@ -4,6 +4,7 @@ import {
     Container,
     Graphics,
     RenderTexture,
+    Texture,
     EventBoundary,
     FederatedPointerEvent,
     Ticker,
@@ -17,6 +18,7 @@ import { Blueprint } from '../core/Blueprint'
 import { IConnection, WireConnections } from '../core/WireConnections'
 import { GroupRelocation } from '../core/PositionGrid'
 import { stepZoom, WheelZoom } from '../core/zoomLevels'
+import { clampPictureResolution, pictureScaleNotice } from '../core/pictureResolution'
 import { IPoint } from '../types'
 import { Dialog } from '../UI/controls/Dialog'
 import { Viewport } from './Viewport'
@@ -80,11 +82,25 @@ export enum EditorMode {
 /** The live rectangle's colour in SELECT mode - not copy's green nor delete's red. */
 const SELECT_AREA_COLOR = 0x3399ff
 
+/**
+ * The widest texture side the renderer can allocate. WebGPU gets the device's
+ * own limit, which pixi requests at the default of 8192; WebGL asks the
+ * context. 4096 for pixi's canvas renderer, or a context with nothing to say.
+ */
+function maxTextureSize(): number {
+    const renderer = G.app.renderer
+    if ('gpu' in renderer) return renderer.gpu.device.limits.maxTextureDimension2D
+    if (!('gl' in renderer)) return 4096
+    const size: unknown = renderer.gl.getParameter(renderer.gl.MAX_TEXTURE_SIZE)
+    return typeof size === 'number' && size > 0 ? size : 4096
+}
+
 export class BlueprintContainer extends Container {
     private static _moveSpeed = 10
     private static _gridColor = 0x303030
     private static _gridPattern = GridPattern.GRID
     private static _limitWireReach = true
+    private static _pictureResolution = 1
 
     /** Nr of cunks */
     private readonly chunks = 32
@@ -1409,6 +1425,15 @@ export class BlueprintContainer extends Container {
         BlueprintContainer._limitWireReach = limit
     }
 
+    /** What `getPicture` renders at when not told otherwise - 1 is 32 px per tile. */
+    public get pictureResolution(): number {
+        return BlueprintContainer._pictureResolution
+    }
+
+    public set pictureResolution(resolution: number) {
+        BlueprintContainer._pictureResolution = resolution
+    }
+
     private generateGrid(pattern = this.gridPattern): TilingSprite {
         const gridGraphics =
             pattern === 'checker'
@@ -1634,39 +1659,63 @@ export class BlueprintContainer extends Container {
      * handed back `undefined` instead of a promise, so the caller's `.then` threw
      * before its `.catch` was attached - and the only caller already refuses to ask
      * for a picture of an empty blueprint, so that path was unreachable anyway.
+     *
+     * The background grids are hidden for the render, so everything outside the
+     * blueprint's own sprites is transparent (#341). `resolution` is clamped to
+     * what the GPU can hold, and to 8192 px a side past that - see
+     * `clampPictureResolution` - so a large request comes back smaller rather
+     * than failing, with a warning through `G.logger` naming the scale used.
      */
-    public async getPicture(): Promise<Blob> {
+    public async getPicture(resolution = this.pictureResolution): Promise<Blob> {
         if (this.bp.isEmpty()) throw new Error('Cannot take a picture of an empty blueprint')
 
         const frame = this.getBlueprintBounds()
-        const texture = G.app.renderer.generateTexture({
-            target: this,
-            frame,
-            resolution: 1,
-            textureSourceOptions: {
-                scaleMode: 'linear',
-            },
-        })
-
-        const canvas = G.app.renderer.extract.canvas(texture)
-        // Held as a local because narrowing a property does not survive into the
-        // closure below.
-        const toBlob = canvas.toBlob?.bind(canvas)
-        if (toBlob === undefined) {
-            texture.destroy(true)
-            throw new Error('Canvas cannot produce a blob')
+        const gridVisible = this.grid.visible
+        const chunkGridVisible = this.chunkGrid.visible
+        this.grid.visible = false
+        this.chunkGrid.visible = false
+        const used = clampPictureResolution(resolution, frame.width, frame.height, maxTextureSize())
+        let texture: Texture
+        try {
+            texture = G.app.renderer.generateTexture({
+                target: this,
+                frame,
+                resolution: used,
+                textureSourceOptions: {
+                    scaleMode: 'linear',
+                },
+            })
+        } finally {
+            this.grid.visible = gridVisible
+            this.chunkGrid.visible = chunkGridVisible
         }
 
-        return new Promise((resolve, reject) => {
-            toBlob(blob => {
+        let toBlob: (callback: (blob: Blob | null) => void) => void
+        try {
+            const canvas = G.app.renderer.extract.canvas(texture)
+            // Held as a local because narrowing a property does not survive into
+            // the closure below.
+            const bound = canvas.toBlob?.bind(canvas)
+            if (bound === undefined) throw new Error('Canvas cannot produce a blob')
+            toBlob = bound
+        } catch (error) {
+            texture.destroy(true)
+            throw error
+        }
+
+        const blob = await new Promise<Blob>((resolve, reject) => {
+            toBlob(result => {
                 texture.destroy(true)
-                if (blob === null) {
+                if (result === null) {
                     reject(new Error('Canvas failed to produce a blob'))
                 } else {
-                    resolve(blob)
+                    resolve(result)
                 }
             })
         })
+        const notice = pictureScaleNotice(resolution, used)
+        if (notice !== undefined) G.logger({ text: notice, type: 'warning' })
+        return blob
     }
 
     public spawnPaintContainer(itemNameOrEntities: string | Entity[], direction = 0): void {

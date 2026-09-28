@@ -180,6 +180,14 @@ export class Editor {
         G.BPC.limitWireReach = limit
     }
 
+    /** The resolution the image export renders at: 1 is 32 px per tile. */
+    public get pictureResolution(): number {
+        return G.BPC.pictureResolution
+    }
+    public set pictureResolution(resolution: number) {
+        G.BPC.pictureResolution = resolution
+    }
+
     public get oilOutpostSettings(): IOilOutpostSettings {
         return oilOutpostSettings
     }
@@ -518,8 +526,9 @@ export class Editor {
         }
     }
 
-    public getPicture(): Promise<Blob> {
-        return G.BPC.getPicture()
+    /** `resolution` defaults to `pictureResolution`. */
+    public getPicture(resolution?: number): Promise<Blob> {
+        return G.BPC.getPicture(resolution)
     }
 
     public haveBlueprint(): boolean {
