@@ -56,10 +56,11 @@ export abstract class Dialog extends Panel {
             `added` is the point a subclass cannot skip and cannot reach early.
             Pixi emits it from `addChild`/`addChildAt` on the child, and every
             dialog in this codebase is constructed and then added by its
-            creator - the five sites are `UIContainer`'s `createEditor`,
-            `toggleImportDialog`, `toggleExportDialog`,
-            `toggleBlueprintInfoEditor` and `createInventory`, each of which
-            adds to `dialogsContainer` on the next line. A constructor that
+            creator - the sites are all in `UIContainer`: `createEditor`,
+            `toggleBookDialog`, `toggleImportDialog`, `toggleExportDialog`,
+            `toggleBlueprintInfoEditor`, `toggleBillOfMaterials` and
+            `createInventory`, each of which adds to `dialogsContainer` in the
+            same synchronous call that constructed it. A constructor that
             throws never returns the object to be added, so it never
             registers. Nothing here adds a dialog to anything else, and
             `Panel`'s own `addChild` of its background emits on the
@@ -155,9 +156,32 @@ export abstract class Dialog extends Panel {
 
     /** Automatically sets position of dialog to center screen */
     protected override setPosition(): void {
+        this.centreOnScreen(this.height)
+    }
+
+    /**
+     * Centres the dialog as if it were `height` px tall, in the space above
+     * the bottom bars, but never above the top edge (issue #347).
+     *
+     * The inventory bar and the shortcut bar draw over dialogs and take their
+     * clicks, so the space a dialog can use ends at the bars' top, not at the
+     * bottom of the screen - `UIContainer.bottomBarsTop` says where. Centred
+     * on the whole screen instead, the inventory's recipe panel lay under the
+     * inventory bar on a viewport the dialog should have fitted above it.
+     *
+     * A dialog cannot be dragged, so on a viewport too short for it, plain
+     * centring cut off its top - the title, and the inventory's group tabs -
+     * as well as its bottom, with no way to bring either back. Clamping the
+     * top to 0 keeps the top of the dialog on screen and moves all of the
+     * clipping to the bottom, where the rest runs under the bars and then off
+     * the screen.
+     *
+     * Floored so an odd leftover does not put the dialog on a half pixel.
+     */
+    protected centreOnScreen(height: number): void {
         this.position.set(
             G.app.screen.width / 2 - this.width / 2,
-            G.app.screen.height / 2 - this.height / 2
+            Math.max(0, Math.floor((G.UI.bottomBarsTop() - height) / 2))
         )
     }
 

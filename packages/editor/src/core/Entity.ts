@@ -13,6 +13,7 @@ import {
     LogisticSection,
     LogisticSections,
     ScheduleData,
+    SplitterFilter,
 } from '../types'
 import util from '../common/util'
 import { IllegalFlipError } from '../containers/PaintContainer'
@@ -57,7 +58,7 @@ export interface IFilter {
     /*
         The 2.0 fields this used to drop (issue #88). Optional because the
         entities sharing this shape do not all have them - a splitter filter
-        reads back a name and its quality only, and the pre-2.0 migration produces index/name/count - but
+        reads back a name, quality and comparator only, and the pre-2.0 migration produces index/name/count - but
         for logistic chests they are the norm rather than the exception: every
         one of the 4069 filters in the corpus carries `quality` and `comparator`
         and 90 carry `max_count`.
@@ -409,6 +410,16 @@ export class Entity extends EventEmitter<EntityEvents> {
             .updateValue(this.m_rawEntity, 'direction', direction, 'Change direction')
             .onDone(() => this.emit('direction'))
             .commit()
+    }
+
+    /**
+     * A rolling stock's heading, as a fraction of a clockwise turn from north.
+     * The game writes this and no `direction` for locomotives and wagons, so
+     * `direction` above reads 0 for every one of them in a real blueprint.
+     * Undefined for everything else, and for rolling stock the editor placed.
+     */
+    public get orientation(): number | undefined {
+        return this.m_rawEntity.orientation
     }
 
     /** Rail layer (elevated) for rail signals on raised rails */
@@ -824,10 +835,20 @@ export class Entity extends EventEmitter<EntityEvents> {
         if (typeof this.m_rawEntity.filter === 'string') {
             throw new Error('pre 2.0 format!')
         }
-        const { name, quality } = this.m_rawEntity.filter
+        const { name, quality, comparator } = this.m_rawEntity.filter
         if (name) {
-            // Quality only when present, so a filter without one reads as before.
-            return [quality === undefined ? { index: 1, name } : { index: 1, name, quality }]
+            // Quality and comparator only when present, so a filter without them
+            // reads as before. The comparator is read back with the quality
+            // because a paste goes through this getter, and a quality that
+            // arrives without its comparator is a shape Factorio refuses (#497).
+            return [
+                {
+                    index: 1,
+                    name,
+                    ...(quality === undefined ? {} : { quality }),
+                    ...(comparator === undefined ? {} : { comparator }),
+                },
+            ]
         }
         return []
     }
@@ -837,16 +858,26 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         this.m_BP.history.transaction(undefined, () => {
             // used to write { name: undefined } when clearing, which serialized as an
-            // empty filter object rather than as no filter at all. Quality goes
-            // with the name, the shape the getter reads back, so a pasted filter
-            // keeps it.
+            // empty filter object rather than as no filter at all. Quality and
+            // comparator go with the name, the shape the getter reads back, so a
+            // pasted filter keeps them.
+            //
+            // A quality never goes out alone. Measured on an inserter, a loader
+            // and a cargo wagon, Factorio drops the whole entity for an item
+            // filter holding a quality and no comparator (#497), and the engine
+            // always writes one beside it. All 987 splitter filters with a
+            // quality in the committed corpus carry `=`, so a source that had no
+            // comparator gets that one.
             const quality = filters?.[0]?.quality
-            const f =
+            const comparator = filters?.[0]?.comparator ?? (quality === undefined ? undefined : '=')
+            const f: SplitterFilter | undefined =
                 filter === undefined
                     ? undefined
-                    : quality === undefined
-                      ? { name: filter }
-                      : { name: filter, quality }
+                    : {
+                          name: filter,
+                          ...(quality === undefined ? {} : { quality }),
+                          ...(comparator === undefined ? {} : { comparator }),
+                      }
 
             this.m_BP.history
                 .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
@@ -1475,8 +1506,34 @@ export class Entity extends EventEmitter<EntityEvents> {
                 this.directionType = this.directionType === 'input' ? 'output' : 'input'
             }
 
+            const turned = (newDir - this.direction) / 16
             this.direction = newDir
+            this.turnOrientation(turned)
         })
+    }
+
+    /**
+     * Rolling stock from a blueprint draws by `orientation`, not `direction`
+     * (#520), so a rotate has to turn both or the drawing and the export stay
+     * where they were. Its own action, emitting `direction` itself, because on
+     * do and redo a transaction applies its actions in order: the `direction`
+     * action redraws first, while the old orientation is still set, so without
+     * this emit R would show no change. Undo runs them in reverse, restoring
+     * the orientation before the `direction` action redraws, so there the emit
+     * only repeats a redraw.
+     */
+    private turnOrientation(turns: number): void {
+        const orientation = this.m_rawEntity.orientation
+        if (orientation === undefined) return
+        this.m_BP.history
+            .updateValue(
+                this.m_rawEntity,
+                'orientation',
+                (((orientation + turns) % 1) + 1) % 1,
+                'Change orientation'
+            )
+            .onDone(() => this.emit('direction'))
+            .commit()
     }
 
     public canPasteSettings(sourceEntity: Entity): boolean {

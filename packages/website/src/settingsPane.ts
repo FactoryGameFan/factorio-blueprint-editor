@@ -147,6 +147,23 @@ export function initSettingsPane(
             editor.limitWireReach = limitWireReach
         })
 
+    // What Ctrl+S and the shortcut bar's image export render at; at 1x a tile
+    // is 32 px wide (#341).
+    if (localStorage.getItem('pictureResolution')) {
+        editor.pictureResolution = Number(localStorage.getItem('pictureResolution'))
+    }
+    gui.add({ pictureResolution: editor.pictureResolution }, 'pictureResolution', {
+        '1x': 1,
+        '2x': 2,
+        '4x': 4,
+    })
+        .name('Image Export Scale')
+        // dat.gui hands an option's value back as the <select>'s string.
+        .onChange((value: string) => {
+            localStorage.setItem('pictureResolution', value)
+            editor.pictureResolution = Number(value)
+        })
+
     const oilOutpostStored = storedJson<typeof editor.oilOutpostSettings>('oilOutpostSettings')
     if (oilOutpostStored) {
         editor.oilOutpostSettings = oilOutpostStored

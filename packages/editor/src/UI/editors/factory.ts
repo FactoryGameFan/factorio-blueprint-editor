@@ -25,6 +25,13 @@ export function createEditor(entity: Entity): Editor | undefined {
         case 'requester-chest':
         case 'storage-chest':
             return new ChestEditor(entity)
+        /*
+            The Space Age machines after rocket-silo came in with issue #345.
+            They are listed by name rather than routed by prototype type,
+            because those types also hold the stone and steel furnaces, the
+            burner mining drill and the captive biter spawner. None of those
+            has a module slot, and routing by type would give them a dialog.
+        */
         case 'assembling-machine-1':
         case 'assembling-machine-2':
         case 'assembling-machine-3':
@@ -37,6 +44,14 @@ export function createEditor(entity: Entity): Editor | undefined {
         case 'chemical-plant':
         case 'centrifuge':
         case 'rocket-silo':
+        case 'foundry':
+        case 'biochamber':
+        case 'biolab':
+        case 'crusher':
+        case 'cryogenic-plant':
+        case 'electromagnetic-plant':
+        case 'recycler':
+        case 'big-mining-drill':
             return new TempEditor(entity)
         case 'train-stop':
             return new TrainStopEditor(entity)
