@@ -197,8 +197,9 @@ const nextFrame = (page: Page): Promise<void> =>
     )
 
 /*
-    Focuses the DOM input currently holding `value`, and fails if the focus did
-    not land.
+    Focuses the TextInput element currently holding `value`, and fails if the
+    focus did not land. The inline-style filter is textInputValues', so a
+    settings-pane input holding the same value cannot be picked instead.
 
     focus() on a `display: none` element is a silent no-op, and the element is
     `display: none` until a frame has rendered it (see nextFrame). The keys typed
@@ -212,7 +213,9 @@ const nextFrame = (page: Page): Promise<void> =>
 */
 async function focusInputWithValue(page: Page, value: string): Promise<void> {
     await page.evaluate((v: string) => {
-        const el = [...document.querySelectorAll('input')].find(i => i.value === v)
+        const el = [...document.querySelectorAll('input')].find(
+            i => i.style.cssText !== '' && i.value === v
+        )
         if (!el) throw new Error(`no input holding ${v}`)
         el.focus()
         if (document.activeElement !== el) {
