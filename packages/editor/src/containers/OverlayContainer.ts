@@ -91,6 +91,14 @@ function cursorBoxTexture(type: CursorBoxType, size: CornerSize | 'full'): Textu
 export class OverlayContainer extends Container {
     private readonly bpc: BlueprintContainer
     private readonly entityInfos = new Container()
+    /*
+        A box round every underground belt and pipe to ground with no partner
+        (#344), shown and hidden with the entity infos as part of alt mode. The
+        game draws nothing for a lone underground, so the look is ours: the
+        `not_allowed` cursor box, red for "this does not connect". Drawn under
+        `cursorBoxes`, so the hover box covers it on the entity under the cursor.
+    */
+    private readonly unpairedMarkers = new Container()
     private readonly cursorBoxes = new Container()
     private readonly undergroundLines = new Container()
     private readonly selectionArea = new Graphics()
@@ -130,6 +138,7 @@ export class OverlayContainer extends Container {
 
         this.addChild(
             this.entityInfos,
+            this.unpairedMarkers,
             this.cursorBoxes,
             this.undergroundLines,
             this.selectionArea,
@@ -642,6 +651,30 @@ export class OverlayContainer extends Container {
 
     public toggleEntityInfoVisibility(): void {
         this.entityInfos.visible = !this.entityInfos.visible
+        this.unpairedMarkers.visible = this.entityInfos.visible
+    }
+
+    /**
+     * The marker for a lone underground; `EntityContainer` decides when one is
+     * needed and owns the result. Labelled with the entity number for
+     * `unpairedMarkerEntities`.
+     */
+    public createUnpairedMarker(entityNumber: number, position: IPoint, size: IPoint): Container {
+        const marker = this.createCursorBox(position, size, 'not_allowed')
+        marker.label = `unpaired-underground:${entityNumber}`
+        this.unpairedMarkers.addChild(marker)
+        return marker
+    }
+
+    /**
+     * The entity numbers of the lone-underground markers on screen, none while
+     * alt mode is off. See tests/unpaired-underground-markers.spec.ts.
+     */
+    public get unpairedMarkerEntities(): number[] {
+        if (!this.unpairedMarkers.visible) return []
+        return this.unpairedMarkers.children
+            .map(c => Number(c.label.slice('unpaired-underground:'.length)))
+            .sort((a, b) => a - b)
     }
 
     public createEntityInfo(entity: Entity, position: IPoint): Container | undefined {
@@ -709,81 +742,54 @@ export class OverlayContainer extends Container {
             result in a `Container | undefined` field and checks it.
         */
     ): Container | undefined {
+        const otherEntity = this.bpc.bp.entityPositionGrid.getUndergroundPartner(
+            name,
+            position,
+            direction,
+            searchDirection
+        )
+        const step = util.getDirOffset(searchDirection)
+
+        if (otherEntity === undefined || step === undefined) return
+
         const fd = FD.entities[name]
-        if (fd.type === 'underground-belt' || fd.type === 'pipe-to-ground') {
-            const opposingEntityNumber = this.bpc.bp.entityPositionGrid.getOpposingEntity(
-                name,
-                fd.type === 'pipe-to-ground' ? searchDirection : direction,
-                position,
-                searchDirection,
-                (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
-            )
-            const otherEntity =
-                opposingEntityNumber === undefined
-                    ? undefined
-                    : this.bpc.bp.entities.get(opposingEntityNumber)
+        const distance =
+            step.x === 0
+                ? Math.abs(otherEntity.position.y - position.y)
+                : Math.abs(otherEntity.position.x - position.x)
 
-            const step = util.getDirOffset(searchDirection)
+        const lineParts = new Container()
+        lineParts.x = position.x * 32
+        lineParts.y = position.y * 32
+        this.undergroundLines.addChild(lineParts)
 
-            if (otherEntity && step) {
-                /*
-                    Return if the two connections run the same way - two inputs
-                    or two outputs, which is not a pair.
+        const data = isUndergroundBelt(fd)
+            ? need(fd, 'underground_sprite')
+            : FD.utilitySprites.underground_pipe_connection
 
-                    This read `otherEntity.direction + (8 % 16)` until #329. The
-                    misplaced bracket makes it `direction + 8`, which agrees
-                    with the intended `(direction + 8) % 16` only below 8: a
-                    south-facing output gave 16 and a west-facing one 20, and
-                    neither can equal a searchDirection, so the guard silently
-                    stopped firing on half the directions and a line was drawn
-                    between two entities that are not partners.
-                */
-                if (
-                    fd.type === 'underground-belt' &&
-                    otherEntity.undergroundSearchDirection === searchDirection
-                ) {
-                    return
-                }
-
-                const distance =
-                    step.x === 0
-                        ? Math.abs(otherEntity.position.y - position.y)
-                        : Math.abs(otherEntity.position.x - position.x)
-
-                const lineParts = new Container()
-                lineParts.x = position.x * 32
-                lineParts.y = position.y * 32
-                this.undergroundLines.addChild(lineParts)
-
-                const data = isUndergroundBelt(fd)
-                    ? need(fd, 'underground_sprite')
-                    : FD.utilitySprites.underground_pipe_connection
-
-                for (let i = 1; i < distance; i++) {
-                    const s = new Sprite(textureOf(data))
-                    s.rotation = direction * Math.PI * 0.125
-                    if (data.scale) {
-                        s.scale.set(data.scale)
-                    }
-                    s.anchor.set(0.5)
-                    s.x = step.x * i * 32
-                    s.y = step.y * i * 32
-                    lineParts.addChild(s)
-                }
-
-                const otherEntityCursorBox = this.createCursorBox(
-                    {
-                        x: step.x * distance * 32,
-                        y: step.y * distance * 32,
-                    },
-                    otherEntity.size,
-                    'pair'
-                )
-                lineParts.addChild(otherEntityCursorBox)
-
-                return lineParts
+        for (let i = 1; i < distance; i++) {
+            const s = new Sprite(textureOf(data))
+            s.rotation = direction * Math.PI * 0.125
+            if (data.scale) {
+                s.scale.set(data.scale)
             }
+            s.anchor.set(0.5)
+            s.x = step.x * i * 32
+            s.y = step.y * i * 32
+            lineParts.addChild(s)
         }
+
+        const otherEntityCursorBox = this.createCursorBox(
+            {
+                x: step.x * distance * 32,
+                y: step.y * distance * 32,
+            },
+            otherEntity.size,
+            'pair'
+        )
+        lineParts.addChild(otherEntityCursorBox)
+
+        return lineParts
     }
 
     /**

@@ -940,6 +940,11 @@ export class BlueprintContainer extends Container {
         return this.overlayContainer.entityInfoVisible
     }
 
+    /** Which undergrounds alt mode marks as unpaired. See tests/unpaired-underground-markers.spec.ts. */
+    public get unpairedUndergroundMarkers(): number[] {
+        return this.overlayContainer.unpairedMarkerEntities
+    }
+
     /** Whether an entity's selection box is drawn as blocked. See tests/persistent-selection.spec.ts. */
     public selectionHighlightBlocked(entityNumber: number): boolean {
         return this.overlayContainer.selectionHighlightBlocked(entityNumber)
@@ -1521,6 +1526,8 @@ export class BlueprintContainer extends Container {
         this.bp.on('create-entity', onCreateEntity)
         this.bp.on('remove-entity', onRemoveEntity)
         this.bp.on('create-tile', onCreateTile)
+        // the alt-mode underground markers wait for a whole edit to land (#344)
+        const offSettled = this.bp.history.onSettled(() => EntityContainer.flushUnpairedChecks())
 
         const onConnectionCreated = (hash: string, connection: IConnection): void => {
             this.wiresContainer.connect(hash, connection)
@@ -1538,6 +1545,7 @@ export class BlueprintContainer extends Container {
             this.bp.off('create-entity', onCreateEntity)
             this.bp.off('remove-entity', onRemoveEntity)
             this.bp.off('create-tile', onCreateTile)
+            offSettled()
 
             this.bp.wireConnections.off('create', onConnectionCreated)
             this.bp.wireConnections.off('remove', onConnectionRemoved)

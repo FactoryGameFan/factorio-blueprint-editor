@@ -70,6 +70,7 @@ const TEST_API_MARKERS = [
     'setEntityModules',
     'shortcutBarHoverText',
     'rebindAction',
+    'markedUnpairedUndergrounds',
     'liveEntityInfoText',
     'marqueeCountText',
     'billOfMaterialsTally',

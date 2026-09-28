@@ -1,6 +1,6 @@
 import util from '../common/util'
 import { IPoint } from '../types'
-import FD, { getEntitySize } from './factorioData'
+import FD, { getEntitySize, isUndergroundBelt } from './factorioData'
 import { Blueprint } from './Blueprint'
 import { Entity } from './Entity'
 import { IEntityConnectionPoint } from './WireConnections'
@@ -829,6 +829,97 @@ export class PositionGrid {
         }
 
         return undefined
+    }
+
+    /**
+     * How far an underground of this name reaches: `max_distance` for a belt,
+     * and 10 for a pipe to ground, whose prototype carries none of its own.
+     */
+    public static undergroundReach(name: string): number {
+        const fd = FD.entities[name]
+        return (isUndergroundBelt(fd) ? fd.max_distance : undefined) || 10
+    }
+
+    /**
+     * The partner of an underground belt or pipe to ground, or undefined when it
+     * has none: it is neither, nothing is in reach, or what it found runs the
+     * same way it does - two inputs or two outputs, which is not a pair.
+     *
+     * The one predicate behind both the hover line between a pair and the
+     * marker alt mode puts on a lone underground (#344), so the two cannot
+     * disagree about which undergrounds are paired. `direction` and
+     * `searchDirection` are what `OverlayContainer.createUndergroundLine` takes.
+     */
+    public getUndergroundPartner(
+        name: string,
+        position: IPoint,
+        direction: number,
+        searchDirection: number
+    ): Entity | undefined {
+        const fd = FD.entities[name]
+        if (fd.type !== 'underground-belt' && fd.type !== 'pipe-to-ground') return undefined
+
+        const opposingEntityNumber = this.getOpposingEntity(
+            name,
+            fd.type === 'pipe-to-ground' ? searchDirection : direction,
+            position,
+            searchDirection,
+            PositionGrid.undergroundReach(name)
+        )
+        if (opposingEntityNumber === undefined) return undefined
+        const otherEntity = this.entityAt(opposingEntityNumber)
+
+        /*
+            This read `otherEntity.direction + (8 % 16)` until #329. The
+            misplaced bracket makes it `direction + 8`, which agrees with the
+            intended `(direction + 8) % 16` only below 8: a south-facing output
+            gave 16 and a west-facing one 20, and neither can equal a
+            searchDirection, so the guard silently stopped firing on half the
+            directions and a line was drawn between two entities that are not
+            partners.
+        */
+        if (
+            fd.type === 'underground-belt' &&
+            otherEntity.undergroundSearchDirection === searchDirection
+        ) {
+            return undefined
+        }
+        return otherEntity
+    }
+
+    /**
+     * Every entity named `name` on the same row or column as `position` and
+     * within its reach, excluding whatever sits on `position` itself.
+     *
+     * These are the only undergrounds whose pairing an underground placed at,
+     * removed from, or turned at `position` can change: pairing never crosses
+     * names, and a search never walks further than the reach. So refreshing
+     * these after an edit keeps every marker right at a cost of four walks of
+     * at most 11 tiles, whatever the size of the blueprint. The walk does not
+     * stop at the first hit, because a same-name underground side-on to the
+     * search does not block it.
+     */
+    public getUndergroundsInReach(name: string, position: IPoint): Entity[] {
+        const reach = PositionGrid.undergroundReach(name)
+        const found: Entity[] = []
+        for (const step of [
+            { x: 0, y: -1 },
+            { x: 1, y: 0 },
+            { x: 0, y: 1 },
+            { x: -1, y: 0 },
+        ]) {
+            for (let i = 1; i <= reach; i++) {
+                const X = Math.floor(position.x) + step.x * i
+                const Y = Math.floor(position.y) + step.y * i
+                const cell = this.grid.get(`${X},${Y}`)
+                if (cell === undefined) continue
+                for (const entityNumber of typeof cell === 'number' ? [cell] : cell) {
+                    const entity = this.entityAt(entityNumber)
+                    if (entity.name === name) found.push(entity)
+                }
+            }
+        }
+        return found
     }
 
     /** Returns true if any of the cells in the area are an array */
