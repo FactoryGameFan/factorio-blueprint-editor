@@ -170,6 +170,12 @@ export class UIContainer extends Container {
         return { x: at.x, y: at.y, width: top.width, height: top.height }
     }
 
+    /** The topmost open dialog, or undefined when none is open. */
+    public get topDialog(): Container | undefined {
+        const dialogs = this.dialogsContainer.children
+        return dialogs[dialogs.length - 1]
+    }
+
     /**
      * The string of every `Text` built inside the topmost dialog, in
      * display-tree order, hidden ones included - so a spec can tell a label

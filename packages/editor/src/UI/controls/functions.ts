@@ -7,7 +7,13 @@ import {
     CanvasTextMetrics,
     RenderTexture,
 } from 'pixi.js'
-import FD, { ColorWithAlpha, getColor, recipeResults } from '../../core/factorioData'
+import FD, {
+    ColorWithAlpha,
+    getColor,
+    hasIcon,
+    IconSource,
+    recipeIconSource,
+} from '../../core/factorioData'
 import { styles } from '../style'
 import {
     QUALITY_BADGE_FRAME,
@@ -210,9 +216,13 @@ function CreateIcon(
         const item = FD.items[itemName]
         if (item) {
             if (item.dark_background_icons) {
-                return generateIcons(item.dark_background_icons)
+                return CreateIconFrom({ icons: item.dark_background_icons }, maxSize, setAnchor)
             } else if (item.dark_background_icon) {
-                return generateIcon(item.dark_background_icon, item.dark_background_icon_size)
+                return CreateIconFrom(
+                    { icon: item.dark_background_icon, icon_size: item.dark_background_icon_size },
+                    maxSize,
+                    setAnchor
+                )
             }
         }
     }
@@ -243,39 +253,33 @@ function CreateIcon(
         )
     }
 
-    if (item.icons) {
-        return generateIcons(item.icons)
-    } else if (item.icon) {
-        return generateIcon(item.icon, item.icon_size)
-    }
+    if (hasIcon(item)) return CreateIconFrom(item, maxSize, setAnchor)
 
     /*
-        A recipe that produces one thing carries no icon of its own and inherits
-        the product's, which is what Factorio displays for it - 241 of the 653
-        recipes. That is normally invisible here, because an item of the same name
-        resolves first and does have an icon. `fluoroketone` is the one name where
-        it does not: there is no item or fluid by that name, only the fluids
-        `fluoroketone-hot` and `fluoroketone-cold`, so the lookup fell through to
-        the recipe and threw, costing the entity its whole info overlay (issue #41).
-
-        Resolved one level deep rather than by recursing back into CreateIcon: the
-        product is an item or a fluid, both of which carry their own icon, and a
-        recipe naming a product that resolves to another recipe would otherwise be
-        a cycle.
+        A recipe with no icon of its own shows its product's (see
+        recipeIconSource). That is normally invisible here, because an item of
+        the same name resolves first and does have an icon. `fluoroketone` is the
+        one name where it does not: there is no item or fluid by that name, only
+        the fluids `fluoroketone-hot` and `fluoroketone-cold`, so the lookup fell
+        through to the recipe and threw, costing the entity its whole info
+        overlay (issue #41).
     */
     const recipe = FD.recipes[itemName]
-    if (recipe !== undefined) {
-        const results = recipeResults(recipe)
-        const productName =
-            recipe.main_product || (results.length === 1 ? results[0].name : undefined)
-        const product =
-            productName === undefined ? undefined : FD.items[productName] || FD.fluids[productName]
-
-        if (product?.icons) return generateIcons(product.icons)
-        if (product?.icon) return generateIcon(product.icon, product.icon_size)
-    }
+    const source = recipe === undefined ? undefined : recipeIconSource(recipe)
+    if (source !== undefined) return CreateIconFrom(source, maxSize, setAnchor)
 
     throw new Error(`No icon for ${itemName}`)
+}
+
+/**
+ * Draws the icon `source` carries - its `icons` layers, or else its single
+ * `icon` - for a caller that has already picked the prototype, where
+ * `CreateIcon` would pick by name alone.
+ */
+function CreateIconFrom(source: IconSource, maxSize = 32, setAnchor = true): Container {
+    if (source.icons) return generateIcons(source.icons)
+    if (source.icon) return generateIcon(source.icon, source.icon_size)
+    throw new Error('The prototype carries no icon')
 
     function generateIcon(filename: string, icon_size: number = 64): Sprite {
         const texture = G.getTexture(filename, 0, 0, icon_size, icon_size)
@@ -448,6 +452,7 @@ export default {
     DrawRectangle,
     DrawControlFace,
     CreateIcon,
+    CreateIconFrom,
     CreateIconWithAmount,
     CreateQualityBadge,
     CreateRecipe,

@@ -1,6 +1,6 @@
 import './index.css'
 
-import { Container, isMobile } from 'pixi.js'
+import { Container, Text, isMobile } from 'pixi.js'
 import EDITOR, {
     Editor,
     Blueprint,
@@ -59,6 +59,48 @@ function entityOf(entityNumber: number): Entity {
         throw new Error(`no entity ${entityNumber} in the loaded blueprint`)
     }
     return entity
+}
+
+/**
+ * The runs of the first train stop name label found under `root`, for the
+ * station name test hooks: each text run's text, and each icon as
+ * `icon:<name>`. Undefined when there is no label.
+ */
+function stationNameRunsIn(root: Container | undefined): string[] | undefined {
+    if (root === undefined) return undefined
+    for (const child of root.children) {
+        if (child.label === 'station-name') {
+            const row = child.children[1]
+            return row?.children.map(c => (c instanceof Text ? c.text : c.label))
+        }
+        const found = stationNameRunsIn(child)
+        if (found !== undefined) return found
+    }
+    return undefined
+}
+
+/**
+ * The file each icon in the first train stop name label under `root` was drawn
+ * from, in order - the label on the drawn icon inside each `icon:<name>` run
+ * (see OverlayContainer's createIconTagIcon). Undefined when there is no label.
+ */
+function stationNameIconFilesIn(root: Container | undefined): string[] | undefined {
+    if (root === undefined) return undefined
+    for (const child of root.children) {
+        if (child.label === 'station-name') {
+            const row = child.children[1]
+            return (row?.children ?? [])
+                .filter(c => !(c instanceof Text))
+                .map(c => {
+                    // Typed string, but null at runtime on a node nobody labelled.
+                    const file: string | null = c.children[0]?.label ?? null
+                    return file ?? ''
+                })
+        }
+        const found = stationNameIconFilesIn(child)
+        if (found !== undefined) return found
+    }
+    return undefined
 }
 
 let t0 = performance.now()
@@ -853,6 +895,35 @@ const testApi = {
         }
         if (info) walk(info, 0, 0, 1)
         return out
+    },
+    /*
+        What a train stop's live name label shows, run by run: each text run's
+        text, and each icon as `icon:<name>`. Reads the overlay EntityContainer
+        is showing rather than building a fresh one, so a spec can tell a
+        rename that redrew it from one that only changed the model. Undefined
+        when there is no label.
+    */
+    stationNameRuns: (entityNumber: number) =>
+        stationNameRunsIn(EntityContainer.containerOf(entityNumber).liveEntityInfo),
+    /*
+        The same, for the preview in the topmost open dialog - the entity
+        editor draws its preview's overlay with createEntityInfo too, so a
+        train stop editor shows the name there as well.
+    */
+    previewStationNameRuns: () => stationNameRunsIn(editor.topDialog),
+    /*
+        Which file each icon in that live label was drawn from. The runs say an
+        icon was drawn for a tag; this says which prototype it came from - for
+        `[recipe=pentapod-egg]`, whether it was the recipe's icon or the item's.
+    */
+    stationNameIconFiles: (entityNumber: number) =>
+        stationNameIconFilesIn(EntityContainer.containerOf(entityNumber).liveEntityInfo),
+    /*
+        A write through `Entity.set station`, which is what TrainStopEditor's
+        name field sends.
+    */
+    setStation: (entityNumber: number, station: string | undefined) => {
+        entityOf(entityNumber).station = station
     },
     overlayInfoTally: () => {
         const out: Record<string, number[]> = {}

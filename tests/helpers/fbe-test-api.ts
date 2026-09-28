@@ -132,6 +132,21 @@ export interface FbeTestApi {
     qualityBadgeFrames: (
         entityNumber: number
     ) => { quality: string; x: number; y: number; size: number }[] | undefined
+    /**
+     * A train stop's live name label, run by run - text runs as their text,
+     * icons as `icon:<name>`; undefined when it has none. See
+     * tests/train-stop-name.spec.ts.
+     */
+    stationNameRuns: (entityNumber: number) => string[] | undefined
+    /** The same, for the preview in the topmost open dialog. */
+    previewStationNameRuns: () => string[] | undefined
+    /**
+     * The file each icon in a train stop's live name label was drawn from, in
+     * order; layered icons join their files with ` + `.
+     */
+    stationNameIconFiles: (entityNumber: number) => string[] | undefined
+    /** Writes `Entity.station`, as TrainStopEditor's name field does. */
+    setStation: (entityNumber: number, station: string | undefined) => void
     overlayInfoTally: () => OverlayTally
     /**
      * Defaults to the loaded blueprint; pass one to tally a book entry instead.

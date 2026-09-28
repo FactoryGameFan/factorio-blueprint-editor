@@ -7,7 +7,7 @@ import 'pixi.js/text'
 import 'pixi.js/graphics'
 import 'pixi.js/basis'
 
-import { Application, TextureSource, setBasisTranscoderPath, Assets } from 'pixi.js'
+import { Application, Container, TextureSource, setBasisTranscoderPath, Assets } from 'pixi.js'
 import basisTranscoderJS from './basis/transcoder.1.16.4.js?url'
 import basisTranscoderWASM from './basis/transcoder.1.16.4.wasm?url'
 import { loadData } from './core/factorioData'
@@ -417,6 +417,11 @@ export class Editor {
     /** How many dialogs are open. See tests/chest-editor.spec.ts. */
     public get openDialogCount(): number {
         return G.UI.openDialogCount
+    }
+
+    /** The topmost open dialog, for test hooks that read what it draws. */
+    public get topDialog(): Container | undefined {
+        return G.UI.topDialog
     }
 
     /** What the live entity info panel says, or undefined while it is hidden. */
