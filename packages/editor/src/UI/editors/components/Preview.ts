@@ -50,6 +50,7 @@ export class Preview extends Container {
         this.onEntityChange('filters', this.onEntityChanged)
         this.onEntityChange('splitterInputPriority', this.onEntityChanged)
         this.onEntityChange('splitterOutputPriority', this.onEntityChanged)
+        this.onEntityChange('station', this.onEntityChanged)
     }
 
     private onEntityChange<T extends EventEmitter.EventNames<EntityEvents>>(
