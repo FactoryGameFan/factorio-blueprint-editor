@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { drillLayers } from './alwaysDrawLayers'
+import { drillLayers } from './drillLayers'
 
 /*
     The fixtures copy the shape of big-mining-drill's graphics_set in data.json,

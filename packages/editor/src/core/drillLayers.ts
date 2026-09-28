@@ -1,6 +1,9 @@
 /*
-    Which layers a mining drill draws on top of its main animation: its
-    `always_draw` working visualisations, with the copies removed.
+    Every layer a mining drill draws at rest, in order: its main animation for
+    the facing, then its `always_draw` working visualisations, with copies
+    removed across the whole list. The main animation is not exempt - on
+    big-mining-drill the copy dropped is its own first layer, the still base,
+    because a working visualisation repeats it later.
 
     Split out of spriteDataBuilder.ts so it can be unit tested without loading
     Factorio data; it is pure.

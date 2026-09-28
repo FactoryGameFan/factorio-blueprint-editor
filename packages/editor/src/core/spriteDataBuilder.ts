@@ -169,7 +169,7 @@ import {
     type CargoBayBox,
 } from './cargoBayConnections'
 import { need } from './need'
-import { drillLayers } from './alwaysDrawLayers'
+import { drillLayers } from './drillLayers'
 
 /**
  * What a `draw_*` function gets to work with.
