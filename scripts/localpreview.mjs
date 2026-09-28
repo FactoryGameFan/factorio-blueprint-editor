@@ -98,32 +98,63 @@ export async function isPortFree(port) {
 
 /*
     The hints below come back as lines, because on Windows there is more than
-    one shell to answer for. The PowerShell forms are labelled rather than
-    printed bare: Git Bash and cmd.exe run the same node, and a PowerShell
-    command fails in both. Git Bash has no lsof either, so the port lookup has
-    no second line to offer.
+    one shell to answer for: the same node runs under PowerShell, cmd.exe and
+    Git Bash, and no single form of either hint works in all three. Each
+    Windows line is labelled with the shell it is for. (WSL is not one of
+    them - node inside WSL reports linux and gets the Unix lines.)
+
+    The port lookup does have a form every Windows shell can run, `netstat -ano`
+    piped into findstr, since both are plain executables. findstr treats a
+    quoted, space-separated string as alternatives, so one line covers both
+    ports. The PowerShell line stays alongside it because it prints the port
+    and owning pid without the rest of netstat's table.
 */
+
+// Pads each label to the longest one, so the commands line up in a column.
+const labelled = pairs => {
+    const width = Math.max(...pairs.map(([label]) => label.length)) + 3
+    return pairs.map(([label, command]) => `${`${label}:`.padEnd(width)}${command}`)
+}
 
 /** The command that shows who is listening on the given ports. */
 export function portHint(ports, platform = process.platform) {
     if (platform === 'win32') {
-        const list = [...new Set(ports)].join(',')
-        return [
-            `PowerShell: Get-NetTCPConnection -State Listen -LocalPort ${list} | Select-Object LocalPort, OwningProcess`,
-        ]
+        const unique = [...new Set(ports)]
+        return labelled([
+            [
+                'PowerShell',
+                `Get-NetTCPConnection -State Listen -LocalPort ${unique.join(',')} | Select-Object LocalPort, OwningProcess`,
+            ],
+            ['Any shell', `netstat -ano | findstr "${unique.map(p => `:${p}`).join(' ')}"`],
+        ])
     }
     return ['lsof -nP -iTCP -sTCP:LISTEN']
 }
 
-// PowerShell, the Windows default, rejects the `NAME=value command` prefix form.
+/*
+    The POSIX `NAME=value command` prefix sets the variable for that one
+    command. PowerShell reads the prefix as a command name and fails, and cmd
+    and Git Bash cannot run $env:, so Windows gets a form per shell.
+
+    Neither Windows form has a one-command scope. The PowerShell line removes
+    the variable again afterwards, joined with ; so that happens whether or not
+    the tests pass; left set, it would silently retarget every later Playwright
+    run in that window. The cmd line quotes the whole assignment, because
+    `set NAME=value && ...` keeps the space before && as part of the value.
+    It stays set for the rest of that cmd session.
+*/
 export function playwrightHint(port, platform = process.platform) {
     const url = `http://localhost:${port}`
     const posix = `FBE_BASE_URL=${url} npx playwright test`
     if (platform === 'win32') {
-        return [
-            `PowerShell:    $env:FBE_BASE_URL='${url}'; npx playwright test`,
-            `Git Bash/WSL:  ${posix}`,
-        ]
+        return labelled([
+            [
+                'PowerShell',
+                `$env:FBE_BASE_URL='${url}'; npx playwright test; Remove-Item Env:FBE_BASE_URL`,
+            ],
+            ['cmd', `set "FBE_BASE_URL=${url}" && npx playwright test`],
+            ['Git Bash', posix],
+        ])
     }
     return [posix]
 }
