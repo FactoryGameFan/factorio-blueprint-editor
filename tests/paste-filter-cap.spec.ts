@@ -28,7 +28,7 @@ import { suppressOverlays } from './helpers/overlays'
 
     The corpus cannot test any of this: measured over test-blueprints/, 5995
     entities carry `request_filters` and the largest section-0 filter list in
-    all 367 blueprints is **19**. Still under the old 30-slot cap and 50x under
+    all 372 blueprints is **19**. Still under the old 30-slot cap and 50x under
     the real 1000, so both cases here are synthetic - but note that number went
     5 -> 19 when the corpus went public (#186), so it is closer to the old cap
     than it reads, and a corpus addition could cross it.

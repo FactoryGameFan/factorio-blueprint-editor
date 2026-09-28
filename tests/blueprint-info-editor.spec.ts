@@ -517,7 +517,7 @@ test('unticking and re-ticking Snap to grid keeps the grid size instead of repla
         back out of those boxes. Nothing else held the old value, so a 20x18
         grid became 1x1 with no warning. Absolute/Relative and Absolute X/Y
         survive the same toggle, which is what made this look unintended.
-        325 of the 367 corpus blueprints carry a `snap-to-grid` and would
+        326 of the 372 corpus blueprints carry a `snap-to-grid` and would
         lose it this way.
     */
     await loadBlueprint(page, SNAPPED_CHESTS)
