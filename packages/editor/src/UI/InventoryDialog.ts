@@ -300,8 +300,8 @@ export class InventoryDialog extends Dialog {
         // Again, now that `m_ShowRecipePanel` is set. `Panel`'s constructor
         // already ran this before that field was assigned, so it centred on
         // 442 and the recipe panel opened 39px lower than a resize would put
-        // it - and off the bottom of a viewport the full 520 would fit
-        // (issue #347).
+        // it - and under the bottom bars on a viewport where the full 520
+        // fits above them (issue #347).
         this.setPosition()
     }
 
