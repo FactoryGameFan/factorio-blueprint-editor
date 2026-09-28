@@ -2,7 +2,14 @@ import { test } from 'vite-plus/test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:net'
 import { once } from 'node:events'
-import { parseArgs, viteArgs, isPortFree, spawnCli } from './localpreview.mjs'
+import {
+    parseArgs,
+    viteArgs,
+    isPortFree,
+    spawnCli,
+    portHint,
+    playwrightHint,
+} from './localpreview.mjs'
 
 test('installed server CLIs run without vp or npx shell wrappers (#432)', async () => {
     for (const module of ['vite-plus/bin', 'serve/build/main.js']) {
@@ -127,5 +134,49 @@ test('viteArgs adds a bare --host when the container asks for one', () => {
         '8080',
         '--strictPort',
         '--host',
+    ])
+})
+
+test('portHint names a lookup that exists on the platform (#496)', () => {
+    // Windows has no lsof, so the Unix hint pointed a PowerShell user at nothing.
+    // netstat and findstr are plain executables, so that line runs in cmd,
+    // PowerShell and Git Bash alike; the Get-NetTCPConnection line is
+    // PowerShell's own and labelled as such.
+    assert.deepEqual(portHint([8080], 'linux'), ['lsof -nP -iTCP -sTCP:LISTEN'])
+    assert.deepEqual(portHint([8080], 'darwin'), ['lsof -nP -iTCP -sTCP:LISTEN'])
+    assert.deepEqual(portHint([8080, 8081], 'win32'), [
+        'PowerShell:  Get-NetTCPConnection -State Listen -LocalPort 8080,8081 | Select-Object LocalPort, OwningProcess',
+        'Any shell:   netstat -ano | findstr ":8080 :8081"',
+    ])
+})
+
+test('portHint names a port once when both checks report it (#496)', () => {
+    // --port 8081 makes the Vite check and the sprite check both report 8081.
+    assert.deepEqual(portHint([8081, 8081], 'win32'), [
+        'PowerShell:  Get-NetTCPConnection -State Listen -LocalPort 8081 | Select-Object LocalPort, OwningProcess',
+        'Any shell:   netstat -ano | findstr ":8081"',
+    ])
+    assert.deepEqual(portHint([8081, 8081], 'linux'), ['lsof -nP -iTCP -sTCP:LISTEN'])
+})
+
+test('playwrightHint sets FBE_BASE_URL in the syntax the shell accepts (#496)', () => {
+    /*
+        PowerShell reads the NAME=value prefix as a command name and fails, and
+        cmd and Git Bash fail on $env:. Windows can be any of the three, so it
+        gets a form for each, labelled with the shell it is for. The PowerShell
+        form removes the variable afterwards, since unlike the POSIX prefix it
+        outlives the command. The cmd form quotes the assignment so the space
+        before && does not end up in the URL.
+    */
+    assert.deepEqual(playwrightHint(8090, 'linux'), [
+        'FBE_BASE_URL=http://localhost:8090 npx playwright test',
+    ])
+    assert.deepEqual(playwrightHint(8090, 'darwin'), [
+        'FBE_BASE_URL=http://localhost:8090 npx playwright test',
+    ])
+    assert.deepEqual(playwrightHint(8090, 'win32'), [
+        "PowerShell:  $env:FBE_BASE_URL='http://localhost:8090'; npx playwright test; Remove-Item Env:FBE_BASE_URL",
+        'cmd:         set "FBE_BASE_URL=http://localhost:8090" && npx playwright test',
+        'Git Bash:    FBE_BASE_URL=http://localhost:8090 npx playwright test',
     ])
 })

@@ -114,6 +114,8 @@ export interface FbeTestApi {
     exportGuardResult: () => { exportString: boolean; exportImage: boolean }
     /** `encodeCurrent`'s own empty-blueprint guard result. See tests/quick-actions.spec.ts. */
     encodeCurrentResult: () => Promise<string | undefined>
+    /** The PNG the image export would save, without the download. See tests/image-export.spec.ts. */
+    getPicture: (resolution?: number) => Promise<Blob>
     /**
      * The size of `EntityContainer.mappings`, the static entity-number ->
      * container index. Loading a blueprint should leave it holding exactly that
@@ -300,6 +302,8 @@ export interface FbeTestApi {
      * so the positions matter, not just the set. See tests/paste-modules.spec.ts.
      */
     entityModules: (entityNumber: number) => (string | undefined)[]
+    /** An entity's recipe, or undefined. See tests/machine-editors.spec.ts. */
+    entityRecipe: (entityNumber: number) => string | undefined
     /**
      * A write through `Entity.set modules`, names only, as the module dialog
      * sends it. See tests/quality-edits.spec.ts.
@@ -336,6 +340,13 @@ export interface FbeTestApi {
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
     /**
+     * The string of every `Text` in the topmost open dialog, in display-tree
+     * order and hidden ones included - pixi text, so a spec has no other way
+     * to read it. Throws when nothing is open.
+     * See tests/display-panel-editor.spec.ts.
+     */
+    topDialogTexts: () => string[]
+    /**
      * Where ShortcutBar sits, in the same client coordinates `topDialogBounds`
      * answers in. See tests/shortcut-bar.spec.ts.
      */
@@ -352,6 +363,30 @@ export interface FbeTestApi {
     quickbarItems: () => (string | undefined)[]
     /** Assigns one action's key combo, as the settings pane does. */
     rebindAction: (name: string, keyCombo: string) => void
+    /**
+     * The entity count drawn beside a copy, delete or select marquee, or
+     * undefined when none is sweeping. See tests/bill-of-materials.spec.ts.
+     */
+    marqueeCountText: () => string | undefined
+    /**
+     * What the open bill of materials was drawn from - item name, quality
+     * when not normal, and count, most first, tiles apart - or undefined when
+     * it is not open. See tests/bill-of-materials.spec.ts.
+     */
+    billOfMaterialsTally: () =>
+        | {
+              entities: { name: string; quality?: string; count: number }[]
+              tiles: { name: string; quality?: string; count: number }[]
+          }
+        | undefined
+    /**
+     * What each slot of the open bill of materials drew, entities then tiles:
+     * the amount label's text and whether a quality badge is there. Undefined
+     * when it is not open. See tests/bill-of-materials.spec.ts.
+     */
+    billOfMaterialsDrawn: () =>
+        | { name: string; quality?: string; amount: string; badge: boolean }[]
+        | undefined
     /**
      * Whether `EntityContainer.entityInfo` is currently visible for this
      * entity - the persistent always-show label and the hover tooltip toggle

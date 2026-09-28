@@ -165,6 +165,16 @@ const ALLOWLIST: AllowedChord[] = [
             "chest-filters.spec.ts's entry above. The spec opens no dialog at all, " +
             'so no DOM input has focus.',
     },
+    {
+        file: 'display-panel-editor.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. The press follows a click on " +
+            "the alt-mode checkbox, which is canvas, not the dialog's text field, " +
+            'so no DOM input has focus by then - and the spec asserts the undo ' +
+            'took effect, which it could not if a field had swallowed the chord.',
+    },
 ]
 
 interface Found {

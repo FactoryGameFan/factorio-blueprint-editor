@@ -96,6 +96,73 @@ export async function isPortFree(port) {
     return results.every(Boolean)
 }
 
+/*
+    The hints below come back as lines, because on Windows there is more than
+    one shell to answer for: the same node runs under PowerShell, cmd.exe and
+    Git Bash, and no single form of either hint works in all three. Each
+    Windows line is labelled with the shell it is for. (WSL is not one of
+    them - node inside WSL reports linux and gets the Unix lines.)
+
+    The port lookup does have a form every Windows shell can run, `netstat -ano`
+    piped into findstr, since both are plain executables. findstr treats a
+    quoted, space-separated string as alternatives, so one line covers both
+    ports. The PowerShell line stays alongside it because it prints the port
+    and owning pid without the rest of netstat's table.
+*/
+
+// Pads each label to the longest one, so the commands line up in a column.
+const labelled = pairs => {
+    const width = Math.max(...pairs.map(([label]) => label.length)) + 3
+    return pairs.map(([label, command]) => `${`${label}:`.padEnd(width)}${command}`)
+}
+
+/** The command that shows who is listening on the given ports. */
+export function portHint(ports, platform = process.platform) {
+    if (platform === 'win32') {
+        const unique = [...new Set(ports)]
+        return labelled([
+            [
+                'PowerShell',
+                `Get-NetTCPConnection -State Listen -LocalPort ${unique.join(',')} | Select-Object LocalPort, OwningProcess`,
+            ],
+            ['Any shell', `netstat -ano | findstr "${unique.map(p => `:${p}`).join(' ')}"`],
+        ])
+    }
+    return ['lsof -nP -iTCP -sTCP:LISTEN']
+}
+
+/*
+    The POSIX `NAME=value command` prefix sets the variable for that one
+    command. PowerShell reads the prefix as a command name and fails, and cmd
+    and Git Bash cannot run $env:, so Windows gets a form per shell.
+
+    Neither Windows form has a one-command scope. The PowerShell line removes
+    the variable again afterwards, joined with ; so that happens whether or not
+    the tests pass; left set, it would silently retarget every later Playwright
+    run in that window. The cmd line quotes the whole assignment, because
+    `set NAME=value && ...` keeps the space before && as part of the value.
+    It stays set for the rest of that cmd session.
+*/
+export function playwrightHint(port, platform = process.platform) {
+    const url = `http://localhost:${port}`
+    const posix = `FBE_BASE_URL=${url} npx playwright test`
+    if (platform === 'win32') {
+        return labelled([
+            [
+                'PowerShell',
+                `$env:FBE_BASE_URL='${url}'; npx playwright test; Remove-Item Env:FBE_BASE_URL`,
+            ],
+            ['cmd', `set "FBE_BASE_URL=${url}" && npx playwright test`],
+            ['Git Bash', posix],
+        ])
+    }
+    return [posix]
+}
+
+// One line stays on the line that introduces it; several go below, indented.
+const showHint = lines =>
+    lines.length === 1 ? `  ${lines[0]}` : lines.map(line => `\n    ${line}`).join('')
+
 const children = []
 let shuttingDown = false
 
@@ -104,6 +171,8 @@ let shuttingDown = false
 export function spawnCli(module, args, cwd) {
     return spawn(process.execPath, [fileURLToPath(import.meta.resolve(module)), ...args], {
         cwd,
+        // On Unix, its own process group, so shutdown() can signal every
+        // descendant and none is left holding a port after the top pid exits.
         detached: true,
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -201,18 +270,20 @@ async function main() {
     const { port } = parseArgs(process.argv.slice(2))
 
     const taken = []
-    if (!(await isPortFree(port))) taken.push(`${port} (Vite)`)
-    if (!(await isPortFree(SPRITE_PORT))) taken.push(`${SPRITE_PORT} (sprite data)`)
+    if (!(await isPortFree(port))) taken.push({ port, what: 'Vite' })
+    if (!(await isPortFree(SPRITE_PORT))) taken.push({ port: SPRITE_PORT, what: 'sprite data' })
     if (taken.length > 0) {
-        console.error(`Port already in use: ${taken.join(', ')}.`)
-        console.error('Stop whatever is holding it, or find it with:  lsof -nP -iTCP -sTCP:LISTEN')
-        if (taken.some(t => t.startsWith(`${port} `))) {
+        console.error(`Port already in use: ${taken.map(t => `${t.port} (${t.what})`).join(', ')}.`)
+        console.error(
+            `Stop whatever is holding it, or find it with:${showHint(portHint(taken.map(t => t.port)))}`
+        )
+        if (taken.some(t => t.what === 'Vite')) {
             console.error(
                 `To run Vite elsewhere instead:  npm run localpreview -- --port 8090\n` +
-                    `then point the Playwright specs at it with FBE_BASE_URL=http://localhost:8090.`
+                    `then point the Playwright specs at it with:${showHint(playwrightHint(8090))}`
             )
         }
-        if (taken.some(t => t.startsWith(`${SPRITE_PORT} `))) {
+        if (taken.some(t => t.what === 'sprite data')) {
             console.error(
                 `Port ${SPRITE_PORT} has no alternative - the Vite dev proxy targets it directly.`
             )
@@ -247,7 +318,7 @@ async function main() {
     console.log(`Editor:      http://localhost:${port}`)
     console.log(`Sprite data: http://localhost:${SPRITE_PORT}`)
     if (port !== 8080) {
-        console.log(`\nPlaywright:  FBE_BASE_URL=http://localhost:${port} npx playwright test`)
+        console.log(`\nPlaywright:${showHint(playwrightHint(port))}`)
     }
     console.log(`\nCtrl-C stops both.\n`)
 }

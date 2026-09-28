@@ -7,20 +7,19 @@ import { withKeybind } from '../core/keyComboLabel'
 import { Panel } from './controls/Panel'
 import { Slot } from './controls/Slot'
 import { HoverText } from './controls/HoverText'
-import { BAR_PADDING, BAR_SLOT_PITCH, QUICKBAR_WIDTH, barLength } from './barLayout'
-import { colors } from './style'
+import {
+    BAR_PADDING,
+    BAR_SLOT_PITCH,
+    BAR_SLOT_SIZE,
+    QUICKBAR_WIDTH,
+    barLength,
+    bottomBarTop,
+} from './barLayout'
+import { drawBarFrame, drawRaisedFace } from './barFaces'
 
-/** The icon's drawn size inside a 36 px slot, the size every other slot icon uses. */
+/** The icon's drawn size, the size every other slot icon uses. The game also draws 32 px icons in its 40 px slots. */
 const ICON_SIZE = 32
 const SUPERSAMPLE = 4
-
-/*
-    The game's shortcut button face, read off `__core__/graphics/gui-new.png`
-    at the `slot_sized_button` position. The game's icons are dark ink made
-    for this lighter grey: on the editor's usual 0x646464 slot the ink reads
-    at 2.85:1, and here at 5.0:1.
-*/
-const SHORTCUT_BUTTON_COLOR = 0x8c8c8c
 
 /**
  * Draws one of `core/shortcutIcons.ts`'s icons, centred on its own origin.
@@ -51,10 +50,14 @@ function createShortcutIcon(name: ShortcutIconName): Sprite {
     return icon
 }
 
-/** A slot with the game's shortcut button colour, so the icons read the way they do in game. */
+/** A slot with the game's raised grey shortcut button face, so the icons read the way they do in game. */
 class ShortcutSlot<Data> extends Slot<Data> {
-    protected override get background(): number {
-        return SHORTCUT_BUTTON_COLOR
+    public constructor(data: Data) {
+        super(data, BAR_SLOT_SIZE, BAR_SLOT_SIZE)
+    }
+
+    protected override drawBackground(width: number): Graphics {
+        return drawRaisedFace(width)
     }
 }
 
@@ -106,8 +109,8 @@ class ActionSlot extends ShortcutSlot<undefined> {
 }
 
 /*
-    The game's selected shortcut button, from the same sheet as
-    `SHORTCUT_BUTTON_COLOR`. The Alt icon is one colour of dark ink, so it
+    The game's selected shortcut button, from the same sheet as the raised
+    face in `barFaces.ts`. The Alt icon is one colour of dark ink, so it
     needs no tint to read on either face - 5.0:1 on grey and 9.9:1 here. The
     fill alone shows that Alt is on, as it does in the game.
 */
@@ -132,8 +135,8 @@ const ALT_ACTIVE_COLOR = 0xf1be64
  * survives a slot with zero children - `children.length - 1` was `-1` on
  * one, which `addChildAt` throws on - though nothing here constructs one.
  *
- * Sized off the slot's own drawn bounds rather than a third hardcoded copy
- * of `Slot`'s 36x36 default.
+ * Sized off the slot's own drawn bounds rather than another hardcoded copy
+ * of the slot size.
  */
 function addToggleHighlight(slot: Container, color: number): Graphics {
     const highlight = new Graphics().rect(0, 0, slot.width, slot.height).fill(color)
@@ -210,17 +213,23 @@ export class ShortcutBar extends Panel {
     public constructor() {
         const initialCells = ShortcutBar.buildCells()
         const cols = Math.ceil(initialCells.cells.length / ROWS)
-        super(
-            barLength(cols),
-            barLength(ROWS),
-            colors.quickbar.background.color,
-            colors.quickbar.background.alpha,
-            colors.quickbar.background.border
-        )
+        // Transparent, because the frame is drawn below from the game's numbers.
+        super(barLength(cols), barLength(ROWS), 0, 0, 0)
 
         this.slotsContainer = new Container()
         this.slotsContainer.position.set(BAR_PADDING, BAR_PADDING)
-        this.addChild(this.slotsContainer, this.hoverText)
+        this.addChild(
+            drawBarFrame(barLength(cols), barLength(ROWS), [
+                {
+                    x: BAR_PADDING,
+                    y: BAR_PADDING,
+                    width: barLength(cols) - 2 * BAR_PADDING,
+                    height: barLength(ROWS) - 2 * BAR_PADDING,
+                },
+            ]),
+            this.slotsContainer,
+            this.hoverText
+        )
 
         this.placeCells(initialCells)
     }
@@ -359,12 +368,12 @@ export class ShortcutBar extends Panel {
      * Flush against the quickbar's right edge at common viewport widths, the
      * same way the two-row layout above assumes - but clamped to the screen's
      * own right edge underneath that, since the unclamped position runs the
-     * panel off-screen entirely below ~872px (`screen.width / 2 + 224 +
+     * panel off-screen entirely below ~900px (`screen.width / 2 + 234 +
      * this.width > screen.width`, solved for `screen.width`). Below that
      * width the panel overlaps the quickbar instead of vanishing, which is
      * the same trade-off a real user can still click through. Also clamped
      * at 0: `screen.width - this.width` goes negative once the screen is
-     * narrower than the panel itself (below ~212px, `this.width` being
+     * narrower than the panel itself (below ~216px, `this.width` being
      * `barLength(cols)` for `cols = ceil(9/2) = 5`), which without the
      * lower bound pushed the panel off the *left* edge instead - worse than
      * the overlap this comment already accepts, since a clamp to 0 is still
@@ -376,6 +385,6 @@ export class ShortcutBar extends Panel {
             0,
             Math.min(G.app.screen.width / 2 + QUICKBAR_WIDTH / 2, G.app.screen.width - this.width)
         )
-        this.position.set(x, G.app.screen.height - this.height + 1)
+        this.position.set(x, bottomBarTop(G.app.screen.height, this.height))
     }
 }

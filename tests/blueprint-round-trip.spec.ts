@@ -66,7 +66,7 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
 
         /*
             djb2 over the serialized JSON. Only needs to be stable and sensitive,
-            not cryptographic, and it has to run in-page so the full JSON of 367
+            not cryptographic, and it has to run in-page so the full JSON of 372
             blueprints never crosses the CDP bridge.
         */
         const hashInto = (h: number, s: string): number => {
@@ -174,7 +174,7 @@ test('every test blueprint survives the decode/serialize round trip unchanged', 
  * The original fixed point here was captured before the Blueprint/History
  * strictNullChecks cleanup (issue #22), against the 578-blueprint
  * wormeyman-tests/ corpus. It is not what is below any more - the corpus was
- * replaced by the 367-blueprint test-blueprints/ (issue #186), which moves
+ * replaced by the 372-blueprint test-blueprints/ (issue #186), which moves
  * every count in EXPECTED, not only serializedHash. The values below are a
  * live capture against test-blueprints/ with today's code, taken 2026-08-05
  * by the same throwaway recorder before it was deleted. See the note at the

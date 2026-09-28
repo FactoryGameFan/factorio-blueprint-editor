@@ -22,7 +22,9 @@
                                  data.dir / 4)
       Y-offset spritesheet     duplicateAndSetPropertyUsing(l,'y','height',  draw_ammo_turret
                                  data.dir / 4)
-      Multi-file (filenames)   l.filename = l.filenames[data.dir / 4]        draw_locomotive, draw_cargo_wagon
+      Rotated (256 frames, or  rollingStockLayers(e.pictures, data)          draw_locomotive, draw_cargo_wagon
+        128 over half a turn
+        for back_equals_front)
       Rail 8-way               e.pictures[getDirName8Way(dir)], pick keys    draw_rail
       Flatten picture array    e.graphics_set.picture.flatMap(p => p.layers) draw_cargo_bay
       Chargable graphics       e.chargable_graphics.picture.layers          draw_accumulator
@@ -158,6 +160,7 @@ import {
     WallPrototype,
     RailPrototype,
     Vector3D,
+    RollingStockRotatedSlopedGraphics,
 } from 'factorio:prototype'
 import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
@@ -169,6 +172,7 @@ import {
     type CargoBayBox,
 } from './cargoBayConnections'
 import { need } from './need'
+import { rotatedSpriteFrame } from './rotatedSprite'
 
 /**
  * What a `draw_*` function gets to work with.
@@ -184,6 +188,8 @@ import { need } from './need'
 export interface IDrawData {
     /** Defaulted to 0 (north) by getDrawData, matching what getParts already does. */
     dir: number
+    /** Rolling stock only, and only from a blueprint; see `Entity.orientation`. */
+    orientation: number | undefined
 
     name: string
     /** Absent when nothing was placed yet - the paint and editor previews. */
@@ -1217,29 +1223,28 @@ function draw_artillery_turret(
         return [...layersOf(need(e, 'base_picture')), barrel, base]
     }
 }
+/**
+ * Rolling stock faces any of 256 ways, not one of 16. A blueprint says which
+ * with `orientation` and gives no `direction`; the editor's own placements and
+ * the synthetic test blueprints give a `direction` and no `orientation`, which
+ * is the same heading at a sixteenth of a turn per step.
+ */
+function rollingStockLayers(
+    pictures: RollingStockRotatedSlopedGraphics,
+    data: IDrawData
+): readonly SpriteData[] {
+    const orientation = data.orientation ?? data.dir / 16
+    const { rotated } = pictures
+    return (rotated.layers ?? [rotated]).map(l => rotatedSpriteFrame(l, orientation))
+}
 function draw_artillery_wagon(
     e: ArtilleryWagonPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => {
-        const d = data.dir / 4
-        const layers: SpriteData[] = []
-        for (const layer of (e as any).pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        for (const layer of (e as any).cannon_barrel_pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        for (const layer of (e as any).cannon_base_pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        return layers
-    }
+    return (data: IDrawData) => [
+        ...rollingStockLayers(need(e, 'pictures'), data),
+        ...rollingStockLayers(need(e, 'cannon_barrel_pictures'), data),
+        ...rollingStockLayers(need(e, 'cannon_base_pictures'), data),
+    ]
 }
 /**
  * The electromagnetic plant's idle animation is only its shell - its core is a
@@ -1745,16 +1750,7 @@ function draw_cargo_landing_pad(
     }
 }
 function draw_cargo_wagon(e: CargoWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => {
-        const d = data.dir / 4
-        const layers: SpriteData[] = []
-        for (const layer of (e as any).pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        return layers
-    }
+    return (data: IDrawData) => rollingStockLayers(need(e, 'pictures'), data)
 }
 function draw_constant_combinator(
     e: ConstantCombinatorPrototype
@@ -1979,16 +1975,7 @@ function draw_fluid_turret(e: FluidTurretPrototype): (data: IDrawData) => readon
     }
 }
 function draw_fluid_wagon(e: FluidWagonPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => {
-        const d = data.dir / 4
-        const layers: SpriteData[] = []
-        for (const layer of (e as any).pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        return layers
-    }
+    return (data: IDrawData) => rollingStockLayers(need(e, 'pictures'), data)
 }
 function draw_furnace(e: FurnacePrototype): (data: IDrawData) => readonly SpriteData[] {
     const anim = need(e, 'graphics_set').animation as any
@@ -2143,16 +2130,7 @@ function draw_heat_pipe(e: HeatPipePrototype): (data: IDrawData) => readonly Spr
 function draw_infinity_cargo_wagon(
     e: InfinityCargoWagonPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => {
-        const d = data.dir / 4
-        const layers: SpriteData[] = []
-        for (const layer of (e as any).pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        return layers
-    }
+    return (data: IDrawData) => rollingStockLayers(need(e, 'pictures'), data)
 }
 function draw_infinity_container(
     e: InfinityContainerPrototype
@@ -2461,16 +2439,7 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
     }
 }
 function draw_locomotive(e: LocomotivePrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) => {
-        const d = data.dir / 4
-        const layers: SpriteData[] = []
-        for (const layer of (e as any).pictures.rotated.layers) {
-            const l = util.duplicate(layer)
-            if (l.filenames) l.filename = l.filenames[d]
-            layers.push(l)
-        }
-        return layers
-    }
+    return (data: IDrawData) => rollingStockLayers(need(e, 'pictures'), data)
 }
 function draw_logistic_container(
     e: LogisticContainerPrototype
