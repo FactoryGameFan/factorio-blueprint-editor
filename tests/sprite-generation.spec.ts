@@ -39,9 +39,9 @@ const DIRECTIONS = [0, 4, 8, 12]
  * Entity types that cannot produce sprites today, and so render as a missing
  * sprite. Not an accepted cost - each is a real gap - but they predate this test.
  *
- * The last five are not placeable in a real blueprint: three decorative logos, a
- * Fulgoran ruin and a hidden internal entity. big-mining-drill is the one that
- * matters, a Space Age entity a player can actually build.
+ * None of them is placeable in a real blueprint: three decorative logos, a
+ * Fulgoran ruin and a hidden internal entity. big-mining-drill used to be on the
+ * list, until #29 gave it a draw case.
  */
 const EXPECTED_FAILURES: string[] = [
     'factorio-logo-11tiles',
