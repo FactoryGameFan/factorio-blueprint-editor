@@ -729,6 +729,12 @@ const testApi = {
         }
     },
     /*
+        What the app's own info panel says right now, or undefined while it is
+        hidden - the live one, which entityInfoText above deliberately is not,
+        for a spec checking that the panel follows an edit (#339).
+    */
+    entityInfoPanelText: () => editor.entityInfoPanelText,
+    /*
         Whether the copy cursor box is drawn - the outline shown on a settings
         copy source while hovering a valid target. The only visible consequence
         of Entity.canPasteSettings, and so the only way to tell a pair the editor

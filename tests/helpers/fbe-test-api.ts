@@ -315,6 +315,8 @@ export interface FbeTestApi {
      * tests/inserter-throughput.spec.ts.
      */
     entityInfoText: (entityNumber: number) => string
+    /** The live info panel's text, or undefined while it is hidden. See tests/inserter-stack-size.spec.ts. */
+    entityInfoPanelText: () => string | undefined
     /**
      * Constructs a dialog whose constructor throws after `super()`, without
      * adding it to the display tree, and answers whether it threw.

@@ -419,6 +419,11 @@ export class Editor {
         return G.UI.openDialogCount
     }
 
+    /** What the live entity info panel says, or undefined while it is hidden. */
+    public get entityInfoPanelText(): string | undefined {
+        return G.UI.entityInfoPanelText
+    }
+
     /**
      * Where the topmost open dialog sits in client coordinates, so a spec can
      * click a control drawn inside it. Throws when nothing is open.
