@@ -105,6 +105,11 @@ export class UIContainer extends Container {
         this.dialogsContainer.addChild(this.bookDialog)
     }
 
+    /** What the entity info panel says, or undefined while it is hidden. */
+    public get entityInfoPanelText(): string | undefined {
+        return this.entityInfoPanel.visible ? this.entityInfoPanel.infoText : undefined
+    }
+
     /** `undefined` hides the panel, which is what a hover-out sends. */
     public updateEntityInfoPanel(entity: Entity | undefined): void {
         this.entityInfoPanel.updateVisualization(entity)
@@ -202,11 +207,6 @@ export class UIContainer extends Container {
     public get shortcutBarBounds(): { x: number; y: number; width: number; height: number } {
         const at = this.shortcutBar.toGlobal({ x: 0, y: 0 })
         return { x: at.x, y: at.y, width: this.shortcutBar.width, height: this.shortcutBar.height }
-    }
-
-    /** The live info panel's detail line, or undefined while it is hidden. */
-    public get entityInfoText(): string | undefined {
-        return this.entityInfoPanel.visible ? this.entityInfoPanel.infoText : undefined
     }
 
     /** The hover text ShortcutBar is showing, or undefined when it shows none. */

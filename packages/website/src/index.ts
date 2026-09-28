@@ -731,18 +731,19 @@ const testApi = {
         }
     },
     /*
+        What the app's own info panel says right now, or undefined while it is
+        hidden - the live one, which entityInfoText above deliberately is not,
+        for a spec checking that the panel follows an edit (#339, and
+        tests/train-schedule-panel.spec.ts for a schedule change).
+    */
+    entityInfoPanelText: () => editor.entityInfoPanelText,
+    /*
         Whether the copy cursor box is drawn - the outline shown on a settings
         copy source while hovering a valid target. The only visible consequence
         of Entity.canPasteSettings, and so the only way to tell a pair the editor
         refuses from one it accepts and then writes nothing for.
     */
     copyCursorBoxVisible: () => editor.copyCursorBoxVisible,
-    /*
-        What the app's own info panel shows, unlike entityInfoText above - so a
-        spec can see whether it refreshes when the hovered entity changes under
-        it (tests/train-schedule-panel.spec.ts).
-    */
-    liveEntityInfoText: () => editor.entityInfoText,
     /*
         Constructs a dialog whose constructor throws, and answers whether it did.
         Never added to the display tree, so with registration on the `added`
@@ -904,6 +905,23 @@ const testApi = {
             Math.random = realRandom
         }
         return out
+    },
+    /*
+        The sheet each sprite layer of one loaded entity is cut from, in draw
+        order: `filename`, or a multi-file layer's `filenames` joined with ",".
+        The digest above hashes the order away into a number, so a spec that
+        needs to say which sheet lands in front of which reads this instead.
+        Same grid choice as spriteDataTally; "FAILED" where the generator threw.
+    */
+    spriteLayerFiles: (entityNumber: number, opts?: { withGrid?: boolean }) => {
+        const grid = opts?.withGrid === false ? undefined : bp.entityPositionGrid
+        const data = getSpriteData(
+            EntitySprite.getDrawData(entityOf(entityNumber), grid)
+        ) as unknown
+        if (data === SPRITE_GENERATION_FAILED) return 'FAILED' as const
+        return (data as readonly { filename?: string; filenames?: readonly string[] }[]).map(
+            layer => layer.filename ?? layer.filenames?.join(',') ?? ''
+        )
     },
     /*
         The same digest for the bare `{ name, direction, directionType }` object

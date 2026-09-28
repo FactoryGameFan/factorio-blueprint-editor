@@ -85,7 +85,7 @@ async function hoverEntity(page: Page, entityNumber: number): Promise<void> {
 }
 
 const liveText = (page: Page): Promise<string | undefined> =>
-    page.evaluate(() => window.__fbe_test.liveEntityInfoText())
+    page.evaluate(() => window.__fbe_test.entityInfoPanelText())
 
 test('a locomotive shows its 2.0 schedule, and one on none says so', async ({ page }) => {
     await load(

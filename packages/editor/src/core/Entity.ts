@@ -180,6 +180,7 @@ export interface EntityEvents {
     splitterFilter: []
     filters: []
     inserterFilters: []
+    inserterStackSize: []
     filterMode: [mode: FilterMode]
     logisticChestFilters: []
     requestFromBufferChest: []
@@ -1120,6 +1121,44 @@ export class Entity extends EventEmitter<EntityEvents> {
             }
         }
         return null
+    }
+
+    /**
+     * The hand size override exactly as the blueprint carries it: undefined
+     * when the inserter has none, which `inserterStackSize` above hides behind
+     * its fallback. Setting undefined deletes the field rather than writing a
+     * value, so a cleared override exports the same as one never set (#339).
+     */
+    public get inserterStackSizeOverride(): number | undefined {
+        return this.m_rawEntity.override_stack_size
+    }
+
+    public set inserterStackSizeOverride(size: number | undefined) {
+        if (this.m_rawEntity.override_stack_size === size) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'override_stack_size', size, 'Change stack size')
+            .onDone(() => this.emit('inserterStackSize'))
+            .commit()
+    }
+
+    /*
+        The largest hand the game can give this inserter with every technology
+        researched, or undefined for an entity that is not an inserter. The
+        technologies are not in data.json, so their totals are written here,
+        read from factorio-data 2.0.77's technology.lua:
+
+        - Every inserter starts at 1.
+        - `inserter-stack-size-bonus` adds 1 each in inserter-capacity-bonus-2
+          and -7, and Space Age's transport-belt-capacity-2 adds a third: 4.
+        - `bulk-inserter-capacity-bonus` adds 1 in the bulk-inserter technology
+          and 1, 1, 1, 1, 2, 2, 2 in inserter-capacity-bonus-1 to -7: 12.
+        - The prototype's own `stack_size_bonus` goes on top, which only the
+          stack inserter has (4): 16.
+    */
+    public get inserterStackSizeLimit(): number | undefined {
+        if (!isInserter(this.entityData)) return undefined
+        return (this.entityData.bulk ? 12 : 4) + (this.entityData.stack_size_bonus ?? 0)
     }
 
     public get constantCombinatorFilters(): string[] {

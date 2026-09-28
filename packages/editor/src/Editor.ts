@@ -419,6 +419,11 @@ export class Editor {
         return G.UI.openDialogCount
     }
 
+    /** What the live entity info panel says, or undefined while it is hidden. */
+    public get entityInfoPanelText(): string | undefined {
+        return G.UI.entityInfoPanelText
+    }
+
     /**
      * Where the topmost open dialog sits in client coordinates, so a spec can
      * click a control drawn inside it. Throws when nothing is open.
@@ -467,14 +472,6 @@ export class Editor {
     /** The shortcut bar's hover text on show, or undefined. See tests/shortcut-bar.spec.ts. */
     public get shortcutTooltip(): string | undefined {
         return G.UI.shortcutTooltip
-    }
-
-    /**
-     * What the app's own entity info panel is showing, or undefined while it is
-     * hidden. See tests/train-schedule-panel.spec.ts.
-     */
-    public get entityInfoText(): string | undefined {
-        return G.UI.entityInfoText
     }
 
     /** Where the inventory bar sits in client coordinates. See tests/shortcut-bar.spec.ts. */

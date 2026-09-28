@@ -80,6 +80,7 @@ import {
     Sprite as SpriteData,
     HeatConnection,
     PipeConnectionDefinition,
+    FluidBox,
     Sprite4Way,
     AccumulatorPrototype,
     AgriculturalTowerPrototype,
@@ -173,6 +174,7 @@ import {
 } from './cargoBayConnections'
 import { need } from './need'
 import { rotatedSpriteFrame } from './rotatedSprite'
+import { drillLayers } from './drillLayers'
 
 /**
  * What a `draw_*` function gets to work with.
@@ -1247,22 +1249,74 @@ function draw_artillery_wagon(
     ]
 }
 /**
- * The electromagnetic plant's idle animation is only its shell - its core is a
- * separate `working_visualisation` the draw never picked up, leaving a hole.
- * Its one unconditional entry (`always_draw`, no `name`, no `enabled_by_name`)
- * is that core.
+ * A crafting machine's unconditional `working_visualisation` - `always_draw`,
+ * no `name`, no `enabled_by_name`, no tint - is part of its body that the idle
+ * animation leaves out: the electromagnetic plant's core, which left a hole
+ * (#356), and the cryogenic plant's glass (#373). Swept over data.json, those
+ * are the only two assembling machines with one.
  *
- * Only the electromagnetic plant. Other crafting machines' `always_draw`
- * visualisations are `apply_runtime_tint` masks that read wrong without the
- * base they tint (cryogenic-plant) or recipe-gated (`enabled_by_name`, foundry);
- * folding those in is a wider change than fixing the hole this leaves.
+ * `!name` keeps one of the electromagnetic plant's two cores, which differ only
+ * in `frame_count`. The tint guard drops the cryogenic plant's five other
+ * `always_draw` entries, `apply_recipe_tint` masks that read wrong with no
+ * recipe colour to apply.
  */
 function restingCoreLayers(e: AssemblingMachinePrototype): readonly SpriteData[] {
-    if (e.name !== 'electromagnetic-plant') return []
-    const core = need(e, 'graphics_set').working_visualisations?.find(
-        wv => wv.always_draw && !wv.name && !wv.enabled_by_name && wv.animation
+    const wvs = need(e, 'graphics_set').working_visualisations
+    // An empty list exports as `{}`, which has no `find`.
+    if (!Array.isArray(wvs)) return []
+    const core = wvs.find(
+        wv =>
+            wv.always_draw &&
+            !wv.name &&
+            !wv.enabled_by_name &&
+            !wv.apply_recipe_tint &&
+            !wv.apply_tint &&
+            wv.animation
     )
     return core?.animation ? layersOf(core.animation) : []
+}
+
+/**
+ * The pipe artwork a fluid box switches on by name rather than carrying in its
+ * own `pipe_picture`. The foundry's four boxes all set `pipe_picture` to
+ * `empty.png` and name `input-pipe` or `output-pipe` in
+ * `enable_working_visualisations` instead, and those two visualisations hold
+ * the connectors, one sprite per facing covering both pipes on that side
+ * (#372). Swept over data.json, the foundry is the only assembling machine
+ * whose fluid boxes name any.
+ *
+ * `fbs` is already cut down to the boxes the recipe uses, so a side with no
+ * fluid draws no connector, the same gating `pipe_picture` gets. A negative
+ * `<dir>_secondary_draw_order` - the connector on the far side, behind the
+ * body - goes in `back`; everything else in `front`.
+ */
+function namedPipeLayers(
+    e: AssemblingMachinePrototype,
+    fbs: readonly FluidBox[],
+    dirValue: number
+): { back: SpriteData[]; front: SpriteData[] } {
+    const back: SpriteData[] = []
+    const front: SpriteData[] = []
+    const names = new Set(
+        fbs.flatMap(fb =>
+            Array.isArray(fb.enable_working_visualisations) ? fb.enable_working_visualisations : []
+        )
+    )
+    const wvs = need(e, 'graphics_set').working_visualisations
+    if (names.size === 0 || !Array.isArray(wvs)) return { back, front }
+
+    const dir = util.getDirName(dirValue) as 'north' | 'east' | 'south' | 'west'
+    for (const wv of wvs) {
+        if (!wv.always_draw || wv.name === undefined || !names.has(wv.name)) continue
+        // A non-directional `animation` draws the same whichever way the entity
+        // faces, as the mining drill's always_draw pass reads it. The foundry's
+        // two are directional throughout, so this changes nothing drawn today.
+        const anim = wv[`${dir}_animation`] ?? wv.animation
+        if (!anim) continue
+        const order = wv[`${dir}_secondary_draw_order`] ?? wv.secondary_draw_order ?? 0
+        ;(order < 0 ? back : front).push(...layersOf(anim))
+    }
+    return { back, front }
 }
 
 function draw_assembling_machine(
@@ -1273,11 +1327,6 @@ function draw_assembling_machine(
         if (need(e, 'graphics_set').always_draw_idle_animation) {
             return [...layersOf(need(e, 'graphics_set', 'idle_animation')), ...core]
         } else {
-            const out = [
-                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
-                ...core,
-            ]
-
             const fbs = getFluidBoxes(
                 e,
                 data.assemblerHasFluidInputs || data.assemblerHasFluidOutputs
@@ -1286,6 +1335,14 @@ function draw_assembling_machine(
                     (data.assemblerHasFluidInputs && conn.production_type === 'input') ||
                     (data.assemblerHasFluidOutputs && conn.production_type === 'output')
             )
+
+            const pipes = namedPipeLayers(e, fbs, data.dir)
+            const out = [
+                ...pipes.back,
+                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
+                ...core,
+                ...pipes.front,
+            ]
 
             for (const fb of fbs) {
                 if (!fb.pipe_picture) continue
@@ -1296,7 +1353,8 @@ function draw_assembling_machine(
 
                     const dir = (data.dir + need(conn, 'direction')) % 16
                     // pipe_picture can be a directional map {north, east, south, west}
-                    // or a single sprite object (e.g. foundry). The latter has no
+                    // or a single sprite object (e.g. the foundry's blank, whose real
+                    // connectors come from namedPipeLayers). The latter has no
                     // directional keys, so fall back to it as a SpriteData.
                     const pipePic =
                         dirEntry(fb.pipe_picture, util.getDirName(dir)) ||
@@ -2467,34 +2525,11 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
         case 'big-mining-drill':
             return (data: IDrawData) => {
                 const dir = util.getDirName(data.dir)
-                const layers0 = dirLayers(need(e, 'graphics_set', 'animation'), dir)
-
-                const animDir = `${dir}_animation` as
-                    | 'north_animation'
-                    | 'east_animation'
-                    | 'south_animation'
-                    | 'west_animation'
-
-                /*
-                    An always_draw visualisation is either directional - one entry per
-                    facing, and absent for facings it does not apply to - or a single
-                    non-directional `animation` drawn the same way whichever way the
-                    drill points. electric-mining-drill only has the first kind, so it
-                    was enough to read the directional key and drop everything else.
-                    big-mining-drill has two of the second kind (a scorch mark and the
-                    drill head), which that would silently discard.
-
-                    The order matters: a directional entry that omits this facing has
-                    to stay dropped rather than fall back to a plain `animation` it
-                    does not have, which is what the filter below still does.
-                */
-                const layers1 = need(e, 'graphics_set', 'working_visualisations')
-                    .filter(vis => vis.always_draw)
-                    .map(vis => vis[animDir] ?? vis.animation)
-                    .filter(vis => !!vis)
-                    .flatMap(vis => (vis.layers ? vis.layers : [vis]))
-
-                return [...layers0, ...layers1]
+                return drillLayers(
+                    dirLayers(need(e, 'graphics_set', 'animation'), dir),
+                    need(e, 'graphics_set', 'working_visualisations'),
+                    dir
+                )
             }
 
         default:

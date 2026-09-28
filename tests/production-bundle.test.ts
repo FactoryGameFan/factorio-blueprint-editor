@@ -71,10 +71,10 @@ const TEST_API_MARKERS = [
     'shortcutBarHoverText',
     'rebindAction',
     'markedUnpairedUndergrounds',
-    'liveEntityInfoText',
     'marqueeCountText',
     'billOfMaterialsTally',
     'billOfMaterialsDrawn',
+    'spriteLayerFiles',
 ]
 
 let bundledJs = ''
