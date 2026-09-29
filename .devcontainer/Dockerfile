@@ -1,4 +1,4 @@
-FROM ghcr.io/voidzero-dev/vite-plus:0.3.1@sha256:d3ce400c0155dbb2bb17e48bf4b549528cf6dbb6f837f0557acb162d97d4688e
+FROM ghcr.io/voidzero-dev/vite-plus:0.3.3@sha256:c25901a17884c55d71e34c1783fa8a77a5eb7e8834735868da775588cd30a1b4
 
 # The base image supplies curl, build-essential and pkg-config, and runs as vp.
 # Install Rust as that user, without adding debugger capabilities or disabling
