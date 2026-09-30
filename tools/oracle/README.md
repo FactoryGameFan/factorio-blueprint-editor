@@ -55,6 +55,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-blueprint-snapping.mjs`       | Which snapping mode carries `position-relative-to-grid` (#226, PR #222)       |
 | `probe-blueprint-grid-position.mjs`  | Whether setting a grid position moves the entities (PR #222)                  |
 | `probe-decider-else-outputs.mjs`     | How 2.1 serialises a decider's `else_outputs`, and whether it reimports       |
+| `probe-underground-type.mjs`         | What an underground belt with no `type` becomes (#547)                        |
 
 | `probe-cargo-bay-render.mjs` | What cargo bay arrangements actually look like in the game (#378) |
 
@@ -93,6 +94,17 @@ node tools/oracle/probe-rail-placement.mjs --write-fixture && vp check --fix
 Needs a local Factorio. Found via `FACTORIO_BIN`, else the macOS Steam default.
 Nothing in `tests/` depends on these - the committed fixtures do the asserting,
 so CI stays offline.
+
+A Linux headless build is enough for any probe that only runs `--create`, which
+is all of them except `probe-cargo-bay-render.mjs` and `probe-zoom-limits.mjs`,
+the two that need the graphics client. Headless 2.0.x ships `base`,
+`elevated-rails`, `quality` and `space-age`, and is a free download that needs
+no login. Point `FACTORIO_BIN` at it, for example
+`FACTORIO_BIN=~/factorio-headless-2.0.77/bin/x64/factorio`. Measured 2026-09-28
+with `probe-entity-tile-size.mjs`: all 155 entities found, 146 agree and 9
+disagree, the same as the committed conclusions. It is a 2.0.x binary, so a
+probe that hardcodes `factorio_version: '2.1'` skips its mod in silence against
+it - see the gotcha below.
 
 `probe-rail-placement.mjs` needs one more thing: `packages/exporter/data/output/data.json`,
 which it reads to work out tile footprints the way the editor does. That is a

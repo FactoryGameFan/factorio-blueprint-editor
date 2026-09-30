@@ -1,0 +1,310 @@
+{
+    "captured_on": "Version: 2.0.77 (build 84539, linux64, headless)",
+    "cases": [
+        {
+            "label": "solo, no type",
+            "errors": {},
+            "import_code": 0,
+            "imported": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ],
+            "ghost_count": 1,
+            "built": [
+                {
+                    "x": 10.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input"
+                }
+            ],
+            "ghosts_left": 0,
+            "recaptured": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 10.5,
+                        "y": 6.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ]
+        },
+        {
+            "label": "solo, input (control)",
+            "errors": {},
+            "import_code": 0,
+            "imported": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ],
+            "ghost_count": 1,
+            "built": [
+                {
+                    "x": 10.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input"
+                }
+            ],
+            "ghosts_left": 0,
+            "recaptured": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 10.5,
+                        "y": 12.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ]
+        },
+        {
+            "label": "solo, output (control)",
+            "errors": {},
+            "import_code": 0,
+            "imported": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "output"
+                }
+            ],
+            "ghost_count": 1,
+            "built": [
+                {
+                    "x": 10.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "output"
+                }
+            ],
+            "ghosts_left": 0,
+            "recaptured": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 10.5,
+                        "y": 18.5
+                    },
+                    "direction": 4,
+                    "type": "output"
+                }
+            ]
+        },
+        {
+            "label": "no type upstream, output downstream",
+            "errors": {},
+            "import_code": 0,
+            "imported": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                },
+                {
+                    "entity_number": 2,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 4.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "output"
+                }
+            ],
+            "ghost_count": 2,
+            "built": [
+                {
+                    "x": 8.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input",
+                    "partner_x": 12.5
+                },
+                {
+                    "x": 12.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "output",
+                    "partner_x": 8.5
+                }
+            ],
+            "ghosts_left": 0,
+            "recaptured": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 8.5,
+                        "y": 24.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                },
+                {
+                    "entity_number": 2,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 12.5,
+                        "y": 24.5
+                    },
+                    "direction": 4,
+                    "type": "output"
+                }
+            ]
+        },
+        {
+            "label": "input upstream, no type downstream",
+            "errors": {},
+            "import_code": 0,
+            "imported": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                },
+                {
+                    "entity_number": 2,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 4.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ],
+            "ghost_count": 2,
+            "built": [
+                {
+                    "x": 8.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input"
+                },
+                {
+                    "x": 12.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input"
+                }
+            ],
+            "ghosts_left": 0,
+            "recaptured": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 8.5,
+                        "y": 30.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                },
+                {
+                    "entity_number": 2,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 12.5,
+                        "y": 30.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ]
+        },
+        {
+            "label": "no type upstream, no type downstream",
+            "errors": {},
+            "import_code": 0,
+            "imported": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 0.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                },
+                {
+                    "entity_number": 2,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 4.5,
+                        "y": 0.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ],
+            "ghost_count": 2,
+            "built": [
+                {
+                    "x": 8.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input"
+                },
+                {
+                    "x": 12.5,
+                    "direction": 4,
+                    "belt_to_ground_type": "input"
+                }
+            ],
+            "ghosts_left": 0,
+            "recaptured": [
+                {
+                    "entity_number": 1,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 8.5,
+                        "y": 36.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                },
+                {
+                    "entity_number": 2,
+                    "name": "underground-belt",
+                    "position": {
+                        "x": 12.5,
+                        "y": 36.5
+                    },
+                    "direction": 4,
+                    "type": "input"
+                }
+            ]
+        }
+    ]
+}

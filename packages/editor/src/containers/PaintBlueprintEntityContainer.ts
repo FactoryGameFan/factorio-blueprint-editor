@@ -93,10 +93,10 @@ export class PaintBlueprintEntityContainer {
         this.undergroundLine = this.bpc.overlayContainer.createUndergroundLine(
             this.entity.name,
             this.entityPosition,
-            this.entity.directionType === 'input'
+            this.entity.effectiveDirectionType === 'input'
                 ? this.entity.direction
                 : (this.entity.direction + 8) % 16,
-            this.entity.type === 'pipe-to-ground' || this.entity.directionType === 'output'
+            this.entity.type === 'pipe-to-ground' || this.entity.effectiveDirectionType === 'output'
                 ? (this.entity.direction + 8) % 16
                 : this.entity.direction
         )
