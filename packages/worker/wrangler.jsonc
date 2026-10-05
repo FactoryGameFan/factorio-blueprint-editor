@@ -87,6 +87,8 @@
         while invocations track the page-view count. If they climb back toward
         the pre-scoping figure, drop this to 0.1 rather than pay for volume.
     */
+    // Stack traces in Workers Logs then name src/*.ts lines, not the bundle's.
+    "upload_source_maps": true,
     "observability": {
         "enabled": true,
         "head_sampling_rate": 1,
