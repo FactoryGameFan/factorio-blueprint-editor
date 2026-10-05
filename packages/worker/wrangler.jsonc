@@ -3,6 +3,14 @@
     "name": "fbeworkeyman",
     "main": "src/index.ts",
     "compatibility_date": "2026-08-25",
+    /*
+        Nothing in src/ imports a node: module today, so this changes no
+        behavior. It is on because Cloudflare's Workers best practices
+        recommend it, so that a dependency added later that reaches for
+        node:crypto or node:buffer works rather than failing at import. A
+        polyfill is bundled only for a module that is actually imported.
+    */
+    "compatibility_flags": ["nodejs_compat"],
     // Keep the legacy workers.dev URL live so it can 301-redirect to the
     // custom domain (redirect logic in src/index.ts).
     "workers_dev": true,
