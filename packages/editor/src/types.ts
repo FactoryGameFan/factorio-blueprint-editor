@@ -607,16 +607,23 @@ export interface ITile {
 
 export type CompareType = 'and' | 'or'
 
+/**
+ * All ten values of `WaitConditionType` in the 1.1.110 runtime API, in its
+ * order. The game writes them with underscores; until #558 this and the schema
+ * had hyphens, from upstream's bulk "remove mapping of - to _" (49480f3d), which
+ * swept this enum along with the prototype names it was meant for.
+ */
 export type WaitConditionType =
     | 'time'
-    | 'inactivity'
     | 'full'
     | 'empty'
-    | 'item-count'
-    | 'fluid-count'
+    | 'item_count'
     | 'circuit'
-    | 'passenger-present'
-    | 'passenger-not-present'
+    | 'inactivity'
+    | 'robots_inactive'
+    | 'fluid_count'
+    | 'passenger_present'
+    | 'passenger_not_present'
 
 /**
  * A wait condition in the pre-2.0 shape, the one `blueprintSchema.json` still
@@ -639,16 +646,15 @@ export interface ILegacyScheduleRecord {
 /**
  * The same idea in the 2.0 shape, whose `type` is deliberately a bare `string`.
  *
- * The two spellings differ: the pre-2.0 enum above has `passenger-not-present`
- * and the game writes `passenger_not_present` in a 2.0 record - measured, see
- * `tools/oracle/fixtures/copy-settings-schedule.json`. Only four of the names
- * were observed there, so enumerating the rest from that sample would be a guess
- * that rejects valid data. `blueprintSchema.json` constrains this shape no
- * further than "an object" for the same reason. The editor carries a schedule
- * verbatim; `core/trainSchedule.ts` reads the underscored names only to label
- * them in the entity info panel. The hyphenated enum above is not what a 1.1
- * export holds either - the 1.1 API spells it `passenger_not_present` too -
- * and that file says where it came from.
+ * Both shapes spell a name the same way, with underscores - the game writes
+ * `passenger_not_present` in a 2.0 record too, measured, see
+ * `tools/oracle/fixtures/copy-settings-schedule.json`. But 2.0 added names the
+ * 1.1 enum above lacks (`at_station`, `not_empty`, `fuel_item_count_any` and
+ * more), and only four were observed there, so enumerating the rest from that
+ * sample would be a guess that rejects valid data. `blueprintSchema.json`
+ * constrains this shape no further than "an object" for the same reason. The
+ * editor carries a schedule verbatim; `core/trainSchedule.ts` reads the names
+ * only to label them in the entity info panel.
  */
 export interface IScheduleWaitCondition {
     compare_type?: CompareType

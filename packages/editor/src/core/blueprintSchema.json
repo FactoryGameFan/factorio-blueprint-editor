@@ -429,15 +429,17 @@
                                                                 "type": "string",
                                                                 "enum": [
                                                                     "time",
-                                                                    "inactivity",
                                                                     "full",
                                                                     "empty",
-                                                                    "item-count",
-                                                                    "fluid-count",
+                                                                    "item_count",
                                                                     "circuit",
-                                                                    "passenger-present",
-                                                                    "passenger-not-present"
-                                                                ]
+                                                                    "inactivity",
+                                                                    "robots_inactive",
+                                                                    "fluid_count",
+                                                                    "passenger_present",
+                                                                    "passenger_not_present"
+                                                                ],
+                                                                "$comment": "WaitConditionType in the 1.1.110 runtime API, all ten and in its order; the game writes them with underscores (issue #558)"
                                                             },
                                                             "ticks": { "type": "integer" },
                                                             "condition": {
