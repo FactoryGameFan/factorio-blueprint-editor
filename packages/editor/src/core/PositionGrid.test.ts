@@ -477,6 +477,33 @@ describe('Entity.rotate on a belt with no direction type', () => {
     })
 })
 
+describe('Entity.rotate with rotateOpposingUB', () => {
+    /*
+        R on a hovered underground passes rotateOpposingUB, which turns its
+        partner with it. The partner was getOpposingEntity's answer, and that
+        is the first same-name belt facing the same way, whatever its type - so
+        an input downstream of an input was turned as if it were the pair.
+        It has to be getUndergroundPartner's answer instead.
+    */
+    const afterRotate = (downstream: 'input' | 'output') => {
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST },
+            { name: 'underground-belt', x: 3.5, y: 0.5, direction: EAST, directionType: downstream }
+        )
+        bp.entities.get(1)?.rotate(false, true)
+        const other = bp.entities.get(2)
+        return { direction: other?.direction, directionType: other?.directionType }
+    }
+
+    it('turns a real partner with it', () => {
+        expect(afterRotate('output')).toEqual({ direction: WEST, directionType: 'input' })
+    })
+
+    it('leaves an input facing the same way alone', () => {
+        expect(afterRotate('input')).toEqual({ direction: EAST, directionType: 'input' })
+    })
+})
+
 describe('getUndergroundPartner', () => {
     /*
         The predicate the hover line and the alt-mode marker for a lone

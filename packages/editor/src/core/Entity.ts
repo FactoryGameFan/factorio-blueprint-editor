@@ -33,7 +33,6 @@ import FD, {
     itemThatPlaces,
     isModule,
     isRoboport,
-    isUndergroundBelt,
     mapBoundingBox,
     getMaxWireDistance,
     hasModuleFunctionality,
@@ -1559,23 +1558,18 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         this.m_BP.history.transaction('Rotate entity', () => {
             if (this.type === 'underground-belt' || this.type === 'loader') {
+                // getUndergroundPartner, not getOpposingEntity: the first
+                // same-facing belt can be another input, which is no partner.
+                // A loader has none, as before, when it had no reach to search.
                 if (rotateOpposingUB) {
-                    const opposingEntityNumber = this.m_BP.entityPositionGrid.getOpposingEntity(
-                        this.name,
-                        this.direction,
-                        this.position,
-                        this.undergroundSearchDirection,
-                        isUndergroundBelt(this.entityData)
-                            ? this.entityData.max_distance
-                            : undefined
-                    )
-                    const otherEntity =
-                        opposingEntityNumber === undefined
-                            ? undefined
-                            : this.m_BP.entities.get(opposingEntityNumber)
-                    if (otherEntity) {
-                        otherEntity.rotate()
-                    }
+                    this.m_BP.entityPositionGrid
+                        .getUndergroundPartner(
+                            this.name,
+                            this.position,
+                            this.direction,
+                            this.undergroundSearchDirection
+                        )
+                        ?.rotate()
                 }
 
                 this.directionType = this.effectiveDirectionType === 'input' ? 'output' : 'input'
