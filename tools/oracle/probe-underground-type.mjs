@@ -68,6 +68,7 @@ const CASES = [
     { label: 'no type upstream, no type downstream', entities: [belt(1, 0.5), belt(2, 4.5)] },
 ].map(({ label, entities }) => ({
     label,
+    count: entities.length,
     bp: encode({ item: 'blueprint', entities, version: BP_VERSION }),
 }))
 
@@ -171,6 +172,36 @@ for (const c of cases) {
     for (const e of list(c.errors)) console.log(`  ERROR ${e}`)
 }
 console.log(`\nraw: ${join(writeData, 'script-output', DUMP)}`)
+
+/*
+    A dump only proves the script ran to its end, not that each case did. A
+    failed import or build still writes a row, with fewer belts in it, and a
+    fixture recorded from that row would pin the failure as the game's answer.
+    So every case has to import cleanly and come back as many belts as it
+    went in, built with no ghost left over and recaptured, before the fixture
+    is touched.
+*/
+const problems =
+    cases.length === CASES.length
+        ? CASES.flatMap(({ label, count }, i) => {
+              const c = cases[i]
+              const found = [
+                  c.label !== label && `label ${JSON.stringify(c.label)}`,
+                  c.import_code !== 0 && `import code ${c.import_code}`,
+                  list(c.errors).length > 0 && `${list(c.errors).length} error(s)`,
+                  c.ghost_count !== count && `${c.ghost_count} ghost(s) built`,
+                  c.ghosts_left !== 0 && `${c.ghosts_left} ghost(s) left`,
+                  list(c.imported).length !== count && `${list(c.imported).length} imported`,
+                  list(c.built).length !== count && `${list(c.built).length} built`,
+                  list(c.recaptured).length !== count && `${list(c.recaptured).length} recaptured`,
+              ].filter(Boolean)
+              return found.length ? [`${label} (expected ${count}): ${found.join(', ')}`] : []
+          })
+        : [`${cases.length} cases in the dump, expected ${CASES.length}`]
+if (problems.length) {
+    console.error(`\nincomplete run, fixture left alone:\n  ${problems.join('\n  ')}`)
+    process.exit(1)
+}
 
 if (process.argv.includes('--write-fixture')) {
     writeFileSync(FIXTURE, `${JSON.stringify({ captured_on: versionLine, cases }, null, 4)}\n`)
