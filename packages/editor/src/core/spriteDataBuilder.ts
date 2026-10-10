@@ -530,7 +530,7 @@ function getBeltWireConnectionIndex(
             (d.entity.type === 'transport-belt' ||
                 d.entity.type === 'splitter' ||
                 ((d.entity.type === 'underground-belt' || d.entity.type === 'loader') &&
-                    d.entity.directionType === 'output')) &&
+                    d.entity.effectiveDirectionType === 'output')) &&
             d.entity.direction === (d.relDir + 8) % 16
         ) {
             return d
@@ -714,7 +714,7 @@ function getBeltSprites(
             if (
                 !d ||
                 ((d.entity.type === 'underground-belt' || d.entity.type === 'loader') &&
-                    d.entity.directionType === 'input')
+                    d.entity.effectiveDirectionType === 'input')
             ) {
                 return
             }
@@ -2969,7 +2969,13 @@ function draw_underground_belt(
     e: UndergroundBeltPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const isInput = data.dirType === 'input'
+        /*
+            Anything but an explicit output, because a belt with no `type` is an
+            input - see Entity.effectiveDirectionType. Read here rather than
+            there so the bare `{ name, direction }` a paint preview draws from
+            gets the same answer as an Entity.
+        */
+        const isInput = data.dirType !== 'output'
         const dir = isInput ? data.dir : (data.dir + 8) % 16
 
         const beltParts = getBeltSprites(
@@ -3012,7 +3018,7 @@ function draw_underground_belt(
                     (d.entity.type === 'transport-belt' ||
                         d.entity.type === 'splitter' ||
                         ((d.entity.type === 'underground-belt' || d.entity.type === 'loader') &&
-                            d.entity.directionType === 'output'))
+                            d.entity.effectiveDirectionType === 'output'))
                 ) {
                     return d
                 }

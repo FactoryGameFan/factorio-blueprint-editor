@@ -428,9 +428,12 @@ describe('Entity.undergroundSearchDirection', () => {
         expect(entityAt(WEST, 'output')?.undergroundSearchDirection).toBe(EAST)
     })
 
-    it('takes the output form when there is no direction type', () => {
-        // a hand-made belt without one, drawn as an output by draw_underground_belt
-        expect(entityAt(SOUTH)?.undergroundSearchDirection).toBe(NORTH)
+    it('takes the input form when there is no direction type, as the game does', () => {
+        // tools/oracle/fixtures/underground-type.json: the game reads a belt
+        // with no `type` back as an input, and builds it as one
+        for (const dir of [NORTH, EAST, SOUTH, WEST]) {
+            expect(entityAt(dir)?.undergroundSearchDirection).toBe(dir)
+        }
     })
 
     it('searches behind a pipe to ground whatever type it carries', () => {
@@ -445,6 +448,59 @@ describe('Entity.undergroundSearchDirection', () => {
             }).entities.get(1)
             expect(pipe?.undergroundSearchDirection).toBe(WEST)
         }
+    })
+})
+
+describe('Entity.rotate on a belt with no direction type', () => {
+    /*
+        Rotating an underground belt turns an input into an output and back. A
+        belt with no `type` is an input (tools/oracle/fixtures/underground-type.json),
+        so it has to turn into what an explicit input turns into - before this
+        it turned into an input, the answer for an output.
+    */
+    const rotated = (directionType?: 'input' | 'output') => {
+        const entity = blueprintOf({
+            name: 'underground-belt',
+            x: 0.5,
+            y: 0.5,
+            direction: EAST,
+            directionType,
+        }).entities.get(1)
+        if (entity === undefined) throw new Error('no entity 1 in this blueprint')
+        entity.rotate()
+        return { direction: entity.direction, directionType: entity.directionType }
+    }
+
+    it('turns it into an output, as it turns an input', () => {
+        expect(rotated()).toEqual(rotated('input'))
+        expect(rotated().directionType).toBe('output')
+    })
+})
+
+describe('Entity.rotate with rotateOpposingUB', () => {
+    /*
+        R on a hovered underground passes rotateOpposingUB, which turns its
+        partner with it. The partner was getOpposingEntity's answer, and that
+        is the first same-name belt facing the same way, whatever its type - so
+        an input downstream of an input was turned as if it were the pair.
+        It has to be getUndergroundPartner's answer instead.
+    */
+    const afterRotate = (downstream: 'input' | 'output') => {
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST },
+            { name: 'underground-belt', x: 3.5, y: 0.5, direction: EAST, directionType: downstream }
+        )
+        bp.entities.get(1)?.rotate(false, true)
+        const other = bp.entities.get(2)
+        return { direction: other?.direction, directionType: other?.directionType }
+    }
+
+    it('turns a real partner with it', () => {
+        expect(afterRotate('output')).toEqual({ direction: WEST, directionType: 'input' })
+    })
+
+    it('leaves an input facing the same way alone', () => {
+        expect(afterRotate('input')).toEqual({ direction: EAST, directionType: 'input' })
     })
 })
 
@@ -511,19 +567,39 @@ describe('getUndergroundPartner', () => {
         expect(partnerOf(bp, 1)).toBeUndefined()
     })
 
-    it('treats a belt with no direction type as the output it is drawn as, from both ends', () => {
-        /*
-            Entity 1 carries no `type`, which the game never writes on a belt
-            but a hand-made string can. EntityContainer used to search from it
-            as an input, and so found entity 2 ahead of it and drew a line to
-            it, while entity 2's own check found entity 1 behind it, read it as
-            an output through Entity.undergroundSearchDirection, and refused
-            the pair - one end paired, the other marked alone. Asked the one
-            way, both ends agree: two outputs, no pair.
-        */
+    /*
+        A belt with no `type` is one the game never writes, but a hand-made
+        string can carry one, and the game reads it as an input
+        (tools/oracle/fixtures/underground-type.json, Factorio 2.0.77). #547
+        read it as an output instead, so these two pinned the opposite pairing:
+        the first pair refused and both marked alone, the second paired.
+    */
+    it('pairs a belt with no direction type upstream of an output, from both ends', () => {
+        // the game built this pair and gave each the other as its neighbour
         const bp = blueprintOf(
             { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST },
             { name: 'underground-belt', x: 4.5, y: 0.5, direction: EAST, directionType: 'output' }
+        )
+
+        expect(partnerOf(bp, 1)).toBe(2)
+        expect(partnerOf(bp, 2)).toBe(1)
+    })
+
+    it('does not pair a belt with no direction type downstream of an input', () => {
+        // both are inputs, and the game built them without a neighbour
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST, directionType: 'input' },
+            { name: 'underground-belt', x: 4.5, y: 0.5, direction: EAST }
+        )
+
+        expect(partnerOf(bp, 1)).toBeUndefined()
+        expect(partnerOf(bp, 2)).toBeUndefined()
+    })
+
+    it('does not pair two belts with no direction type', () => {
+        const bp = blueprintOf(
+            { name: 'underground-belt', x: 0.5, y: 0.5, direction: EAST },
+            { name: 'underground-belt', x: 4.5, y: 0.5, direction: EAST }
         )
 
         expect(partnerOf(bp, 1)).toBeUndefined()

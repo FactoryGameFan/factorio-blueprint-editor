@@ -56,7 +56,7 @@
         "express-loader": ["3:627a6139", "3:826d7fae", "3:9cc01836", "3:bb1b767d"],
         "express-splitter": ["8:666218a4", "8:6eac2873", "8:dac52e66", "8:ed3cace2"],
         "express-transport-belt": ["3:50449222", "3:5aa56f96", "3:8faf094e", "3:fedb4d14"],
-        "express-underground-belt": ["5:6aef8e0c", "5:763c03c1", "5:77be4711", "5:b6e74208"],
+        "express-underground-belt": ["5:7ba9b7ff", "5:a95713c5", "5:c818d58f", "5:e2de51e2"],
         "factorio-logo-11tiles": ["FAILED"],
         "factorio-logo-16tiles": ["FAILED"],
         "factorio-logo-22tiles": ["FAILED"],
@@ -64,7 +64,7 @@
         "fast-loader": ["3:07a1e5d9", "3:772db63e", "3:b362043d", "3:fe889b56"],
         "fast-splitter": ["8:45740ba6", "8:70edab50", "8:af25bacb", "8:b58d48c8"],
         "fast-transport-belt": ["3:0199143e", "3:5e80de94", "3:9f341680", "3:b96d0530"],
-        "fast-underground-belt": ["5:0823b02a", "5:260b50ef", "5:d749d806", "5:f200dc37"],
+        "fast-underground-belt": ["5:425160bd", "5:73602ad5", "5:a0fdff00", "5:d59d5f53"],
         "flamethrower-turret": ["8:132bfba9", "8:6d1dcf61", "8:72c4bf05", "8:c24c280d"],
         "fluid-wagon": ["2:5094224b", "2:ab0d1e87"],
         "foundry": ["2:49dcb421"],
@@ -152,8 +152,8 @@
         "turbo-loader": ["3:545f282e", "3:6a288043", "3:b7b4b8cb", "3:f01cdc54"],
         "turbo-splitter": ["8:12c10abd", "8:3b75e7a0", "8:7c360d4c", "8:9a89a8e7"],
         "turbo-transport-belt": ["3:0bfc93b3", "3:52c984a7", "3:697d0007", "3:aacfb70b"],
-        "turbo-underground-belt": ["5:0b139c47", "5:1c434b34", "5:6880ae8a", "5:c7ec5395"],
-        "underground-belt": ["5:40a1d0e7", "5:5020d1c3", "5:76f48ba6", "5:93896192"],
+        "turbo-underground-belt": ["5:0a164991", "5:0f3f7a24", "5:78a240be", "5:c4f9f568"],
+        "underground-belt": ["5:7ffae135", "5:bd506541", "5:c292a530", "5:d1d7811b"],
         "wooden-chest": ["2:e43920b0"]
     },
     "noGrid": {
@@ -213,7 +213,7 @@
         "express-loader": ["3:627a6139", "3:826d7fae", "3:9cc01836", "3:bb1b767d"],
         "express-splitter": ["8:666218a4", "8:6eac2873", "8:dac52e66", "8:ed3cace2"],
         "express-transport-belt": ["3:50449222", "3:5aa56f96", "3:8faf094e", "3:fedb4d14"],
-        "express-underground-belt": ["5:6aef8e0c", "5:763c03c1", "5:77be4711", "5:b6e74208"],
+        "express-underground-belt": ["5:7ba9b7ff", "5:a95713c5", "5:c818d58f", "5:e2de51e2"],
         "factorio-logo-11tiles": ["FAILED"],
         "factorio-logo-16tiles": ["FAILED"],
         "factorio-logo-22tiles": ["FAILED"],
@@ -221,7 +221,7 @@
         "fast-loader": ["3:07a1e5d9", "3:772db63e", "3:b362043d", "3:fe889b56"],
         "fast-splitter": ["8:45740ba6", "8:70edab50", "8:af25bacb", "8:b58d48c8"],
         "fast-transport-belt": ["3:0199143e", "3:5e80de94", "3:9f341680", "3:b96d0530"],
-        "fast-underground-belt": ["5:0823b02a", "5:260b50ef", "5:d749d806", "5:f200dc37"],
+        "fast-underground-belt": ["5:425160bd", "5:73602ad5", "5:a0fdff00", "5:d59d5f53"],
         "flamethrower-turret": ["8:132bfba9", "8:6d1dcf61", "8:72c4bf05", "8:c24c280d"],
         "fluid-wagon": ["2:5094224b", "2:ab0d1e87"],
         "foundry": ["2:49dcb421"],
@@ -309,8 +309,8 @@
         "turbo-loader": ["3:545f282e", "3:6a288043", "3:b7b4b8cb", "3:f01cdc54"],
         "turbo-splitter": ["8:12c10abd", "8:3b75e7a0", "8:7c360d4c", "8:9a89a8e7"],
         "turbo-transport-belt": ["3:0bfc93b3", "3:52c984a7", "3:697d0007", "3:aacfb70b"],
-        "turbo-underground-belt": ["5:0b139c47", "5:1c434b34", "5:6880ae8a", "5:c7ec5395"],
-        "underground-belt": ["5:40a1d0e7", "5:5020d1c3", "5:76f48ba6", "5:93896192"],
+        "turbo-underground-belt": ["5:0a164991", "5:0f3f7a24", "5:78a240be", "5:c4f9f568"],
+        "underground-belt": ["5:7ffae135", "5:bd506541", "5:c292a530", "5:d1d7811b"],
         "wooden-chest": ["2:e43920b0"]
     },
     "noGridReal": {
@@ -1223,11 +1223,11 @@
             "3:8faf094e"
         ],
         "express-underground-belt": [
-            "5:77be4711",
-            "5:763c03c1",
-            "5:6aef8e0c",
-            "5:b6e74208",
-            "5:77be4711"
+            "5:a95713c5",
+            "5:7ba9b7ff",
+            "5:e2de51e2",
+            "5:c818d58f",
+            "5:a95713c5"
         ],
         "factorio-logo-11tiles": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
         "factorio-logo-16tiles": ["FAILED", "FAILED", "FAILED", "FAILED", "FAILED"],
@@ -1243,11 +1243,11 @@
             "3:5e80de94"
         ],
         "fast-underground-belt": [
-            "5:260b50ef",
-            "5:f200dc37",
-            "5:0823b02a",
-            "5:d749d806",
-            "5:260b50ef"
+            "5:d59d5f53",
+            "5:425160bd",
+            "5:a0fdff00",
+            "5:73602ad5",
+            "5:d59d5f53"
         ],
         "flamethrower-turret": [
             "8:72c4bf05",
@@ -1439,13 +1439,13 @@
             "3:697d0007"
         ],
         "turbo-underground-belt": [
-            "5:1c434b34",
-            "5:6880ae8a",
-            "5:c7ec5395",
-            "5:0b139c47",
-            "5:1c434b34"
+            "5:78a240be",
+            "5:c4f9f568",
+            "5:0a164991",
+            "5:0f3f7a24",
+            "5:78a240be"
         ],
-        "underground-belt": ["5:5020d1c3", "5:40a1d0e7", "5:76f48ba6", "5:93896192", "5:5020d1c3"],
+        "underground-belt": ["5:d1d7811b", "5:bd506541", "5:c292a530", "5:7ffae135", "5:d1d7811b"],
         "wooden-chest": ["2:e43920b0", "2:e43920b0", "2:e43920b0", "2:e43920b0", "2:e43920b0"]
     },
     "real": {
