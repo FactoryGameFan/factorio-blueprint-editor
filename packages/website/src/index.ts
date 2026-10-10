@@ -912,6 +912,24 @@ const testApi = {
     */
     previewStationNameRuns: () => stationNameRunsIn(editor.topDialog),
     /*
+        How many EntitySprites the preview in the topmost open dialog draws,
+        one per sprite layer - so a spec can see the display panel's icon layer
+        come and go as the editor sets it. Preview is the only thing in a
+        dialog that builds an EntitySprite, so counting under the whole dialog
+        counts the preview's. Undefined when no dialog is open.
+    */
+    previewSpriteCount: () => {
+        const top = editor.topDialog
+        if (top === undefined) return undefined
+        let count = 0
+        const walk = (node: Container): void => {
+            if (node instanceof EntitySprite) count++
+            for (const child of node.children) walk(child)
+        }
+        walk(top)
+        return count
+    },
+    /*
         Which file each icon in that live label was drawn from. The runs say an
         icon was drawn for a tag; this says which prototype it came from - for
         `[recipe=pentapod-egg]`, whether it was the recipe's icon or the item's.

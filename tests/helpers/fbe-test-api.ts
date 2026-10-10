@@ -141,6 +141,12 @@ export interface FbeTestApi {
     /** The same, for the preview in the topmost open dialog. */
     previewStationNameRuns: () => string[] | undefined
     /**
+     * How many EntitySprites the preview in the topmost open dialog draws, one
+     * per sprite layer; undefined when no dialog is open. See
+     * tests/display-panel-editor.spec.ts.
+     */
+    previewSpriteCount: () => number | undefined
+    /**
      * The file each icon in a train stop's live name label was drawn from, in
      * order; layered icons join their files with ` + `.
      */
