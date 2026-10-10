@@ -397,3 +397,74 @@ test('a connected panel shows its conditions read-only, capped at 20 rows', asyn
 
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
+
+/*
+    The dialog's own preview (#550). It draws the panel with the same
+    `EntitySprite.getParts` and `createEntityInfo` the map does, so it shows the
+    icon and, while always-show is on, the first line of text. It used to
+    rebuild only on the events other editors send, so every test above passed
+    while the preview kept whatever the panel looked like when the dialog
+    opened: they all read the exported blueprint, and the map redraws from its
+    own listeners.
+
+    The preview's label is a pixi `Text` inside the dialog, so `topDialogTexts`
+    reads it. The text field is a DOM input with no pixi `Text`, so the label
+    is the only place the panel's text can turn up in that list.
+*/
+test('the editor preview follows the always-show checkbox and the text field', async ({ page }) => {
+    const errors = await load(page, DISPLAY_PANEL)
+    await openEditorOn(page, 1)
+    const texts = (): Promise<string[]> => page.evaluate(() => window.__fbe_test.topDialogTexts())
+    expect((await texts()).filter(t => t === INITIAL_TEXT)).toHaveLength(1)
+
+    await clickAlwaysShow(page)
+    expect(await exportedAlwaysShow(page)).toBeUndefined()
+    expect(await texts()).not.toContain(INITIAL_TEXT)
+
+    await clickAlwaysShow(page)
+    expect(await exportedAlwaysShow(page)).toBe(true)
+    expect((await texts()).filter(t => t === INITIAL_TEXT)).toHaveLength(1)
+
+    await focusInputWithValue(page, INITIAL_TEXT)
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.type('New text')
+    await page.keyboard.press('Tab')
+    const after = await texts()
+    expect(after.filter(t => t === 'New text')).toHaveLength(1)
+    expect(after).not.toContain(INITIAL_TEXT)
+
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+/*
+    `draw_display_panel` adds exactly one sprite layer for the icon, and this
+    is one panel with no neighbours, so a count is enough here - see CLAUDE.md
+    on when a layer count can mislead. The starting count is read rather than
+    written in, so the test pins only the icon's one layer.
+*/
+test('the editor preview draws the picked icon, and drops it when cleared', async ({ page }) => {
+    const errors = await load(page, DISPLAY_PANEL)
+    await openEditorOn(page, 1)
+    const spriteCount = async (): Promise<number> => {
+        const count = await page.evaluate(() => window.__fbe_test.previewSpriteCount())
+        if (count === undefined) throw new Error('no dialog is open')
+        return count
+    }
+    const start = await spriteCount()
+    expect(start).toBeGreaterThan(0)
+
+    let slot = await iconSlotAt(page)
+    await page.mouse.click(slot.x, slot.y)
+    expect(await dialogCount(page)).toBe(2)
+    await pickFirstItemOfTab(page, 5)
+    expect(await dialogCount(page)).toBe(1)
+    expect((await decodedEntities(page))[0].icon).toEqual({ type: 'fluid', name: 'water' })
+    expect(await spriteCount()).toBe(start + 1)
+
+    slot = await iconSlotAt(page)
+    await page.mouse.click(slot.x, slot.y, { button: 'right' })
+    expect((await decodedEntities(page))[0].icon).toBeUndefined()
+    expect(await spriteCount()).toBe(start)
+
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})

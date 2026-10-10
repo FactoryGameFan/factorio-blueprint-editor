@@ -51,6 +51,9 @@ export class Preview extends Container {
         this.onEntityChange('splitterInputPriority', this.onEntityChanged)
         this.onEntityChange('splitterOutputPriority', this.onEntityChanged)
         this.onEntityChange('station', this.onEntityChanged)
+        this.onEntityChange('displayPanelIcon', this.onEntityChanged)
+        this.onEntityChange('displayPanelText', this.onEntityChanged)
+        this.onEntityChange('displayPanelAlwaysShow', this.onEntityChanged)
     }
 
     private onEntityChange<T extends EventEmitter.EventNames<EntityEvents>>(

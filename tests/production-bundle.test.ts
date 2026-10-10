@@ -77,6 +77,7 @@ const TEST_API_MARKERS = [
     'billOfMaterialsTally',
     'billOfMaterialsDrawn',
     'spriteLayerFiles',
+    'previewSpriteCount',
 ]
 
 let bundledJs = ''
