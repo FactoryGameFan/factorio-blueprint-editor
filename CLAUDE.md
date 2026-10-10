@@ -124,6 +124,16 @@ it. There is no `corepack` shim: vite-plus 0.3.1 removed it and manages the
 package managers itself. Any other `node` or `npm` earlier on `PATH` wins
 instead, and the shims are then never consulted.
 
+From 1.x that one directory is not a given. At install time Vite+ marks each
+package manager it finds already on `PATH` as `system_first` in
+`~/.vite-plus/config.json`, and puts that shim in `~/.vite-plus/fallback-bin`,
+which its env script appends to the end of `PATH`. So on a machine that already
+has npm - the GitHub runner, or most desktops - the system npm wins by design,
+and the result is the `EBADDEVENGINES` below. `vp env on pm` switches the
+package managers back to managed and moves their shims into `bin`; the action
+runs it after every install (#564). Check a local install with
+`vp env which npm`.
+
 Node and npm are two separate pins, which is the part worth knowing. The Node
 version comes from `.node-version`. The npm version comes from
 `devEngines.packageManager` in the root `package.json`, and Vite+ keeps it in

@@ -112,5 +112,15 @@ runs:
           "a3825f5a48d6ac5ac523d79a33ef3eff954013b8af7e4208231ac3de66030514  install-legacy.sh" \
           | sha256sum -c -
         VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
+        # From 1.x the installer looks for a package manager already on PATH,
+        # and finding one marks it "system_first": its shim goes into
+        # fallback-bin, which vp's env script appends to the END of PATH. The
+        # runner image ships npm 11, so npm went that way and the line below
+        # left the runner's copy in charge - `vp install` then stopped with
+        # EBADDEVENGINES against the ^12 in devEngines (#564). Measured with a
+        # stand-in system npm: the install wrote "npm": "system_first" to
+        # config.json, and `vp env on pm` turned it to "managed", moved the
+        # shim into bin, and `npm --version` in this repo gave 12.2.0.
+        VP_HOME="$HOME/.vite-plus" "$HOME/.vite-plus/bin/vp" env on pm
         echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
         rm -f vp-install.sh install-legacy.sh

@@ -40,7 +40,7 @@ Checked before choosing the expensive route, per `docs/order-of-attack.md`.
 - `create_blueprint` takes no anchor parameter.
 - The game's own tooltip says how the field is set:
   `grid-position-tooltip=SHIFT + LEFT-CLICK in the preview to change the grid
-position.`
+  position.`
 
 There is no script that can set it. "No headless probe can reach it" is not
 "not worth measuring".
