@@ -1,4 +1,16 @@
 /*
     X-Content-Type-Options: nosniff
     Referrer-Policy: strict-origin
-    Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com https://api.github.com; worker-src blob:; frame-ancestors 'none';
+    Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com https://api.github.com; worker-src blob:; frame-ancestors 'none';
+
+# Vite names these by a hash of their content, so a changed file gets a new URL.
+# Not /assets/* as a whole: a .map is named after its .js, and that hash does not
+# cover the map, so a comment-only source edit changes the map under the same name.
+/assets/*.js
+    Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.css
+    Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.wasm
+    Cache-Control: public, max-age=31536000, immutable

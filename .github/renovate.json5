@@ -306,6 +306,27 @@
             ],
         },
         {
+            // The devcontainer image never cleared the cooldown above, because
+            // ghcr.io gives Renovate no release timestamp and the default
+            // `minimumReleaseAgeBehaviour` is `timestamp-required`. The Mend job log
+            // for 2026-09-29 04:07 UTC says so in as many words: "Marking 2
+            // release(s) as pending, as they do not have a releaseTimestamp" for
+            // 0.3.3 and 0.3.2, and the same for 1.0.0. So #477 moved the npm side
+            // to 0.3.3 on 2026-09-21 and the image stayed at 0.3.1, with the
+            // dashboard listing it under "Pending Status Checks" - an image built on
+            // 2026-09-18, pending against a 24-hour cooldown. It only moved when the
+            // dashboard checkbox forced it (#561).
+            //
+            // `timestamp-optional` treats a release with no timestamp as old enough.
+            // The image carries no cooldown of its own after this, and does not need
+            // one: it is built from the npm release of the same number (1.0.0's two
+            // minutes after it), and in a group bump the npm packages still hold the
+            // branch's stability check for their 24 hours. Scoped to the image name
+            // so nothing else loses its cooldown.
+            matchPackageNames: ['ghcr.io/voidzero-dev/vite-plus'],
+            minimumReleaseAgeBehaviour: 'timestamp-optional',
+        },
+        {
             // Enabled - this one is a "needs care", not a refusal. The bundled browser
             // revision moves with the package, so without the install step every spec
             // fails on a missing `chrome-headless-shell` executable, which reads like a

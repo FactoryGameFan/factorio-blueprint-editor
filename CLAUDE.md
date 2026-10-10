@@ -734,7 +734,7 @@ against the CSP in `packages/website/public/_headers` that permits them.
   are the ones where an `always_draw` entry duplicates the main animation.
 - Cargo hatches are drawn parked shut, and that is frame 0 for free - the
   editor draws frame 0 of every sheet and nothing reads `frame_count`. Three
-  entities have one, and each drew a hole until #362: `cargo-bay` through
+  entities have one, and each drew a hole until #376: `cargo-bay` through
   `hatch_definitions`, `cargo-landing-pad` and `space-platform-hub` through
   `cargo_station_parameters.giga_hatch_definitions`. Their plain hatches carry
   no `hatch_graphics` at all, so the giga hatch is the only drawable one.
@@ -776,13 +776,20 @@ against the CSP in `packages/website/public/_headers` that permits them.
   bays 2 tiles apart draw no join at all, which is the control.
   `cargoBayConnections.ts` holds both rules, pure and unit tested;
   `tests/cargo-bay-connections.spec.ts` pins the placement.
-- Two of #362's items remain open on the cargo bay. `render_layer` is
-  discarded, which reorders layers on 10 of the 14 corpus neighbour masks but
-  changes at most 684 pixels and none at all on the commonest one. And
+- Two cargo bay defects outlived #362. `render_layer` is discarded, and since
+  #379 that is no longer contained inside one entity: a bridge lands over its
+  neighbour, so whether it draws above or below that neighbour's body is
+  decided by `EntitySprite.compareFn`, which puts it above on one axis and half
+  under on the other. Measured, it changes 3.5% to 7.1% of the entity's pixels
+  across four arrangements, against a scene error of 7.6% to 10.1% - the 684
+  pixel ceiling measured before #379 no longer holds. A sort inside
+  `draw_cargo_bay` cannot reach it; the fix is a per-sprite render layer and y
+  in `EntitySprite`, tracked in #563, and no digest test can see it because
+  `spriteDataTally` hashes before `__zIndex` and `zOrder` exist. And
   `variants[0]` is taken unconditionally where the game picks by tile position -
   measured on the bridges, which variant the game uses differs from seam to
   seam, so reproducing it needs a position hash we would be inventing. That
-  applies to all 17 keys, not just the walls.
+  applies to all 17 keys, not just the walls, and #362 closed it as wontfix.
 - Quality is drawn but not editable (#503). An entity's own quality, its
   modules', its recipe's and its inserter or splitter filters' get the alt-mode
   badge (#348), as vectors in `core/qualityBadge.ts` whose placement and sizes

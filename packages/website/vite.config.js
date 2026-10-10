@@ -35,7 +35,10 @@ const fullReloadAlways = {
 const beaconTag = token => ({
     tag: 'script',
     attrs: {
-        defer: true,
+        // Cloudflare's manual-embed snippet (web-analytics FAQ). A module script
+        // is deferred already, and old browsers that cannot parse the beacon
+        // never fetch it.
+        type: 'module',
         src: 'https://static.cloudflareinsights.com/beacon.min.js',
         'data-cf-beacon': JSON.stringify({ token }),
     },
