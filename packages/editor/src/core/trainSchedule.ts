@@ -77,14 +77,12 @@ const seconds = (ticks: number | undefined): string =>
     schedules of the committed corpus (test-blueprints/EARN).
 
     The game has spelled these with underscores since before 2.0 - the 1.1
-    runtime API's `WaitCondition.type` lists `passenger_not_present`,
+    runtime API's `WaitConditionType` lists `passenger_not_present`,
     `item_count` and `fluid_count` - so the table serves a 1.1 export as well.
-    The hyphenated `WaitConditionType` in `types.ts` and `blueprintSchema.json`
-    (`passenger-not-present`, `item-count`, ...) is not a spelling any game
-    wrote. It came from upstream's bulk "remove mapping of - to _" (49480f3d),
-    which swept this enum along with the prototype names it was meant for. So
-    the table has no hyphenated entries: one would never fire on a real
-    blueprint, and a hyphenated name falls to the raw type below like any other.
+    That is the spelling `WaitConditionType` in `types.ts` and the schema's
+    pre-2.0 enum hold too. No game wrote a hyphenated name such as
+    `passenger-not-present`, so the table has none: one falls to the raw type
+    below like any other unknown name.
 
     Anything else shows its raw type rather than a guessed label, and so do the
     ones that carry a circuit condition (`circuit`, `item_count`, `fluid_count`,

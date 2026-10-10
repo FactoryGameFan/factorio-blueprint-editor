@@ -276,3 +276,87 @@ describe("a decider combinator's else-outputs (Factorio 2.1.9)", () => {
         expect(warnings).toEqual(['Blueprint had validation warnings (loaded anyway)'])
     })
 })
+
+describe('pre-2.0 wait-condition types (#558)', () => {
+    /** 1.1.110, the last 1.1 release and the API the names below come from. */
+    const VERSION_1_1_110 = 1 * 2 ** 48 + 1 * 2 ** 32 + 110 * 2 ** 16
+
+    const SIGNAL_CONDITION = {
+        first_signal: { type: 'virtual', name: 'signal-A' },
+        constant: 10,
+        comparator: '>',
+    }
+
+    /*
+        The array-shaped schedule is the only one the schema checks a `type`
+        against, and a 1.1 blueprint is the only kind that writes it. Each case
+        gets the fields 1.1 writes beside that type - `ticks` on the timed ones,
+        a `condition` on the ones that compare a signal - so the shape is a real
+        one and only the name is on trial.
+    */
+    const loadSchedule = async (wait_condition: Record<string, unknown>) => {
+        const schedules = [
+            {
+                locomotives: [1],
+                schedule: [
+                    {
+                        station: 'Iron pickup',
+                        wait_conditions: [{ compare_type: 'or', ...wait_condition }],
+                    },
+                ],
+            },
+        ]
+        const bp = await getBlueprintOrBookFromSource(
+            await encodeRoot({
+                blueprint: {
+                    item: 'blueprint',
+                    version: VERSION_1_1_110,
+                    icons: [{ index: 1, signal: { type: 'item', name: 'decider-combinator' } }],
+                    schedules,
+                },
+            })
+        )
+        if (!(bp instanceof Blueprint)) throw new Error('expected a blueprint')
+        return { warnings: getAndClearLoadWarnings(), schedules, loaded: bp.serialize().schedules }
+    }
+
+    /*
+        All ten values of `WaitConditionType` in the 1.1.110 runtime API
+        (lua-api.factorio.com/1.1.110/runtime-api.json). The game has always
+        written them with underscores; the schema had hyphens, from upstream's
+        bulk "remove mapping of - to _" (49480f3d), and never had
+        `robots_inactive` at all. Five of these warned before the fix.
+    */
+    it.each([
+        { type: 'time', ticks: 1800 },
+        { type: 'inactivity', ticks: 300 },
+        { type: 'full' },
+        { type: 'empty' },
+        { type: 'item_count', condition: SIGNAL_CONDITION },
+        { type: 'fluid_count', condition: SIGNAL_CONDITION },
+        { type: 'circuit', condition: SIGNAL_CONDITION },
+        { type: 'robots_inactive' },
+        { type: 'passenger_present' },
+        { type: 'passenger_not_present' },
+    ])('accepts and preserves %j', async wait_condition => {
+        const { warnings, schedules, loaded } = await loadSchedule(wait_condition)
+        expect(warnings).toEqual([])
+        expect(loaded).toEqual(schedules)
+    })
+
+    /*
+        The controls. The hyphenated names are what the schema used to want and
+        no game wrote, and a plain typo stands for any other string. Without
+        these, opening the enum to any string would pass every case above.
+        Each still loads, with the schedule carried as it was.
+    */
+    it.each([
+        { type: 'item-count', condition: SIGNAL_CONDITION },
+        { type: 'passenger-not-present' },
+        { type: 'item_cuont', condition: SIGNAL_CONDITION },
+    ])('warns about %j but keeps it', async wait_condition => {
+        const { warnings, schedules, loaded } = await loadSchedule(wait_condition)
+        expect(warnings).toEqual(['Blueprint had validation warnings (loaded anyway)'])
+        expect(loaded).toEqual(schedules)
+    })
+})
