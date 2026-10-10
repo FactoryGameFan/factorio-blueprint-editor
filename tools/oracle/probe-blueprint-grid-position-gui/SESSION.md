@@ -122,7 +122,7 @@ refusal. Its locale carries three relevant strings:
 - `__1__ is an invalid grid position value.`
 - `Grid position value for this blueprint has to be multiple of __1__.`
 - `Grid position and blueprint grid position coordinates need to be either all
-even or all odd.`
+  even or all odd.`
 
 If X=3 Y=5 or X=8 Y=9 is refused for parity or multiples, **note it and use the
 nearest value the game accepts**, then note what you actually used. A refusal is
