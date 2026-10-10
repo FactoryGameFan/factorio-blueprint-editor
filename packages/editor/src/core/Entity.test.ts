@@ -32,6 +32,7 @@ beforeAll(() => {
                 },
                 car: { name: 'car', place_result: 'car' },
                 'iron-plate': { name: 'iron-plate' },
+                coal: { name: 'coal' },
             },
             fluids: {},
             signals: {},
@@ -49,6 +50,14 @@ beforeAll(() => {
                     collision_box: [
                         [-0.15, -0.15],
                         [0.15, 0.15],
+                    ],
+                },
+                splitter: {
+                    type: 'splitter',
+                    name: 'splitter',
+                    collision_box: [
+                        [-0.9, -0.4],
+                        [0.9, 0.4],
                     ],
                 },
             },
@@ -143,5 +152,88 @@ describe('quality-only inserter filters (issue #493)', () => {
         entity.filters = [{ index: 1, name: undefined }]
 
         expect(entity.filters).toEqual([])
+    })
+})
+
+describe('splitter filter keeps quality on a same-item pick (issue #549)', () => {
+    /*
+        The splitter dialog sends its one slot back as index, name and count,
+        with no quality or comparator, because it has no way to show them.
+        Picking the item the filter already holds used to write a bare name.
+        `≥` rather than the corpus's `=`, so a kept comparator cannot be
+        mistaken for the `=` the setter adds beside a lone quality.
+    */
+    const HELD = { name: 'iron-plate', quality: 'legendary', comparator: '≥' as const }
+
+    const splitter = (): { bp: Blueprint; entity: Entity } => {
+        const bp = new Blueprint({
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'splitter',
+                    position: { x: 1, y: 0.5 },
+                    output_priority: 'left',
+                    filter: { ...HELD },
+                },
+            ],
+        })
+        const entity = bp.entities.get(1)
+        if (!entity) throw new Error('expected the splitter')
+        return { bp, entity }
+    }
+
+    it('keeps quality and comparator when the same item is picked again', () => {
+        const { entity } = splitter()
+
+        entity.filters = [{ index: 1, name: 'iron-plate', count: undefined }]
+
+        expect(entity.rawEntity.filter).toEqual(HELD)
+    })
+
+    it('adds no undo step when the filter is written back unchanged', () => {
+        const { bp, entity } = splitter()
+        const before = bp.history.revision
+
+        // What the getter answers, written straight back.
+        const current = entity.filters
+        entity.filters = current
+        entity.filters = [{ index: 1, name: 'iron-plate', count: undefined }]
+
+        expect(bp.history.revision).toBe(before)
+    })
+
+    it('writes a bare name for a different item', () => {
+        // No quality picker yet (#503), so a new item has no quality to carry.
+        const { entity } = splitter()
+
+        entity.filters = [{ index: 1, name: 'coal', count: undefined }]
+
+        expect(entity.rawEntity.filter).toEqual({ name: 'coal' })
+    })
+
+    it('lets a quality the caller sends win over the held one', () => {
+        const { entity } = splitter()
+
+        entity.filters = [{ index: 1, name: 'iron-plate', quality: 'rare' }]
+
+        expect(entity.rawEntity.filter).toEqual({ ...HELD, quality: 'rare' })
+    })
+
+    it("never writes the slot's index or count into the raw filter", () => {
+        // SplitterFilter in blueprintSchema.json takes no other keys.
+        const { entity } = splitter()
+
+        entity.filters = [{ index: 1, name: 'iron-plate', count: 50 }]
+        entity.filters = [{ index: 1, name: 'coal', count: 50 }]
+
+        expect(Object.keys(entity.rawEntity.filter ?? {})).toEqual(['name'])
+    })
+
+    it('clears the filter on a right-click', () => {
+        const { entity } = splitter()
+
+        entity.filters = [{ index: 1, name: undefined, quality: undefined, comparator: undefined }]
+
+        expect(entity.rawEntity.filter).toBeUndefined()
     })
 })

@@ -888,32 +888,60 @@ export class Entity extends EventEmitter<EntityEvents> {
         return []
     }
     private set splitterFilter(filters: IFilter[] | undefined) {
-        const filter = filters?.[0]?.name
-        if (this.m_rawEntity.filter === filter) return
+        const held = this.m_rawEntity.filter
+        if (typeof held === 'string') {
+            throw new Error('pre 2.0 format!')
+        }
+        const incoming = filters?.[0]
+        const filter = incoming?.name
+
+        /*
+            The splitter dialog sends its slot back as index, name and count,
+            with no quality or comparator, because it cannot show them. A pick
+            of the item the filter already holds keeps the held quality and
+            comparator, the rule `inserterFilters` and `logisticChestFilters`
+            follow (issue #549). What the incoming filter carries still wins.
+            A spread rather than `??` on purpose: an own `quality: undefined`
+            clears the held one, which a later "any quality" choice needs (#503).
+        */
+        const merged =
+            filter !== undefined && held?.name === filter ? { ...held, ...incoming } : incoming
+
+        // used to write { name: undefined } when clearing, which serialized as an
+        // empty filter object rather than as no filter at all. Quality and
+        // comparator go with the name, the shape the getter reads back, so a
+        // pasted filter keeps them. Built field by field, because the slot also
+        // carries `index` and `count`, and SplitterFilter in the schema takes
+        // no other keys.
+        //
+        // A quality never goes out alone. Measured on an inserter, a loader
+        // and a cargo wagon, Factorio drops the whole entity for an item
+        // filter holding a quality and no comparator (#497), and the engine
+        // always writes one beside it. All 987 splitter filters with a
+        // quality in the committed corpus carry `=`, so a source that had no
+        // comparator gets that one.
+        const quality = merged?.quality
+        const comparator = merged?.comparator ?? (quality === undefined ? undefined : '=')
+        const f: SplitterFilter | undefined =
+            filter === undefined
+                ? undefined
+                : {
+                      name: filter,
+                      ...(quality === undefined ? {} : { quality }),
+                      ...(comparator === undefined ? {} : { comparator }),
+                  }
+
+        // This compared the raw filter, an object since load turns a pre 2.0
+        // string into `{ name }`, with the incoming name, a string. So it only
+        // held when both were undefined, and an unchanged write still added an
+        // undo step.
+        if (f === undefined || held === undefined) {
+            if (f === held) return
+        } else if (util.areObjectsEquivalent(f, held)) {
+            return
+        }
 
         this.m_BP.history.transaction(undefined, () => {
-            // used to write { name: undefined } when clearing, which serialized as an
-            // empty filter object rather than as no filter at all. Quality and
-            // comparator go with the name, the shape the getter reads back, so a
-            // pasted filter keeps them.
-            //
-            // A quality never goes out alone. Measured on an inserter, a loader
-            // and a cargo wagon, Factorio drops the whole entity for an item
-            // filter holding a quality and no comparator (#497), and the engine
-            // always writes one beside it. All 987 splitter filters with a
-            // quality in the committed corpus carry `=`, so a source that had no
-            // comparator gets that one.
-            const quality = filters?.[0]?.quality
-            const comparator = filters?.[0]?.comparator ?? (quality === undefined ? undefined : '=')
-            const f: SplitterFilter | undefined =
-                filter === undefined
-                    ? undefined
-                    : {
-                          name: filter,
-                          ...(quality === undefined ? {} : { quality }),
-                          ...(comparator === undefined ? {} : { comparator }),
-                      }
-
             this.m_BP.history
                 .updateValue(this.m_rawEntity, 'filter', f, 'Change splitter filter')
                 .onDone(() => this.emit('splitterFilter'))

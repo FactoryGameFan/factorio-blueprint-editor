@@ -208,6 +208,24 @@ test('a splitter filter set with a quality and no comparator gets =', async ({ p
     })
 })
 
+/*
+    What the splitter dialog sends when its slot is picked again: index, name
+    and count, with no quality, because it has no way to show one. The filter
+    used to come back as a bare name (#549).
+*/
+test('re-picking a splitter filter item keeps its quality and comparator', async ({ page }) => {
+    await page.evaluate(() =>
+        window.__fbe_test.setEntityFilters(4, [{ index: 1, name: 'iron-plate', count: undefined }])
+    )
+    expect((await exportedEntity(page, 4)).filter).toEqual({
+        name: 'iron-plate',
+        quality: 'legendary',
+        comparator: '≥',
+    })
+    const badges = await page.evaluate(() => window.__fbe_test.qualityBadgeFrames(4))
+    expect(badges?.map(b => b.quality)).toEqual(['legendary'])
+})
+
 test('changing one inserter filter keeps the quality of the others', async ({ page }) => {
     // What the filter dialog sends: every slot's index, name and count, with
     // no quality, because it has no way to show one.
