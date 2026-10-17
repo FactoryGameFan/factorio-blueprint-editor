@@ -26,5 +26,5 @@ hyper-util = { version = "0.1.10", features = ["tokio"] }
 # add zstd, bzip2 and aes, and zstd-sys is a C dependency that refuses a GNU
 # compiler when the target is windows-msvc - which is what stopped this crate
 # from being checked for Windows off a Linux host.
-zip = { version = "8.0.0", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.0", default-features = false, features = ["deflate"] }
 dotenvy = "0.15.7"
