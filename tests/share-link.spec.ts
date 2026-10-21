@@ -7,6 +7,7 @@ import {
 } from './helpers/encode-blueprint'
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 import { suppressOverlays } from './helpers/overlays'
+import { exportTextarea } from './helpers/dialog-textareas'
 import { PADDING, LINK_Y } from '../packages/editor/src/UI/ExportDialog'
 import {
     ROW_BUTTON_WIDTH,
@@ -96,6 +97,48 @@ test('a second link in the same tab loads without a reload', async ({ page }) =>
     expect(await page.evaluate(() => (window as any).__share_link_same_document)).toBe(true)
 })
 
+test('a second link in the same tab opens on its own book page', async ({ page }) => {
+    await openFresh(page, `/#source=${ONE}`)
+    // Entry 1 holds two chests; the book's own active_index would give three.
+    await page.evaluate(bp => (window.location.hash = `source=${bp}&index=1`), BOOK)
+    await page.waitForFunction(() => window.__fbe_test.entityContainerCount() !== 1)
+    expect(await entityCount(page)).toBe(2)
+})
+
+test('a slow link that finishes after a newer one does not replace it', async ({ page }) => {
+    await openFresh(page, `/#source=${ONE}`)
+
+    // Holds the first link's fetch until the second link has loaded.
+    let release: () => void = () => {}
+    const held = new Promise<void>(resolve => (release = resolve))
+    let asked: () => void = () => {}
+    const requested = new Promise<void>(resolve => (asked = resolve))
+    let answered: () => void = () => {}
+    const fulfilled = new Promise<void>(resolve => (answered = resolve))
+    await page.route('**/corsproxy*', async route => {
+        asked()
+        await held
+        await route.fulfill({ status: 200, contentType: 'text/plain', body: BOOK })
+        answered()
+    })
+
+    await page.evaluate(() => (window.location.hash = 'source=https://example.com/slow.txt'))
+    await requested
+    await page.evaluate(bp => (window.location.hash = `source=${bp}`), TWO)
+    await page.waitForFunction(() => window.__fbe_test.entityContainerCount() === 2)
+
+    release()
+    await fulfilled
+    /*
+        The stale book would decode and draw within a few frames of its body
+        arriving. Measured unguarded, it replaced the blueprint inside this
+        wait; there is no event to wait on for a load that must not happen.
+    */
+    await page.waitForTimeout(1000)
+    expect(await entityCount(page)).toBe(2)
+    await page.unroute('**/corsproxy*')
+})
+
 test("Export's Copy link button copies a link that loads the blueprint", async ({ page }) => {
     await waitForEditor(page)
     await loadBlueprint(page, TWO)
@@ -122,6 +165,25 @@ test("Export's Copy link button copies a link that loads the blueprint", async (
     await suppressOverlays(fresh)
     await openFresh(fresh, link)
     expect(await entityCount(fresh)).toBe(2)
+})
+
+test('with no Clipboard API, Copy link puts the link in the field', async ({ page }) => {
+    // What an http page that is not localhost gets: no navigator.clipboard at all.
+    await page.addInitScript(() =>
+        Object.defineProperty(Navigator.prototype, 'clipboard', { get: () => undefined })
+    )
+    await waitForEditor(page)
+    await loadBlueprint(page, TWO)
+
+    await page.evaluate(() => window.__fbe_test.openExportDialog())
+    await expect(exportTextarea(page)).toHaveValue(/^0/)
+    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+    await page.mouse.click(
+        dialog.x + PADDING + ROW_BUTTON_WIDTH / 2,
+        dialog.y + LINK_Y + ROW_BUTTON_HEIGHT / 2
+    )
+    const origin = new URL(page.url()).origin
+    await expect(exportTextarea(page)).toHaveValue(new RegExp(`^${origin}/#source=0`))
 })
 
 test('an empty blueprint gives no link', async ({ page }) => {
