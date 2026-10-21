@@ -24,6 +24,11 @@ Sample blueprint: <https://fbe.factorygamefan.com/?source=https://pastebin.com/u
 
 Example blueprint book: <https://fbe.factorygamefan.com/?source=https://pastebin.com/Xp9u7NaA&index=1>
 
+To share a blueprint, open Export and press Copy link. The link holds the whole
+blueprint string after a `#`, as in `https://fbe.factorygamefan.com/#source=0eNq...`,
+so it needs no server and never expires, but it is as long as the string. If a
+link has a `?source=` too, that one wins.
+
 ## Features
 
 - rendering and editing blueprints

@@ -25,7 +25,12 @@ import EDITOR, {
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
-import { readSourceParams } from './sourceParams'
+import {
+    buildShareLink,
+    readPageSourceParams,
+    readSourceParams,
+    shareLinkCopiedText,
+} from './sourceParams'
 import { storedJson } from './storage'
 
 document.addEventListener('contextmenu', e => e.preventDefault())
@@ -185,7 +190,10 @@ if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'funct
     throw new Error('WEB_ASSEMBLY_NOT_SUPPORTED')
 }
 
-const { source: bpSource, index: bpIndex } = readSourceParams(window.location.search)
+const { source: bpSource, index: bpIndex } = readPageSourceParams(
+    window.location.search,
+    window.location.hash
+)
 
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
@@ -262,6 +270,33 @@ function encodeCurrent(): Promise<string | undefined> {
     return encode(book || bp)
 }
 
+/** For ExportDialog's Copy link button. A refused clipboard still hands the
+ * link back, so the dialog can show it where it can be copied by hand. */
+function copyShareLink(): Promise<{ link: string; copied: boolean } | undefined> {
+    return encodeCurrent()
+        .then(s => {
+            if (s === undefined) return undefined
+            const link = buildShareLink(window.location.origin, s)
+            return navigator.clipboard.writeText(link).then(
+                () => {
+                    createToast({ text: shareLinkCopiedText(link), type: 'success' })
+                    return { link, copied: true }
+                },
+                () => {
+                    createToast({
+                        text: 'The clipboard is blocked. The link is in the field instead.',
+                        type: 'warning',
+                    })
+                    return { link, copied: false }
+                }
+            )
+        })
+        .catch(error => {
+            createErrorMessage('The link could not be generated.', error)
+            return undefined
+        })
+}
+
 /** For ImportDialog's Paste button - fills the textarea from the OS
  * clipboard without parsing or loading it, unlike `importReplace`/
  * `importAppend`'s own clipboard reads. */
@@ -305,6 +340,7 @@ const quickActions: QuickActions = {
     importAppend,
     exportImage,
     encodeCurrent,
+    copyShareLink,
     readClipboardText,
 }
 
@@ -375,6 +411,20 @@ editor
         loadingScreen.el.classList.add('error')
         throw new Error('UNRECOVERABLE_ERROR')
     })
+
+/*
+    A share link opened in a tab already showing the editor changes only the
+    fragment, and that does not reload the page - so the address bar would
+    change and the blueprint would not. This loads it the way Ctrl+V does, and
+    replaces the blueprint the same way. Before startup finishes, the startup
+    load is still reading the fragment itself; and a fragment with no `source`
+    is not a share link.
+*/
+window.addEventListener('hashchange', () => {
+    if (!startupFinished) return
+    const { source } = readSourceParams(window.location.hash.replace(/^#/, ''))
+    if (source) void importReplace(source)
+})
 
 window.addEventListener('visibilitychange', () => {
     localStorage.setItem('quickbarItemNames', JSON.stringify(editor.quickbarItems))
@@ -605,6 +655,8 @@ const testApi = {
      * QuickActions members. See tests/quick-actions.spec.ts.
      */
     encodeCurrentResult: () => encodeCurrent(),
+    /** ExportDialog's Copy link action, result and all. See tests/share-link.spec.ts. */
+    copyShareLink: () => copyShareLink(),
     /**
      * `Editor.getPicture` - the PNG `exportImage` would save, without the
      * download. See tests/image-export.spec.ts.

@@ -57,6 +57,14 @@ export interface QuickActions {
      */
     encodeCurrent: () => Promise<string | undefined>
     /**
+     * Builds a link that opens the loaded blueprint (or book) and puts it on
+     * the OS clipboard, for ExportDialog's Copy link button (#570).
+     * Undefined when the blueprint is empty, the same guard as
+     * `encodeCurrent`. `copied` is false when the clipboard refused it, so
+     * the dialog can show the link in its field instead.
+     */
+    copyShareLink: () => Promise<{ link: string; copied: boolean } | undefined>
+    /**
      * The raw OS clipboard text, for ImportDialog's Paste button - fills the
      * textarea so it can be reviewed or edited before Replace/Append acts on
      * it, unlike `importReplace`/`importAppend`'s own clipboard reads, which

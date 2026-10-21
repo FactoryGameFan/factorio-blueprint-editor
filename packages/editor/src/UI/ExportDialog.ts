@@ -2,12 +2,15 @@ import { UPDATE_PRIORITY } from 'pixi.js'
 import G from '../common/globals'
 import { Dialog } from './controls/Dialog'
 import { TextInput } from './controls/TextInput'
+import { addDescribedButton, ROW_BUTTON_HEIGHT } from './controls/DescribedButton'
 
 const WIDTH = 320
-const PADDING = 12
+export const PADDING = 12
 const FIELD_Y = 40
 const FIELD_HEIGHT = 90
-const HEIGHT = FIELD_Y + FIELD_HEIGHT + PADDING
+/** Exported for tests/share-link.spec.ts, which clicks the button. */
+export const LINK_Y = FIELD_Y + FIELD_HEIGHT + PADDING
+const HEIGHT = LINK_Y + ROW_BUTTON_HEIGHT + PADDING
 
 /** See `ImportDialog.PLACEHOLDER`'s own doc comment - the same reason, the
  * other dialog. */
@@ -132,6 +135,16 @@ export class ExportDialog extends Dialog {
             if (e instanceof KeyboardEvent && e.key === 'Escape') this.close()
         })
 
+        addDescribedButton(
+            this,
+            PADDING,
+            LINK_Y,
+            WIDTH,
+            'Copy link',
+            'Copies a link that opens this blueprint in the editor.',
+            () => this.copyShareLink()
+        )
+
         this.refreshText({ select: true })
         this.m_LastSeenRevision = G.bp.history.revision
 
@@ -179,6 +192,26 @@ export class ExportDialog extends Dialog {
         }
         G.app.ticker.add(changeTick)
         this.once('destroyed', () => G.app.ticker.remove(changeTick))
+    }
+
+    /**
+     * When the clipboard refuses the link, it goes in the field, selected,
+     * the same fallback this dialog already is for the string. Bumping the
+     * encode count drops any encode still in flight, so it cannot overwrite
+     * the link; the next edit re-encodes the string as usual.
+     */
+    private copyShareLink(): void {
+        G.quickActions
+            .copyShareLink()
+            .then(result => {
+                if (this.destroyed || !result || result.copied) return
+                ++this.m_EncodeCount
+                this.m_TextInput.text = result.link
+                this.m_TextInput.select()
+            })
+            .catch((error: unknown) => {
+                G.logger({ text: String(error), type: 'error' })
+            })
     }
 
     private refreshText({ select }: { select: boolean }): void {

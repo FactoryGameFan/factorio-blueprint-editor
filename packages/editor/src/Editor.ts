@@ -72,6 +72,10 @@ const noopQuickActions: QuickActions = {
         G.logger({ text: missingQuickActionsMessage, type: 'error' })
         return Promise.resolve(undefined)
     },
+    copyShareLink: () => {
+        G.logger({ text: missingQuickActionsMessage, type: 'error' })
+        return Promise.resolve(undefined)
+    },
     readClipboardText: () => {
         /*
             Resolves rather than rejects, unlike an earlier version of this

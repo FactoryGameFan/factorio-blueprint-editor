@@ -114,6 +114,8 @@ export interface FbeTestApi {
     exportGuardResult: () => { exportString: boolean; exportImage: boolean }
     /** `encodeCurrent`'s own empty-blueprint guard result. See tests/quick-actions.spec.ts. */
     encodeCurrentResult: () => Promise<string | undefined>
+    /** ExportDialog's Copy link action. Writes the clipboard. See tests/share-link.spec.ts. */
+    copyShareLink: () => Promise<{ link: string; copied: boolean } | undefined>
     /** The PNG the image export would save, without the download. See tests/image-export.spec.ts. */
     getPicture: (resolution?: number) => Promise<Blob>
     /**
