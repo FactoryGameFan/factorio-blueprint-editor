@@ -2,12 +2,15 @@ import { UPDATE_PRIORITY } from 'pixi.js'
 import G from '../common/globals'
 import { Dialog } from './controls/Dialog'
 import { TextInput } from './controls/TextInput'
+import { addDescribedButton, ROW_BUTTON_HEIGHT } from './controls/DescribedButton'
 
 const WIDTH = 320
-const PADDING = 12
+export const PADDING = 12
 const FIELD_Y = 40
 const FIELD_HEIGHT = 90
-const HEIGHT = FIELD_Y + FIELD_HEIGHT + PADDING
+/** Exported for tests/share-link.spec.ts, which clicks the button. */
+export const LINK_Y = FIELD_Y + FIELD_HEIGHT + PADDING
+const HEIGHT = LINK_Y + ROW_BUTTON_HEIGHT + PADDING
 
 /** See `ImportDialog.PLACEHOLDER`'s own doc comment - the same reason, the
  * other dialog. */
@@ -51,6 +54,8 @@ export class ExportDialog extends Dialog {
     // further change - see `changeTick`.
     private m_ReencodeDueAt: number | undefined
     private m_EncodeCount = 0
+    // Copy link clicks, so only the newest one's fallback link is shown.
+    private m_CopyCount = 0
 
     /**
      * How many times `refreshText` has been *called* this dialog's lifetime
@@ -132,6 +137,16 @@ export class ExportDialog extends Dialog {
             if (e instanceof KeyboardEvent && e.key === 'Escape') this.close()
         })
 
+        addDescribedButton(
+            this,
+            PADDING,
+            LINK_Y,
+            WIDTH,
+            'Copy link',
+            'Copies a link that opens this blueprint in the editor.',
+            () => this.copyShareLink()
+        )
+
         this.refreshText({ select: true })
         this.m_LastSeenRevision = G.bp.history.revision
 
@@ -179,6 +194,35 @@ export class ExportDialog extends Dialog {
         }
         G.app.ticker.add(changeTick)
         this.once('destroyed', () => G.app.ticker.remove(changeTick))
+    }
+
+    /**
+     * When the clipboard refuses the link, it goes in the field, selected,
+     * the same fallback this dialog already is for the string. Bumping the
+     * encode count drops any encode still in flight, so it cannot overwrite
+     * the link; the next edit re-encodes the string as usual.
+     *
+     * A pending re-encode is for an edit the link already holds, so it is
+     * dropped too - unless the blueprint changed after the click, when the
+     * link is out of date and the re-encode should replace it. Only the
+     * newest click's link is shown: two can finish out of order.
+     */
+    private copyShareLink(): void {
+        const copyCount = ++this.m_CopyCount
+        const revision = G.bp.history.revision
+        G.quickActions
+            .copyShareLink()
+            .then(result => {
+                if (this.destroyed || !result || result.copied) return
+                if (copyCount !== this.m_CopyCount) return
+                ++this.m_EncodeCount
+                if (G.bp.history.revision === revision) this.m_ReencodeDueAt = undefined
+                this.m_TextInput.text = result.link
+                this.m_TextInput.select()
+            })
+            .catch((error: unknown) => {
+                G.logger({ text: String(error), type: 'error' })
+            })
     }
 
     private refreshText({ select }: { select: boolean }): void {

@@ -25,7 +25,12 @@ import EDITOR, {
 } from '@fbe/editor'
 import { initToasts } from './toasts'
 import { initSettingsPane } from './settingsPane'
-import { readSourceParams } from './sourceParams'
+import {
+    buildShareLink,
+    readPageSourceParams,
+    readSourceParams,
+    shareLinkCopiedText,
+} from './sourceParams'
 import { storedJson } from './storage'
 
 document.addEventListener('contextmenu', e => e.preventDefault())
@@ -185,7 +190,11 @@ if (typeof WebAssembly !== 'object' && typeof WebAssembly.instantiate !== 'funct
     throw new Error('WEB_ASSEMBLY_NOT_SUPPORTED')
 }
 
-const { source: bpSource, index: bpIndex } = readSourceParams(window.location.search)
+const startupParams = readPageSourceParams(window.location.search, window.location.hash)
+const bpSource = startupParams.source
+/** The book page `loadBp` opens on. A fragment link opened later in the same
+ * tab replaces it with its own, as a fresh load of that link would. */
+let bpIndex = startupParams.index
 
 let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
 
@@ -206,14 +215,27 @@ let changeBookForIndexSelector: (bpOrBook: Book | Blueprint) => void
  * after a failure this already reported through `createBPImportError` - see
  * `QuickActions.importReplace`'s own doc comment for who reads that and why.
  */
+/*
+    Bumped by every `importReplace`. A URL source is a fetch, so two in quick
+    succession - Back and Forward through share links, or a paste during a
+    slow one - can finish out of order. Only the newest may load, hide the
+    loading screen or report an error; an older one resolves `false` and
+    leaves everything to it.
+*/
+let importGeneration = 0
+
 function importReplace(source?: string): Promise<boolean> {
+    const generation = ++importGeneration
     loadingScreen.show()
 
     return (source !== undefined ? Promise.resolve(source) : navigator.clipboard.readText())
         .then(getBlueprintOrBookFromSource)
-        .then(loadBp)
-        .then(() => true)
+        .then(bpOrBook => {
+            if (generation !== importGeneration) return false
+            return loadBp(bpOrBook).then(() => true)
+        })
         .catch(error => {
+            if (generation !== importGeneration) return false
             loadingScreen.hide()
             createBPImportError(error)
             return false
@@ -262,6 +284,38 @@ function encodeCurrent(): Promise<string | undefined> {
     return encode(book || bp)
 }
 
+/** For ExportDialog's Copy link button. A refused clipboard still hands the
+ * link back, so the dialog can show it where it can be copied by hand. */
+function copyShareLink(): Promise<{ link: string; copied: boolean } | undefined> {
+    return encodeCurrent()
+        .then(s => {
+            if (s === undefined) return undefined
+            const link = buildShareLink(window.location.origin, s)
+            // Inside a `then` so a missing Clipboard API (an http page that
+            // is not localhost has none) rejects into the refused branch
+            // instead of throwing past it.
+            return Promise.resolve()
+                .then(() => navigator.clipboard.writeText(link))
+                .then(
+                    () => {
+                        createToast({ text: shareLinkCopiedText(link), type: 'success' })
+                        return { link, copied: true }
+                    },
+                    () => {
+                        createToast({
+                            text: 'The clipboard is blocked. The link is in the field instead.',
+                            type: 'warning',
+                        })
+                        return { link, copied: false }
+                    }
+                )
+        })
+        .catch(error => {
+            createErrorMessage('The link could not be generated.', error)
+            return undefined
+        })
+}
+
 /** For ImportDialog's Paste button - fills the textarea from the OS
  * clipboard without parsing or loading it, unlike `importReplace`/
  * `importAppend`'s own clipboard reads. */
@@ -305,6 +359,7 @@ const quickActions: QuickActions = {
     importAppend,
     exportImage,
     encodeCurrent,
+    copyShareLink,
     readClipboardText,
 }
 
@@ -375,6 +430,22 @@ editor
         loadingScreen.el.classList.add('error')
         throw new Error('UNRECOVERABLE_ERROR')
     })
+
+/*
+    A share link opened in a tab already showing the editor changes only the
+    fragment, and that does not reload the page - so the address bar would
+    change and the blueprint would not. This loads it the way Ctrl+V does, and
+    replaces the blueprint the same way. Before startup finishes, the startup
+    load is still reading the fragment itself; and a fragment with no `source`
+    is not a share link.
+*/
+window.addEventListener('hashchange', () => {
+    if (!startupFinished) return
+    const { source, index } = readSourceParams(window.location.hash.replace(/^#/, ''))
+    if (!source) return
+    bpIndex = index
+    void importReplace(source)
+})
 
 window.addEventListener('visibilitychange', () => {
     localStorage.setItem('quickbarItemNames', JSON.stringify(editor.quickbarItems))
@@ -605,6 +676,8 @@ const testApi = {
      * QuickActions members. See tests/quick-actions.spec.ts.
      */
     encodeCurrentResult: () => encodeCurrent(),
+    /** ExportDialog's Copy link action, result and all. See tests/share-link.spec.ts. */
+    copyShareLink: () => copyShareLink(),
     /**
      * `Editor.getPicture` - the PNG `exportImage` would save, without the
      * download. See tests/image-export.spec.ts.
