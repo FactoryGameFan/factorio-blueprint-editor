@@ -415,6 +415,17 @@
                 'Nothing reads this file - no workflow or script references it, and CI installs Node through `vp` (`VP_NODE_MANAGER=yes` in `.github/actions/setup-vp`). This is a local development hint, so the bump changes nothing about CI.',
             ],
         },
+        {
+            // serve 14.2.6 pins compression to exactly 1.8.1, which has
+            // GHSA-vc2v-76pw-4v95 (memory leak on aborted compressed responses,
+            // Dependabot alert 95). The root package.json overrides it to 1.8.2 for
+            // serve alone. The upstream fix is vercel/serve#868. This note makes the
+            // next serve PR the reminder to drop the override.
+            matchPackageNames: ['serve'],
+            prBodyNotes: [
+                'The root `package.json` overrides `compression` to 1.8.2 under `serve` (GHSA-vc2v-76pw-4v95). If this release depends on compression 1.8.2 or later itself, delete `overrides.serve` in the same PR and regenerate the lockfile.',
+            ],
+        },
     ],
 
     // No customManagers. Two regex managers lived here from 2026-08-11 to

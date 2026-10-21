@@ -324,6 +324,11 @@ over exact pins.
   consequence of `lockFileMaintenance: { enabled: false }` in `renovate.json5`.
 - Before acting on a transitive advisory, read the parent's declared range: an
   exact pin means it is not actionable, a range means it is.
+- One exception, kept small on purpose: `overrides.serve.compression` in the
+  root `package.json`. serve 14.2.6 pins compression 1.8.1 exactly, and 1.8.1
+  leaks memory on aborted compressed responses (GHSA-vc2v-76pw-4v95). 1.8.2
+  changes only that fix. The override is scoped to serve, and Renovate's note
+  on serve PRs says when to drop it (vercel/serve#868).
 - Upgrade Wrangler and its pinned runtime dependencies (workerd, Miniflare,
   undici) together. Confirm the new Wrangler accepts the `compatibility_date` in
   `packages/worker/wrangler.jsonc` in local development. Do not use
