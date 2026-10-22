@@ -184,6 +184,15 @@ const ALLOWLIST: AllowedChord[] = [
             'took effect, which it could not if a field had swallowed the chord.',
     },
     {
+        file: 'paste-wires.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. The spec only drags and clicks " +
+            'on the canvas and opens no dialog, so no DOM input has focus - and ' +
+            'it asserts the undo took effect.',
+    },
+    {
         file: 'inserter-stack-size.spec.ts',
         chord: 'Control+KeyZ',
         reason:

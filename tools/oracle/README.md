@@ -56,6 +56,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-blueprint-grid-position.mjs`  | Whether setting a grid position moves the entities (PR #222)                  |
 | `probe-decider-else-outputs.mjs`     | How 2.1 serialises a decider's `else_outputs`, and whether it reimports       |
 | `probe-underground-type.mjs`         | What an underground belt with no `type` becomes (#547)                        |
+| `probe-pole-autoconnect.mjs`         | Which copper wires pasted poles make to poles already on the map (#343)       |
 
 | `probe-cargo-bay-render.mjs` | What cargo bay arrangements actually look like in the game (#378) |
 

@@ -4,7 +4,6 @@ import { EntitySprite } from './EntitySprite'
 import { PaintContainer } from './PaintContainer'
 import { PaintBlueprintEntityContainer } from './PaintBlueprintEntityContainer'
 import { BlueprintContainer } from './BlueprintContainer'
-import { IConnection } from '../core/WireConnections'
 
 export class PaintBlueprintContainer extends PaintContainer {
     private readonly bp: Blueprint
@@ -202,29 +201,12 @@ export class PaintBlueprintContainer extends PaintContainer {
                 }
             }
 
-            // Create wire connections
-            if (oldEntIDToNewEntID.size !== 0) {
-                for (const [oldID] of oldEntIDToNewEntID) {
-                    this.bp.wireConnections
-                        .getEntityConnections(oldID)
-                        .flatMap<IConnection>(connection => {
-                            const en0 = oldEntIDToNewEntID.get(connection.cps[0].entityNumber)
-                            const en1 = oldEntIDToNewEntID.get(connection.cps[1].entityNumber)
-                            // only copy a wire when both of its ends were pasted
-                            if (en0 === undefined || en1 === undefined) return []
-                            return [
-                                {
-                                    ...connection,
-                                    cps: [
-                                        { ...connection.cps[0], entityNumber: en0 },
-                                        { ...connection.cps[1], entityNumber: en1 },
-                                    ],
-                                },
-                            ]
-                        })
-                        .forEach(conn => this.bpc.bp.wireConnections.create(conn))
-                }
-            }
+            // The paste's own wires, then auto-wires to poles already on the
+            // map (#343). Inside this transaction, so the paste stays one undo.
+            this.bpc.bp.wireConnections.wirePastedEntities(
+                this.bp.wireConnections,
+                oldEntIDToNewEntID
+            )
         })
     }
 

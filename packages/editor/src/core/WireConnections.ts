@@ -462,57 +462,119 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         )
     }
 
+    /** Hand placement of one pole: the same rule as a paste, with a set of one. */
     public connectPowerPole(entityNumber: number): void {
-        const entity = this.bp.entities.get(entityNumber)
-        if (entity === undefined || entity.type !== 'electric-pole') return
+        this.autoConnectPoles([entityNumber])
+    }
 
-        const areaSize = (entity.maxWireDistance + 1) * 2
+    /**
+     * Copies a paste's own wires onto the entities it created, then auto-wires
+     * the pasted poles to the poles already on the map - in that order, because
+     * the blueprint's wires count toward the cap and the triangle check below.
+     * `oldEntIDToNewEntID` maps each pasted entity's number in `source` to the
+     * number it got here; an entity the paste did not create (a fast replace, a
+     * rotate in place) is absent from it, so its wires are not copied and it is
+     * not auto-wired. The caller holds the paste's transaction, so the entities,
+     * their wires and the auto-wires are one undo step.
+     */
+    public wirePastedEntities(
+        source: WireConnections,
+        oldEntIDToNewEntID: ReadonlyMap<number, number>
+    ): void {
+        for (const [oldID] of oldEntIDToNewEntID) {
+            for (const connection of source.getEntityConnections(oldID)) {
+                const en0 = oldEntIDToNewEntID.get(connection.cps[0].entityNumber)
+                const en1 = oldEntIDToNewEntID.get(connection.cps[1].entityNumber)
+                // only copy a wire when both of its ends were pasted
+                if (en0 === undefined || en1 === undefined) continue
+                this.create({
+                    ...connection,
+                    cps: [
+                        { ...connection.cps[0], entityNumber: en0 },
+                        { ...connection.cps[1], entityNumber: en1 },
+                    ],
+                })
+            }
+        }
 
-        const poles = this.bp.entityPositionGrid
-            .getEntitiesInArea({
-                x: entity.position.x,
-                y: entity.position.y,
+        this.autoConnectPoles(oldEntIDToNewEntID.values())
+    }
+
+    /**
+     * Wires newly built poles to the poles that were already there, the way
+     * Factorio 2.0 does when a pole or a blueprint is built. Measured on 2.0.77
+     * headless over 24 layouts (issue #343, which holds the probe):
+     *
+     * - A new pole wires only to a pole that is not new. Two poles built by one
+     *   paste never auto-wire to each other; only the blueprint's own wires join
+     *   them.
+     * - Every (new, old) pair within reach is a candidate, and they are tried
+     *   closest first by straight-line distance. Not Manhattan distance, which
+     *   this used to sort by and which picks a different pole in measured
+     *   layouts, and not blueprint entity order (#150), which the game ignores.
+     * - A pair is skipped when either end already has 5 copper wires, counting
+     *   wires the blueprint brought and wires made earlier in this walk.
+     * - A pair is skipped when the two poles already share a copper neighbour,
+     *   so no triangle is made. Direct neighbours only, not the whole network.
+     *
+     * Unmeasured, so nothing here should be read as a rule for them: the order
+     * of two pairs at the same distance (this keeps the sort stable, so it is
+     * whatever order the pairs were collected in), mixed pole types (the reach
+     * is the smaller of the two, as for any wire), and whether a power switch's
+     * copper counts toward the 5 (it does here, as it always has).
+     *
+     * 5 is `auto_connect_up_to_n_wires`'s default in 2.0, and no vanilla pole
+     * sets it. It limits auto-wiring only; a hand-drawn wire has no cap.
+     */
+    public autoConnectPoles(newPoles: Iterable<number>): void {
+        const isNew = new Set(newPoles)
+
+        const pairs: { newPole: Entity; oldPole: Entity; distanceSquared: number }[] = []
+        for (const entityNumber of isNew) {
+            const newPole = this.bp.entities.get(entityNumber)
+            if (newPole === undefined || newPole.type !== 'electric-pole') continue
+
+            const areaSize = (newPole.maxWireDistance + 1) * 2
+            const nearby = this.bp.entityPositionGrid.getEntitiesInArea({
+                x: newPole.position.x,
+                y: newPole.position.y,
                 w: areaSize,
                 h: areaSize,
             })
-            .filter(
-                e =>
-                    e !== entity &&
-                    e.type === 'electric-pole' &&
-                    this.getEntityConnections(e.entityNumber).filter(c => c.color === 'copper')
-                        .length < MAX_POLE_CONNECTION_COUNT &&
-                    U.pointInCircle(
-                        e.position,
-                        entity.position,
-                        Math.min(e.maxWireDistance, entity.maxWireDistance)
-                    )
-            )
-            .sort(
-                (a, b) =>
-                    U.manhattenDistance(a.position, entity.position) -
-                    U.manhattenDistance(b.position, entity.position)
-            )
-
-        let counter = MAX_POLE_CONNECTION_COUNT
-        const blacklist = new Set<number>()
-        for (const pole of poles) {
-            if (counter === 0) break
-            if (blacklist.has(pole.entityNumber)) continue
-            counter -= 1
-
-            blacklist.add(pole.entityNumber)
-            for (const connection of this.getEntityConnections(pole.entityNumber)) {
-                if (connection.color === 'copper') {
-                    const otherEntNr =
-                        pole.entityNumber === connection.cps[0].entityNumber
-                            ? connection.cps[1].entityNumber
-                            : connection.cps[0].entityNumber
-                    blacklist.add(otherEntNr)
-                }
+            for (const oldPole of nearby) {
+                if (oldPole.type !== 'electric-pole' || isNew.has(oldPole.entityNumber)) continue
+                if (!WireConnections.reaches(newPole, oldPole)) continue
+                const dx = newPole.position.x - oldPole.position.x
+                const dy = newPole.position.y - oldPole.position.y
+                pairs.push({ newPole, oldPole, distanceSquared: dx * dx + dy * dy })
             }
-
-            this.create(WireConnections.toPoleConnection(entity.entityNumber, pole.entityNumber))
         }
+
+        pairs.sort((a, b) => a.distanceSquared - b.distanceSquared)
+
+        // Both read live, so a wire made earlier in this loop counts.
+        for (const { newPole, oldPole } of pairs) {
+            const newNeighbours = this.copperNeighbours(newPole.entityNumber)
+            const oldNeighbours = this.copperNeighbours(oldPole.entityNumber)
+            if (newNeighbours.length >= MAX_POLE_CONNECTION_COUNT) continue
+            if (oldNeighbours.length >= MAX_POLE_CONNECTION_COUNT) continue
+            if (newNeighbours.some(n => oldNeighbours.includes(n))) continue
+
+            this.create(
+                WireConnections.toPoleConnection(newPole.entityNumber, oldPole.entityNumber)
+            )
+        }
+    }
+
+    /** The entity at the far end of each of this entity's copper wires. */
+    private copperNeighbours(entityNumber: number): number[] {
+        return this.getEntityConnections(entityNumber)
+            .filter(c => c.color === 'copper')
+            .map(c =>
+                c.cps[0].entityNumber === entityNumber
+                    ? c.cps[1].entityNumber
+                    : c.cps[0].entityNumber
+            )
     }
 
     public generatePowerPoleWires(): void {
