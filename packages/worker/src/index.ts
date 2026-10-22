@@ -26,6 +26,8 @@ interface Env {
         serves either way and only the count stops.
     */
     VISITS?: AnalyticsEngineDataset
+    // Optional for the same reason, and wrangler.jsonc says what it limits.
+    CORSPROXY_LIMIT?: RateLimit
 }
 
 const CUSTOM_ORIGIN = `https://${CUSTOM_HOSTNAME}`
@@ -67,10 +69,10 @@ const PROXY_USER_AGENT = 'factorio-blueprint-editor (+https://fbe.factorygamefan
     public/_headers to what it serves, but a Response the Worker returns
     itself carries exactly the headers it was given. See responseHeaders.ts.
 */
-const textResponse = (status: number, body: string): Response =>
+const textResponse = (status: number, body: string, extra?: Record<string, string>): Response =>
     new Response(`${body}\n`, {
         status,
-        headers: ownHeaders({ 'content-type': 'text/plain; charset=utf-8' }),
+        headers: ownHeaders({ ...extra, 'content-type': 'text/plain; charset=utf-8' }),
     })
 
 /*
@@ -100,7 +102,42 @@ function capBody(body: ReadableStream<Uint8Array>, max: number): ReadableStream<
     )
 }
 
-async function handleCorsProxy(request: Request, requestUrl: URL): Promise<Response> {
+/*
+    False only when the limiter answers that this client is over its limit.
+
+    A missing binding or a check that throws lets the request through, as a
+    missing VISITS stops only the count: a fault in the limiter must not stop
+    every blueprint import. The tests also reach the handler with an empty env.
+
+    Keyed on the client IP, which goes to the limiter's counter and nowhere
+    else - nothing here logs or stores it. Every request to the route counts,
+    refused ones included, because a refusal still bills as an invocation.
+
+    No IP lets the request through too. Cloudflare sets `cf-connecting-ip` on
+    every request it proxies and a client cannot remove it, but a Transform
+    Rule on the zone can. Every such request would then share one key, and one
+    client could spend everyone's allowance (CodeRabbit on #593).
+*/
+async function withinProxyLimit(request: Request, env: Env): Promise<boolean> {
+    if (env.CORSPROXY_LIMIT === undefined) return true
+    const ip = request.headers.get('cf-connecting-ip')
+    if (!ip) return true
+    try {
+        const { success } = await env.CORSPROXY_LIMIT.limit({ key: `corsproxy:${ip}` })
+        return success
+    } catch {
+        return true
+    }
+}
+
+async function handleCorsProxy(request: Request, requestUrl: URL, env: Env): Promise<Response> {
+    if (!(await withinProxyLimit(request, env))) {
+        // The binding's period is 60 seconds (wrangler.jsonc).
+        return textResponse(429, 'Too many proxied requests; try again in a minute', {
+            'retry-after': '60',
+        })
+    }
+
     // The editor only ever GETs. Forwarding request.method the way the old
     // handler did turned this into a relay for POST and DELETE as well.
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -309,7 +346,7 @@ export default {
             })
         }
 
-        if (url.pathname === '/corsproxy') return handleCorsProxy(request, url)
+        if (url.pathname === '/corsproxy') return handleCorsProxy(request, url, env)
 
         /*
             Count the navigation, then serve the app. After the legacy-hostname

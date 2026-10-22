@@ -120,6 +120,37 @@
     */
     "analytics_engine_datasets": [{ "binding": "VISITS", "dataset": "fbe_unique_visitors" }],
     /*
+        A per-client limit on /corsproxy (#591). CORS stops a browser on another
+        site from reading the proxy's answers, but a script outside a browser
+        can still loop it to fetch any public https host through Cloudflare -
+        billed to this Worker, and sent with a User-Agent that names this site.
+
+        Like the dataset above, this needs nothing from the dashboard first.
+        `namespace_id` is a number we choose, not one Cloudflare hands out:
+        bindings that share one on the same account share counters, so it is
+        the issue number, which nothing else on the account will pick.
+
+        60 a minute per client IP, counted per Cloudflare location. One page
+        load makes at most one proxied request; the up to 5 redirect hops
+        happen inside the Worker and do not count. Cloudflare advises against
+        keying on IP, because many people can share one address. There is no
+        other identity here, so the limit is set where a crowd behind one
+        address cannot reach it: in September 2026 the whole world made 3 to 5
+        proxied requests a minute (the Workers Logs count further down).
+
+        The counts are approximate and per location, so this bounds a loop
+        from one machine, not traffic spread across many. src/index.ts lets a
+        request through when the binding is missing or the check fails, so a
+        limiter fault can never take imports down.
+    */
+    "ratelimits": [
+        {
+            "name": "CORSPROXY_LIMIT",
+            "namespace_id": "591",
+            "simple": { "limit": 60, "period": 60 },
+        },
+    ],
+    /*
         A guard against a runaway loop, not a cost control - worth saying
         plainly, because the name suggests otherwise. CPU is roughly 3% of
         what this Worker costs: requests bill at $0.30 per million and CPU at
