@@ -753,12 +753,17 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             this
         )
 
-        this.history
-            .updateMap(this.entities, rawEntity.entityNumber, rawEntity, 'Create entity')
-            .onDone(this.onCreateOrRemoveEntity.bind(this))
-            .commit()
+        // One transaction, so a hand-placed pole and the wires it makes to its
+        // neighbours are one undo step rather than one per wire (#343). It nests
+        // inside a paste's or a fast replace's own transaction.
+        this.history.transaction('Create entity', () => {
+            this.history
+                .updateMap(this.entities, rawEntity.entityNumber, rawEntity, 'Create entity')
+                .onDone(this.onCreateOrRemoveEntity.bind(this))
+                .commit()
 
-        if (connectPowerPole) this.wireConnections.connectPowerPole(rawEntity.entityNumber)
+            if (connectPowerPole) this.wireConnections.connectPowerPole(rawEntity.entityNumber)
+        })
 
         return rawEntity
     }

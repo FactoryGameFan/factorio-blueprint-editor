@@ -1,0 +1,1337 @@
+{
+    "captured_on": "Version: 2.0.77 (build 84539, linux64, headless)",
+    "errors": [],
+    "cases": [
+        {
+            "name": "tie-W-E-created-AB-at-0-0",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-created-BA-at-0-0",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-pasted-at-0-0",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-created-AB-at-16-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-created-BA-at-16-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-pasted-at-16-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-created-AB-at-0-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-created-BA-at-0-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-E-pasted-at-0-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-created-AB-at-0-0",
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-created-BA-at-0-0",
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-pasted-at-0-0",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-created-AB-at-16-16",
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-created-BA-at-16-16",
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-pasted-at-16-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-created-AB-at-0-16",
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-created-BA-at-0-16",
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-N-S-pasted-at-0-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,4.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-created-AB-at-0-0",
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-created-BA-at-0-0",
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-pasted-at-0-0",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-created-AB-at-16-16",
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-created-BA-at-16-16",
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-pasted-at-16-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-created-AB-at-0-16",
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-created-BA-at-0-16",
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NW-SE-pasted-at-0-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-2.5,-2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,3.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(3.5,3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-2.5,-2.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-created-AB-at-0-0",
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-created-BA-at-0-0",
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-pasted-at-0-0",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-created-AB-at-16-16",
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-created-BA-at-16-16",
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-pasted-at-16-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-created-AB-at-0-16",
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-created-BA-at-0-16",
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-NE-SW-pasted-at-0-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-2.5,3.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(3.5,-2.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-2.5,3.5)-medium-electric-pole(3.5,-2.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(3.5,-2.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-created-AB-at-0-0",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-created-BA-at-0-0",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-pasted-at-0-0",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-created-AB-at-16-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-created-BA-at-16-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-pasted-at-16-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-created-AB-at-0-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-created-BA-at-0-16",
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-W-N-pasted-at-0-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(-3.5,0.5)",
+                "medium-electric-pole(0.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-3.5,0.5)-medium-electric-pole(0.5,-3.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-3.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-created-AB-at-0-0",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-created-BA-at-0-0",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-pasted-at-0-0",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-created-AB-at-16-16",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-created-BA-at-16-16",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-pasted-at-16-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-created-AB-at-0-16",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-created-BA-at-0-16",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "tie-E-S-pasted-at-0-16",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,4.5)",
+                "medium-electric-pole(4.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(0.5,4.5)-medium-electric-pole(4.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-W-E-bp-order-12-at-0-0",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-5.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(1.5,8.5)",
+                "medium-electric-pole(6.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-5.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-W-E-bp-order-21-at-0-0",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-5.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(1.5,8.5)",
+                "medium-electric-pole(6.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(6.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-W-E-bp-order-12-at-16-16",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-5.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(1.5,8.5)",
+                "medium-electric-pole(6.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-5.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-W-E-bp-order-21-at-16-16",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-5.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(1.5,8.5)",
+                "medium-electric-pole(6.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(6.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-N-S-bp-order-12-at-0-0",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-7.5,-0.5)",
+                "medium-electric-pole(-7.5,1.5)",
+                "medium-electric-pole(0.5,-5.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,6.5)",
+                "medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(8.5,1.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-7.5,-0.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-7.5,1.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,1.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-5.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-N-S-bp-order-21-at-0-0",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-7.5,-0.5)",
+                "medium-electric-pole(-7.5,1.5)",
+                "medium-electric-pole(0.5,-5.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,6.5)",
+                "medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(8.5,1.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-7.5,-0.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-7.5,1.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,1.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(0.5,6.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-N-S-bp-order-12-at-16-16",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-7.5,-0.5)",
+                "medium-electric-pole(-7.5,1.5)",
+                "medium-electric-pole(0.5,-5.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,6.5)",
+                "medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(8.5,1.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-7.5,-0.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-7.5,1.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,1.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,-5.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-N-S-bp-order-21-at-16-16",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-7.5,-0.5)",
+                "medium-electric-pole(-7.5,1.5)",
+                "medium-electric-pole(0.5,-5.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,6.5)",
+                "medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(8.5,1.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-7.5,-0.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-7.5,1.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,-0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,1.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(0.5,6.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-W-E-list-12-numbers-12",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-5.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(1.5,8.5)",
+                "medium-electric-pole(6.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-5.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "slot-tie-W-E-list-12-numbers-21",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-5.5,0.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(1.5,8.5)",
+                "medium-electric-pole(6.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-5.5,0.5)-medium-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "walk-no-A-bp-order-12",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-6.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,8.5)",
+                "medium-electric-pole(5.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(0.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(5.5,0.5)"
+            ]
+        },
+        {
+            "name": "walk-no-A-bp-order-21",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-6.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,8.5)",
+                "medium-electric-pole(5.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(0.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(5.5,0.5)"
+            ]
+        },
+        {
+            "name": "walk-with-A-bp-order-12",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-6.5,0.5)",
+                "medium-electric-pole(-6.5,2.5)",
+                "medium-electric-pole(0.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,8.5)",
+                "medium-electric-pole(5.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(0.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-6.5,0.5)-medium-electric-pole(-6.5,2.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(5.5,0.5)"
+            ]
+        },
+        {
+            "name": "walk-with-A-bp-order-21",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-0.5,-7.5)",
+                "medium-electric-pole(-0.5,8.5)",
+                "medium-electric-pole(-6.5,0.5)",
+                "medium-electric-pole(-6.5,2.5)",
+                "medium-electric-pole(0.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,8.5)",
+                "medium-electric-pole(5.5,0.5)"
+            ],
+            "before": [
+                "medium-electric-pole(-0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-0.5,8.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(0.5,8.5)"
+            ],
+            "added": [
+                "medium-electric-pole(-6.5,0.5)-medium-electric-pole(-6.5,2.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(5.5,0.5)"
+            ]
+        },
+        {
+            "name": "switch-on-map-pole-wired",
+            "poles": [
+                "medium-electric-pole(-5.5,-5.5)",
+                "medium-electric-pole(-5.5,6.5)",
+                "medium-electric-pole(-7.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(8.5,0.5)",
+                "power-switch(-3,5)"
+            ],
+            "before": [
+                "medium-electric-pole(-5.5,-5.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-5.5,6.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-7.5,0.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-power-switch(-3,5)"
+            ],
+            "added": []
+        },
+        {
+            "name": "switch-on-map-pole-unwired",
+            "poles": [
+                "medium-electric-pole(-5.5,-5.5)",
+                "medium-electric-pole(-5.5,6.5)",
+                "medium-electric-pole(-7.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(8.5,0.5)",
+                "power-switch(-3,5)"
+            ],
+            "before": [
+                "medium-electric-pole(-5.5,-5.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-5.5,6.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-7.5,0.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,-7.5)-medium-electric-pole(0.5,0.5)"
+            ],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(8.5,0.5)"
+            ]
+        },
+        {
+            "name": "switch-on-pasted-pole-wired",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-2.5,-1.5)",
+                "medium-electric-pole(-2.5,2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-3.5)",
+                "medium-electric-pole(1.5,4.5)",
+                "medium-electric-pole(4.5,0.5)",
+                "power-switch(6,7)"
+            ],
+            "before": [],
+            "added": [
+                "medium-electric-pole(-2.5,-1.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-2.5,2.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-power-switch(6,7)"
+            ]
+        },
+        {
+            "name": "switch-on-pasted-pole-unwired",
+            "import_code": 0,
+            "built": 2,
+            "poles": [
+                "medium-electric-pole(-2.5,-1.5)",
+                "medium-electric-pole(-2.5,2.5)",
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(1.5,-3.5)",
+                "medium-electric-pole(1.5,4.5)",
+                "medium-electric-pole(4.5,0.5)",
+                "power-switch(6,7)"
+            ],
+            "before": [],
+            "added": [
+                "medium-electric-pole(-2.5,-1.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(-2.5,2.5)-medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,-3.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(1.5,4.5)",
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(4.5,0.5)"
+            ]
+        },
+        {
+            "name": "medium-on-map-small-new-at-8",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "small-electric-pole(8.5,0.5)"
+            ],
+            "before": [],
+            "added": []
+        },
+        {
+            "name": "small-on-map-medium-new-at-8",
+            "poles": [
+                "medium-electric-pole(8.5,0.5)",
+                "small-electric-pole(0.5,0.5)"
+            ],
+            "before": [],
+            "added": []
+        },
+        {
+            "name": "small-on-map-medium-new-at-7",
+            "poles": [
+                "medium-electric-pole(7.5,0.5)",
+                "small-electric-pole(0.5,0.5)"
+            ],
+            "before": [],
+            "added": [
+                "medium-electric-pole(7.5,0.5)-small-electric-pole(0.5,0.5)"
+            ]
+        },
+        {
+            "name": "big-on-map-medium-new-at-10",
+            "poles": [
+                "big-electric-pole(0,0)",
+                "medium-electric-pole(9.5,0.5)"
+            ],
+            "before": [],
+            "added": []
+        },
+        {
+            "name": "medium-on-map-big-new-at-10",
+            "poles": [
+                "big-electric-pole(10,1)",
+                "medium-electric-pole(0.5,0.5)"
+            ],
+            "before": [],
+            "added": []
+        },
+        {
+            "name": "sub-on-map-big-new-at-20",
+            "poles": [
+                "big-electric-pole(20,0)",
+                "substation(0,0)"
+            ],
+            "before": [],
+            "added": []
+        },
+        {
+            "name": "sub-on-map-big-new-at-17",
+            "poles": [
+                "big-electric-pole(17,0)",
+                "substation(0,0)"
+            ],
+            "before": [],
+            "added": [
+                "big-electric-pole(17,0)-substation(0,0)"
+            ]
+        },
+        {
+            "name": "medium-on-map-medium-new-at-exactly-9",
+            "poles": [
+                "medium-electric-pole(0.5,0.5)",
+                "medium-electric-pole(9.5,0.5)"
+            ],
+            "before": [],
+            "added": [
+                "medium-electric-pole(0.5,0.5)-medium-electric-pole(9.5,0.5)"
+            ]
+        },
+        {
+            "name": "big-on-map-big-new-at-exactly-32",
+            "poles": [
+                "big-electric-pole(0,0)",
+                "big-electric-pole(32,0)"
+            ],
+            "before": [],
+            "added": [
+                "big-electric-pole(0,0)-big-electric-pole(32,0)"
+            ]
+        },
+        {
+            "name": "sub-on-map-sub-new-at-exactly-18",
+            "poles": [
+                "substation(0,0)",
+                "substation(18,0)"
+            ],
+            "before": [],
+            "added": [
+                "substation(0,0)-substation(18,0)"
+            ]
+        },
+        {
+            "name": "order-big-new-medium-8.5-sub-15-east",
+            "poles": [
+                "big-electric-pole(0,0)",
+                "medium-electric-pole(8.5,0.5)",
+                "substation(15,0)"
+            ],
+            "before": [
+                "medium-electric-pole(8.5,0.5)-substation(15,0)"
+            ],
+            "added": [
+                "big-electric-pole(0,0)-medium-electric-pole(8.5,0.5)"
+            ]
+        },
+        {
+            "name": "order-big-new-medium-8.5-sub-15-west",
+            "poles": [
+                "big-electric-pole(0,0)",
+                "medium-electric-pole(-8.5,0.5)",
+                "substation(-15,0)"
+            ],
+            "before": [
+                "medium-electric-pole(-8.5,0.5)-substation(-15,0)"
+            ],
+            "added": [
+                "big-electric-pole(0,0)-medium-electric-pole(-8.5,0.5)"
+            ]
+        }
+    ]
+}

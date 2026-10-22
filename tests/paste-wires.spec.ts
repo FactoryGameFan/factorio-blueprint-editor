@@ -53,14 +53,35 @@ async function screenOf(page: Page, entityNumber: number): Promise<{ x: number; 
     return at
 }
 
-async function load(page: Page): Promise<void> {
+async function load(page: Page, source = TWO_WIRED): Promise<void> {
     await suppressOverlays(page)
     await page.goto('/')
     await page.waitForFunction(() => (window as any).__fbe_test !== undefined, { timeout: 60_000 })
     await page.evaluate(async (src: string) => {
         const t = (window as any).__fbe_test
         await t.loadBp(await t.getBlueprintOrBookFromSource(src))
-    }, TWO_WIRED)
+    }, source)
+}
+
+/** Ctrl drag from one screen point to another, which leaves PAINT holding a copy. */
+async function copySelection(
+    page: Page,
+    from: { x: number; y: number },
+    to: { x: number; y: number }
+): Promise<void> {
+    await page.mouse.move(from.x, from.y)
+    await page.keyboard.down('Control')
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y)
+    await page.mouse.up()
+    await page.keyboard.up('Control')
+    expect(await page.evaluate(() => (window as any).__fbe_test.editorMode())).toBe('PAINT')
+}
+
+async function clickAt(page: Page, at: { x: number; y: number }): Promise<void> {
+    await page.mouse.move(at.x, at.y)
+    await page.mouse.down()
+    await page.mouse.up()
 }
 
 test('the blueprint loads with its wire', async ({ page }) => {
@@ -139,4 +160,84 @@ test('a wire whose other end was not selected is not copied', async ({ page }) =
 
     expect(await entityCount(page)).toBe(3)
     expect(await wireCount(page)).toBe(1)
+})
+
+/*
+    Pasted electric poles wire themselves to the poles already on the map, as a
+    pole placed by hand does (#343). The rule is in WireConnections.autoConnectPoles
+    and is pinned row by row against the game in poleAutoConnect.test.ts; these
+    two check that a real paste reaches it, which no unit test can see.
+*/
+
+const pole = (entity_number: number, x: number): Record<string, unknown> => ({
+    entity_number,
+    name: 'medium-electric-pole',
+    position: { x, y: 0.5 },
+})
+
+/** Two medium poles 6 tiles apart, in reach of each other (9) but not wired. */
+const TWO_POLES_6_APART = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [pole(1, 0.5), pole(2, 6.5)],
+})
+
+/** Two medium poles 4 tiles apart, not wired. */
+const TWO_POLES_4_APART = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    entities: [pole(1, 0.5), pole(2, 4.5)],
+})
+
+test('a pasted pole wires to the map poles in reach, in one undo step', async ({ page }) => {
+    await load(page, TWO_POLES_6_APART)
+    expect(await entityCount(page)).toBe(2)
+    expect(await wireCount(page)).toBe(0)
+
+    const first = await screenOf(page, 1)
+    const second = await screenOf(page, 2)
+
+    // Copy the first pole alone, then paste it on the tile halfway between
+    // the two - 3 tiles from each, so both are in reach.
+    await copySelection(page, first, { x: first.x + 4, y: first.y + 4 })
+    await clickAt(page, { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 })
+
+    expect(await entityCount(page)).toBe(3)
+    expect(await wireCount(page)).toBe(2)
+
+    // The pole and both of its wires go back together.
+    await page.keyboard.press('Control+KeyZ')
+    expect(await entityCount(page)).toBe(2)
+    expect(await wireCount(page)).toBe(0)
+})
+
+test('pasted poles do not auto-wire to each other', async ({ page }) => {
+    // The game leaves two unwired poles in one blueprint unwired, even within
+    // reach of each other. Passing the hand-placement flag on paste instead of
+    // this fix would wire the second to the first.
+    await load(page, TWO_POLES_4_APART)
+    expect(await wireCount(page)).toBe(0)
+
+    // Zoom out until 12 tiles fit on screen above the poles.
+    const start = await screenOf(page, 1)
+    await page.mouse.move(start.x, start.y)
+    const tileWidth = async (): Promise<number> =>
+        ((await screenOf(page, 2)).x - (await screenOf(page, 1)).x) / 4
+    for (let i = 0; i < 20 && (await tileWidth()) > 20; i++) {
+        await page.mouse.wheel(0, 100)
+    }
+
+    const first = await screenOf(page, 1)
+    const second = await screenOf(page, 2)
+    const pixelsPerTile = (second.x - first.x) / 4
+
+    await copySelection(page, first, second)
+    // 12 tiles north: out of reach of both originals, so nothing can wire.
+    await clickAt(page, {
+        x: (first.x + second.x) / 2,
+        y: first.y - 12 * pixelsPerTile,
+    })
+
+    expect(await entityCount(page)).toBe(4)
+    expect(await wireCount(page)).toBe(0)
 })
