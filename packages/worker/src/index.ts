@@ -112,11 +112,17 @@ function capBody(body: ReadableStream<Uint8Array>, max: number): ReadableStream<
     Keyed on the client IP, which goes to the limiter's counter and nowhere
     else - nothing here logs or stores it. Every request to the route counts,
     refused ones included, because a refusal still bills as an invocation.
+
+    No IP lets the request through too. Cloudflare sets `cf-connecting-ip` on
+    every request it proxies and a client cannot remove it, but a Transform
+    Rule on the zone can. Every such request would then share one key, and one
+    client could spend everyone's allowance (CodeRabbit on #593).
 */
 async function withinProxyLimit(request: Request, env: Env): Promise<boolean> {
     if (env.CORSPROXY_LIMIT === undefined) return true
+    const ip = request.headers.get('cf-connecting-ip')
+    if (!ip) return true
     try {
-        const ip = request.headers.get('cf-connecting-ip') ?? ''
         const { success } = await env.CORSPROXY_LIMIT.limit({ key: `corsproxy:${ip}` })
         return success
     } catch {

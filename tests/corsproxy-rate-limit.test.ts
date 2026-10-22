@@ -67,6 +67,20 @@ describe('the /corsproxy rate limit', () => {
         expect((await proxy({ CORSPROXY_LIMIT: broken })).status).toBe(200)
         expect(upstream).toHaveBeenCalledTimes(2)
     })
+
+    // One shared key for every request without an IP would let one client
+    // spend everyone's allowance.
+    it('lets a request without a client IP through, without asking the limiter', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('0eNq')))
+        const binding = limiter(false)
+        const response = await worker.fetch(
+            new Request('https://fbe.factorygamefan.com/corsproxy?url=https://pastebin.com/raw/x'),
+            { CORSPROXY_LIMIT: binding } as never,
+            {} as never
+        )
+        expect(response.status).toBe(200)
+        expect(binding.limit).not.toHaveBeenCalled()
+    })
 })
 
 /*
