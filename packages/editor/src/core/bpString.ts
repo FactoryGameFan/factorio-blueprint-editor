@@ -155,6 +155,59 @@ interface StrippedNames {
     tiles: string[]
     /** Wire endpoints dropped for naming an entity the blueprint does not have. */
     danglingWires: number
+    /** Entities dropped for an entity_number the editor cannot key them by. */
+    badEntityNumbers: number
+}
+
+/*
+    The largest entity_number kept. Factorio numbers a blueprint's entities 1 to
+    n on export, so a real one is far below this: the largest of the 350,862
+    entities in the committed corpus is 35,964 (tests/entity-numbers.test.ts). What the game itself accepts here has
+    not been measured.
+
+    The bound matters because `Blueprint` gives each new entity the largest
+    number plus one. Past 2^53 that sum stops changing, so new entities shared a
+    key and replaced one another: measured, two entities placed after a
+    blueprint holding 2^53 - 1 left 2 entities instead of 3, and after 1e300
+    left 1 (#469). 2^32 - 1 keeps that sum exact for far more entities than any
+    blueprint can hold.
+*/
+const MAX_ENTITY_NUMBER = 2 ** 32 - 1
+
+export function isUsableEntityNumber(n: unknown): n is number {
+    return typeof n === 'number' && Number.isSafeInteger(n) && n >= 1 && n <= MAX_ENTITY_NUMBER
+}
+
+/*
+    Every entity whose entity_number the model cannot key it by, dropped (#469).
+
+    The schema types the field as an integer with no bounds, and a schema failure
+    only warns, so anything reached `Blueprint`. Two kinds of number broke it:
+
+    - one outside 1 to MAX_ENTITY_NUMBER, or not a whole number, which breaks the
+      numbering of new entities as described above. 0 also slipped past
+      `createEntity`, which reads a falsy number as "assign one".
+    - one already used by an earlier entity. `Blueprint` keys entities by
+      number, so the later one replaced the earlier without a word: measured, a
+      wooden chest and an iron chest both numbered 1 loaded as the iron chest.
+
+    Dropped rather than renumbered. An export never holds either kind, so only a
+    hand-made string loses anything, and a wire to a repeated number cannot say
+    which of the two it meant. Runs before dropDanglingWires, which then cleans
+    up wires to the dropped entities in all three shapes. The first holder of a
+    repeated number is the one kept.
+*/
+function dropUnusableEntityNumbers(bp: IBlueprint): number {
+    if (!Array.isArray(bp.entities)) return 0
+    const seen = new Set<number>()
+    const before = bp.entities.length
+    bp.entities = bp.entities.filter(e => {
+        const n = e.entity_number
+        if (!isUsableEntityNumber(n) || seen.has(n)) return false
+        seen.add(n)
+        return true
+    })
+    return before - bp.entities.length
 }
 
 /*
@@ -259,6 +312,7 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
     const strippedEntities = new Set<string>()
     const strippedTiles = new Set<string>()
     let danglingWires = 0
+    let badEntityNumbers = 0
     const stripBlueprint = (bp: IBlueprint): void => {
         if (bp.entities) {
             const before = bp.entities.length
@@ -286,8 +340,13 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
                 console.warn(`Stripped ${before - bp.tiles.length} unknown tiles`)
             }
         }
-        // After the entity filter, so a wire to a stripped entity counts as
-        // dangling. Before it, every such wire still had both ends.
+        const badNumbers = dropUnusableEntityNumbers(bp)
+        if (badNumbers > 0) {
+            badEntityNumbers += badNumbers
+            console.warn(`Dropped ${badNumbers} entities with unusable entity numbers`)
+        }
+        // After both entity filters, so a wire to a dropped entity counts as
+        // dangling. Before them, every such wire still had both ends.
         const dangling = dropDanglingWires(bp)
         if (dangling > 0) {
             danglingWires += dangling
@@ -307,7 +366,12 @@ function stripUnknownPrototypes(data: StringData): StrippedNames {
     } else if (data.blueprint_book) {
         stripBook(data.blueprint_book.blueprints)
     }
-    return { entities: [...strippedEntities], tiles: [...strippedTiles], danglingWires }
+    return {
+        entities: [...strippedEntities],
+        tiles: [...strippedTiles],
+        danglingWires,
+        badEntityNumbers,
+    }
 }
 
 function decode(str: string): Promise<Blueprint | Book> {
@@ -347,6 +411,12 @@ function decode(str: string): Promise<Blueprint | Book> {
         if (stripped.tiles.length > 0) {
             loadWarnings.push(
                 `Skipped ${stripped.tiles.length} unknown tile${stripped.tiles.length === 1 ? '' : 's'}: ${stripped.tiles.join(', ')}`
+            )
+        }
+        if (stripped.badEntityNumbers > 0) {
+            const n = stripped.badEntityNumbers
+            loadWarnings.push(
+                `Skipped ${n} entit${n === 1 ? 'y' : 'ies'} with an unusable or repeated entity number`
             )
         }
         if (stripped.danglingWires > 0) {
