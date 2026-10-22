@@ -8,8 +8,6 @@ import { WireConnectionMap } from './WireConnectionMap'
 // which this file already imports. Erased at compile time, so it does not.
 import type { Entity } from './Entity'
 
-const MAX_POLE_CONNECTION_COUNT = 5
-
 /** A wire endpoint anchored to one of an entity's connection points. */
 export interface IEntityConnectionPoint {
     entityNumber: number
@@ -512,8 +510,10 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
      *   closest first by straight-line distance. Not Manhattan distance, which
      *   this used to sort by and which picks a different pole in measured
      *   layouts, and not blueprint entity order (#150), which the game ignores.
-     * - A pair is skipped when either end already has 5 copper wires, counting
-     *   wires the blueprint brought and wires made earlier in this walk.
+     * - A pair is skipped when either end already has as many copper wires as
+     *   its own pole's `auto_connect_up_to_n_wires` allows (5 for every vanilla
+     *   pole, 0 turning it off), counting wires the blueprint brought and wires
+     *   made earlier in this walk. See `getAutoConnectWireCount`.
      * - A pair is skipped when the two poles already share a copper neighbour,
      *   so no triangle is made. Direct neighbours only, not the whole network.
      *
@@ -521,10 +521,7 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
      * of two pairs at the same distance (this keeps the sort stable, so it is
      * whatever order the pairs were collected in), mixed pole types (the reach
      * is the smaller of the two, as for any wire), and whether a power switch's
-     * copper counts toward the 5 (it does here, as it always has).
-     *
-     * 5 is `auto_connect_up_to_n_wires`'s default in 2.0, and no vanilla pole
-     * sets it. It limits auto-wiring only; a hand-drawn wire has no cap.
+     * copper counts toward the cap (it does here, as it always has).
      */
     public autoConnectPoles(newPoles: Iterable<number>): void {
         const isNew = new Set(newPoles)
@@ -556,8 +553,8 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
         for (const { newPole, oldPole } of pairs) {
             const newNeighbours = this.copperNeighbours(newPole.entityNumber)
             const oldNeighbours = this.copperNeighbours(oldPole.entityNumber)
-            if (newNeighbours.length >= MAX_POLE_CONNECTION_COUNT) continue
-            if (oldNeighbours.length >= MAX_POLE_CONNECTION_COUNT) continue
+            if (newNeighbours.length >= newPole.autoConnectWireCount) continue
+            if (oldNeighbours.length >= oldPole.autoConnectWireCount) continue
             if (newNeighbours.some(n => oldNeighbours.includes(n))) continue
 
             this.create(

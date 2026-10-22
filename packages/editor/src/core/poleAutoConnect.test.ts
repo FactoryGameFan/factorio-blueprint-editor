@@ -37,30 +37,47 @@ const POLE_COPPER = 5
 const point = { red: [0.1, 0.1], green: [0.2, 0.2], copper: [0, 0] }
 const fourWays = [0, 1, 2, 3].map(() => ({ wire: point, shadow: point }))
 
+/*
+    The two modded poles of `tools/oracle/probe-pole-autoconnect-limit.mjs`:
+    copies of the medium pole with `auto_connect_up_to_n_wires` at 2 and at 0.
+    No vanilla pole sets the field, so these exist only to pin what it does.
+*/
+const CAPPED_2 = 'capped-2-pole'
+const CAPPED_0 = 'capped-0-pole'
+
+/*
+    The fields that matter copied from data.json: the reach, and a collision
+    box that keeps it a 1x1 entity. The connection points only have to exist -
+    the Blueprint constructor drops a wire to an entity with none (#488), and
+    the paste below goes through it.
+*/
+const pole = (name: string, autoConnect?: number) => ({
+    type: 'electric-pole',
+    name,
+    maximum_wire_distance: 9,
+    ...(autoConnect !== undefined && { auto_connect_up_to_n_wires: autoConnect }),
+    collision_box: [
+        [-0.15, -0.15],
+        [0.15, 0.15],
+    ],
+    connection_points: fourWays,
+})
+
 beforeAll(() => {
     // loadData permanently replaces FD's accessors. Vitest's per-file module
     // isolation keeps this synthetic dataset from leaking into other test files.
     loadData(
         JSON.stringify({
-            items: { [POLE]: { name: POLE, place_result: POLE } },
+            items: Object.fromEntries(
+                [POLE, CAPPED_2, CAPPED_0].map(n => [n, { name: n, place_result: n }])
+            ),
             fluids: {},
             signals: {},
             recipes: {},
             entities: {
-                // The fields that matter copied from data.json: the reach, and a
-                // collision box that keeps it a 1x1 entity. The connection points
-                // only have to exist - the Blueprint constructor drops a wire to
-                // an entity with none (#488), and the paste below goes through it.
-                [POLE]: {
-                    type: 'electric-pole',
-                    name: POLE,
-                    maximum_wire_distance: 9,
-                    collision_box: [
-                        [-0.15, -0.15],
-                        [0.15, 0.15],
-                    ],
-                    connection_points: fourWays,
-                },
+                [POLE]: pole(POLE),
+                [CAPPED_2]: pole(CAPPED_2, 2),
+                [CAPPED_0]: pole(CAPPED_0, 0),
             },
             tiles: {},
             inventoryLayout: [],
@@ -504,5 +521,96 @@ describe('a pole placed by hand follows the same rule', () => {
         bp.history.redo()
         expect(bp.entities.size).toBe(3)
         expect(copperWires(bp)).toHaveLength(2)
+    })
+})
+
+describe('auto_connect_up_to_n_wires holds each end to its own pole', () => {
+    /*
+        One row per case of `tools/oracle/probe-pole-autoconnect-limit.mjs`,
+        whose capture is `tools/oracle/fixtures/pole-autoconnect-limit.json`.
+        The game read the same either way in every case it ran by both paste
+        and create_entity, so each row here runs as a single placement; the
+        paste path takes the same routine, and the medium-pole rows above run
+        it both ways. Positions are pole centres.
+    */
+    type Named = readonly [number, number, string]
+
+    /** A map of these poles with these wires, then one `name` placed at `at`. */
+    function place(existing: Named[], wired: Pair[], name: string, at: XY): Blueprint {
+        const bp = new Blueprint()
+        const numbers = existing.map(
+            ([x, y, n]) => bp.createEntity({ name: n, position: { x, y } }).entityNumber
+        )
+        for (const [a, b] of wired) bp.wireConnections.create(copper(numbers[a], numbers[b]))
+        bp.createEntity({ name, position: { x: at[0], y: at[1] } }, true)
+        return bp
+    }
+
+    const ring4 = (name: string): Named[] => [
+        [4.5, 0.5, name],
+        [-3.5, 0.5, name],
+        [0.5, 4.5, name],
+        [0.5, -3.5, name],
+    ]
+    const centre: XY = [0.5, 0.5]
+
+    // The map pole at the origin wired to 2 or 4 poles beyond the new pole's
+    // reach; the new pole lands 8 tiles east of it.
+    const hub = (name: string, spokes: number): Named[] =>
+        (
+            [
+                [0.5, 0.5, name],
+                [-7.5, 0.5, POLE],
+                [-5.5, -5.5, POLE],
+                [-5.5, 6.5, POLE],
+                [0.5, -7.5, POLE],
+            ] as Named[]
+        ).slice(0, spokes + 1)
+    const spokes = (n: number): Pair[] => Array.from({ length: n }, (_, i) => [0, i + 1] as const)
+    const east: XY = [8.5, 0.5]
+
+    it('new-c2-amid-4-medium: the new pole stops at 2', () => {
+        // Four candidates at one distance, so the game's choice of which 2 is a
+        // tie and is not asserted; only the count is.
+        const bp = place(ring4(POLE), [], CAPPED_2, centre)
+        expect(copperWires(bp)).toHaveLength(2)
+    })
+
+    it('new-c0-amid-4-medium: 0 on the new pole makes no wire', () => {
+        expect(copperWires(place(ring4(POLE), [], CAPPED_0, centre))).toEqual([])
+    })
+
+    it('new-medium-amid-4-c2: each 2-pole takes its first wire', () => {
+        expect(copperWires(place(ring4(CAPPED_2), [], POLE, centre))).toHaveLength(4)
+    })
+
+    it('new-medium-amid-4-c0: 0 on the map poles makes no wire', () => {
+        expect(copperWires(place(ring4(CAPPED_0), [], POLE, centre))).toEqual([])
+    })
+
+    it('old-c2-with-2-wires: a full 2-pole on the map refuses a new medium pole', () => {
+        const bp = place(hub(CAPPED_2, 2), spokes(2), POLE, east)
+        expect(copperWires(bp)).toEqual(wires('R(-5.5,-5.5)-R(0.5,0.5)  R(-7.5,0.5)-R(0.5,0.5)'))
+    })
+
+    it('old-c2-with-1-wire: a 2-pole with room takes it', () => {
+        const bp = place(hub(CAPPED_2, 1), spokes(1), POLE, east)
+        expect(copperWires(bp)).toEqual(wires('R(-7.5,0.5)-R(0.5,0.5)  R(0.5,0.5)-R(8.5,0.5)'))
+    })
+
+    it('old-medium-with-2-wires: a new 2-pole wires to it', () => {
+        const bp = place(hub(POLE, 2), spokes(2), CAPPED_2, east)
+        expect(copperWires(bp)).toEqual(
+            wires('R(-5.5,-5.5)-R(0.5,0.5)  R(-7.5,0.5)-R(0.5,0.5)  R(0.5,0.5)-R(8.5,0.5)')
+        )
+    })
+
+    it("old-medium-with-4-wires: the medium pole's own 5 applies, not the new pole's 2", () => {
+        const bp = place(hub(POLE, 4), spokes(4), CAPPED_2, east)
+        expect(copperWires(bp)).toEqual(
+            wires(
+                'R(-5.5,-5.5)-R(0.5,0.5)  R(-5.5,6.5)-R(0.5,0.5)  R(-7.5,0.5)-R(0.5,0.5)  R(0.5,-7.5)-R(0.5,0.5)  R(0.5,0.5)-R(8.5,0.5)'
+            )
+        )
     })
 })

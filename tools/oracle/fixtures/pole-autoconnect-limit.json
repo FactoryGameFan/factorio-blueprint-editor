@@ -1,0 +1,448 @@
+{
+    "captured_on": "Version: 2.0.77 (build 84539, linux64, headless)",
+    "errors": [],
+    "cases": [
+        {
+            "name": "new-c2-paste-amid-4-medium",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-2-pole(0.5,0.5)",
+                    "wires": 2,
+                    "to": [
+                        "(-3.5,0.5)",
+                        "(0.5,-3.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-3.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,-3.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,4.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(4.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "new-c2-create-amid-4-medium",
+            "how": "create",
+            "poles": [
+                {
+                    "pole": "capped-2-pole(0.5,0.5)",
+                    "wires": 2,
+                    "to": [
+                        "(-3.5,0.5)",
+                        "(0.5,-3.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-3.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,-3.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,4.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(4.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "new-c0-paste-amid-4-medium",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-0-pole(0.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(-3.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,-3.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,4.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(4.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "new-c0-create-amid-4-medium",
+            "how": "create",
+            "poles": [
+                {
+                    "pole": "capped-0-pole(0.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(-3.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,-3.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,4.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(4.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "new-medium-paste-amid-4-c2",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-2-pole(-3.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "capped-2-pole(0.5,-3.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "capped-2-pole(0.5,4.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "capped-2-pole(4.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,0.5)",
+                    "wires": 4,
+                    "to": [
+                        "(-3.5,0.5)",
+                        "(0.5,-3.5)",
+                        "(0.5,4.5)",
+                        "(4.5,0.5)"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "new-medium-paste-amid-4-c0",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-0-pole(-3.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "capped-0-pole(0.5,-3.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "capped-0-pole(0.5,4.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "capped-0-pole(4.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "new-medium-create-amid-4-c0",
+            "how": "create",
+            "poles": [
+                {
+                    "pole": "capped-0-pole(-3.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "capped-0-pole(0.5,-3.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "capped-0-pole(0.5,4.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "capped-0-pole(4.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "old-c2-with-2-wires-new-medium-paste",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-2-pole(0.5,0.5)",
+                    "wires": 2,
+                    "to": [
+                        "(-5.5,-5.5)",
+                        "(-7.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-5.5,-5.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-7.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(8.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "old-c2-with-2-wires-new-medium-create",
+            "how": "create",
+            "poles": [
+                {
+                    "pole": "capped-2-pole(0.5,0.5)",
+                    "wires": 2,
+                    "to": [
+                        "(-5.5,-5.5)",
+                        "(-7.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-5.5,-5.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-7.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(8.5,0.5)",
+                    "wires": 0,
+                    "to": []
+                }
+            ]
+        },
+        {
+            "name": "old-c2-with-1-wire-new-medium-paste",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-2-pole(0.5,0.5)",
+                    "wires": 2,
+                    "to": [
+                        "(-7.5,0.5)",
+                        "(8.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-7.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(8.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "old-medium-with-2-wires-new-c2-paste",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-2-pole(8.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-5.5,-5.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-7.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,0.5)",
+                    "wires": 3,
+                    "to": [
+                        "(-5.5,-5.5)",
+                        "(-7.5,0.5)",
+                        "(8.5,0.5)"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "old-medium-with-4-wires-new-c2-paste",
+            "how": "bp",
+            "import_code": 0,
+            "built": 1,
+            "poles": [
+                {
+                    "pole": "capped-2-pole(8.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-5.5,-5.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-5.5,6.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(-7.5,0.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,-7.5)",
+                    "wires": 1,
+                    "to": [
+                        "(0.5,0.5)"
+                    ]
+                },
+                {
+                    "pole": "medium-electric-pole(0.5,0.5)",
+                    "wires": 5,
+                    "to": [
+                        "(-5.5,-5.5)",
+                        "(-5.5,6.5)",
+                        "(-7.5,0.5)",
+                        "(0.5,-7.5)",
+                        "(8.5,0.5)"
+                    ]
+                }
+            ]
+        }
+    ]
+}

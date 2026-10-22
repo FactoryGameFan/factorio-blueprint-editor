@@ -548,6 +548,19 @@ function getInnerFluidBoxes(
 }
 
 /*
+    How many copper wires auto-wiring may leave on this pole, counting the ones
+    it already has; 0 turns auto-wiring off. It caps auto-wiring only - since
+    2.0 a hand-drawn wire has no cap. Measured on 2.0.77 with modded poles
+    (`tools/oracle/probe-pole-autoconnect-limit.mjs`): each end of a wire is
+    held to its own pole's value, and no vanilla pole sets it, so the default
+    of 5 is the one that normally applies. Not an electric pole, no auto-wiring.
+*/
+export function getAutoConnectWireCount(e: EntityWithOwnerPrototype): number {
+    if (!isElectricPole(e)) return 0
+    return e.auto_connect_up_to_n_wires ?? 5
+}
+
+/*
     `splitter` is listed here for the same reason it is listed in
     getCircuitConnector, but the cost of the omission was smaller: a missing
     distance is 0, and a wire whose reach is 0 is drawn at alpha 0.3 as though it

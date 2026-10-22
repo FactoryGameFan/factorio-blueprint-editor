@@ -35,6 +35,7 @@ import FD, {
     isRoboport,
     mapBoundingBox,
     getMaxWireDistance,
+    getAutoConnectWireCount,
     hasModuleFunctionality,
     recipeSupportsModule,
     getModuleInventoryIndex,
@@ -390,6 +391,10 @@ export class Entity extends EventEmitter<EntityEvents> {
 
     public get maxWireDistance(): number {
         return getMaxWireDistance(this.entityData)
+    }
+
+    public get autoConnectWireCount(): number {
+        return getAutoConnectWireCount(this.entityData)
     }
 
     public connectionsReach(position?: IPoint): boolean {
