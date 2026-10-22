@@ -12,7 +12,6 @@ import basisTranscoderJS from './basis/transcoder.1.16.4.js?url'
 import basisTranscoderWASM from './basis/transcoder.1.16.4.wasm?url'
 import { loadData } from './core/factorioData'
 import G, { Logger, QuickActions } from './common/globals'
-import { Entity } from './core/Entity'
 import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
 import { EntityContainer } from './containers/EntityContainer'
@@ -558,10 +557,25 @@ export class Editor {
         return !G.bp.isEmpty()
     }
 
-    public async appendBlueprint(bp: Blueprint): Promise<void> {
-        const result = bp.entities.valuesArray().map(e => new Entity(e.rawEntity, G.BPC.bp))
+    /*
+        The appended blueprint's own entities, still bound to it. They were
+        rebound to G.BPC.bp, and PaintBlueprintContainer reads its wires from
+        the first entity's blueprint - so an append lost its own wires and
+        picked up the loaded blueprint's wherever entity numbers matched (#469).
+        Nothing else there reads the binding: Entity.serialize copies the raw
+        entity, and placing renumbers into G.BPC.bp.
 
-        G.BPC.spawnPaintContainer(result, 0)
+        PaintBlueprintContainer also reads `entities[0]`, so an empty list threw
+        and surfaced as "This entity is not supported yet."
+    */
+    public async appendBlueprint(bp: Blueprint): Promise<void> {
+        const entities = bp.entities.valuesArray()
+        if (entities.length === 0) {
+            G.logger({ text: 'This blueprint has no entities to append.', type: 'warning' })
+            return
+        }
+
+        G.BPC.spawnPaintContainer(entities, 0)
     }
 
     public async loadBlueprint(bp: Blueprint): Promise<void> {
