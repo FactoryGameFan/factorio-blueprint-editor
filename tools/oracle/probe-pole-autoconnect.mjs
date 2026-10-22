@@ -14,8 +14,9 @@
     `packages/editor/src/core/poleAutoConnect.test.ts` pins row by row: pasted
     poles wire to map poles in reach and never to each other; pairs are taken
     closest first by straight-line distance; a pair is skipped when either end
-    already has 5 copper wires or the two share a copper neighbour. The order of
-    a tie is not measured here.
+    already has 5 copper wires or the two share a copper neighbour. Ties, power
+    switches and mixed pole types are `probe-pole-autoconnect-edges.mjs`'s, and
+    the cap is `probe-pole-autoconnect-limit.mjs`'s.
 
     Every pole is a `medium-electric-pole` (reach 9). `relTo1` cases place the
     map poles relative to where the blueprint's first entity actually lands,

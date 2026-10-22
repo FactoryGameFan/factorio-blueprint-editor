@@ -472,7 +472,9 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
      * `oldEntIDToNewEntID` maps each pasted entity's number in `source` to the
      * number it got here; an entity the paste did not create (a fast replace, a
      * rotate in place) is absent from it, so its wires are not copied and it is
-     * not auto-wired. The caller holds the paste's transaction, so the entities,
+     * not auto-wired. Its order is the order the paste created them in, which
+     * breaks distance ties the way the game's blueprint list order does. The
+     * caller holds the paste's transaction, so the entities,
      * their wires and the auto-wires are one undo step.
      */
     public wirePastedEntities(
@@ -501,33 +503,46 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
     /**
      * Wires newly built poles to the poles that were already there, the way
      * Factorio 2.0 does when a pole or a blueprint is built. Measured on 2.0.77
-     * headless over 24 layouts (issue #343, which holds the probe):
+     * headless by the three `tools/oracle/probe-pole-autoconnect*.mjs` probes
+     * (issue #343):
      *
      * - A new pole wires only to a pole that is not new. Two poles built by one
      *   paste never auto-wire to each other; only the blueprint's own wires join
      *   them.
-     * - Every (new, old) pair within reach is a candidate, and they are tried
-     *   closest first by straight-line distance. Not Manhattan distance, which
-     *   this used to sort by and which picks a different pole in measured
-     *   layouts, and not blueprint entity order (#150), which the game ignores.
+     * - Every (new, old) pair within reach is a candidate - the reach being the
+     *   shorter of the two poles' own, edge included - and all of them are
+     *   tried in one walk, closest first by straight-line distance. Not
+     *   Manhattan distance, which this used to sort by and which picks a
+     *   different pole in measured layouts; not blueprint entity order (#150);
+     *   and not each new pole wired in full before the next, which gives a
+     *   map pole's last free slot to the wrong one.
+     * - At the same distance, a new pole earlier in `newPoles` goes first, and
+     *   for one new pole the old pole further north, then further west. The
+     *   game's own order is the blueprint's list order, whatever the entity
+     *   numbers say, and the old poles' order held across chunk edges. Two tied
+     *   pairs with no pole in common cannot affect each other, so their order
+     *   is not a rule anyone can see.
      * - A pair is skipped when either end already has as many copper wires as
      *   its own pole's `auto_connect_up_to_n_wires` allows (5 for every vanilla
      *   pole, 0 turning it off), counting wires the blueprint brought and wires
      *   made earlier in this walk. See `getAutoConnectWireCount`.
+     *   A power switch's copper wire counts toward it, on a map pole and on a
+     *   pasted one alike.
      * - A pair is skipped when the two poles already share a copper neighbour,
      *   so no triangle is made. Direct neighbours only, not the whole network.
-     *
-     * Unmeasured, so nothing here should be read as a rule for them: the order
-     * of two pairs at the same distance (this keeps the sort stable, so it is
-     * whatever order the pairs were collected in), mixed pole types (the reach
-     * is the smaller of the two, as for any wire), and whether a power switch's
-     * copper counts toward the cap (it does here, as it always has).
      */
     public autoConnectPoles(newPoles: Iterable<number>): void {
         const isNew = new Set(newPoles)
 
-        const pairs: { newPole: Entity; oldPole: Entity; distanceSquared: number }[] = []
+        const pairs: {
+            newPole: Entity
+            oldPole: Entity
+            distanceSquared: number
+            newIndex: number
+        }[] = []
+        let newIndex = 0
         for (const entityNumber of isNew) {
+            newIndex += 1
             const newPole = this.bp.entities.get(entityNumber)
             if (newPole === undefined || newPole.type !== 'electric-pole') continue
 
@@ -543,11 +558,17 @@ export class WireConnections extends EventEmitter<WireConnectionsEvents> {
                 if (!WireConnections.reaches(newPole, oldPole)) continue
                 const dx = newPole.position.x - oldPole.position.x
                 const dy = newPole.position.y - oldPole.position.y
-                pairs.push({ newPole, oldPole, distanceSquared: dx * dx + dy * dy })
+                pairs.push({ newPole, oldPole, distanceSquared: dx * dx + dy * dy, newIndex })
             }
         }
 
-        pairs.sort((a, b) => a.distanceSquared - b.distanceSquared)
+        pairs.sort(
+            (a, b) =>
+                a.distanceSquared - b.distanceSquared ||
+                a.newIndex - b.newIndex ||
+                a.oldPole.position.y - b.oldPole.position.y ||
+                a.oldPole.position.x - b.oldPole.position.x
+        )
 
         // Both read live, so a wire made earlier in this loop counts.
         for (const { newPole, oldPole } of pairs) {

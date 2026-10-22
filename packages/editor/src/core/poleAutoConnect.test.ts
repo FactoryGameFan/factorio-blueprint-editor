@@ -21,10 +21,10 @@ import { IConnection } from './WireConnections'
     Positions are the probe's, relative to each case's origin. Every pole is a
     `medium-electric-pole`, reach 9, as in the probe.
 
-    `bp-pole-with-3-wires-plus-4-existing` is left out on purpose: it is decided
-    by four candidates at the same distance, and the order the game takes a tie
-    in is unmeasured. `fan-out-7-chain-connected` has a tie too, but only for its
-    last wire, so it is kept with that one wire asserted loosely.
+    `bp-pole-with-3-wires-plus-4-existing` and `fan-out-7-chain-connected` are
+    decided partly by candidates at the same distance. The tie order was
+    measured afterwards by `probe-pole-autoconnect-edges.mjs`, pinned in the
+    last describe below, and both rows agree with it.
     `control-create-entity` and `euclid-vs-manhattan-create` are the hand
     placement half, run below from `lone-near-existing` and `euclid-vs-manhattan`.
 */
@@ -33,6 +33,8 @@ const POLE = 'medium-electric-pole'
 
 /** The 2.0 connector id for a pole's copper wire, as `createBpConnections` maps it. */
 const POLE_COPPER = 5
+/** And the one for a power switch's left copper connection. */
+const SWITCH_LEFT_COPPER = 5
 
 const point = { red: [0.1, 0.1], green: [0.2, 0.2], copper: [0, 0] }
 const fourWays = [0, 1, 2, 3].map(() => ({ wire: point, shadow: point }))
@@ -45,20 +47,26 @@ const fourWays = [0, 1, 2, 3].map(() => ({ wire: point, shadow: point }))
 const CAPPED_2 = 'capped-2-pole'
 const CAPPED_0 = 'capped-0-pole'
 
+// The other vanilla poles, and the power switch, for the last describe below.
+const SMALL = 'small-electric-pole'
+const BIG = 'big-electric-pole'
+const SUB = 'substation'
+const SWITCH = 'power-switch'
+
 /*
     The fields that matter copied from data.json: the reach, and a collision
-    box that keeps it a 1x1 entity. The connection points only have to exist -
-    the Blueprint constructor drops a wire to an entity with none (#488), and
-    the paste below goes through it.
+    box that makes it a 1x1 or a 2x2 entity. The connection points only have
+    to exist - the Blueprint constructor drops a wire to an entity with none
+    (#488), and the paste below goes through it.
 */
-const pole = (name: string, autoConnect?: number) => ({
+const pole = (name: string, reach = 9, half = 0.15, autoConnect?: number) => ({
     type: 'electric-pole',
     name,
-    maximum_wire_distance: 9,
+    maximum_wire_distance: reach,
     ...(autoConnect !== undefined && { auto_connect_up_to_n_wires: autoConnect }),
     collision_box: [
-        [-0.15, -0.15],
-        [0.15, 0.15],
+        [-half, -half],
+        [half, half],
     ],
     connection_points: fourWays,
 })
@@ -69,22 +77,46 @@ beforeAll(() => {
     loadData(
         JSON.stringify({
             items: Object.fromEntries(
-                [POLE, CAPPED_2, CAPPED_0].map(n => [n, { name: n, place_result: n }])
+                [POLE, CAPPED_2, CAPPED_0, SMALL, BIG, SUB, SWITCH].map(n => [
+                    n,
+                    { name: n, place_result: n },
+                ])
             ),
             fluids: {},
             signals: {},
             recipes: {},
             entities: {
                 [POLE]: pole(POLE),
-                [CAPPED_2]: pole(CAPPED_2, 2),
-                [CAPPED_0]: pole(CAPPED_0, 0),
+                [CAPPED_2]: pole(CAPPED_2, 9, 0.15, 2),
+                [CAPPED_0]: pole(CAPPED_0, 9, 0.15, 0),
+                [SMALL]: pole(SMALL, 7.5),
+                [BIG]: pole(BIG, 32, 0.65),
+                [SUB]: pole(SUB, 18, 0.7),
+                [SWITCH]: {
+                    type: 'power-switch',
+                    name: SWITCH,
+                    wire_max_distance: 10,
+                    collision_box: [
+                        [-0.7, -0.7],
+                        [0.7, 0.7],
+                    ],
+                    left_wire_connection_point: { wire: point, shadow: point },
+                    right_wire_connection_point: { wire: point, shadow: point },
+                    circuit_wire_connection_point: { wire: point, shadow: point },
+                },
             },
             tiles: {},
             inventoryLayout: [],
             utilitySprites: {},
             utilityConstants: {},
             guiStyle: {},
-            defines: { wire_connector_id: { pole_copper: POLE_COPPER } },
+            defines: {
+                wire_connector_id: {
+                    pole_copper: POLE_COPPER,
+                    power_switch_left_copper: SWITCH_LEFT_COPPER,
+                    power_switch_right_copper: 6,
+                },
+            },
         })
     )
 })
@@ -441,39 +473,56 @@ const CASES: Case[] = [
             'R(-2.5,0.5)-R(0.5,0.5)  R(0.5,-2.5)-R(0.5,0.5)  R(0.5,0.5)-R(0.5,3.5)  R(0.5,0.5)-R(3.5,0.5)  R(0.5,0.5)-R(4.5,4.5)'
         ),
     },
+    {
+        name: 'fan-out-7-chain-connected',
+        // Seven map poles in one chain around the new pole. The nearest two,
+        // (2.5,-2.5) and (2.5,3.5), neighbour every other pole at 4 or 4.12
+        // tiles. The third wire goes to one of two poles exactly sqrt(20) away,
+        // which are wired to each other, so the first taken rules out the
+        // other: the one further north. The old Manhattan sort chose
+        // (4.5,0.5), (-0.5,4.5) and (-0.5,-3.5).
+        map: RING_7,
+        mapWires: CHAIN_RING,
+        paste: [[0.5, 0.5]],
+        expected: [
+            ...CHAIN_RING_WIRES,
+            ...wires('R(-3.5,-1.5)-R(0.5,0.5)  R(0.5,0.5)-R(2.5,-2.5)  R(0.5,0.5)-R(2.5,3.5)'),
+        ].sort(),
+    },
+    {
+        name: 'bp-pole-with-3-wires-plus-4-existing',
+        // The centre pasted pole brings 3 wires, so it has room for 2, and its
+        // four map candidates are all sqrt(10) away. It takes the two further
+        // north. Its three pasted neighbours then wire to what is left, each
+        // skipping the map poles the centre already took as a triangle.
+        map: [
+            [3.5, -2.5],
+            [3.5, 3.5],
+            [5.5, -0.5],
+            [5.5, 1.5],
+        ],
+        paste: [
+            [2.5, 0.5],
+            [-1.5, 0.5],
+            [-0.5, -2.5],
+            [-0.5, 3.5],
+        ],
+        pasteWires: [
+            [0, 1],
+            [0, 2],
+            [0, 3],
+        ],
+        expected: wires(
+            'R(-0.5,-2.5)-R(2.5,0.5)  R(-0.5,-2.5)-R(3.5,3.5)  R(-0.5,-2.5)-R(5.5,1.5)  R(-0.5,3.5)-R(2.5,0.5)  R(-0.5,3.5)-R(3.5,3.5)  R(-0.5,3.5)-R(5.5,1.5)  R(-1.5,0.5)-R(2.5,0.5)  R(-1.5,0.5)-R(3.5,3.5)  R(-1.5,0.5)-R(5.5,1.5)  R(2.5,0.5)-R(3.5,-2.5)  R(2.5,0.5)-R(5.5,-0.5)'
+        ),
+    },
 ]
-
-/*
-    fan-out-7-chain-connected, up to a tie whose order is unmeasured. Seven map
-    poles in one chain, around one new pole at (0.5,0.5). The game wired it to
-    (2.5,-2.5), (2.5,3.5) and (-3.5,-1.5). The first two are the nearest, and
-    every other pole at 4 or 4.12 tiles is a neighbour of one of them. The third
-    is one of two poles exactly sqrt(20) away, (-3.5,-1.5) and (-3.5,2.5), which
-    are wired to each other, so whichever is taken first rules out the other.
-    Which one the game takes first is the unmeasured tie order, so either is
-    accepted. The old Manhattan sort chose (4.5,0.5), (-0.5,4.5) and (-0.5,-3.5).
-*/
-function expectChainConnected(placeNewPole: (bp: Blueprint) => void): void {
-    const { bp } = buildMap({ map: RING_7, mapWires: CHAIN_RING })
-    placeNewPole(bp)
-    const added = copperWires(bp).filter(w => !CHAIN_RING_WIRES.includes(w))
-    expect(added).toHaveLength(3)
-    expect(added).toContain('R(0.5,0.5)-R(2.5,-2.5)')
-    expect(added).toContain('R(0.5,0.5)-R(2.5,3.5)')
-    expect(
-        added.filter(w => w === 'R(-3.5,-1.5)-R(0.5,0.5)' || w === 'R(-3.5,2.5)-R(0.5,0.5)')
-    ).toHaveLength(1)
-}
 
 describe('pasted poles wire to the map as the game does (#343)', () => {
     it.each(CASES)('$name', c => {
         const { bp } = buildMap(c)
         paste(bp, c)
         expect(copperWires(bp)).toEqual(c.expected)
-    })
-
-    it('fan-out-7-chain-connected, up to a tie', () => {
-        expectChainConnected(bp => paste(bp, { paste: [[0.5, 0.5]] }))
     })
 })
 
@@ -493,12 +542,6 @@ describe('a pole placed by hand follows the same rule', () => {
         const [[x, y]] = c.paste
         bp.createEntity({ name: POLE, position: { x, y } }, true)
         expect(copperWires(bp)).toEqual(c.expected)
-    })
-
-    it('fan-out-7-chain-connected, up to a tie', () => {
-        expectChainConnected(bp =>
-            bp.createEntity({ name: POLE, position: { x: 0.5, y: 0.5 } }, true)
-        )
     })
 
     it('is one undo step, wires included', () => {
@@ -570,10 +613,9 @@ describe('auto_connect_up_to_n_wires holds each end to its own pole', () => {
     const east: XY = [8.5, 0.5]
 
     it('new-c2-amid-4-medium: the new pole stops at 2', () => {
-        // Four candidates at one distance, so the game's choice of which 2 is a
-        // tie and is not asserted; only the count is.
+        // Four candidates at one distance: the north one, then the west one.
         const bp = place(ring4(POLE), [], CAPPED_2, centre)
-        expect(copperWires(bp)).toHaveLength(2)
+        expect(copperWires(bp)).toEqual(wires('R(-3.5,0.5)-R(0.5,0.5)  R(0.5,-3.5)-R(0.5,0.5)'))
     })
 
     it('new-c0-amid-4-medium: 0 on the new pole makes no wire', () => {
@@ -612,5 +654,257 @@ describe('auto_connect_up_to_n_wires holds each end to its own pole', () => {
                 'R(-5.5,-5.5)-R(0.5,0.5)  R(-5.5,6.5)-R(0.5,0.5)  R(-7.5,0.5)-R(0.5,0.5)  R(0.5,-7.5)-R(0.5,0.5)  R(0.5,0.5)-R(8.5,0.5)'
             )
         )
+    })
+})
+
+describe('ties, power switches and mixed pole types', () => {
+    /*
+        One row per case of `tools/oracle/probe-pole-autoconnect-edges.mjs`,
+        whose capture is `tools/oracle/fixtures/pole-autoconnect-edges.json`.
+        The probe ran each tie at three places on the map, across chunk edges
+        and inside one chunk, and with the map poles created in both orders;
+        none of that changed the answer, so each layout is one row here, run
+        with the map poles created in both orders because the editor's own
+        position grid could care.
+    */
+    type Named = readonly [string, number, number]
+    const m = (x: number, y: number, name = POLE): Named => [name, x + 0.5, y + 0.5]
+
+    /** A map of these entities, joined by pole copper and by pole-to-switch copper. */
+    function map(existing: Named[], wired: Pair[] = [], switchWired: Pair[] = []): Blueprint {
+        const bp = new Blueprint()
+        const numbers = existing.map(
+            ([name, x, y]) => bp.createEntity({ name, position: { x, y } }).entityNumber
+        )
+        for (const [a, b] of [...wired, ...switchWired]) {
+            bp.wireConnections.create(copper(numbers[a], numbers[b]))
+        }
+        return bp
+    }
+
+    /** Pastes these entities in this list order, as `paste` above does. */
+    function pasteNamed(bp: Blueprint, entities: Named[], wired: Pair[] = []): void {
+        const source = new Blueprint({
+            entities: entities.map(([name, x, y], i) => ({
+                entity_number: i + 1,
+                name,
+                position: { x, y },
+            })),
+            wires: wired.map(([a, b]) => [
+                a + 1,
+                POLE_COPPER,
+                b + 1,
+                entities[b][0] === SWITCH ? SWITCH_LEFT_COPPER : POLE_COPPER,
+            ]),
+        })
+        bp.history.transaction('Create Entities', () => {
+            const oldToNew = new Map<number, number>()
+            entities.forEach(([name, x, y], i) => {
+                oldToNew.set(i + 1, bp.createEntity({ name, position: { x, y } }).entityNumber)
+            })
+            bp.wireConnections.wirePastedEntities(source.wireConnections, oldToNew)
+        })
+    }
+
+    const createAt = (bp: Blueprint, [name, x, y]: Named): void => {
+        bp.createEntity({ name, position: { x, y } }, true)
+    }
+
+    describe('two map poles at one distance: the north one, then the west one', () => {
+        // A and B are wired to each other, so the first one the new pole at
+        // (0.5,0.5) takes rules the other out as a triangle.
+        const TIES: [string, XY, XY, string][] = [
+            ['W-E', [-4, 0], [4, 0], 'R(-3.5,0.5)-R(0.5,0.5)'],
+            ['N-S', [0, -4], [0, 4], 'R(0.5,-3.5)-R(0.5,0.5)'],
+            ['NW-SE', [-3, -3], [3, 3], 'R(-2.5,-2.5)-R(0.5,0.5)'],
+            ['NE-SW', [3, -3], [-3, 3], 'R(0.5,0.5)-R(3.5,-2.5)'],
+            ['W-N', [-4, 0], [0, -4], 'R(0.5,-3.5)-R(0.5,0.5)'],
+            ['E-S', [4, 0], [0, 4], 'R(0.5,0.5)-R(4.5,0.5)'],
+        ]
+        const rows = TIES.flatMap(([name, a, b, won]) => [
+            { name: `${name}, A created first`, first: a, second: b, won },
+            { name: `${name}, B created first`, first: b, second: a, won },
+        ])
+        it.each(rows)('$name', ({ first, second, won }) => {
+            const bp = map([m(...first), m(...second)], [[0, 1]])
+            const ab = copperWires(bp)
+            createAt(bp, m(0, 0))
+            expect(copperWires(bp)).toEqual([...ab, won].sort())
+        })
+    })
+
+    describe('two pasted poles at one distance: the earlier in the list', () => {
+        // X at (0.5,0.5) holds 4 wires to spokes out of either pasted pole's
+        // reach, so one free slot is left for two pasted poles 6 tiles away.
+        const SLOTS: [string, XY[], XY[]][] = [
+            [
+                'W-E',
+                [
+                    [-1, -8],
+                    [1, -8],
+                    [-1, 8],
+                    [1, 8],
+                ],
+                [
+                    [-6, 0],
+                    [6, 0],
+                ],
+            ],
+            [
+                'N-S',
+                [
+                    [-8, -1],
+                    [-8, 1],
+                    [8, -1],
+                    [8, 1],
+                ],
+                [
+                    [0, -6],
+                    [0, 6],
+                ],
+            ],
+        ]
+        const rows = SLOTS.flatMap(([name, spokes, [p1, p2]]) => [
+            { name: `${name}, listed 1 2`, spokes, list: [p1, p2] },
+            { name: `${name}, listed 2 1`, spokes, list: [p2, p1] },
+        ])
+        it.each(rows)('$name', ({ spokes, list }) => {
+            const bp = map(
+                [m(0, 0), ...spokes.map(s => m(...s))],
+                spokes.map((_, i) => [0, i + 1] as const)
+            )
+            const before = copperWires(bp)
+            pasteNamed(
+                bp,
+                list.map(p => m(...p))
+            )
+            const [x, y] = list[0]
+            const winner = `R(${x + 0.5},${y + 0.5})`
+            const hub = 'R(0.5,0.5)'
+            expect(copperWires(bp)).toEqual(
+                [...before, winner < hub ? `${winner}-${hub}` : `${hub}-${winner}`].sort()
+            )
+        })
+    })
+
+    describe('one walk over every pair, not each pasted pole in turn', () => {
+        // X has one free slot. P1 is 7 west of it and listed first, P2 5 east.
+        // Wiring each pasted pole in full, in list order, would give the slot
+        // to P1; so would taking first the pasted pole with the nearest
+        // candidate, once map pole A sits 2 tiles from P1.
+        const FAR_SPOKES: XY[] = [
+            [0, -8],
+            [0, 8],
+            [-1, -8],
+            [-1, 8],
+        ]
+        const rows = [false, true].flatMap(withA =>
+            ['12', '21'].map(order => ({
+                name: `${withA ? 'with' : 'no'} A, listed ${order}`,
+                withA,
+                order,
+            }))
+        )
+        it.each(rows)('$name', ({ withA, order }) => {
+            const bp = map(
+                [m(0, 0), ...FAR_SPOKES.map(s => m(...s)), ...(withA ? [m(-7, 2)] : [])],
+                FAR_SPOKES.map((_, i) => [0, i + 1] as const)
+            )
+            const before = copperWires(bp)
+            const p = [m(-7, 0), m(5, 0)]
+            pasteNamed(bp, order === '12' ? p : [p[1], p[0]])
+            expect(copperWires(bp)).toEqual(
+                [
+                    ...before,
+                    'R(0.5,0.5)-R(5.5,0.5)',
+                    ...(withA ? ['R(-6.5,0.5)-R(-6.5,2.5)'] : []),
+                ].sort()
+            )
+        })
+    })
+
+    describe("a power switch's copper counts toward the cap", () => {
+        const SPOKES_4: XY[] = [
+            [-8, 0],
+            [-6, -6],
+            [-6, 6],
+            [0, -8],
+        ]
+        it.each([true, false])('on a map pole, switch wired: %s', wired => {
+            const bp = map(
+                [m(0, 0), ...SPOKES_4.map(s => m(...s)), [SWITCH, -3, 5]],
+                SPOKES_4.map((_, i) => [0, i + 1] as const),
+                wired ? [[0, 5]] : []
+            )
+            const before = copperWires(bp)
+            createAt(bp, m(8, 0))
+            expect(copperWires(bp)).toEqual(
+                wired ? before : [...before, 'R(0.5,0.5)-R(8.5,0.5)'].sort()
+            )
+        })
+
+        it.each([true, false])('on a pasted pole, switch wired: %s', wired => {
+            const RING_5: XY[] = [
+                [4, 0],
+                [1, 4],
+                [-3, 2],
+                [-3, -2],
+                [1, -4],
+            ]
+            const bp = map(RING_5.map(s => m(...s)))
+            pasteNamed(bp, [m(0, 0), [SWITCH, 6, 7]], wired ? [[0, 1]] : [])
+            // Without the switch wire, all five; with it, four, and the one
+            // left out is the further south of the two tied furthest.
+            expect(copperWires(bp)).toEqual(
+                wires(
+                    wired
+                        ? 'R(-2.5,-1.5)-R(0.5,0.5)  R(-2.5,2.5)-R(0.5,0.5)  R(0.5,0.5)-R(1.5,-3.5)  R(0.5,0.5)-R(4.5,0.5)  R(0.5,0.5)-R(6,7)'
+                        : 'R(-2.5,-1.5)-R(0.5,0.5)  R(-2.5,2.5)-R(0.5,0.5)  R(0.5,0.5)-R(1.5,-3.5)  R(0.5,0.5)-R(1.5,4.5)  R(0.5,0.5)-R(4.5,0.5)'
+                )
+            )
+        })
+    })
+
+    describe('mixed pole types: the shorter reach, edge included', () => {
+        const REACH: [string, Named, Named, boolean][] = [
+            ['medium on map, small new 8 away', m(0, 0), m(8, 0, SMALL), false],
+            ['small on map, medium new 8 away', m(0, 0, SMALL), m(8, 0), false],
+            ['small on map, medium new 7 away', m(0, 0, SMALL), m(7, 0), true],
+            ['big on map, medium new 9.5 away', [BIG, 0, 0], m(9, 0), false],
+            ['medium on map, big new 9.5 away', m(0, 0), [BIG, 10, 1], false],
+            ['substation on map, big new 20 away', [SUB, 0, 0], [BIG, 20, 0], false],
+            ['substation on map, big new 17 away', [SUB, 0, 0], [BIG, 17, 0], true],
+            ['medium on map, medium new exactly 9 away', m(0, 0), m(9, 0), true],
+            ['big on map, big new exactly 32 away', [BIG, 0, 0], [BIG, 32, 0], true],
+            ['substation on map, substation new exactly 18 away', [SUB, 0, 0], [SUB, 18, 0], true],
+        ]
+        it.each(REACH)('%s', (_, onMap, built, wired) => {
+            const bp = map([onMap])
+            createAt(bp, built)
+            expect(copperWires(bp)).toHaveLength(wired ? 1 : 0)
+        })
+
+        it.each([1, -1])('closest first, not most of its reach used (side %i)', dir => {
+            // The medium is 8.5 of its 9 away, the substation 15 of its 18; the
+            // two are wired, so only the first one tried is kept.
+            const bp = map(
+                [
+                    [POLE, dir * 8.5, 0.5],
+                    [SUB, dir * 15, 0],
+                ],
+                [[0, 1]]
+            )
+            createAt(bp, [BIG, 0, 0])
+            const hub = 'R(0,0)'
+            const medium = `R(${dir * 8.5},0.5)`
+            expect(copperWires(bp)).toEqual(
+                [
+                    medium < `R(${dir * 15},0)`
+                        ? `${medium}-R(${dir * 15},0)`
+                        : `R(${dir * 15},0)-${medium}`,
+                    medium < hub ? `${medium}-${hub}` : `${hub}-${medium}`,
+                ].sort()
+            )
+        })
     })
 })
