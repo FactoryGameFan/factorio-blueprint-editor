@@ -566,11 +566,14 @@ export class Editor {
         entity, and placing renumbers into G.BPC.bp.
 
         PaintBlueprintContainer also reads `entities[0]`, so an empty list threw
-        and surfaced as "This entity is not supported yet."
+        and surfaced as "This entity is not supported yet." That path still
+        dropped whatever the cursor was carrying, and an empty append keeps
+        doing so, or the next click would place the previous paste.
     */
     public async appendBlueprint(bp: Blueprint): Promise<void> {
         const entities = bp.entities.valuesArray()
         if (entities.length === 0) {
+            if (G.BPC.mode === EditorMode.PAINT) G.BPC.painting.destroy()
             G.logger({ text: 'This blueprint has no entities to append.', type: 'warning' })
             return
         }

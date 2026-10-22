@@ -94,19 +94,18 @@ test('an append does not copy the loaded blueprint’s wires', async ({ page }) 
     expect(await wireCount(page)).toBe(1)
 })
 
+const tilesOnly = encode({
+    item: 'blueprint',
+    version: version(2, 0, 55),
+    tiles: [{ name: 'stone-path', position: { x: 0, y: 0 } }],
+})
+
 test('appending a blueprint with no entities says so', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', err => pageErrors.push(err.message))
 
     await loadBlueprint(page, pair(false))
-    await append(
-        page,
-        encode({
-            item: 'blueprint',
-            version: version(2, 0, 55),
-            tiles: [{ name: 'stone-path', position: { x: 0, y: 0 } }],
-        })
-    )
+    await append(page, tilesOnly)
 
     await expect(
         page.locator('.toasts-warning', { hasText: 'no entities to append' })
@@ -114,4 +113,20 @@ test('appending a blueprint with no entities says so', async ({ page }) => {
     expect(await editorMode(page)).toBe('NONE')
     expect(await entityCount(page)).toBe(2)
     expect(pageErrors).toEqual([])
+})
+
+test('an empty append drops the paste the cursor was carrying', async ({ page }) => {
+    await loadBlueprint(page, pair(false))
+    const at = await page.evaluate(() => window.__fbe_test.entityScreenPosition(1))
+    if (!at) throw new Error('no entity 1 in the loaded blueprint')
+
+    await append(page, pair(true))
+    expect(await editorMode(page)).toBe('PAINT')
+    await append(page, tilesOnly)
+    expect(await editorMode(page)).toBe('NONE')
+
+    await page.mouse.move(at.x, at.y + 220)
+    await page.mouse.down()
+    await page.mouse.up()
+    expect(await entityCount(page)).toBe(2)
 })
