@@ -66,9 +66,10 @@ type Page = import('@playwright/test').Page
     since the connection point is indexed `circuit_connector[direction / 4]` and
     one facing proves nothing about the other three.
 
-    6 is a pipe: an entity in neither switch, so it answers 0 and no connection
-    point. Without it a hook that reported 9 for everything would satisfy every
-    assertion below.
+    6 is an underground belt: an entity in neither switch, so it answers 0 and
+    no connection point. Without it a hook that reported 9 for everything would
+    satisfy every assertion below. (It was a pipe until Factorio 2.1 gave pipes
+    a circuit connector, #601.)
 */
 const SPLITTERS = encode({
     item: 'blueprint',
@@ -79,7 +80,7 @@ const SPLITTERS = encode({
         { entity_number: 3, name: 'splitter', position: { x: 8, y: 0.5 } },
         { entity_number: 4, name: 'fast-splitter', position: { x: 12.5, y: 0 }, direction: 4 },
         { entity_number: 5, name: 'express-splitter', position: { x: 16, y: 0.5 }, direction: 8 },
-        { entity_number: 6, name: 'pipe', position: { x: 20.5, y: 0.5 } },
+        { entity_number: 6, name: 'underground-belt', position: { x: 20.5, y: 0.5 } },
     ],
     wires: [[1, 1, 2, 1]],
 })
@@ -93,7 +94,7 @@ const SPLITTER_ENTITIES = [
     { entityNumber: 5, name: 'express-splitter', direction: 8 },
 ]
 
-const PIPE = 6
+const UNDERGROUND = 6
 
 interface Attachment {
     maxWireDistance: number
@@ -166,13 +167,13 @@ test('a splitter reports the wire reach its prototype declares', async ({ page }
 test('an entity in neither switch still answers nothing', async ({ page }) => {
     /*
         The control, and it has to be able to fail while the two tests above
-        pass. A pipe is in neither `getCircuitConnector` nor `getMaxWireDistance`
-        and should stay that way: it is what those functions answering
-        indiscriminately would look like.
+        pass. An underground belt is in neither `getCircuitConnector` nor
+        `getMaxWireDistance` and should stay that way: it is what those
+        functions answering indiscriminately would look like.
     */
     await load(page)
 
-    const at = await attachmentOf(page, PIPE)
+    const at = await attachmentOf(page, UNDERGROUND)
     expect(at.maxWireDistance).toBe(0)
     expect(at.red).toBe(false)
     expect(at.green).toBe(false)
