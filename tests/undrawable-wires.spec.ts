@@ -17,23 +17,25 @@ import { waitForEditor } from './helpers/fbe-test-api'
     browser with the real Factorio data can say the blueprint now reaches the
     screen, and that the user is told what was left out.
 
-    The lab is the case a real export reaches. Factorio 2.1 gave labs a circuit
-    connector, and the 2.0 data this editor ships has none, so a 2.1 book with a
-    lab wired to a substation had a page that would not open at all.
+    The case a real export reached was a lab: Factorio 2.1 gave labs a circuit
+    connector, and while this editor shipped 2.0 data, a 2.1 book with a lab
+    wired to a substation had a page that would not open at all. With the 2.1
+    data a lab takes the wire (#601; tests/circuit-wired-21.spec.ts), so the
+    stand-in here is an underground belt, which still has no circuit connector.
 */
 
 const VERSION = packVersion(2, 0, 55)
 
 const SUBSTATION = { entity_number: 1, name: 'substation', position: { x: 1, y: 1 } }
-const LAB = { entity_number: 2, name: 'lab', position: { x: 5.5, y: 1.5 } }
+const UNDERGROUND = { entity_number: 2, name: 'underground-belt', position: { x: 4.5, y: 0.5 } }
 const CHEST = { entity_number: 2, name: 'wooden-chest', position: { x: 4.5, y: 0.5 } }
 
-/** A red wire from a substation to a lab, as a 2.1 export writes it. */
-const LAB_WIRE = {
+/** A red wire from a substation to something with no circuit connector. */
+const UNDERGROUND_WIRE = {
     item: 'blueprint',
     version: VERSION,
-    label: 'lab wire',
-    entities: [SUBSTATION, LAB],
+    label: 'underground belt wire',
+    entities: [SUBSTATION, UNDERGROUND],
     wires: [[1, 1, 2, 1]],
 }
 
@@ -67,11 +69,11 @@ async function load(page: import('@playwright/test').Page, source: string) {
     }, source)
 }
 
-test('a red wire to a lab no longer loses the blueprint', async ({ page }) => {
+test('a red wire to an underground belt no longer loses the blueprint', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))
 
-    const result = await load(page, encodeBlueprint(LAB_WIRE))
+    const result = await load(page, encodeBlueprint(UNDERGROUND_WIRE))
 
     // Before #488 this threw 'Could not find the wire connection point!'.
     expect(result.failed).toBeUndefined()
@@ -109,7 +111,7 @@ test('the same wire to a chest is still loaded and drawn', async ({ page }) => {
     its warnings, so this is the path that shows whether the warning reaches the
     user at all for a book - which is how the real case arrived.
 */
-test('a book page with a lab wire opens and says what it left out', async ({ page }) => {
+test('a book page with an undrawable wire opens and says what it left out', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(String(e)))
 
@@ -119,7 +121,7 @@ test('a book page with a lab wire opens and says what it left out', async ({ pag
         active_index: 0,
         blueprints: [
             { index: 0, blueprint: CHEST_WIRE },
-            { index: 1, blueprint: LAB_WIRE },
+            { index: 1, blueprint: UNDERGROUND_WIRE },
         ],
     })
     expect((await load(page, book)).failed).toBeUndefined()

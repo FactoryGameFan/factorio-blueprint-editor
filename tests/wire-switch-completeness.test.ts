@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vite-plus/test'
 import * as fs from 'fs'
 import * as path from 'path'
 import { EntityWithOwnerPrototype } from 'factorio:prototype'
-import { getCircuitConnector, getMaxWireDistance } from '../packages/editor/src/core/factorioData'
+import {
+    getCircuitConnector,
+    getMaxWireDistance,
+    pipeConnectionIndex,
+} from '../packages/editor/src/core/factorioData'
 
 /*
     `getCircuitConnector` and `getMaxWireDistance` are per-type switches that a
@@ -91,24 +95,30 @@ const DIRECTIONS = Array.from({ length: 16 }, (_, i) => i)
 /** X, H, V, SE, SW, NE and NW - the seven a transport belt indexes by. */
 const BELT_CONNECTION_INDICES = [0, 1, 2, 3, 4, 5, 6]
 
+/** Every combination of connected neighbours a pipe or heat pipe indexes by (2.1). */
+const PIPE_CONNECTION_INDICES = Array.from({ length: 16 }, (_, i) => i)
+
 function isGivenAConnector(e: ProbedPrototype): boolean {
     for (const dir of DIRECTIONS) {
         for (const inputting of [false, true]) {
             for (const belt of BELT_CONNECTION_INDICES) {
-                const cc = getCircuitConnector(
-                    e,
-                    dir,
-                    () => inputting,
-                    () => belt
-                )
-                /*
-                    `points.wire`, not just "something came back". Factorio 2.1
-                    turned a container's circuit_connector into an array, and the
-                    arm returning the field whole handed that array back: truthy,
-                    with no `points`, so every chest passed here while every wire
-                    on one was dropped on load (#597).
-                */
-                if (cc?.points?.wire !== undefined) return true
+                for (const pipe of PIPE_CONNECTION_INDICES) {
+                    const cc = getCircuitConnector(
+                        e,
+                        dir,
+                        () => inputting,
+                        () => belt,
+                        () => pipe
+                    )
+                    /*
+                        `points.wire`, not just "something came back". Factorio
+                        2.1 turned a container's circuit_connector into an array,
+                        and the arm returning the field whole handed that array
+                        back: truthy, with no `points`, so every chest passed
+                        here while every wire on one was dropped on load (#597).
+                    */
+                    if (cc?.points?.wire !== undefined) return true
+                }
             }
         }
     }
@@ -207,14 +217,48 @@ describe('the default arms still answer nothing', () => {
     /*
         The control, and it has to be able to fail while everything above passes.
         Every assertion here is of the form "the switch answered something", so a
-        `default:` that returned a connector and a 9 would satisfy the lot. A pipe
-        is in neither switch and takes no circuit wire; it is what answering
-        indiscriminately would look like.
+        `default:` that returned a connector and a 9 would satisfy the lot. An
+        underground belt is in neither switch and takes no circuit wire; it is
+        what answering indiscriminately would look like. (This was a pipe until
+        Factorio 2.1 gave pipes a circuit connector, #601.)
     */
     it('for an entity in neither switch', () => {
-        const pipe = entities['pipe']
+        const underground = entities['underground-belt']
 
-        expect(isGivenAConnector(pipe)).toBe(false)
-        expect(getMaxWireDistance(pipe)).toBe(0)
+        expect(isGivenAConnector(underground)).toBe(false)
+        expect(getMaxWireDistance(underground)).toBe(0)
+    })
+})
+
+describe('pipeConnectionIndex', () => {
+    it("matches Factorio's own table of the 16 heat pipe connectors", () => {
+        /*
+            Copied from core/lualib/circuit-connector-generated-definitions.lua
+            in 2.1.23, where each heat pipe entry is commented with the
+            neighbours it connects to, written west to north. Neighbours here
+            are north, east, south, west, the order getNeighbourData gives.
+        */
+        const table: Record<string, number> = {
+            '    ': 0,
+            '   N': 1,
+            '  E ': 2,
+            '  EN': 3,
+            ' S  ': 4,
+            ' S N': 5,
+            ' SE ': 6,
+            ' SEN': 7,
+            'W   ': 8,
+            'W  N': 9,
+            'W E ': 10,
+            'W EN': 11,
+            'WS  ': 12,
+            'WS N': 13,
+            'WSE ': 14,
+            WSEN: 15,
+        }
+        for (const [wsen, index] of Object.entries(table)) {
+            const [w, s, e, n] = wsen.split('').map(c => c !== ' ')
+            expect(pipeConnectionIndex([n, e, s, w]), `[${wsen}]`).toBe(index)
+        }
     })
 })
