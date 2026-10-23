@@ -240,6 +240,17 @@ export class OverlayContainer extends Container {
                         )
                     )
                         continue
+                    /*
+                        Factorio 2.1 moved hide_connection_info from the fluid box,
+                        filtered above, onto each connection (changelog 2.1.0:
+                        "Added PipeConnectionDefinition::hide_connection_info.
+                        Removed FluidBox::hide_connection_info."). Read only at
+                        the box, every pipe, pipe-to-ground and storage tank
+                        drew arrows the game hides. typed-factorio still
+                        describes 2.0, hence the cast.
+                    */
+                    if ((connection as { hide_connection_info?: boolean }).hide_connection_info)
+                        continue
 
                     /*
                         `position` and `positions` are a discriminated union in the
