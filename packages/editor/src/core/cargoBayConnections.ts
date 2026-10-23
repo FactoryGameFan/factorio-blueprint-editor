@@ -45,8 +45,9 @@ export interface CargoBayCellNeighbours {
  * The 12 connection keys a cell can draw, in the order the game lists them.
  *
  * Derived from Factorio 2.1's `tileset_mapping`, which is this same rule in
- * table form. 2.1 replaced the 12 named keys our 2.0 data still uses with a
- * `tileset` array plus a mask lookup, but the two line up exactly: the tileset's
+ * table form. 2.1 replaced the 12 named keys of the 2.0 data with a `tileset`
+ * array plus a mask lookup (see CARGO_BAY_TILESET_KEYS), but the two line up
+ * exactly: the tileset's
  * 12 entries carry comments with these names, and their `create_layered_variation`
  * frame numbers match our named keys one for one. The mask's bit order is
  * clockwise from the top-left - NW, N, NE, E, SE, S, SW, W - read off the table
@@ -78,6 +79,27 @@ export function cargoBayCellPieces(n: CargoBayCellNeighbours): readonly string[]
 
     return keys
 }
+
+/**
+ * The 12 cell keys in the order Factorio 2.1's `tileset` lists them, which is
+ * the order cargoBayCellPieces pushes them in. 2.1 dropped the named keys from
+ * the prototype; base/graphics/entity/cargo-hubs/connections/connections.lua
+ * (2.1.23) comments each tileset entry with the name it replaced.
+ */
+export const CARGO_BAY_TILESET_KEYS = [
+    'top_wall',
+    'right_wall',
+    'bottom_wall',
+    'left_wall',
+    'top_left_outer_corner',
+    'top_right_outer_corner',
+    'bottom_left_outer_corner',
+    'bottom_right_outer_corner',
+    'top_left_inner_corner',
+    'top_right_inner_corner',
+    'bottom_left_inner_corner',
+    'bottom_right_inner_corner',
+] as const
 
 /** Bit positions in the game's mask, clockwise from the top-left. */
 export const CARGO_BAY_MASK_BITS = {

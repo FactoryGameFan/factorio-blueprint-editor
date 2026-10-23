@@ -169,6 +169,7 @@ import { Animation } from 'factorio:prototype'
 import { Animation4Way } from 'factorio:prototype'
 import {
     CARGO_BAY_CELL,
+    CARGO_BAY_TILESET_KEYS,
     cargoBayBridges,
     cargoBayCellPieces,
     cargoBayCrossings,
@@ -1592,7 +1593,17 @@ function getCargoBayConnectionSprites(
 
     const sprites: SpriteData[] = []
     const emit = (key: string, offset: readonly [number, number]): void => {
-        const variants = connections[key]
+        /*
+            The five bridges keep their names in 2.1; the 12 cell pieces moved
+            into `tileset`, one entry per piece, each a list of groups of
+            variations. Group 0's variations are the old key's variants -
+            measured over all 12, variation 0 is the same sheets at the same
+            frames as the 2.0 key's variants[0].
+        */
+        const tilesetIndex = (CARGO_BAY_TILESET_KEYS as readonly string[]).indexOf(key)
+        const variants =
+            connections[key] ??
+            (tilesetIndex === -1 ? undefined : connections.tileset?.[tilesetIndex]?.[0])
         if (!variants || variants.length === 0) return
         // variants[0] throughout, as every other connection key here does. The
         // game picks by tile position and measurably uses both - which variant
