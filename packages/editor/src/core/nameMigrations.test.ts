@@ -249,3 +249,48 @@ describe('migrateNames field-specific rows', () => {
         expect(migrated(json).blueprint.entities[0].name).toBe('fast-inserter')
     })
 })
+
+/*
+    Factorio 2.1 renamed three recipes (space-age/migrations/ore-melting.json
+    and tree-seed.json in 2.1.23). Two of the old names are also live fluids in
+    both versions - molten iron and molten copper - so these rename a recipe
+    reference only, never a bare string the way `values` does (#600).
+*/
+describe('migrateNames 2.1 recipe renames (#600)', () => {
+    const V_2_1 = version(2, 1, 23)
+
+    it("renames a 2.0 machine's recipe", () => {
+        for (const [from, to] of [
+            ['molten-iron', 'iron-ore-melting'],
+            ['molten-copper', 'copper-ore-melting'],
+            ['wood-processing', 'tree-seed'],
+        ]) {
+            const json = blueprint(V_2_0, `"entities":[${machine(1, from)}]`)
+            expect(migrated(json).blueprint.entities[0].recipe, from).toBe(to)
+        }
+    })
+
+    it('renames a 2.0 recipe signal', () => {
+        const json = blueprint(
+            V_2_0,
+            `"icons":[{"signal":{"type":"recipe","name":"molten-iron"},"index":1}]`
+        )
+        expect(migrated(json).blueprint.icons[0].signal.name).toBe('iron-ore-melting')
+    })
+
+    it('leaves the molten iron and molten copper fluids alone', () => {
+        const json = blueprint(
+            V_2_0,
+            `"icons":[{"signal":{"type":"fluid","name":"molten-iron"},"index":1},` +
+                `{"signal":{"type":"fluid","name":"molten-copper"},"index":2}]`
+        )
+        const icons = migrated(json).blueprint.icons
+        expect(icons[0].signal.name).toBe('molten-iron')
+        expect(icons[1].signal.name).toBe('molten-copper')
+    })
+
+    it('leaves a 2.1 blueprint alone', () => {
+        const json = blueprint(V_2_1, `"entities":[${machine(1, 'molten-iron')}]`)
+        expect(migrated(json).blueprint.entities[0].recipe).toBe('molten-iron')
+    })
+})
