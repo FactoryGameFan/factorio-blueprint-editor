@@ -101,7 +101,14 @@ function isGivenAConnector(e: ProbedPrototype): boolean {
                     () => inputting,
                     () => belt
                 )
-                if (cc !== undefined) return true
+                /*
+                    `points.wire`, not just "something came back". Factorio 2.1
+                    turned a container's circuit_connector into an array, and the
+                    arm returning the field whole handed that array back: truthy,
+                    with no `points`, so every chest passed here while every wire
+                    on one was dropped on load (#597).
+                */
+                if (cc?.points?.wire !== undefined) return true
             }
         }
     }
