@@ -112,11 +112,17 @@ runs:
         # and switches its own fetches to `curl -fsSL`; it is stricter, not
         # looser. The pinned 1.1.0 has provenance, and the new script installed
         # it cleanly in an ubuntu:24.04 container. install-legacy.sh is unchanged.
+        #
+        # install-legacy.sh rotated on its own on 2026-10-20, to upstream
+        # 0cbfb6d6 (#3117), failing every job on every branch. The served file is
+        # byte-identical to that commit's, and its whole diff from 40b9cb66 is
+        # one line in a package.json template it writes: "packageManager" from
+        # pnpm@10.33.0 to pnpm@10.34.7. The bootstrap is unchanged.
         curl -fsSL https://vite.plus -o vp-install.sh
         curl -fsSL https://viteplus.dev/install-legacy.sh -o install-legacy.sh
         printf '%s\n' \
           "6eaf139e16d45849bebc4a7de0dbc2992fd3b3a86a3f37bf7922b685f3a60d9e  vp-install.sh" \
-          "a3825f5a48d6ac5ac523d79a33ef3eff954013b8af7e4208231ac3de66030514  install-legacy.sh" \
+          "a7c79509041afd3df98e7ce15e332e6cbaca0705a4ae2c099095a78009baa99c  install-legacy.sh" \
           | sha256sum -c -
         VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
         # From 1.x the installer looks for a package manager already on PATH,
