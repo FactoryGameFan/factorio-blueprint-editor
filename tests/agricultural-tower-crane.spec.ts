@@ -12,7 +12,7 @@ import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
     missing filenames / lines_per_file / line_length / width / height, and a
     file index past the end of filenames), and every one of those guards returns
     an empty array. So a regression here is silent: the tower drops back to its
-    two base layers and looks exactly like a tower that never had a crane. The
+    three base layers and looks exactly like a tower that never had a crane. The
     sprite-data fixture would move, but its own header says a diff there means
     "the sprites for that entity changed" - which is how a silent drop gets
     re-recorded rather than investigated.
@@ -27,8 +27,12 @@ const TOWER = encode({
     entities: [{ entity_number: 1, name: 'agricultural-tower', position: { x: 0.5, y: 0.5 } }],
 })
 
-/** base + base shadow + the crane hub. */
-const EXPECTED_LAYERS = 3
+/**
+ * The base animation's three layers, then the crane hub. 2.1 redrew the tower:
+ * its animation was base + shadow in 2.0 and is base, an animated layer and
+ * shadow in 2.1.23.
+ */
+const EXPECTED_LAYERS = 4
 
 test('an agricultural tower draws its crane hub, not just its base', async ({ page }) => {
     const pageErrors: string[] = []
@@ -43,7 +47,7 @@ test('an agricultural tower draws its crane hub, not just its base', async ({ pa
 
     expect(digests).toHaveLength(1)
     expect(digests.filter(d => d === 'FAILED')).toEqual([])
-    // A dropped hub reads as `2:`, which is what every guard in craneHubLayers
+    // A dropped hub reads as `3:`, which is what every guard in craneHubLayers
     // falls back to.
     expect(digests.every(d => d.startsWith(`${EXPECTED_LAYERS}:`))).toBe(true)
 

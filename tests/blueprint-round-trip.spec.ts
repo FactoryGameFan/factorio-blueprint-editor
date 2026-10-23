@@ -223,8 +223,13 @@ const EXPECTED = {
     modelPositionChecksum: -63922400,
     // #336 preserves previously discarded metadata. Removing only those two
     // fields reproduces the prior hash; all geometry and counts above hold.
-    serializedHash: 1944909146,
-    withoutMetadataHash: 568918011,
+    //
+    // Moved again for Factorio 2.1 by the recipe renames (#600): 16 corpus
+    // machines on molten-iron or molten-copper now serialize as iron-ore-melting
+    // and copper-ore-melting. With that migration taken out, the old pair
+    // (1944909146, 568918011) comes back exactly, so nothing else moved.
+    serializedHash: -1287764038,
+    withoutMetadataHash: 447347803,
     parameterBlueprints: 97,
     stockConnectionBlueprints: 28,
 }

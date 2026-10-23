@@ -291,7 +291,9 @@ const EXPECTED: {
     entityCount: 350862,
     blueprintCount: 372,
     shape: {
-        acceptedFilters: { value: 54496, empty: 296366, nothing: 0, threw: 0 },
+        // Factorio 2.1 dropped the infinity chest's max_logistic_slots of 1 - all
+        // 151 in the corpus - for a logistic mode the editor does not model (#611).
+        acceptedFilters: { value: 54345, empty: 296517, nothing: 0, threw: 0 },
         acceptedModules: { value: 19175, empty: 331687, nothing: 0, threw: 0 },
         acceptedRecipes: { value: 14452, empty: 336410, nothing: 0, threw: 0 },
         combinatorConditions: { value: 2669, empty: 0, nothing: 348193, threw: 0 },
@@ -308,7 +310,8 @@ const EXPECTED: {
         canBeRotated: { false: 103908, true: 246954 },
         directionType: { input: 14389, output: 14406, undefined: 322067 },
         filterMode: { blacklist: 139, whitelist: 350723 },
-        filterSlots: { '0': 296366, '1': 5966, '5': 45297, '30': 3233 },
+        // The same 151 infinity chests as acceptedFilters (#611).
+        filterSlots: { '0': 296517, '1': 5815, '5': 45297, '30': 3233 },
         generateConnector: { false: 317796, true: 33066 },
         inserterStackSize: {
             '1': 408,
@@ -323,21 +326,25 @@ const EXPECTED: {
             null: 305700,
         },
         mayCraftWithFluid: { false: 345310, true: 5552 },
+        // 2.1 gave 36,571 corpus entities a reach of 9: every boiler, heat
+        // exchanger, heat pipe, lab, biolab, land mine, pipe, infinity pipe and
+        // pipe-to-ground (#601).
         maxWireDistance: {
-            '0': 118880,
+            '0': 82309,
             '7.5': 1202,
-            '9': 227751,
+            '9': 264322,
             '10': 8,
             '18': 1537,
             '32': 1484,
         },
         moduleSlots: { '0': 332982, '2': 10489, '3': 1893, '4': 5244, '5': 221, '8': 33 },
+        // 2.1 made the flamethrower turret eight-way: 137 in the corpus.
         possibleRotations: {
             '[]': 91570,
             '[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]': 4623,
-            '[0,2,4,6,8,10,12,14]': 39782,
+            '[0,2,4,6,8,10,12,14]': 39919,
             '[0,4]': 517,
-            '[0,4,8,12]': 214370,
+            '[0,4,8,12]': 214233,
         },
         railLayer: { elevated: 749, undefined: 350113 },
         splitterInputPriority: { left: 168, right: 133, undefined: 350561 },

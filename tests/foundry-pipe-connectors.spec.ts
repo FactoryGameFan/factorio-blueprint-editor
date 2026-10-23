@@ -31,14 +31,15 @@ import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 const FACINGS = [0, 4, 8, 12] as const
 
 /**
- * Body and shadow, then per kept connection (two a side) a blank pipe_picture
- * and a pipe cover - there is no grid, so nothing is connected.
+ * Body, animation and shadow - 2.1 redrew the foundry from two layers into
+ * these three - then per kept connection (two a side) a blank pipe_picture and
+ * a pipe cover - there is no grid, so nothing is connected.
  */
 const WITHOUT_CONNECTORS = {
-    none: 2,
-    'casting-iron': 6,
-    'molten-iron': 6,
-    'molten-iron-from-lava': 10,
+    none: 3,
+    'casting-iron': 7,
+    'iron-ore-melting': 7,
+    'molten-iron-from-lava': 11,
 } as const
 
 /** What namedPipeLayers adds. A silent drop reads as 0. */
@@ -47,7 +48,7 @@ const CONNECTOR_LAYERS = {
     /** input-pipe */
     'casting-iron': 1,
     /** output-pipe */
-    'molten-iron': 1,
+    'iron-ore-melting': 1,
     /** both */
     'molten-iron-from-lava': 2,
 } as const
@@ -58,7 +59,7 @@ const RECIPES = Object.keys(WITHOUT_CONNECTORS) as (keyof typeof WITHOUT_CONNECT
 function foundries(recipe: (typeof RECIPES)[number]): string {
     return encode({
         item: 'blueprint',
-        version: version(2, 0, 55),
+        version: version(2, 1, 23),
         entities: FACINGS.map((direction, i) => ({
             entity_number: i + 1,
             name: 'foundry',
@@ -108,18 +109,19 @@ interface ConnectorOrder {
 const ORDER: Record<0 | 8, Record<Exclude<(typeof RECIPES)[number], 'none'>, ConnectorOrder>> = {
     0: {
         'casting-iron': { before: [], after: ['south'] },
-        'molten-iron': { before: ['north'], after: [] },
+        'iron-ore-melting': { before: ['north'], after: [] },
         'molten-iron-from-lava': { before: ['north'], after: ['south'] },
     },
     8: {
         'casting-iron': { before: ['north'], after: [] },
-        'molten-iron': { before: [], after: ['south'] },
+        'iron-ore-melting': { before: [], after: ['south'] },
         'molten-iron-from-lava': { before: ['north'], after: ['south'] },
     },
 }
 
 const CONNECTOR_SHEET = /foundry-pipe-connections-(north|east|south|west)\.png$/
-const BODY_SHEET = /foundry-main-\d\.png/
+// foundry-main-N.png until 2.1 redrew the foundry.
+const BODY_SHEET = /foundry-base\.png/
 
 test('the far-side connector is drawn behind the foundry body, the near one in front', async ({
     page,
