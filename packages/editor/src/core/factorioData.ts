@@ -132,6 +132,22 @@ export function recipeResults(recipe: RecipePrototype): readonly ProductPrototyp
     return Array.isArray(recipe.results) ? recipe.results : []
 }
 
+/**
+ * The categories a recipe can be crafted in, which decide the machines that
+ * take it.
+ *
+ * Factorio 2.1 removed `category` and `additional_categories` for a
+ * `categories` list (changelog 2.1.0), which the docs give a default of
+ * `{"crafting"}` and forbid from being empty. 147 recipes in the 2.1.23 data
+ * leave it out. typed-factorio still describes 2.0, so the 2.0 field is read
+ * as the fallback, as test fixtures write it (#599).
+ */
+export function recipeCategories(recipe: RecipePrototype): readonly string[] {
+    const categories = (recipe as RecipePrototype & { categories?: unknown }).categories
+    if (Array.isArray(categories)) return categories as readonly string[]
+    return [recipe.category ?? 'crafting']
+}
+
 /** What an icon is drawn from: a prototype's `icons` layers, or its single `icon`. */
 export interface IconSource {
     icon?: string

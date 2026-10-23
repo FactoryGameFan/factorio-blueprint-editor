@@ -39,6 +39,7 @@ import FD, {
     hasModuleFunctionality,
     recipeSupportsModule,
     getModuleInventoryIndex,
+    recipeCategories,
     recipeIngredients,
     recipeResults,
     acceptedSignalIcons,
@@ -540,7 +541,9 @@ export class Entity extends EventEmitter<EntityEvents> {
 
         return Object.keys(FD.recipes)
             .map(k => FD.recipes[k])
-            .filter(recipe => e.crafting_categories.includes(recipe.category || 'crafting'))
+            .filter(recipe =>
+                recipeCategories(recipe).some(category => e.crafting_categories.includes(category))
+            )
             .map(recipe => recipe.name)
     }
 
@@ -1719,7 +1722,7 @@ export class Entity extends EventEmitter<EntityEvents> {
                 this.type === 'assembling-machine' &&
                 this.name !== 'assembling-machine' &&
                 tRecipe &&
-                FD.recipes[tRecipe].category === 'crafting-with-fluid'
+                recipeCategories(FD.recipes[tRecipe]).includes('crafting-with-fluid')
             ) {
                 this.direction = sourceEntity.direction
             }
