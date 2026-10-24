@@ -48,7 +48,12 @@ import FD, {
 import { Blueprint } from './Blueprint'
 import { WireConnections } from './WireConnections'
 import { getBeltWireConnectionIndex, getPipeWireConnectionIndex } from './spriteDataBuilder'
-import { EntityWithOwnerPrototype, CombinatorPrototype, WirePosition } from 'factorio:prototype'
+import {
+    EntityWithOwnerPrototype,
+    CombinatorPrototype,
+    StorageTankPrototype,
+    WirePosition,
+} from 'factorio:prototype'
 
 export interface IFilter {
     /** Slot index (1 based ... not 0 like arrays) */
@@ -1579,7 +1584,13 @@ export class Entity extends EventEmitter<EntityEvents> {
             throw new IllegalFlipError(`${this.name} cannot be flipped`)
 
         const axisDir = vertical ? 12 : 8
-        const direction = this.constrainDirection((axisDir * 2 - this.direction) % 16)
+        // A two-direction tank's diagonal pipe connections swap on either flip.
+        const direction = this.constrainDirection(
+            this.type === 'storage-tank' &&
+                (this.entityData as StorageTankPrototype).two_direction_only
+                ? (this.direction + 4) % 8
+                : (axisDir * 2 - this.direction) % 16
+        )
 
         const position = vertical
             ? { x: this.m_rawEntity.position.x, y: -this.m_rawEntity.position.y }
