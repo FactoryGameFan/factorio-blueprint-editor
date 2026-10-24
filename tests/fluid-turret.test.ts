@@ -282,9 +282,15 @@ describe('fluid turret at the eight 2.1 facings', () => {
             }
             expect(Array.isArray(draw(name, 0)), `${name} at 0`).toBe(true)
         }
-        // The 2.0 turret has no diagonal keys either, and a diagonal there fails too.
+        /*
+            This used to assert that the committed 2.0 turret failed on a
+            diagonal too. The committed data is 2.1 now, and its turret carries
+            the eight underscored keys and the alternate connections turret21
+            builds by hand (alt_direction 12 at [-1, 0], 8 at [0, 1] - measured
+            in the 2.1.23 data.json), so it draws every diagonal.
+        */
         for (const dir of DIAGONALS) {
-            expect(draw(original.name, dir)).toBe(SPRITE_GENERATION_FAILED)
+            expect(Array.isArray(draw(original.name, dir)), `${original.name} at ${dir}`).toBe(true)
         }
     })
 })

@@ -50,6 +50,7 @@ import {
     ComparatorString,
     IPoint,
     ISignal,
+    NamedDirection,
     SelectorCombinatorOperation,
 } from '../types'
 import FD, {
@@ -1804,7 +1805,14 @@ function graphicsSetAnimationLayers(animation: Animation | undefined): readonly 
 
 function draw_cargo_bay(e: CargoBayPrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const base = (e as any).graphics_set.picture.flatMap((p: any) => p.layers)
+        /*
+            A cargo bay's picture is a list of layered sprites. The landing pad
+            unloading bay, new in 2.1 and also of type cargo-bay, has a direction
+            and so a list per direction instead (#598).
+        */
+        const picture = (e as any).graphics_set.picture
+        const pictures = Array.isArray(picture) ? picture : picture[util.getDirName(data.dir)]
+        const base = pictures.flatMap((p: any) => p.layers)
         const connections = getCargoBayConnectionSprites(
             (e as any).graphics_set.connections,
             data.position,
@@ -2143,11 +2151,21 @@ function draw_gate(e: GatePrototype): (data: IDrawData) => readonly SpriteData[]
         return getBaseSprites()
     }
 }
+/*
+    Factorio 2.1 moved a generator's horizontal_animation and vertical_animation
+    into `pictures` (changelog 2.1.0), keyed by direction. The steam engine and
+    turbine set `two_direction_only` and carry north and east alone, which are
+    the old vertical and horizontal sheets, so south draws north and west draws
+    east (#598). typed-factorio still describes 2.0, hence the local type.
+*/
+type GeneratorPictures21 = Partial<Record<NamedDirection, { animation?: Animation }>>
 function draw_generator(e: GeneratorPrototype): (data: IDrawData) => readonly SpriteData[] {
-    return (data: IDrawData) =>
-        data.dir % 8 === 0
-            ? layersOf(need(e, 'vertical_animation'))
-            : layersOf(need(e, 'horizontal_animation'))
+    const pictures = need(e as GeneratorPrototype & { pictures?: GeneratorPictures21 }, 'pictures')
+    return (data: IDrawData) => {
+        const facing = pictures[util.getDirName(data.dir)]
+        const fallback = data.dir % 8 === 0 ? pictures.north : pictures.east
+        return layersOf(need(facing ?? fallback ?? {}, 'animation'))
+    }
 }
 function draw_heat_interface(
     e: HeatInterfacePrototype
@@ -2527,10 +2545,16 @@ function draw_loader(e: LoaderPrototype): (data: IDrawData) => readonly SpriteDa
 function draw_locomotive(e: LocomotivePrototype): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => rollingStockLayers(need(e, 'pictures'), data)
 }
+/*
+    Factorio 2.1 moved a logistic chest's `animation` (with its opening sound
+    and timing) into `robot_door` (changelog 2.1.0), the same sheets under a new
+    parent (#598). typed-factorio still describes 2.0, hence the local type.
+*/
 function draw_logistic_container(
     e: LogisticContainerPrototype
 ): (data: IDrawData) => readonly SpriteData[] {
-    return () => need(e, 'animation', 'layers')
+    const chest = e as LogisticContainerPrototype & { robot_door?: { animation?: Animation } }
+    return () => layersOf(need(chest, 'robot_door', 'animation'))
 }
 function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readonly SpriteData[] {
     switch (e.name) {
@@ -2538,13 +2562,19 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
             return (data: IDrawData) =>
                 dirLayers(need(e, 'graphics_set', 'animation'), util.getDirName(data.dir))
 
+        /*
+            Factorio 2.1 dropped `base_picture`: the base is now an always-drawn
+            working visualisation with an animation per direction, and its
+            secondary_draw_order of -1 puts it under the horsehead, where the
+            base_picture sheet used to be drawn (#598). 2.1 also added a
+            mirrored `graphics_set_flipped`; this editor does not flip yet.
+        */
         case 'pumpjack':
             return (data: IDrawData) => [
-                duplicateAndSetPropertyUsing(
-                    sheetsOf(need(e, 'base_picture'))[0],
-                    'x',
-                    'width',
-                    data.dir / 4
+                ...drillLayers(
+                    [],
+                    need(e, 'graphics_set', 'working_visualisations'),
+                    util.getDirName(data.dir)
                 ),
                 ...fourWayAnimation(need(e, 'graphics_set', 'animation'), 0),
             ]
