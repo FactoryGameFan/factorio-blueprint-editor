@@ -1353,55 +1353,90 @@ function draw_assembling_machine(
     e: AssemblingMachinePrototype
 ): (data: IDrawData) => readonly SpriteData[] {
     return (data: IDrawData) => {
-        const core = restingCoreLayers(e)
-        if (need(e, 'graphics_set').always_draw_idle_animation) {
-            return [...layersOf(need(e, 'graphics_set', 'idle_animation')), ...core]
-        } else {
-            const fbs = getFluidBoxes(
-                e,
-                data.assemblerHasFluidInputs || data.assemblerHasFluidOutputs
-            ).filter(
-                conn =>
-                    (data.assemblerHasFluidInputs && conn.production_type === 'input') ||
-                    (data.assemblerHasFluidOutputs && conn.production_type === 'output')
-            )
+        /*
+            The electromagnetic plant and the centrifuge set
+            `always_draw_idle_animation` and carry no `animation`, so their body
+            is the idle animation. That branch used to return before the pipes
+            were drawn, which left the electromagnetic plant, the one of the two
+            with fluid boxes, without its pipe pictures.
+        */
+        const body = need(e, 'graphics_set').always_draw_idle_animation
+            ? layersOf(need(e, 'graphics_set', 'idle_animation'))
+            : layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir))
+        const fbs = getFluidBoxes(
+            e,
+            data.assemblerHasFluidInputs || data.assemblerHasFluidOutputs
+        ).filter(
+            conn =>
+                (data.assemblerHasFluidInputs && conn.production_type === 'input') ||
+                (data.assemblerHasFluidOutputs && conn.production_type === 'output')
+        )
 
-            const pipes = namedPipeLayers(e, fbs, data.dir)
-            const out = [
-                ...pipes.back,
-                ...layersOf(getAnimation(need(e, 'graphics_set', 'animation'), data.dir)),
-                ...core,
-                ...pipes.front,
-            ]
+        const named = namedPipeLayers(e, fbs, data.dir)
+        const pictures = pipePictureLayers(fbs, data.dir)
+        return [
+            ...named.back,
+            ...pictures.back,
+            ...body,
+            ...restingCoreLayers(e),
+            ...named.front,
+            ...pictures.front,
+        ]
+    }
+}
 
-            for (const fb of fbs) {
-                if (!fb.pipe_picture) continue
+/**
+ * Each fluid box's `pipe_picture`, drawn at the tile its connection reaches,
+ * one tile out from the connection's own position. That is where the sprites'
+ * shifts are measured from. The cryogenic plant's whole-body pipe overlay
+ * carries a shift of exactly 3 tiles against a target 3 tiles from the
+ * centre, so it lands centred on the machine, and the biochamber's two north
+ * boxes carry different sprites because they sit at different x.
+ *
+ * Until this, every picture was drawn at the side's middle, `[0, -2]` turned
+ * to face the connection, which is the target only for a 3x3 with one
+ * connection per side - assembling machines 2 and 3. And a picture with
+ * `layers` was skipped outright for having no top-level `filename`, which was
+ * every picture on the biochamber, electromagnetic plant and cryogenic plant,
+ * so those three drew no pipes at all.
+ *
+ * A negative `secondary_draw_orders` entry for the connection's facing puts
+ * that picture behind the body, as `namedPipeLayers` does for the foundry's.
+ */
+function pipePictureLayers(
+    fbs: readonly FluidBox[],
+    entityDir: number
+): { back: SpriteData[]; front: SpriteData[] } {
+    const back: SpriteData[] = []
+    const front: SpriteData[] = []
+    for (const fb of fbs) {
+        if (!fb.pipe_picture) continue
 
-                for (const conn of fb.pipe_connections) {
-                    if (!(conn.connection_type === undefined || conn.connection_type === 'normal'))
-                        continue
+        for (const conn of fb.pipe_connections) {
+            if (!(conn.connection_type === undefined || conn.connection_type === 'normal')) continue
 
-                    const dir = (data.dir + need(conn, 'direction')) % 16
-                    // pipe_picture can be a directional map {north, east, south, west}
-                    // or a single sprite object (e.g. the foundry's blank, whose real
-                    // connectors come from namedPipeLayers). The latter has no
-                    // directional keys, so fall back to it as a SpriteData.
-                    const pipePic =
-                        dirEntry(fb.pipe_picture, util.getDirName(dir)) ||
-                        (fb.pipe_picture as unknown as SpriteData)
-                    if (!pipePic || !pipePic.filename) continue
-                    out.push(
-                        addToShift(
-                            util.rotatePointBasedOnDir([0, -2], dir),
-                            util.duplicate(pipePic)
-                        )
-                    )
-                }
+            const { offset, dir } = fluidConnection(conn, entityDir)
+            const dirName = util.getDirName(dir)
+            // pipe_picture can be a directional map {north, east, south, west}
+            // or a single sprite object (e.g. the foundry's blank, whose real
+            // connectors come from namedPipeLayers). The latter has no
+            // directional keys, so fall back to it as a SpriteData.
+            const pipePic =
+                dirEntry<SpriteData | undefined>(fb.pipe_picture, dirName) ??
+                (fb.pipe_picture as unknown as SpriteData)
+            const target = util.rotatePointBasedOnDir([0, -1], dir)
+            const anchor = { x: offset.x + target.x, y: offset.y + target.y }
+            const order =
+                (fb.secondary_draw_orders as Record<string, number> | undefined)?.[dirName] ??
+                fb.secondary_draw_order ??
+                1
+            for (const layer of layersOf(pipePic)) {
+                if (!layer.filename) continue
+                ;(order < 0 ? back : front).push(addToShift(anchor, util.duplicate(layer)))
             }
-
-            return out
         }
     }
+    return { back, front }
 }
 function draw_asteroid_collector(
     e: AsteroidCollectorPrototype
