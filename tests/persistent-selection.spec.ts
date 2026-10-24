@@ -398,6 +398,50 @@ for (const [key, directions] of [
     }
 }
 
+/*
+    A flip toggles `mirror` on an entity whose prototype uses mirroring, as
+    `LuaEntity.flip` does in 2.1 (#612; tests/mirror-flip.test.ts has every
+    case the game measured). On a pumpjack facing north the direction does not
+    change, so `mirror` is the whole edit: the blueprint gains `mirror: true`
+    and the sprite data turns to the flipped sheets. One undo takes back both.
+    `spriteLayerFiles` asks what the entity draws now, not what the canvas
+    still shows, so the redraw itself rests on the `mirror` event
+    EntityContainer listens for.
+*/
+test('Shift+F mirrors a pumpjack and redraws it flipped, in one undo step', async ({ page }) => {
+    await openEditorWith(
+        page,
+        encode({
+            item: 'blueprint',
+            version: version(2, 1, 23),
+            entities: [{ entity_number: 1, name: 'pumpjack', position: { x: 0.5, y: 0.5 } }],
+        })
+    )
+    const exported = async () =>
+        decodeBlueprintString(await page.evaluate(() => (window as any).__fbe_test.encodeLoaded()))
+            .blueprint.entities[0]
+    const flippedSheets = async () =>
+        (
+            (await page.evaluate(() => (window as any).__fbe_test.spriteLayerFiles(1))) as string[]
+        ).filter(f => f.includes('flipped')).length
+
+    expect((await exported()).mirror).toBeUndefined()
+    expect(await flippedSheets()).toBe(0)
+    await altSelectAround(page, await screenOf(page, 1))
+    expect(await selected(page)).toEqual([1])
+    const rev = await revision(page)
+
+    await page.keyboard.press('Shift+KeyF')
+    expect((await exported()).mirror).toBe(true)
+    expect((await exported()).direction ?? 0).toBe(0)
+    expect(await flippedSheets()).toBeGreaterThan(0)
+    expect(await revision(page)).toBe(rev + 1)
+
+    await page.keyboard.press('Control+KeyZ')
+    expect((await exported()).mirror).toBeUndefined()
+    expect(await flippedSheets()).toBe(0)
+})
+
 test('Escape with nothing in progress clears the selection', async ({ page }) => {
     await openEditorWithChests(page)
     await altSelect(page, 1, 2)
