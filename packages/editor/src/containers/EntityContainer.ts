@@ -169,6 +169,8 @@ export class EntityContainer {
 
         this.m_Entity.on('recipe', onRecipeChange)
         this.m_Entity.on('direction', onDirectionChange)
+        // Mirroring moves fluid connections and the circuit connector, as turning does.
+        this.m_Entity.on('mirror', onDirectionChange)
         this.m_Entity.on('directionType', onDirectionTypeChange)
         this.m_Entity.on('position', onPositionChange)
         this.m_Entity.on('modules', onModulesChange)

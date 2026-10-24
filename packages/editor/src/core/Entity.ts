@@ -43,6 +43,7 @@ import FD, {
     recipeIngredients,
     recipeResults,
     acceptedSignalIcons,
+    usesMirroring,
 } from './factorioData'
 import { Blueprint } from './Blueprint'
 import { WireConnections } from './WireConnections'
@@ -173,6 +174,7 @@ export interface EntityEvents {
     destroy: []
     position: [newValue: IPoint, oldValue: IPoint]
     direction: []
+    mirror: []
     directionType: []
     recipe: [recipe: string | undefined]
     modules: [modules: (string | undefined)[]]
@@ -422,6 +424,15 @@ export class Entity extends EventEmitter<EntityEvents> {
      */
     public get mirror(): boolean {
         return this.m_rawEntity.mirror === true
+    }
+    /** Written only when true, as the game exports it; false removes the key. */
+    public set mirror(mirror: boolean) {
+        if (this.mirror === mirror) return
+
+        this.m_BP.history
+            .updateValue(this.m_rawEntity, 'mirror', mirror || undefined, 'Change mirror')
+            .onDone(() => this.emit('mirror'))
+            .commit()
     }
 
     /** Entity direction */
@@ -1581,6 +1592,10 @@ export class Entity extends EventEmitter<EntityEvents> {
             output_priority: this.changePriority(this.m_rawEntity.output_priority),
         }
         if (direction === 0) delete updatedRawEntity.direction
+        // A flip toggles `mirror` where the prototype uses it and clears it
+        // everywhere else; see usesMirroring.
+        if (usesMirroring(this.entityData) && !this.mirror) updatedRawEntity.mirror = true
+        else delete updatedRawEntity.mirror
 
         return new Entity(updatedRawEntity, this.m_BP)
     }

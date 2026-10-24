@@ -554,6 +554,38 @@ export function getWireConnectionPoint(
     }
 }
 
+/*
+    Whether flipping this entity toggles its blueprint `mirror` rather than
+    clearing it (#612). Factorio 2.1 asks the prototype: crafting machines,
+    mining drills and inserters carry `use_mirroring`, and data.json holds it
+    only where the Lua sets it, so the defaults come from the prototype docs -
+    true for drills and inserters, and for a crafting machine only when it has
+    a `vector_to_place_result`. Every other type has no mirrored state.
+
+    Measured with `LuaEntity.flip` on 2.1.23 (tools/oracle/probe-mirroring.mjs):
+    a flip toggles `mirroring` on each entity this says yes to, and leaves it
+    false on assembling machines 2 and 3, which it says no to, even when the
+    entity started out mirrored.
+*/
+export function usesMirroring(e: EntityWithOwnerPrototype): boolean {
+    const declared = (e as { use_mirroring?: boolean }).use_mirroring
+    switch (e.type) {
+        case 'assembling-machine':
+        case 'furnace':
+        case 'rocket-silo':
+            return (
+                declared ??
+                (e as CraftingMachinePrototype & { vector_to_place_result?: unknown })
+                    .vector_to_place_result !== undefined
+            )
+        case 'inserter':
+        case 'mining-drill':
+            return declared ?? true
+        default:
+            return false
+    }
+}
+
 export function getFluidBoxes(
     e: EntityWithOwnerPrototype,
     assemblingMachineHasFluidRecipe: boolean

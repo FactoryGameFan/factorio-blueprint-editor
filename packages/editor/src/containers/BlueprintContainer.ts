@@ -1312,6 +1312,7 @@ export class BlueprintContainer extends Container {
                         entity.relocate(targets[i].position, targets[i].direction)
                         entity.splitterInputPriority = copy.splitterInputPriority
                         entity.splitterOutputPriority = copy.splitterOutputPriority
+                        entity.mirror = copy.mirror
                     }
                 })
             }
