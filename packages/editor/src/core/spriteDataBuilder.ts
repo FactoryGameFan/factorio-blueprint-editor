@@ -178,6 +178,7 @@ import {
 import { need } from './need'
 import { rotatedSpriteFrame } from './rotatedSprite'
 import { drillLayers } from './drillLayers'
+import { mirrorDirection, mirrorPoint } from './mirroring'
 
 /**
  * What a `draw_*` function gets to work with.
@@ -193,6 +194,8 @@ import { drillLayers } from './drillLayers'
 export interface IDrawData {
     /** Defaulted to 0 (north) by getDrawData, matching what getParts already does. */
     dir: number
+    /** Blueprint `mirror`; defaulted to false by getDrawData. See core/mirroring.ts. */
+    mirror: boolean
     /** Rolling stock only, and only from a blueprint; see `Entity.orientation`. */
     orientation: number | undefined
 
@@ -250,18 +253,39 @@ type SpriteNumberKey = keyof PickByType<ExtendedSpriteData, number> | 'size'
 export const SPRITE_GENERATION_FAILED = Symbol('SPRITE_GENERATION_FAILED')
 
 const generatorCache = new Map<string, (data: IDrawData) => readonly ExtendedSpriteData[]>()
+/** Generators for mirrored entities with flipped graphics, by name; see flippedPrototype. */
+const flippedGeneratorCache = new Map<string, (data: IDrawData) => readonly ExtendedSpriteData[]>()
+
+/**
+ * The prototype a mirrored entity draws from: `graphics_set_flipped` in place
+ * of `graphics_set`. In 2.1.23 the recycler, burner mining drill and pumpjack
+ * carry one, and every draw_* function that reads their graphics reads
+ * `graphics_set`, so swapping it here reaches them all. A prototype with none
+ * draws its plain graphics whether mirrored or not, as `mirrored_pipe_picture`
+ * falls back to `pipe_picture` (#612).
+ */
+function flippedPrototype(e: EntityWithOwnerPrototype): EntityWithOwnerPrototype | undefined {
+    const flipped = (e as { graphics_set_flipped?: unknown }).graphics_set_flipped
+    return flipped === undefined
+        ? undefined
+        : ({ ...e, graphics_set: flipped } as EntityWithOwnerPrototype)
+}
 
 function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
-    const cached = generatorCache.get(data.name)
+    // A mirrored entity whose prototype has flipped graphics gets a generator of its own.
+    const plain = FD.entities[data.name] as EntityWithOwnerPrototype | undefined
+    const flipped = data.mirror && plain ? flippedPrototype(plain) : undefined
+    const cache = flipped ? flippedGeneratorCache : generatorCache
+    const cached = cache.get(data.name)
     if (cached) {
         return cached(data)
     }
 
-    const entity = FD.entities[data.name]
+    const entity = flipped ?? plain
     if (!entity) {
         console.warn(`Entity '${data.name}' not found in FD.entities`)
         const failedGenerator = () => SPRITE_GENERATION_FAILED as any
-        generatorCache.set(data.name, failedGenerator)
+        cache.set(data.name, failedGenerator)
         return SPRITE_GENERATION_FAILED as any
     }
     const graphicsFn = generateGraphics(entity)
@@ -277,7 +301,7 @@ function getSpriteData(data: IDrawData): readonly ExtendedSpriteData[] {
             return SPRITE_GENERATION_FAILED as any
         }
     }
-    generatorCache.set(data.name, generator)
+    cache.set(data.name, generator)
 
     return generator(data)
 }
@@ -294,7 +318,8 @@ function generateConnection(e: EntityWithOwnerPrototype, data: IDrawData): reado
         data.dir,
         isLoaderInputting,
         getBeltConnectionIndex,
-        getPipeConnectionIndex
+        getPipeConnectionIndex,
+        data.mirror
     )
     if (cc?.sprites) {
         const ccs = cc.sprites
@@ -362,7 +387,8 @@ function fluidConnection(
         alt_position?: IPoint | readonly [number, number]
         alt_direction?: number
     },
-    entityDir: number
+    entityDir: number,
+    mirrored: boolean
 ): { offset: IPoint; dir: number } {
     // 2.1 alternate connections are defined at north-east, then rotate in quarter
     // turns. Gate on the prototype declaring them, not on the direction alone. A
@@ -379,17 +405,19 @@ function fluidConnection(
     const position = diagonal
         ? (connection.alt_position ?? connection.position ?? need(connection, 'positions')[0])
         : connection.position
-    return {
-        offset: position
-            ? util.rotatePointBasedOnDir(position, rotation)
-            : util.Point(need(connection, 'positions')[entityDir / 4]),
-        dir:
-            (rotation +
-                (diagonal
-                    ? (connection.alt_direction ?? need(connection, 'direction'))
-                    : need(connection, 'direction'))) %
-            16,
-    }
+    const offset = position
+        ? util.rotatePointBasedOnDir(position, rotation)
+        : util.Point(need(connection, 'positions')[entityDir / 4])
+    const dir =
+        (rotation +
+            (diagonal
+                ? (connection.alt_direction ?? need(connection, 'direction'))
+                : need(connection, 'direction'))) %
+        16
+    // Mirroring reflects the connection once it is in the world; see core/mirroring.ts.
+    return mirrored
+        ? { offset: mirrorPoint(offset, entityDir), dir: mirrorDirection(dir, entityDir) }
+        : { offset, dir }
 }
 
 function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly SpriteData[] {
@@ -422,7 +450,7 @@ function generateCovers(e: EntityWithOwnerPrototype, data: IDrawData): readonly 
             )
                 continue
 
-            const { dir, offset } = fluidConnection(connection, data.dir)
+            const { dir, offset } = fluidConnection(connection, data.dir, data.mirror)
             const offset2 = util.rotatePointBasedOnDir([0, -1], dir)
             offset.x += offset2.x
             offset.y += offset2.y
@@ -464,7 +492,7 @@ function checkFluidConnection(x: number, y: number, entity: Entity, relDir: numb
         .filter(conn => conn.connection_type === undefined || conn.connection_type === 'normal')
 
     for (const connection of connections) {
-        const { dir, offset } = fluidConnection(connection, entity.direction)
+        const { dir, offset } = fluidConnection(connection, entity.direction, entity.mirror)
         if (
             x === Math.floor(entity.position.x + offset.x) &&
             y === Math.floor(entity.position.y + offset.y) &&
@@ -1373,7 +1401,7 @@ function draw_assembling_machine(
         )
 
         const named = namedPipeLayers(e, fbs, data.dir)
-        const pictures = pipePictureLayers(fbs, data.dir)
+        const pictures = pipePictureLayers(fbs, data.dir, data.mirror)
         return [
             ...named.back,
             ...pictures.back,
@@ -1405,25 +1433,37 @@ function draw_assembling_machine(
  */
 function pipePictureLayers(
     fbs: readonly FluidBox[],
-    entityDir: number
+    entityDir: number,
+    mirrored: boolean
 ): { back: SpriteData[]; front: SpriteData[] } {
     const back: SpriteData[] = []
     const front: SpriteData[] = []
     for (const fb of fbs) {
-        if (!fb.pipe_picture) continue
+        /*
+            The biochamber is the one machine whose boxes carry a
+            `mirrored_pipe_picture`, and each is the other box's picture: once
+            mirrored, a box's pipe sits where its neighbour's did. Without one,
+            the game draws the plain picture (FluidBox docs).
+        */
+        const picture =
+            (mirrored &&
+                (fb as FluidBox & { mirrored_pipe_picture?: FluidBox['pipe_picture'] })
+                    .mirrored_pipe_picture) ||
+            fb.pipe_picture
+        if (!picture) continue
 
         for (const conn of fb.pipe_connections) {
             if (!(conn.connection_type === undefined || conn.connection_type === 'normal')) continue
 
-            const { offset, dir } = fluidConnection(conn, entityDir)
+            const { offset, dir } = fluidConnection(conn, entityDir, mirrored)
             const dirName = util.getDirName(dir)
             // pipe_picture can be a directional map {north, east, south, west}
             // or a single sprite object (e.g. the foundry's blank, whose real
             // connectors come from namedPipeLayers). The latter has no
             // directional keys, so fall back to it as a SpriteData.
             const pipePic =
-                dirEntry<SpriteData | undefined>(fb.pipe_picture, dirName) ??
-                (fb.pipe_picture as unknown as SpriteData)
+                dirEntry<SpriteData | undefined>(picture, dirName) ??
+                (picture as unknown as SpriteData)
             const target = util.rotatePointBasedOnDir([0, -1], dir)
             const anchor = { x: offset.x + target.x, y: offset.y + target.y }
             const order =
@@ -2612,8 +2652,9 @@ function draw_mining_drill(e: MiningDrillPrototype): (data: IDrawData) => readon
             Factorio 2.1 dropped `base_picture`: the base is now an always-drawn
             working visualisation with an animation per direction, and its
             secondary_draw_order of -1 puts it under the horsehead, where the
-            base_picture sheet used to be drawn (#598). 2.1 also added a
-            mirrored `graphics_set_flipped`; this editor does not flip yet.
+            base_picture sheet used to be drawn (#598). A mirrored pumpjack
+            reaches here with `graphics_set_flipped` in place of `graphics_set`,
+            whose base is drawn the other way round (see flippedPrototype).
         */
         case 'pumpjack':
             return (data: IDrawData) => [

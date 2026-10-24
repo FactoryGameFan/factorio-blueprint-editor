@@ -415,6 +415,15 @@ export class Entity extends EventEmitter<EntityEvents> {
         this.position = util.sumprod(this.position, offset)
     }
 
+    /**
+     * Whether the entity is flipped across the axis it faces. It moves the
+     * fluid connections and picks the flipped graphics and circuit connector
+     * where the prototype has them; see core/mirroring.ts.
+     */
+    public get mirror(): boolean {
+        return this.m_rawEntity.mirror === true
+    }
+
     /** Entity direction */
     public get direction(): number {
         if (this.type === 'electric-pole') {
@@ -2090,7 +2099,8 @@ export class Entity extends EventEmitter<EntityEvents> {
             direction,
             isLoaderInputting,
             getBeltConnectionIndex,
-            getPipeConnectionIndex
+            getPipeConnectionIndex,
+            this.mirror
         )
         if (cc?.points) {
             const pos = cc.points.wire[wireKey]

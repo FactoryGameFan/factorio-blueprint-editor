@@ -59,6 +59,7 @@ This is the part that saves time, and it is not "open a disassembler":
 | `probe-pole-autoconnect.mjs`         | Which copper wires pasted poles make to poles already on the map (#343)       |
 | `probe-pole-autoconnect-limit.mjs`   | How `auto_connect_up_to_n_wires` caps auto-wiring, and at which end (#343)    |
 | `probe-pole-autoconnect-edges.mjs`   | Auto-wiring's tie order, power-switch copper, and mixed pole types (#343)     |
+| `probe-mirroring.mjs`                | What `mirror` moves on an entity, what a flip does to it, and import (#612)   |
 
 | `probe-cargo-bay-render.mjs` | What cargo bay arrangements actually look like in the game (#378) |
 

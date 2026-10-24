@@ -21,6 +21,7 @@ import { EditorMode, BlueprintContainer } from './BlueprintContainer'
 import { EntityContainer } from './EntityContainer'
 import { Sprite as SpriteData } from 'factorio:prototype'
 import { need } from '../core/need'
+import { mirrorDirection, mirrorPoint } from '../core/mirroring'
 import { drawShapes } from '../common/drawShapes'
 import { ZOOM_MAX } from '../core/zoomLevels'
 import type { IconShape } from '../core/shortcutIcons'
@@ -259,10 +260,14 @@ export class OverlayContainer extends Container {
                         need() states that rather than inventing a fallback
                         direction, which would silently point an arrow the wrong way.
                     */
-                    const dir = (entity.direction + need(connection, 'direction')) % 16
-                    const offset = connection.position
+                    let dir = (entity.direction + need(connection, 'direction')) % 16
+                    let offset = connection.position
                         ? util.rotatePointBasedOnDir(connection.position, entity.direction)
                         : util.Point(need(connection, 'positions')[entity.direction / 4])
+                    if (entity.mirror) {
+                        dir = mirrorDirection(dir, entity.direction)
+                        offset = mirrorPoint(offset, entity.direction)
+                    }
                     const offset2 = util.rotatePointBasedOnDir([0, -0.5], dir)
                     offset2.x += offset.x
                     offset2.y += offset.y
@@ -511,11 +516,16 @@ export class OverlayContainer extends Container {
             isMiningDrill(drillData)
         ) {
             const arrows = new Container()
-            const placeResult = util.vectorToTuple(drillData.vector_to_place_result)
+            const [placeX, placeY] = util.vectorToTuple(drillData.vector_to_place_result)
+            /*
+                `arrows` turns with the drill, so this is the north-facing
+                vector, and mirroring negates its x before the turn. Only the
+                burner mining drill's x is not 0 (#612).
+            */
             arrows.addChild(
                 createArrow({
-                    x: placeResult[0] * 64,
-                    y: placeResult[1] * 64 + 18,
+                    x: (entity.mirror ? -placeX : placeX) * 64,
+                    y: placeY * 64 + 18,
                 })
             )
             arrows.rotation = entity.direction * Math.PI * 0.125
