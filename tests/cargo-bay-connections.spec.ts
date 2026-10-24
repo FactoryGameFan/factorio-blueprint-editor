@@ -29,8 +29,12 @@ import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 
 const LONE_BAY = 26
 
-/** A bay joined on its west only. Its own count happens to equal a lone bay's. */
-const JOINED_WEST = '26:5b2ec7f8'
+/**
+ * A bay joined on its west only. Its own count happens to equal a lone bay's.
+ * Re-recorded for the 2.1.23 art (was 26:5b2ec7f8): the same pieces, but one
+ * of the four connection sheets each piece draws grew from 164 to 190 pixels.
+ */
+const JOINED_WEST = '26:ce436d95'
 
 const bp = (entities: [string, number, number][]): string =>
     encode({
