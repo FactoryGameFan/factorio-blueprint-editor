@@ -316,14 +316,9 @@ export function getCircuitConnector(
         case 'agricultural-tower':
         case 'artillery-turret':
         case 'cargo-landing-pad':
-        case 'container':
-        case 'infinity-container':
-        case 'logistic-container':
-        case 'temporary-container':
         case 'lamp':
         case 'linked-container':
         case 'programmable-speaker':
-        case 'proxy-container':
         case 'radar':
         case 'reactor':
         case 'roboport':
@@ -334,17 +329,40 @@ export function getCircuitConnector(
                 | AgriculturalTowerPrototype
                 | ArtilleryTurretPrototype
                 | CargoLandingPadPrototype
-                | ContainerPrototype
                 | LampPrototype
                 | LinkedContainerPrototype
                 | ProgrammableSpeakerPrototype
-                | ProxyContainerPrototype
                 | RadarPrototype
                 | ReactorPrototype
                 | RoboportPrototype
                 | SpacePlatformHubPrototype
                 | WallPrototype
             return e_resolved.circuit_connector
+        }
+        /*
+            Factorio 2.1 gave containers a `direction_count` and turned their
+            circuit_connector into an array with one entry per direction
+            (changelog 2.1.0: "Added ContainerPrototype::direction_count ...
+            Changed circuit_connector into an array", and the same for
+            ProxyContainerPrototype). Returned whole, the array has no `points`,
+            so every wire on a chest was dropped on load (#597).
+
+            Every chest in data.json has the default count of one, so the array
+            has one entry; a rotatable one would have four, indexed like the arm
+            below. typed-factorio still declares the 2.0 single definition, which
+            is why both shapes are read.
+        */
+        case 'container':
+        case 'infinity-container':
+        case 'logistic-container':
+        case 'temporary-container':
+        case 'proxy-container': {
+            const cc = (e as ContainerPrototype | ProxyContainerPrototype).circuit_connector as
+                | CircuitConnectorDefinition
+                | readonly CircuitConnectorDefinition[]
+                | undefined
+            if (!Array.isArray(cc)) return cc as CircuitConnectorDefinition | undefined
+            return cc.length === 1 ? cc[0] : cc[dir / 4]
         }
         /*
             `splitter` is in this arm because a splitter takes circuit wires in
