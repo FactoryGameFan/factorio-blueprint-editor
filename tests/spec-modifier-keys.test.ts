@@ -166,6 +166,15 @@ const ALLOWLIST: AllowedChord[] = [
             'so no DOM input has focus.',
     },
     {
+        file: 'persistent-selection.spec.ts',
+        chord: 'Control+KeyZ',
+        reason:
+            "drives the editor's own undo keybind through actions.ts, same as " +
+            "chest-filters.spec.ts's entry above. The pumpjack mirror case only " +
+            'Alt-drags on the canvas and presses Shift+KeyF before it, and opens no ' +
+            'dialog, so no DOM input has focus.',
+    },
+    {
         file: 'train-schedule-panel.spec.ts',
         chord: 'Control+KeyZ',
         reason:
