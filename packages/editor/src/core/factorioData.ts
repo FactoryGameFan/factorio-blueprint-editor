@@ -309,7 +309,8 @@ export function getCircuitConnector(
     e: EntityWithOwnerPrototype,
     dir: number,
     isLoaderInputting: () => boolean,
-    getBeltConnectionIndex: () => number
+    getBeltConnectionIndex: () => number,
+    getPipeConnectionIndex: () => number
 ): CircuitConnectorDefinition | undefined {
     switch (e.type) {
         case 'accumulator':
@@ -436,9 +437,55 @@ export function getCircuitConnector(
             }
             return e_resolved.circuit_connector?.[d]
         }
+        /*
+            The seven types below took circuit wires in Factorio 2.1 (changelog
+            2.1.0: "Added BoilerPrototype::circuit_connector ..." and the same
+            for heat pipes, labs, land mines, pipes and pipes-to-ground).
+            typed-factorio still describes 2.0, so the field is read through
+            CircuitWired21 until it catches up (#601).
+        */
+        case 'lab':
+        case 'land-mine':
+            return (e as CircuitWired21<CircuitConnectorDefinition>).circuit_connector
+        case 'boiler':
+        case 'pipe-to-ground':
+            // North, east, south, west - one per direction, like the arm above.
+            return (e as CircuitWired21<readonly CircuitConnectorDefinition[]>).circuit_connector?.[
+                dir / 4
+            ]
+        case 'pipe':
+        case 'infinity-pipe':
+        case 'heat-pipe':
+            // Sixteen, one per combination of connected neighbours: see pipeConnectionIndex.
+            return (e as CircuitWired21<readonly CircuitConnectorDefinition[]>).circuit_connector?.[
+                getPipeConnectionIndex()
+            ]
         default:
             return undefined
     }
+}
+
+/** A prototype carrying the circuit fields Factorio 2.1 added to it. */
+type CircuitWired21<T> = EntityWithOwnerPrototype & {
+    circuit_connector?: T
+    circuit_wire_max_distance?: number
+}
+
+/*
+    Which of its 16 circuit connectors a pipe or heat pipe uses, from which of
+    its four neighbours it connects to, given north, east, south, west - the
+    order PositionGrid.getNeighbourData returns them in.
+
+    Factorio orders the 16 as a bitmask: north 1, east 2, south 4, west 8. Its
+    own table says so for the heat pipe, entry by entry, from "[    ] single"
+    through "[   N] endingUp" to "[WSEN] cross"
+    (core/lualib/circuit-connector-generated-definitions.lua, 2.1.23). The
+    pipe's table carries no comments, but its connector styles follow the same
+    mask: the three vertical shapes (1, 4, 5) all take variation 12 and the
+    three horizontal ones (2, 8, 10) all take variation 26.
+*/
+export function pipeConnectionIndex(connected: readonly boolean[]): number {
+    return connected.reduce((mask, isConnected, i) => (isConnected ? mask | (1 << i) : mask), 0)
 }
 
 export function getWireConnectionPoint(
@@ -670,6 +717,15 @@ export function getMaxWireDistance(e: EntityWithOwnerPrototype): number {
                 | WallPrototype
             return e_resolved.circuit_wire_max_distance || 0
         }
+        // New to circuits in Factorio 2.1; see getCircuitConnector (#601).
+        case 'boiler':
+        case 'heat-pipe':
+        case 'infinity-pipe':
+        case 'lab':
+        case 'land-mine':
+        case 'pipe':
+        case 'pipe-to-ground':
+            return (e as CircuitWired21<unknown>).circuit_wire_max_distance || 0
         default:
             return 0
     }

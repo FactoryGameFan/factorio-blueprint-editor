@@ -60,6 +60,7 @@ import FD, {
     getEntitySize,
     getFluidBoxes,
     isCraftingMachine,
+    pipeConnectionIndex,
 } from './factorioData'
 import { PositionGrid } from './PositionGrid'
 import { Entity } from './Entity'
@@ -284,7 +285,15 @@ function generateConnection(e: EntityWithOwnerPrototype, data: IDrawData): reado
     const isLoaderInputting = () => data.dirType === 'input'
     const getBeltConnectionIndex = () =>
         getBeltWireConnectionIndex(data.positionGrid, data.position, data.dir)
-    const cc = getCircuitConnector(e, data.dir, isLoaderInputting, getBeltConnectionIndex)
+    const getPipeConnectionIndex = () =>
+        getPipeWireConnectionIndex(data.positionGrid, data.position, e.type)
+    const cc = getCircuitConnector(
+        e,
+        data.dir,
+        isLoaderInputting,
+        getBeltConnectionIndex,
+        getPipeConnectionIndex
+    )
     if (cc?.sprites) {
         const ccs = cc.sprites
         // Not all three exist for every connector - a transport belt has no
@@ -509,6 +518,25 @@ function getHeatConnections(position: IPoint, positionGrid: PositionGrid): boole
 
         return false
     })
+}
+
+/*
+    The circuit connector a pipe or heat pipe draws and attaches wires to
+    follows the same neighbours its sprite does, so this asks the same question
+    draw_pipe and draw_heat_pipe ask. With no grid - the entity editor and paint
+    previews - it is the lone-piece connector, index 0.
+*/
+function getPipeWireConnectionIndex(
+    positionGrid: PositionGrid | undefined,
+    position: IPoint,
+    type: string
+): number {
+    if (!positionGrid) return 0
+    return pipeConnectionIndex(
+        type === 'heat-pipe'
+            ? getHeatConnections(position, positionGrid)
+            : getFluidConnections(position, positionGrid)
+    )
 }
 
 // X, H, V, SE, SW, NE and NW.
@@ -3202,4 +3230,4 @@ function draw_wall(e: WallPrototype): (data: IDrawData) => readonly SpriteData[]
     }
 }
 
-export { getSpriteData, getBeltWireConnectionIndex }
+export { getSpriteData, getBeltWireConnectionIndex, getPipeWireConnectionIndex }
