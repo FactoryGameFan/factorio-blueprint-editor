@@ -134,6 +134,44 @@ test('a 2.0 blueprint keeps the names it was written with (issue #40)', async ({
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
 
+/*
+    Factorio 2.1 renamed three recipes (#600). Through the real decode path, the
+    old names have to come out as the new ones and resolve against the 2.1 data,
+    or the machine loses its recipe.
+*/
+test('a 2.0 blueprint gets the 2.1 recipe renames', async ({ page }) => {
+    const loaded = await load(
+        page,
+        encode({
+            item: 'blueprint',
+            version: V_2_0,
+            entities: [
+                {
+                    entity_number: 1,
+                    name: 'foundry',
+                    position: { x: 2.5, y: 2.5 },
+                    recipe: 'molten-iron',
+                },
+                {
+                    entity_number: 2,
+                    name: 'foundry',
+                    position: { x: 8.5, y: 2.5 },
+                    recipe: 'molten-copper',
+                },
+                {
+                    entity_number: 3,
+                    name: 'assembling-machine-3',
+                    position: { x: 13.5, y: 1.5 },
+                    recipe: 'wood-processing',
+                },
+            ],
+        })
+    )
+
+    expect(loaded.recipes).toEqual(['copper-ore-melting', 'iron-ore-melting', 'tree-seed'])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
 test('a pre-2.0 blueprint still gets the 2.0 renames', async ({ page }) => {
     const loaded = await load(
         page,
