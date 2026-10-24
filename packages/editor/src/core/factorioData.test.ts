@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vite-plus/test'
 import { RecipePrototype } from 'factorio:prototype'
-import FD, { loadData, localisedName, recipeIngredients, recipeResults } from './factorioData'
+import FD, {
+    loadData,
+    localisedName,
+    recipeCategories,
+    recipeIngredients,
+    recipeResults,
+} from './factorioData'
 
 /*
     recipeIngredients/recipeResults exist because the two fields arrive in three
@@ -45,6 +51,29 @@ describe('recipeIngredients / recipeResults', () => {
 
         expect(recipeIngredients(r)).toEqual([])
         expect(recipeResults(r)).toBe(results)
+    })
+})
+
+/*
+    Factorio 2.1 removed RecipePrototype::category and additional_categories for
+    a `categories` list (changelog 2.1.0), and the editor kept reading
+    `category`, which no 2.1 recipe has: every recipe looked like 'crafting', so
+    a foundry or a biochamber accepted none of its own (#599).
+*/
+describe('recipeCategories', () => {
+    it("passes a 2.1 recipe's categories through", () => {
+        const categories = ['organic', 'crafting']
+        const r = recipe({ categories } as unknown as Partial<RecipePrototype>)
+
+        expect(recipeCategories(r)).toBe(categories)
+    })
+
+    it('answers crafting for an omitted list, the documented default', () => {
+        expect(recipeCategories(recipe({}))).toEqual(['crafting'])
+    })
+
+    it("reads a 2.0 recipe's single category", () => {
+        expect(recipeCategories(recipe({ category: 'metallurgy' }))).toEqual(['metallurgy'])
     })
 })
 
