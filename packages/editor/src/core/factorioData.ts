@@ -320,13 +320,18 @@ export function getModule(name: string): ModulePrototype {
     ways and the type could describe neither. Every caller tests truthiness, so
     settling on undefined - which is what the fields themselves are - costs
     nothing and removes the coercion the split would otherwise need at each arm.
+
+    `mirrored` swaps in `circuit_connector_flipped` where the prototype has one,
+    and keeps `circuit_connector` where it does not. In 2.1.23 that is the
+    recycler alone; 2.1 also allows one on mining drills and inserters (#612).
 */
 export function getCircuitConnector(
     e: EntityWithOwnerPrototype,
     dir: number,
     isLoaderInputting: () => boolean,
     getBeltConnectionIndex: () => number,
-    getPipeConnectionIndex: () => number
+    getPipeConnectionIndex: () => number,
+    mirrored = false
 ): CircuitConnectorDefinition | undefined {
     switch (e.type) {
         case 'accumulator':
@@ -404,10 +409,10 @@ export function getCircuitConnector(
         case 'storage-tank':
         case 'train-stop': {
             const e_resolved = e as
-                | AssemblingMachinePrototype // also has circuit_connector_flipped
+                | AssemblingMachinePrototype
                 | AsteroidCollectorPrototype
                 | DisplayPanelPrototype
-                | FurnacePrototype // also has circuit_connector_flipped
+                | FurnacePrototype
                 | InserterPrototype
                 | MiningDrillPrototype
                 | OffshorePumpPrototype
@@ -415,7 +420,10 @@ export function getCircuitConnector(
                 | SplitterPrototype
                 | StorageTankPrototype
                 | TrainStopPrototype
-            return e_resolved.circuit_connector?.[dir / 4]
+            const flipped = (
+                e_resolved as { circuit_connector_flipped?: readonly CircuitConnectorDefinition[] }
+            ).circuit_connector_flipped
+            return ((mirrored && flipped) || e_resolved.circuit_connector)?.[dir / 4]
         }
         case 'rail-chain-signal':
         case 'rail-signal': {
