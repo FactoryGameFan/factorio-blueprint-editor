@@ -403,16 +403,14 @@
             ],
         },
         {
-            // Deliberately NOT the alarming note the sibling repo attaches to its own
-            // .node-version. There, verify.yml feeds the file to setup-node and a bump
-            // changes what CI runs on. Here nothing reads it: no workflow, no script
-            // references it, and CI installs Node through vp itself
-            // (VP_NODE_MANAGER=yes in .github/actions/setup-vp). It is a local hint.
-            // Recorded so nobody copies the sibling's warning across and gives this
-            // more weight than it has.
+            // This used to say nothing reads the file. That was wrong: no workflow or
+            // script names it, but vp's node shim does. `vp env which node` in a
+            // checkout prints `Source: .../.node-version`, and CI runs Node through
+            // those shims (VP_NODE_MANAGER=yes in .github/actions/setup-vp), so a bump
+            // changes the Node that CI, the devcontainer and every local run use.
             matchFileNames: ['.node-version'],
             prBodyNotes: [
-                'Nothing reads this file - no workflow or script references it, and CI installs Node through `vp` (`VP_NODE_MANAGER=yes` in `.github/actions/setup-vp`). This is a local development hint, so the bump changes nothing about CI.',
+                'vp reads this file: its `node` shim picks the version here (`vp env which node` shows `Source: .../.node-version`). CI runs Node through those shims, so this bump changes the Node that CI and local runs use, and the green checks below ran on it.',
             ],
         },
         {
