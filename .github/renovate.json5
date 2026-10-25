@@ -80,9 +80,10 @@
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
     // The org preset supplies what used to be spelled out here: config:recommended,
     // helpers:pinGitHubActionDigests, the America/Los_Angeles timezone, the
-    // 'before 6am on monday' batch, automerge:false, prConcurrentLimit/prHourlyLimit,
-    // dependencyDashboard, osvVulnerabilityAlerts, the rule that security fixes skip
-    // the weekly window, and a 'github actions' grouping.
+    // weekly batch from noon Sunday to noon Monday, automerge:false,
+    // prConcurrentLimit/prHourlyLimit, dependencyDashboard, osvVulnerabilityAlerts,
+    // the rule that security fixes skip the weekly window, and a 'github actions'
+    // grouping.
     // Source: https://github.com/FactoryGameFan/.github/blob/main/renovate-config.json
     //
     // Renovate cannot read a preset it has no access to, so FactoryGameFan/.github
@@ -168,7 +169,8 @@
     lockFileMaintenance: { enabled: false },
 
     // The preset already clears the weekly window for security PRs, so a CVE fix
-    // cannot sit up to 7 days waiting for Monday. What stays here is the age floor.
+    // cannot sit up to 7 days waiting for the next batch. What stays here is the
+    // age floor.
     //
     // (`vulnerabilityAlerts` is a mergeable option, so setting `minimumReleaseAge`
     // here keeps the preset's schedule override rather than replacing the block -
