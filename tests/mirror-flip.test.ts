@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vite-plus/test'
+import { StorageTankPrototype } from 'factorio:prototype'
 import { Blueprint } from '../packages/editor/src/core/Blueprint'
 import { Entity } from '../packages/editor/src/core/Entity'
 import FD, { loadData, usesMirroring } from '../packages/editor/src/core/factorioData'
@@ -38,18 +39,23 @@ interface Measured {
 const measured = (capture as unknown as { entities: Measured[] }).entities
 
 /*
-    The two controls are the measured entities whose flipped direction the
-    editor gets wrong, and neither is about `mirror`, which they never carry.
-    The game turns a flipped storage tank a quarter, 0 <-> 4, where the editor
-    keeps the direction it reflects to. And the game folds a steam engine,
+    The remaining control is a measured entity whose flipped direction the
+    editor gets wrong, and is not about `mirror`, which it never carries.
+    The game folds a steam engine,
     which has two directions, from 8 back to 0 and from 12 to 4, where the
     editor writes 8 and 12 - the same facing under another number. Kept out so
     this file stays about mirroring.
 */
-const KNOWN_WRONG_DIRECTION = new Set(['storage-tank', 'steam-engine'])
+const KNOWN_WRONG_DIRECTION = new Set(['steam-engine'])
 
 beforeAll(() => {
     loadData(readFileSync('packages/exporter/data/output/data.json', 'utf8'))
+    const tank: StorageTankPrototype = {
+        ...(FD.entities['storage-tank'] as StorageTankPrototype),
+        name: 'four-way-storage-tank',
+        two_direction_only: false,
+    }
+    FD.entities[tank.name] = tank
 })
 
 describe('usesMirroring', () => {
@@ -63,6 +69,34 @@ describe('usesMirroring', () => {
 })
 
 describe('Entity.getFlippedCopy', () => {
+    for (const [vertical, directions] of [
+        [false, [0, 12, 8, 4]],
+        [true, [8, 4, 0, 12]],
+    ] as const) {
+        for (const [index, direction] of [0, 4, 8, 12].entries()) {
+            it(`keeps four-way tank reflection on ${vertical ? 'V' : 'H'} from ${direction}`, () => {
+                const bp = new Blueprint({})
+                const entity = new Entity(
+                    {
+                        entity_number: 1,
+                        name: 'four-way-storage-tank',
+                        position: { x: 3, y: 5 },
+                        direction,
+                    },
+                    bp
+                )
+
+                const copy = entity.getFlippedCopy(vertical)
+
+                expect(copy.direction).toBe(directions[index])
+                expect(copy.position).toEqual(vertical ? { x: 3, y: -5 } : { x: -3, y: 5 })
+                const restored = copy.getFlippedCopy(vertical)
+                expect(restored.direction).toBe(entity.direction)
+                expect(restored.position).toEqual(entity.position)
+            })
+        }
+    }
+
     for (const e of measured) {
         const flips = Array.isArray(e.flips) ? e.flips : []
         for (const f of flips) {

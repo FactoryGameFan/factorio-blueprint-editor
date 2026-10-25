@@ -333,6 +333,40 @@ test('a drag onto an occupied tile shows blocked and does not commit', async ({ 
     expect(await blocked(page, 1)).toBe(false)
 })
 
+for (const key of ['KeyF', 'KeyG']) {
+    test(`${key} turns a flipped storage tank a quarter and undo restores it`, async ({ page }) => {
+        await openEditorWith(
+            page,
+            encode({
+                item: 'blueprint',
+                version: version(2, 1, 23),
+                entities: [
+                    { entity_number: 1, name: 'storage-tank', position: { x: 0.5, y: 0.5 } },
+                ],
+            })
+        )
+        const exported = async () =>
+            decodeBlueprintString(
+                await page.evaluate(() => (window as any).__fbe_test.encodeLoaded())
+            ).blueprint.entities[0]
+        const before = await exported()
+        await altSelectAround(page, await screenOf(page, 1))
+        expect(await selected(page)).toEqual([1])
+        const rev = await revision(page)
+
+        await page.keyboard.press(`Shift+${key}`)
+        expect((await exported()).direction).toBe(4)
+        expect(await revision(page)).toBe(rev + 1)
+
+        await page.keyboard.press(`Shift+${key}`)
+        expect(await exported()).toEqual(before)
+        await page.keyboard.press('Control+KeyZ')
+        expect((await exported()).direction).toBe(4)
+        await page.keyboard.press('Control+KeyZ')
+        expect(await exported()).toEqual(before)
+    })
+}
+
 test('Shift+F mirrors the selection in place, in one undo step', async ({ page }) => {
     await openEditorWithChests(page)
     await altSelect(page, 1, 2)
