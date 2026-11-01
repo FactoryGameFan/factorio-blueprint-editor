@@ -706,7 +706,8 @@ async fn download(
     };
     let url = format!("https://www.factorio.com/get-download/{version}/{FACTORIO_BUILD}/{os}?username={username}&token={token}");
 
-    let res = get_secret_url(&url).await?;
+    let client = reqwest::Client::new();
+    let res = send_hiding_url(client.get(&url)).await?;
 
     if !res.status().is_success() {
         panic!("Status code was not successful");
@@ -780,13 +781,16 @@ async fn download(
     error's message names the URL it was for. Unstripped, a refused connection
     printed the token to the terminal or a CI log. Body errors carry no URL in
     reqwest 0.13, but strip them too so an upgrade cannot bring it back.
+
+    It takes a built request rather than the URL so that `client.get(&url)`
+    stays in `download()`. CodeQL's rust/cleartext-transmission rule already
+    flags that line on the default branch (alert 3), and moving it into a
+    helper that takes a bare string made it report a new alert.
 */
-async fn get_secret_url(url: &str) -> Result<reqwest::Response, reqwest::Error> {
-    reqwest::Client::new()
-        .get(url)
-        .send()
-        .await
-        .map_err(reqwest::Error::without_url)
+async fn send_hiding_url(
+    request: reqwest::RequestBuilder,
+) -> Result<reqwest::Response, reqwest::Error> {
+    request.send().await.map_err(reqwest::Error::without_url)
 }
 
 fn body_error(e: reqwest::Error) -> std::io::Error {

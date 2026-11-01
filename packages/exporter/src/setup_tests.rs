@@ -372,9 +372,11 @@ fn error_chain(e: &dyn Error) -> String {
 // print the URL they were for. Port 1 on loopback refuses the connection.
 #[tokio::test]
 async fn a_failed_request_does_not_print_the_token() {
-    let err = get_secret_url("http://127.0.0.1:1/get-download?token=SECRET-TOKEN")
-        .await
-        .unwrap_err();
+    let err = send_hiding_url(
+        reqwest::Client::new().get("http://127.0.0.1:1/get-download?token=SECRET-TOKEN"),
+    )
+    .await
+    .unwrap_err();
     let text = error_chain(&err);
     assert!(!text.contains("SECRET-TOKEN"), "{text}");
 }
@@ -397,7 +399,9 @@ async fn a_failed_download_body_does_not_print_the_token() {
     });
 
     let url = format!("http://127.0.0.1:{port}/get-download?token=SECRET-TOKEN");
-    let res = get_secret_url(&url).await.unwrap();
+    let res = send_hiding_url(reqwest::Client::new().get(&url))
+        .await
+        .unwrap();
     let err = res
         .bytes_stream()
         .map_err(body_error)
