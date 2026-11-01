@@ -666,6 +666,29 @@ pub async fn download_factorio(
         download(factorio_version, &username, &token, data_dir).await?;
     }
 
+    /*
+        The tarball records the executable as 0755, but tokio-tar applies a
+        file's mode only with `set_preserve_permissions(true)`, so it lands as
+        0644 and spawning it fails (#588). That flag would also restore setuid
+        and setgid bits from an archive fetched off the network, so set just
+        this one file's mode instead. It runs on the no-download branch too,
+        which repairs a copy unpacked before this fix.
+    */
+    if std::env::consts::OS == "linux" {
+        mark_executable(&local_executable_path(base_factorio_dir))?;
+    }
+
+    Ok(())
+}
+
+#[cfg(unix)]
+fn mark_executable(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
+}
+
+#[cfg(not(unix))]
+fn mark_executable(_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
@@ -743,14 +766,20 @@ async fn download(
         "linux" => {
             let stream_reader = tokio_util::io::StreamReader::new(stream);
             let decompressor = async_compression::tokio::bufread::LzmaDecoder::new(stream_reader);
-
-            let mut ar = tokio_tar::Archive::new(decompressor);
-            ar.unpack(out_dir).await?;
+            unpack_tarball(decompressor, out_dir).await?;
         }
         os => panic!("unsupported OS: {os}"),
     }
 
     pb.finish();
 
+    Ok(())
+}
+
+async fn unpack_tarball<R: tokio::io::AsyncRead + Unpin>(
+    archive: R,
+    out_dir: &Path,
+) -> Result<(), Box<dyn Error>> {
+    tokio_tar::Archive::new(archive).unpack(out_dir).await?;
     Ok(())
 }
