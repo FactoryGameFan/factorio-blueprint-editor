@@ -313,3 +313,44 @@ fn every_platform_has_its_own_tracked_basisu() {
         assert!(path.is_file(), "{os}: no binary at {}", path.display());
     }
 }
+
+/// Builds a tarball laid out like Factorio's Linux release: the executable at
+/// `factorio/bin/x64/factorio` with mode 0755, and the base mod's info.json.
+#[cfg(target_os = "linux")]
+async fn fake_linux_release(version: &str) -> Vec<u8> {
+    let mut builder = tokio_tar::Builder::new(Vec::new());
+    let mut append = async |path: &str, mode: u32, body: &[u8]| {
+        let mut header = tokio_tar::Header::new_gnu();
+        header.set_size(body.len() as u64);
+        header.set_mode(mode);
+        header.set_cksum();
+        builder.append_data(&mut header, path, body).await.unwrap();
+    };
+    append("factorio/bin/x64/factorio", 0o755, b"#!/bin/sh\n").await;
+    let info = serde_json::json!({ "name": "base", "version": version }).to_string();
+    append("factorio/data/base/info.json", 0o644, info.as_bytes()).await;
+    builder.into_inner().await.unwrap()
+}
+
+// #588: tokio-tar drops every file's mode unless asked to keep it, so the
+// executable used to land as 0644 and the export failed to spawn it.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn a_linux_download_leaves_factorio_executable() {
+    use std::os::unix::fs::PermissionsExt;
+    let data_dir = fixture_dir();
+    let tarball = fake_linux_release("2.0.77").await;
+    unpack_tarball(tarball.as_slice(), &data_dir).await.unwrap();
+
+    let base_factorio_dir = data_dir.join("factorio");
+    // The version matches, so this takes the no-download branch.
+    download_factorio(&data_dir, &base_factorio_dir, "2.0.77")
+        .await
+        .unwrap();
+
+    let mode = std::fs::metadata(local_executable_path(&base_factorio_dir))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o7777, 0o755, "mode was {:o}", mode & 0o7777);
+}
