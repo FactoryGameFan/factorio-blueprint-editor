@@ -354,3 +354,60 @@ async fn a_linux_download_leaves_factorio_executable() {
         .mode();
     assert_eq!(mode & 0o7777, 0o755, "mode was {:o}", mode & 0o7777);
 }
+
+/// Every message in an error's source chain, joined, so a test can check that
+/// no layer of it repeats a secret.
+fn error_chain(e: &dyn Error) -> String {
+    let mut text = e.to_string();
+    let mut source = e.source();
+    while let Some(inner) = source {
+        text.push_str(" / ");
+        text.push_str(&inner.to_string());
+        source = inner.source();
+    }
+    text
+}
+
+// factorio.com takes the token in the query string, and reqwest's errors
+// print the URL they were for. Port 1 on loopback refuses the connection.
+#[tokio::test]
+async fn a_failed_request_does_not_print_the_token() {
+    let err = send_hiding_url(
+        reqwest::Client::new().get("http://127.0.0.1:1/get-download?token=SECRET-TOKEN"),
+    )
+    .await
+    .unwrap_err();
+    let text = error_chain(&err);
+    assert!(!text.contains("SECRET-TOKEN"), "{text}");
+}
+
+// A body that ends early fails mid-stream, after the request succeeded.
+#[tokio::test]
+async fn a_failed_download_body_does_not_print_the_token() {
+    use futures::stream::TryStreamExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = [0u8; 1024];
+        let _ = socket.read(&mut request).await;
+        socket
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nshort")
+            .await
+            .unwrap();
+    });
+
+    let url = format!("http://127.0.0.1:{port}/get-download?token=SECRET-TOKEN");
+    let res = send_hiding_url(reqwest::Client::new().get(&url))
+        .await
+        .unwrap();
+    let err = res
+        .bytes_stream()
+        .map_err(body_error)
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap_err();
+    let text = error_chain(&err);
+    assert!(!text.contains("SECRET-TOKEN"), "{text}");
+}
