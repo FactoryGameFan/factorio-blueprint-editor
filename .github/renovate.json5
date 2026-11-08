@@ -80,7 +80,7 @@
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
     // The org preset supplies what used to be spelled out here: config:recommended,
     // helpers:pinGitHubActionDigests, the America/Los_Angeles timezone, the
-    // weekly batch from noon Sunday to noon Monday, automerge:false,
+    // weekly batch on Thursday and Friday, automerge:false,
     // prConcurrentLimit/prHourlyLimit, dependencyDashboard, osvVulnerabilityAlerts,
     // the rule that security fixes skip the weekly window, and a 'github actions'
     // grouping.
