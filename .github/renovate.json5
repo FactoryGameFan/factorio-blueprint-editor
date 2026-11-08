@@ -168,6 +168,17 @@
     // that installing the same target versions directly did not.
     lockFileMaintenance: { enabled: false },
 
+    // Rebase bot PRs as soon as the base branch moves, not only on a conflict.
+    // The default, `auto`, only does that when automerge is on or the branch
+    // rules demand an up-to-date branch. Neither is true here: automerge is off,
+    // and the only ruleset ("No ForcePush") blocks deletion and force-pushes but
+    // requires no status check (checked 2026-11-02). So
+    // Renovate only rebased PRs that had a CONFLICT, and #634 sat behind the base
+    // branch all night on 2026-11-02, its green checks run against an old base.
+    // The cost is one extra CI run per open bot PR after each merge, and there
+    // are at most 3 open at once (`prConcurrentLimit` in the org preset).
+    rebaseWhen: 'behind-base-branch',
+
     // The preset already clears the weekly window for security PRs, so a CVE fix
     // cannot sit up to 7 days waiting for the next batch. What stays here is the
     // age floor.
@@ -396,12 +407,82 @@
             //
             // The cost is real and worth naming: a lockfile-only group PR has no
             // Cargo.toml diff to read, so the per-crate judgement below applies to
-            // the whole batch at once. If a batch ever mixes a routine bump with an
-            // image, zip, tar or compression crate, split it rather than waving the
-            // note through.
+            // the whole batch at once. That is why image, zip, tar and compression
+            // crates no longer join this batch: the next rule gives them a group of
+            // their own. This used to be a request to split a mixed batch by hand,
+            // and #633 (2026-11-02) showed nothing did - it held globset
+            // 0.4.20 -> 0.4.21 beside zip 9.0.5 -> 9.1.3. If a crate of that kind
+            // still turns up here, add it to the next rule's list rather than
+            // waving the note through.
             groupName: 'rust crates',
             prBodyNotes: [
                 'CI compiles this crate (the `Rust exporter` job, on ubuntu only) but **cannot run it** - the exporter needs a Factorio install to extract from. So a green check means it still builds and the lockfile is coherent; a crate that changes runtime behaviour without breaking the build will pass. For anything touching **image** handling, run the exporter locally before merging. For **zip, tar or compression**, a macOS run is not an option and should not be attempted: a download run panics in `main.rs` on macOS before it reaches an extractor. Both extraction arms are type-checked on ubuntu - `zip` for the Windows download and `tokio-tar` over an `async-compression` `LzmaDecoder` for the Linux one - but only a download run on Windows or Linux exercises them, and nothing checks that the dependency tree still builds on windows-msvc.',
+            ],
+        },
+        {
+            // The crates a green `Rust exporter` build cannot vouch for, in a group
+            // of their own so they never ride along with a routine bump. The zip
+            // and tar extractors only run in a real download, and the PNG path
+            // only in a real export; CI does neither (see the note above).
+            //
+            // ORDER MATTERS: this rule must stay AFTER the cargo rule. Later rules
+            // win, so this groupName replaces 'rust crates' for the names below.
+            // `prBodyNotes` is mergeable, so the cargo rule's note still appears in
+            // these PRs and the one here is added after it.
+            //
+            // Scoped to cargo because npm has packages called `tar`, `zip` and
+            // `image` too, and those are not this rule's business.
+            //
+            // `matchPackageNames` matches the CRATE name (Renovate's packageName),
+            // not the Cargo.toml key. Cargo.toml says `tokio-tar = { package =
+            // "astral-tokio-tar" }`, so the crate name is what matters; both are
+            // listed in case the rename is ever dropped.
+            //
+            // Direct dependencies in packages/exporter/Cargo.toml as of 2026-11-02:
+            // image, zip, async-compression and astral-tokio-tar. The rest of the
+            // list is in Cargo.lock only, under those four (checked with
+            // `cargo tree --invert <crate>`), or not in the tree yet: tar, xz2,
+            // lzma-sys, zstd and bzip2. Renovate proposes updates for direct
+            // dependencies only, so a lock-only crate moves as a side effect of
+            // its parent's bump and lands in the parent's group anyway. Listing
+            // them keeps them here if one ever becomes direct.
+            //
+            // typed-path is the case that prompted that note. #633 moved it
+            // 0.12.3 -> 0.13.0, but it is not in that PR's update table: zip is
+            // its only dependent, and `cargo update --package zip` pulled it. It
+            // is listed because it is archive code (zip uses it to handle entry
+            // paths on extraction), not because listing it changes #633.
+            matchManagers: ['cargo'],
+            matchPackageNames: [
+                // images
+                'image',
+                'png',
+                'fdeflate',
+                // archives
+                'zip',
+                'typed-path',
+                'astral-tokio-tar',
+                'tokio-tar',
+                'tar',
+                'xattr',
+                // compression
+                'async-compression',
+                'compression-codecs',
+                'compression-core',
+                'flate2',
+                'miniz_oxide',
+                'zlib-rs',
+                'zopfli',
+                'liblzma',
+                'liblzma-sys',
+                'xz2',
+                'lzma-sys',
+                'zstd',
+                'bzip2',
+            ],
+            groupName: 'rust image, archive and compression crates',
+            prBodyNotes: [
+                'This group is kept apart from the routine `rust crates` batch on purpose, so it can be read, tested and reverted on its own. A green build here does not run the zip or tar extractors or the PNG path - see the note above for what to run before merging.',
             ],
         },
         {
