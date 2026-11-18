@@ -8,6 +8,6 @@
 // versions without pulling FD - and the whole entity model behind it - into a
 // unit test.
 const getFactorioVersion = (main = 2, major = 0, minor = 45): number =>
-    (minor << 16) + (major | (main << 16)) * 0xffffffff
+    main * 2 ** 48 + major * 2 ** 32 + minor * 2 ** 16
 
 export { getFactorioVersion }
