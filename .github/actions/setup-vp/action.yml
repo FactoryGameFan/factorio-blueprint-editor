@@ -118,11 +118,25 @@ runs:
         # byte-identical to that commit's, and its whole diff from 40b9cb66 is
         # one line in a package.json template it writes: "packageManager" from
         # pnpm@10.33.0 to pnpm@10.34.7. The bootstrap is unchanged.
+        #
+        # Both rotated together on 2026-11-10, failing every job on every
+        # branch from then on (first seen on #638 and #640). The served files
+        # are byte-identical to upstream main: the bootstrap to install.sh at
+        # 43a3ef3c (#3233) and install-legacy.sh to ff957e8a (#3416). The
+        # bootstrap's whole diff from bf53953a is a new VP_ENV_FORBIDDEN=1
+        # branch, which only runs when that variable is set (it is not here) and
+        # asks the vp binary whether it supports it before handing off; every
+        # other path is unchanged. The legacy script's whole diff from 0cbfb6d6
+        # is the same one-line template change as last time, pnpm@10.34.7 to
+        # pnpm@10.34.9. Both the pinned 1.4.0 and 1.7.0 have npm provenance, and
+        # the new pair installed each of them in an ubuntu:24.04 container with
+        # the same result as the old pair (that image needs libatomic1 added for
+        # vp's Node 26; the GitHub runner image already has it).
         curl -fsSL https://vite.plus -o vp-install.sh
         curl -fsSL https://viteplus.dev/install-legacy.sh -o install-legacy.sh
         printf '%s\n' \
-          "6eaf139e16d45849bebc4a7de0dbc2992fd3b3a86a3f37bf7922b685f3a60d9e  vp-install.sh" \
-          "a7c79509041afd3df98e7ce15e332e6cbaca0705a4ae2c099095a78009baa99c  install-legacy.sh" \
+          "5d360005c321fedb48d5a6dafb4e22e6ffc8d5a03e1b3aa3d7ee1c88f9ced3a9  vp-install.sh" \
+          "eb8fce7adae8b8d1b7d328129c67ce09ed5f285a43b9630ee2307606ad742ab9  install-legacy.sh" \
           | sha256sum -c -
         VP_HOME="$HOME/.vite-plus" VP_NODE_MANAGER=yes bash vp-install.sh
         # From 1.x the installer looks for a package manager already on PATH,
