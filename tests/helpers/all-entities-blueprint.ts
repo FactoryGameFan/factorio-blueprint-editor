@@ -46,11 +46,20 @@ export interface AllEntitiesBlueprint {
  * @param directions which directions to place a copy of each entity in. Entities
  * that cannot face a direction still have to produce sprites rather than throw.
  */
-export function buildAllEntitiesBlueprint(directions: number[] = [0]): AllEntitiesBlueprint {
+export function buildAllEntitiesBlueprint(
+    directions: number[] = [0],
+    /** Leaves out any entity wider or taller than this many tiles, for a lighter blueprint. */
+    maxTiles = Infinity
+): AllEntitiesBlueprint {
     const data = JSON.parse(fs.readFileSync(DATA_JSON, 'utf-8')) as {
         entities: Record<string, Record<string, unknown>>
     }
-    const names: string[] = Object.keys(data.entities).sort()
+    const names: string[] = Object.keys(data.entities)
+        .sort()
+        .filter(name => {
+            const size = entitySize(data.entities[name])
+            return size.x <= maxTiles && size.y <= maxTiles
+        })
 
     const entities: RawEntity[] = []
     let slot = 0

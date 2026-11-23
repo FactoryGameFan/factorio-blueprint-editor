@@ -46,6 +46,23 @@ export interface TestFilterSlot extends Omit<TestFilter, 'name'> {
     name: string | undefined
 }
 
+/** One rectangle in client coordinates. */
+export interface ScrollBox {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
+/** `ScrollAreaState` from the editor, restated here because the specs do not import editor code. */
+export interface ScrollState {
+    scroll: number
+    maxScroll: number
+    viewport: ScrollBox
+    track: ScrollBox
+    thumb: ScrollBox | undefined
+}
+
 export interface FbeTestApi {
     getBlueprintOrBookFromSource: (source: string) => Promise<BlueprintOrBook>
     loadBp: (bp: unknown) => Promise<void>
@@ -375,6 +392,19 @@ export interface FbeTestApi {
      * control inside one. Throws when nothing is open.
      */
     topDialogBounds: () => { x: number; y: number; width: number; height: number }
+    /**
+     * The topmost dialog's scroll area: `scroll` and `maxScroll` in px, and its
+     * viewport, track and thumb (undefined when nothing scrolls) in the client
+     * coordinates a synthetic pointer event takes. Undefined when the dialog has
+     * no scroll area. See tests/book-dialog.spec.ts.
+     */
+    topDialogScroll: () => ScrollState | undefined
+    /**
+     * The centre of each group tab of the topmost dialog, left to right, in
+     * client coordinates - or undefined when that dialog is not an inventory.
+     * See tests/dialog-scrolling.spec.ts.
+     */
+    topDialogInventoryTabs: () => { x: number; y: number }[] | undefined
     /**
      * The string of every `Text` in the topmost open dialog, in display-tree
      * order and hidden ones included - pixi text, so a spec has no other way

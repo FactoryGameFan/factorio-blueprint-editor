@@ -1,10 +1,11 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import { Book, countNestedBlueprints } from '../core/Book'
 import { IBlueprintBookEntry } from '../types'
 import G from '../common/globals'
 import F from './controls/functions'
 import { Button } from './controls/Button'
 import { Dialog } from './controls/Dialog'
+import { ScrollArea } from './controls/ScrollArea'
 import { styles } from './style'
 
 const WIDTH = 320
@@ -183,28 +184,13 @@ function buildRows(
  * index or how deep it sits.
  */
 export class BookDialog extends Dialog {
-    private readonly m_Rows: Container
-    private readonly m_ScrollThumb: Graphics
-    private m_ContentHeight = 0
-
     public constructor(book: Book) {
         super(WIDTH, HEIGHT, 'Blueprint Book')
 
-        this.m_Rows = new Container()
-        const viewport = new Container()
-        viewport.position.set(VP_X, VP_Y)
-        viewport.addChild(this.m_Rows)
-        this.addChild(viewport)
-
-        const mask = new Graphics().rect(VP_X, VP_Y, VP_W, VP_H).fill(0xffffff)
-        this.addChild(mask)
-        viewport.mask = mask
-        viewport.eventMode = 'static'
-        viewport.hitArea = new Rectangle(0, 0, VP_W, VP_H)
-
-        this.m_ScrollThumb = new Graphics().rect(0, 0, 4, 1).fill({ color: 0xc8c8c8, alpha: 0.6 })
-        this.m_ScrollThumb.visible = false
-        this.addChild(this.m_ScrollThumb)
+        // The track takes the right-hand margin, beside the rows rather than over them.
+        const scrollArea = new ScrollArea({ width: VP_W, height: VP_H, trackX: VP_W })
+        scrollArea.position.set(VP_X, VP_Y)
+        this.addChild(scrollArea)
 
         const rows: Container[] = []
         buildRows(
@@ -221,40 +207,8 @@ export class BookDialog extends Dialog {
         )
 
         for (const row of rows) {
-            this.m_Rows.addChild(row)
+            scrollArea.content.addChild(row)
         }
-        this.m_ContentHeight = rows.length * ROW_HEIGHT
-
-        const onWheel = (e: WheelEvent): void => {
-            const maxScroll = Math.max(0, this.m_ContentHeight - VP_H)
-            if (maxScroll <= 0) return
-            e.preventDefault()
-            e.stopPropagation()
-            this.m_Rows.y = Math.min(
-                0,
-                Math.max(-maxScroll, this.m_Rows.y - Math.sign(e.deltaY) * ROW_HEIGHT)
-            )
-            this.refreshScrollbar()
-        }
-        viewport.addEventListener('wheel', onWheel, { passive: false })
-        this.on('destroyed', () => {
-            viewport.removeEventListener('wheel', onWheel)
-        })
-
-        this.refreshScrollbar()
-    }
-
-    private refreshScrollbar(): void {
-        const maxScroll = Math.max(0, this.m_ContentHeight - VP_H)
-        if (maxScroll <= 0) {
-            this.m_ScrollThumb.visible = false
-            return
-        }
-        const thumbH = Math.max(24, (VP_H * VP_H) / this.m_ContentHeight)
-        const scroll = -this.m_Rows.y
-        const thumbY = VP_Y + (scroll / maxScroll) * (VP_H - thumbH)
-        this.m_ScrollThumb.visible = true
-        this.m_ScrollThumb.height = thumbH
-        this.m_ScrollThumb.position.set(WIDTH - PADDING - 4, thumbY)
+        scrollArea.contentHeight = rows.length * ROW_HEIGHT
     }
 }
