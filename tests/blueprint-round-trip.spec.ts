@@ -228,8 +228,11 @@ const EXPECTED = {
     // machines on molten-iron or molten-copper now serialize as iron-ore-melting
     // and copper-ore-melting. With that migration taken out, the old pair
     // (1944909146, 568918011) comes back exactly, so nothing else moved.
-    serializedHash: -1287764038,
-    withoutMetadataHash: 447347803,
+    // #574 corrects the exported version to 2.0.45.0. Restoring only the old
+    // version stamp reproduces (-1287764038, 447347803); all counts and both
+    // position checksums remain unchanged.
+    serializedHash: 1975569770,
+    withoutMetadataHash: 1053138571,
     parameterBlueprints: 97,
     stockConnectionBlueprints: 28,
 }
