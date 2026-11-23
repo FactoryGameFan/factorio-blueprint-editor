@@ -1,8 +1,9 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import FD, { localisedName, recipeIngredients, recipeResults } from '../core/factorioData'
 import F from './controls/functions'
 import { Dialog } from './controls/Dialog'
 import { Button } from './controls/Button'
+import { SCROLL_TRACK_W, ScrollArea } from './controls/ScrollArea'
 import { colors, styles } from './style'
 
 /*
@@ -59,8 +60,11 @@ export class InventoryDialog extends Dialog {
     /** Content height (px) of each inventory group container, for scroll clamping */
     private readonly m_ContentHeights = new Map<Container, number>()
 
-    /** Scrollbar thumb rendered alongside the items viewport */
-    private readonly m_ScrollThumb: Graphics
+    /** Where each group was left scrolled to, so a tab keeps its place while another is shown */
+    private readonly m_Scrolls = new Map<Container, number>()
+
+    /** Clips the items, scrolls them, and draws the scrollbar */
+    private readonly m_ScrollArea: ScrollArea
 
     /** Whether the recipe panel was built - `setPosition` needs it after the constructor has returned */
     private readonly m_ShowRecipePanel: boolean
@@ -126,38 +130,24 @@ export class InventoryDialog extends Dialog {
         this.m_InventoryGroups.position.set(12, 46)
         this.addChild(this.m_InventoryGroups)
 
-        this.m_InventoryItems = new Container()
-        this.m_InventoryItems.position.set(D.VP_X, D.VP_Y)
-        this.addChild(this.m_InventoryItems)
-
-        // Clip the items to a fixed viewport and allow wheel scrolling.
+        // Clip the items to a fixed viewport and let them scroll.
         // Space Age groups contain far more items than fit in the fixed dialog
         // height, so without this the lower rows are hidden with no way to reach them.
-        const itemsMask = new Graphics().rect(D.VP_X, D.VP_Y, D.VP_W, D.VP_H).fill(0xffffff)
-        this.addChild(itemsMask)
-        this.m_InventoryItems.mask = itemsMask
-        this.m_InventoryItems.eventMode = 'static'
-        this.m_InventoryItems.hitArea = new Rectangle(0, 0, D.VP_W, D.VP_H)
-
-        this.m_ScrollThumb = new Graphics().rect(0, 0, 4, 1).fill({ color: 0xc8c8c8, alpha: 0.6 })
-        this.m_ScrollThumb.visible = false
-        this.addChild(this.m_ScrollThumb)
-
-        const onItemsWheel = (e: WheelEvent): void => {
-            const active = this.m_InventoryItems.children.find(c => c.visible)
-            if (!active) return
-            const contentH = this.m_ContentHeights.get(active) ?? 0
-            const maxScroll = Math.max(0, contentH - D.VP_H)
-            if (maxScroll <= 0) return
-            e.preventDefault()
-            e.stopPropagation()
-            active.y = Math.min(0, Math.max(-maxScroll, active.y - Math.sign(e.deltaY) * D.ROW_H))
-            this.refreshScrollbar()
-        }
-        this.m_InventoryItems.addEventListener('wheel', onItemsWheel, { passive: false })
-        this.on('destroyed', () => {
-            this.m_InventoryItems.removeEventListener('wheel', onItemsWheel)
+        //
+        // The track fills the 12px margin at the dialog's actual right border,
+        // rather than sitting at a fixed VP_X + VP_W:
+        // computeWidth can widen the dialog well past the base 404px layout the
+        // viewport geometry was designed for, and a fixed-offset track would
+        // strand itself deep inside the dialog instead of at its edge. It sits
+        // beside the items, not over them.
+        this.m_ScrollArea = new ScrollArea({
+            width: D.VP_W,
+            height: D.VP_H,
+            trackX: this.width - D.VP_X - SCROLL_TRACK_W,
         })
+        this.m_ScrollArea.position.set(D.VP_X, D.VP_Y)
+        this.addChild(this.m_ScrollArea)
+        this.m_InventoryItems = this.m_ScrollArea.content as Container<InventoryItems>
 
         let groupIndex = 0
         for (const group of FD.inventoryLayout) {
@@ -252,11 +242,17 @@ export class InventoryDialog extends Dialog {
                         const buttonData = button.data
                         if (!buttonData.visible) {
                             for (const inventoryGroupItems of this.m_InventoryItems.children) {
+                                if (inventoryGroupItems.visible) {
+                                    this.m_Scrolls.set(
+                                        inventoryGroupItems,
+                                        this.m_ScrollArea.scroll
+                                    )
+                                }
                                 inventoryGroupItems.visible = inventoryGroupItems === buttonData
                                 inventoryGroupItems.interactiveChildren =
                                     inventoryGroupItems === buttonData
                             }
-                            this.refreshScrollbar()
+                            this.showScrollFor(buttonData)
                         }
                     }
                 })
@@ -295,7 +291,7 @@ export class InventoryDialog extends Dialog {
             recipePanel.addChild(this.m_RecipeContainer)
         }
 
-        this.refreshScrollbar()
+        this.showScrollFor(this.m_InventoryItems.children.find(c => c.visible))
 
         // Again, now that `m_ShowRecipePanel` is set. `Panel`'s constructor
         // already ran this before that field was assigned, so it centred on
@@ -305,27 +301,22 @@ export class InventoryDialog extends Dialog {
         this.setPosition()
     }
 
-    /** Update the scrollbar thumb to reflect the active group's scroll position */
-    private refreshScrollbar(): void {
-        const D = InventoryDialog
-        const active = this.m_InventoryItems.children.find(c => c.visible)
-        const contentH = active ? (this.m_ContentHeights.get(active) ?? 0) : 0
-        const maxScroll = Math.max(0, contentH - D.VP_H)
-        if (!active || maxScroll <= 0) {
-            this.m_ScrollThumb.visible = false
-            return
-        }
-        const thumbH = Math.max(24, (D.VP_H * D.VP_H) / contentH)
-        const scroll = -active.y
-        const thumbY = D.VP_Y + (scroll / maxScroll) * (D.VP_H - thumbH)
-        this.m_ScrollThumb.visible = true
-        this.m_ScrollThumb.height = thumbH
-        // Anchored to the dialog's actual right border (mirrors the 12px left
-        // margin) rather than a fixed VP_X + VP_W: computeWidth can widen the
-        // dialog well past the base 404px layout the viewport geometry was
-        // designed for, and a fixed-offset thumb would strand itself deep
-        // inside the dialog instead of at its edge.
-        this.m_ScrollThumb.position.set(this.width - 12 - 4, thumbY)
+    /**
+     * Where each group tab's centre sits, in the client coordinates a pointer
+     * event takes, left to right. For specs: the tabs are pixi buttons, so
+     * nothing outside the canvas can find them. See tests/dialog-scrolling.spec.ts.
+     */
+    public get groupTabCentres(): { x: number; y: number }[] {
+        return this.m_InventoryGroups.children.map(button => {
+            const at = button.toGlobal({ x: 0, y: 0 })
+            return { x: at.x + button.width / 2, y: at.y + button.height / 2 }
+        })
+    }
+
+    /** Points the scroll area at the shown group: its height, and where it was left */
+    private showScrollFor(group: Container | undefined): void {
+        this.m_ScrollArea.contentHeight = group ? (this.m_ContentHeights.get(group) ?? 0) : 0
+        this.m_ScrollArea.scroll = group ? (this.m_Scrolls.get(group) ?? 0) : 0
     }
 
     /** Override automatically set position of dialog due to additional area for recipe */

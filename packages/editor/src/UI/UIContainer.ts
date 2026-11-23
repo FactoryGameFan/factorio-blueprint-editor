@@ -14,6 +14,7 @@ import { ShortcutBar } from './ShortcutBar'
 import { BlueprintInfoButton } from './BlueprintInfoButton'
 import { BlueprintInfoEditor } from './BlueprintInfoEditor'
 import { BillOfMaterialsDialog, DrawnMaterialSlot } from './BillOfMaterialsDialog'
+import { ScrollArea, type ScrollAreaState } from './controls/ScrollArea'
 import type { BillOfMaterials } from '../core/billOfMaterials'
 import { createEditor } from './editors/factory'
 import { bottomBarTop } from './barLayout'
@@ -197,6 +198,32 @@ export class UIContainer extends Container {
         }
         walk(top)
         return texts
+    }
+
+    /**
+     * The scroll state of the topmost open dialog's scroll area: how far it has
+     * moved, how far it can, and where its viewport, track and thumb are in
+     * client coordinates. Undefined when that dialog has none. Dialogs are
+     * drawn with pixi, so a spec has no other way to read a scroll offset
+     * without clicking a row. See tests/book-dialog.spec.ts.
+     */
+    public get topDialogScroll(): ScrollAreaState | undefined {
+        const find = (node: Container): ScrollArea | undefined => {
+            if (node instanceof ScrollArea) return node
+            for (const child of node.children) {
+                const found = find(child)
+                if (found) return found
+            }
+            return undefined
+        }
+        const top = this.topDialog
+        return top === undefined ? undefined : find(top)?.state
+    }
+
+    /** The centre of each group tab of the topmost dialog, when that is an inventory. See tests/dialog-scrolling.spec.ts. */
+    public get topDialogInventoryTabs(): { x: number; y: number }[] | undefined {
+        const top = this.topDialog
+        return top instanceof InventoryDialog ? top.groupTabCentres : undefined
     }
 
     /** How many dialogs are open. 0 when the canvas has none. */

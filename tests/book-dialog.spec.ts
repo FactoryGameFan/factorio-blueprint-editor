@@ -7,6 +7,19 @@ import {
     packVersion,
 } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
+import {
+    centre,
+    dragThumb,
+    expectThumbAgrees,
+    scrollAfterMovesWithNoButton,
+    scrollOf,
+    settle,
+    thumbOf,
+    trackPointAboveThumb,
+    trackPointBelowThumb,
+    wheelAt,
+    wheelAtMode,
+} from './helpers/dialog-scroll'
 
 const version = packVersion(2, 0, 55)
 const blueprint = (label: string, count = 1) => ({
@@ -181,4 +194,211 @@ test('book toggle preserves a dialog above it and closes only when topmost', asy
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
     await page.mouse.click(212, 24)
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+})
+
+/*
+    Issue #643: the scrollbar did nothing but sit there. The thumb had no
+    handlers, so it could not be dragged, a wheel over it was swallowed, and a
+    click beside it fell through to the row under it - which loads that entry
+    and closes the dialog. And the wheel moved a whole row per event whatever
+    its size, so a browser that splits one notch into several small events
+    (Chrome and Edge on Windows) flew down the list.
+
+    40 entries make 960px of rows in a 320px viewport: 640px of travel. The
+    book starts on entry 0, which holds one entity, so the loaded entity count
+    and the exported `active_index` both say whether a click selected a row.
+*/
+const LONG_BOOK = encodeBlueprintBook(
+    book(Array.from({ length: 40 }, (_, i) => ({ blueprint: blueprint(`Entry ${i}`, i + 1) })))
+)
+const ROW = 24
+const VIEWPORT = 320
+const MAX_SCROLL = 40 * ROW - VIEWPORT
+
+const xy = (p: { x: number; y: number }): [number, number] => [p.x, p.y]
+
+/** Still open, and still on entry 0: nothing was selected. */
+async function expectUntouched(page: Page): Promise<void> {
+    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    expect(await page.evaluate(() => window.__fbe_test.entityContainerCount())).toBe(1)
+    const exported = decodeBlueprintString(
+        await page.evaluate(() => window.__fbe_test.encodeLoaded())
+    )
+    expect(exported.blueprint_book.active_index).toBe(0)
+}
+
+async function openLongBook(page: Page) {
+    await loadBlueprint(page, LONG_BOOK)
+    const bounds = await openBook(page)
+    await settle(page)
+    return bounds
+}
+
+test.describe('scrolling a long book (#643)', () => {
+    test('several small wheel events scroll by their pixels, not a row each', async ({ page }) => {
+        const bounds = await openLongBook(page)
+        const at = { x: bounds.x + 150, y: bounds.y + 200 }
+        expect((await scrollOf(page)).scroll).toBe(0)
+        // One 100px notch split into five, as Chrome and Edge do on Windows.
+        for (let i = 0; i < 5; i++) await wheelAt(page, at, 20)
+        expect((await scrollOf(page)).scroll).toBe(100)
+        // A one-pixel event is one pixel, not a row.
+        await wheelAt(page, at, 1)
+        expect((await scrollOf(page)).scroll).toBe(101)
+        // And back up by the same amount.
+        await wheelAt(page, at, -101)
+        expect((await scrollOf(page)).scroll).toBe(0)
+    })
+
+    test('the wheel reads deltaMode: lines are 16px and pages 100px', async ({ page }) => {
+        const bounds = await openLongBook(page)
+        const at = { x: bounds.x + 150, y: bounds.y + 200 }
+        await wheelAtMode(page, at, 3, 1)
+        expect((await scrollOf(page)).scroll).toBe(48)
+        await wheelAtMode(page, at, 1, 2)
+        expect((await scrollOf(page)).scroll).toBe(148)
+    })
+
+    test('the wheel stops at both ends', async ({ page }) => {
+        const bounds = await openLongBook(page)
+        const at = { x: bounds.x + 150, y: bounds.y + 200 }
+        await wheelAt(page, at, -500)
+        expect((await scrollOf(page)).scroll).toBe(0)
+        await wheelAt(page, at, 5000)
+        const state = await scrollOf(page)
+        expect(state.scroll).toBe(MAX_SCROLL)
+        expect(state.maxScroll).toBe(MAX_SCROLL)
+        // The thumb ends flush with the bottom of the track.
+        const thumb = await thumbOf(page)
+        expect(thumb.y + thumb.height).toBeCloseTo(state.track.y + state.track.height, 0)
+    })
+
+    test('a wheel over the thumb scrolls the book', async ({ page }) => {
+        await openLongBook(page)
+        await wheelAt(page, centre(await thumbOf(page)), 100)
+        expect((await scrollOf(page)).scroll).toBe(100)
+        // The thumb has moved, and a wheel over its new spot still works.
+        await wheelAt(page, centre(await thumbOf(page)), 100)
+        expect((await scrollOf(page)).scroll).toBe(200)
+        await expectUntouched(page)
+    })
+
+    test('dragging the thumb scrolls, and neither selects a row nor closes the dialog', async ({
+        page,
+    }) => {
+        await openLongBook(page)
+        const before = await scrollOf(page)
+        const travel = before.track.height - (await thumbOf(page)).height
+        await dragThumb(page, travel / 2)
+        expectThumbAgrees(await scrollOf(page), MAX_SCROLL / 2)
+        await expectUntouched(page)
+
+        // Far past the end of the track (and off the window) the thumb stops at the bottom.
+        await dragThumb(page, 600)
+        expect((await scrollOf(page)).scroll).toBe(MAX_SCROLL)
+        await expectUntouched(page)
+
+        // And back to the top. The pointer ends well above the window.
+        await dragThumb(page, -600, before.viewport.x + 100)
+        expect((await scrollOf(page)).scroll).toBe(0)
+        await expectUntouched(page)
+    })
+
+    test('letting go over the rows ends the drag without selecting one', async ({ page }) => {
+        await openLongBook(page)
+        const { viewport } = await scrollOf(page)
+        // The pointer ends inside the viewport, well left of the track, and the button comes up there.
+        const grab = centre(await thumbOf(page))
+        const endY = grab.y + 100
+        expect(endY).toBeLessThan(viewport.y + viewport.height)
+        await dragThumb(page, 100, viewport.x + 100)
+        expect((await scrollOf(page)).scroll).toBeGreaterThan(0)
+        await expectUntouched(page)
+        // The drag is over: moving back over the rows does not scroll.
+        const after = (await scrollOf(page)).scroll
+        await page.mouse.move(viewport.x + 100, viewport.y + 20, { steps: 4 })
+        await settle(page)
+        expect((await scrollOf(page)).scroll).toBe(after)
+    })
+
+    test('a drag whose release was never seen ends when moves arrive with no button held', async ({
+        page,
+    }) => {
+        await openLongBook(page)
+        expect(await scrollAfterMovesWithNoButton(page, 200)).toBe(0)
+        await expectUntouched(page)
+    })
+
+    test('Escape in the middle of a thumb drag closes the dialog and throws nothing', async ({
+        page,
+    }) => {
+        const errors: string[] = []
+        page.on('pageerror', error => errors.push(error.message))
+        await openLongBook(page)
+        const grab = centre(await thumbOf(page))
+        await page.mouse.move(grab.x, grab.y)
+        await page.mouse.down()
+        await page.mouse.move(grab.x, grab.y + 50, { steps: 4 })
+        await page.keyboard.press('Escape')
+        await expect.poll(() => page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
+        // The drag's moves and its release arrive after the dialog is gone.
+        await page.mouse.move(grab.x, grab.y + 120, { steps: 4 })
+        await page.mouse.up()
+        await settle(page)
+        expect(errors).toEqual([])
+    })
+
+    test('thumb position follows the scroll at the top, middle and bottom', async ({ page }) => {
+        const bounds = await openLongBook(page)
+        const at = { x: bounds.x + 150, y: bounds.y + 200 }
+        const top = await scrollOf(page)
+        expect((await thumbOf(page)).y).toBe(top.viewport.y)
+        expectThumbAgrees(top, 0)
+        await wheelAt(page, at, MAX_SCROLL / 2)
+        expectThumbAgrees(await scrollOf(page), MAX_SCROLL / 2)
+        await wheelAt(page, at, MAX_SCROLL)
+        const bottom = await scrollOf(page)
+        expectThumbAgrees(bottom, MAX_SCROLL)
+        const bottomThumb = await thumbOf(page)
+        expect(bottomThumb.y + bottomThumb.height).toBeCloseTo(
+            bottom.viewport.y + bottom.viewport.height,
+            0
+        )
+    })
+
+    test('a click on the track pages up or down by a viewport and selects nothing', async ({
+        page,
+    }) => {
+        await openLongBook(page)
+        await page.mouse.click(...xy(await trackPointBelowThumb(page)))
+        await settle(page)
+        expect((await scrollOf(page)).scroll).toBe(VIEWPORT)
+        await expectUntouched(page)
+
+        await page.mouse.click(...xy(await trackPointBelowThumb(page)))
+        await settle(page)
+        expect((await scrollOf(page)).scroll).toBe(MAX_SCROLL)
+        await expectUntouched(page)
+
+        await page.mouse.click(...xy(await trackPointAboveThumb(page)))
+        await settle(page)
+        expect((await scrollOf(page)).scroll).toBe(MAX_SCROLL - VIEWPORT)
+        await page.mouse.click(...xy(await trackPointAboveThumb(page)))
+        await settle(page)
+        expect((await scrollOf(page)).scroll).toBe(0)
+        await expectUntouched(page)
+    })
+
+    test('rows end where the track begins, and a row still takes a click at its right edge', async ({
+        page,
+    }) => {
+        await openLongBook(page)
+        const { viewport, track } = await scrollOf(page)
+        expect(track.x).toBeGreaterThanOrEqual(viewport.x + viewport.width)
+        // The last pixel column of row 2 (entry 2 holds 3 entities).
+        await page.mouse.click(viewport.x + viewport.width - 1, viewport.y + 2 * ROW + 12)
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount()))
+            .toBe(3)
+    })
 })

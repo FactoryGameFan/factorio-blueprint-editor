@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js'
+import { Container, Text } from 'pixi.js'
 import type { Blueprint } from '../core/Blueprint'
 import {
     BillOfMaterials,
@@ -9,6 +9,7 @@ import {
 import { ICON_BADGE_SCALE } from '../core/qualityBadge'
 import F from './controls/functions'
 import { Dialog } from './controls/Dialog'
+import { SCROLL_TRACK_W, ScrollArea } from './controls/ScrollArea'
 import { colors, styles } from './style'
 
 /*
@@ -131,9 +132,6 @@ export class BillOfMaterialsDialog extends Dialog {
     public readonly materials: BillOfMaterials
 
     private readonly m_Rows: Container
-    private readonly m_ScrollThumb: Graphics
-    private readonly m_ContentHeight: number
-    private readonly m_ViewportHeight: number
 
     public constructor(bp: Blueprint) {
         const materials = billOfMaterials(
@@ -150,8 +148,6 @@ export class BillOfMaterialsDialog extends Dialog {
 
         this.materials = materials
         this.m_Rows = rows
-        this.m_ContentHeight = contentHeight
-        this.m_ViewportHeight = viewportHeight
 
         const entityCount = bp.entities.size
         const tileCount = bp.tiles.size
@@ -163,38 +159,16 @@ export class BillOfMaterialsDialog extends Dialog {
                 : `${plural(entityCount, 'entity', 'entities')}, ${plural(tileCount, 'tile', 'tiles')}`
         )
 
-        const viewport = new Container()
-        viewport.position.set(VP_X, VP_Y)
-        viewport.addChild(this.m_Rows)
-        this.addChild(viewport)
-
-        const mask = new Graphics().rect(VP_X, VP_Y, VP_W, viewportHeight).fill(0xffffff)
-        this.addChild(mask)
-        viewport.mask = mask
-        viewport.eventMode = 'static'
-        viewport.hitArea = new Rectangle(0, 0, VP_W, viewportHeight)
-
-        this.m_ScrollThumb = new Graphics().rect(0, 0, 4, 1).fill({ color: 0xc8c8c8, alpha: 0.6 })
-        this.m_ScrollThumb.visible = false
-        this.addChild(this.m_ScrollThumb)
-
-        const onWheel = (e: WheelEvent): void => {
-            const maxScroll = Math.max(0, this.m_ContentHeight - this.m_ViewportHeight)
-            if (maxScroll <= 0) return
-            e.preventDefault()
-            e.stopPropagation()
-            this.m_Rows.y = Math.min(
-                0,
-                Math.max(-maxScroll, this.m_Rows.y - Math.sign(e.deltaY) * PITCH)
-            )
-            this.refreshScrollbar()
-        }
-        viewport.addEventListener('wheel', onWheel, { passive: false })
-        this.on('destroyed', () => {
-            viewport.removeEventListener('wheel', onWheel)
+        // The track sits centred in the 16px gutter right of the slots.
+        const scrollArea = new ScrollArea({
+            width: VP_W,
+            height: viewportHeight,
+            trackX: VP_W + (16 - SCROLL_TRACK_W) / 2,
         })
-
-        this.refreshScrollbar()
+        scrollArea.position.set(VP_X, VP_Y)
+        scrollArea.content.addChild(this.m_Rows)
+        scrollArea.contentHeight = contentHeight
+        this.addChild(scrollArea)
     }
 
     /**
@@ -216,18 +190,5 @@ export class BillOfMaterialsDialog extends Dialog {
             })
         }
         return slots
-    }
-
-    private refreshScrollbar(): void {
-        const maxScroll = Math.max(0, this.m_ContentHeight - this.m_ViewportHeight)
-        if (maxScroll <= 0) {
-            this.m_ScrollThumb.visible = false
-            return
-        }
-        const thumbH = Math.max(24, this.m_ViewportHeight ** 2 / this.m_ContentHeight)
-        const thumbY = VP_Y + (-this.m_Rows.y / maxScroll) * (this.m_ViewportHeight - thumbH)
-        this.m_ScrollThumb.visible = true
-        this.m_ScrollThumb.height = thumbH
-        this.m_ScrollThumb.position.set(VP_X + VP_W + 6, thumbY)
     }
 }

@@ -884,6 +884,8 @@ const testApi = {
     openDialogCount: () => editor.openDialogCount,
     topDialogBounds: () => editor.topDialogBounds,
     topDialogTexts: () => editor.topDialogTexts,
+    topDialogScroll: () => editor.topDialogScroll,
+    topDialogInventoryTabs: () => editor.topDialogInventoryTabs,
     shortcutBarBounds: () => editor.shortcutBarBounds,
     /*
         The shortcut bar's hover text is drawn on the canvas, so a spec cannot

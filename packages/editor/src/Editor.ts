@@ -22,6 +22,7 @@ import { ActionRegistry, MouseButton } from './actions'
 import { IPoint } from './types'
 import type { BillOfMaterials } from './core/billOfMaterials'
 import type { DrawnMaterialSlot } from './UI/BillOfMaterialsDialog'
+import type { ScrollAreaState } from './UI/controls/ScrollArea'
 
 /**
  * A single object rather than trailing positional parameters, so a caller
@@ -438,6 +439,16 @@ export class Editor {
      */
     public get topDialogBounds(): { x: number; y: number; width: number; height: number } {
         return G.UI.topDialogBounds
+    }
+
+    /** Where the topmost open dialog's scroll area sits and how far it has scrolled, if it has one. */
+    public get topDialogScroll(): ScrollAreaState | undefined {
+        return G.UI.topDialogScroll
+    }
+
+    /** The centre of each group tab of the topmost dialog, when that is an inventory. */
+    public get topDialogInventoryTabs(): { x: number; y: number }[] | undefined {
+        return G.UI.topDialogInventoryTabs
     }
 
     /** The string of every `Text` in the topmost open dialog, hidden ones included. Throws when nothing is open. */

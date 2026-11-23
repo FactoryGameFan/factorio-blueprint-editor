@@ -131,6 +131,14 @@ export const LINE_HEIGHT_PX = 16
 /** `deltaMode` 2 is pages, which is one screenful of scrolling. */
 export const PAGE_HEIGHT_PX = 100
 
+/**
+ * A wheel event's `deltaY` in pixels. `deltaMode` 0 is already pixels, 1 is
+ * lines and 2 is pages. Shared by the zoom and by every scrolling dialog, so a
+ * notch is read the same way wherever it lands.
+ */
+export const wheelDeltaPx = (deltaY: number, deltaMode: number): number =>
+    deltaMode === 1 ? deltaY * LINE_HEIGHT_PX : deltaMode === 2 ? deltaY * PAGE_HEIGHT_PX : deltaY
+
 /** Where a scale sits on the ladder, in rungs. Fractional between two rungs. */
 export const rungPositionOf = (scale: number): number => Math.log2(scale) * NOTCHES_PER_DOUBLING
 
@@ -191,15 +199,10 @@ export class WheelZoom {
             this.position = this.clampPosition(rungPositionOf(currentScale))
         }
 
-        const px =
-            deltaMode === 1
-                ? deltaY * LINE_HEIGHT_PX
-                : deltaMode === 2
-                  ? deltaY * PAGE_HEIGHT_PX
-                  : deltaY
-
         /* deltaY is positive scrolling down, which zooms out. */
-        this.position = this.clampPosition(this.position - px / WHEEL_NOTCH_PX)
+        this.position = this.clampPosition(
+            this.position - wheelDeltaPx(deltaY, deltaMode) / WHEEL_NOTCH_PX
+        )
         return scaleAtRungPosition(this.position)
     }
 }
