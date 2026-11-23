@@ -303,6 +303,16 @@
             // workspace packages carry no pin of their own; they resolve the hoisted
             // root copy. Read the diff before merging, and if the installer script
             // itself changed, re-fetch and re-hash by hand.
+            //
+            // The two pins do NOT share a number any more. On 2026-11-17 upstream
+            // renumbered the core to follow Vite (1.6.0 then 8.3.8000), and
+            // vite-plus 1.7.0 depends on core 8.3.8000. Renovate saw 8.x as a
+            // major, split it into its own `major-vite-plus-toolchain` branch, and
+            // moved this group's alias only to 1.6.0. That installed two cores and
+            // failed all four Playwright shards (#638). `separateMajorMinor: false`
+            // keeps every version of these names in the one group PR, so the alias
+            // can follow vite-plus whatever the core's number does.
+            // Validated with renovate-config-validator --strict, 2026-11-22.
             matchPackageNames: [
                 'vite-plus',
                 '@voidzero-dev/vite-plus-core',
@@ -311,11 +321,12 @@
             enabled: true,
             minimumReleaseAge: '24 hours',
             groupName: 'vite-plus toolchain',
+            separateMajorMinor: false,
             addLabels: ['toolchain'],
             prBodyNotes: [
                 'This is the ENTIRE toolchain (Vite, Rolldown, oxlint, oxfmt, Vitest). Nothing under it is independently upgradable.',
                 '`.github/actions/setup-vp/action.yml` reads the version from the root package.json, so nothing there needs to move. **The installer sha256s are not automated.** Two scripts are pinned - https://vite.plus and the https://viteplus.dev/install-legacy.sh it sources. Re-fetch and re-hash whichever changed; a mismatch fails CI rather than passing silently.',
-                'CI runs the Playwright suite in the `e2e` job, so this bump is gated on it - this note said the opposite until 2026-09-01 and was wrong. Confirm both sites in the root package.json moved: the `vite-plus` devDependency and the `overrides.vite` alias. The devcontainer image in `.devcontainer/Dockerfile` should move in this same PR; if its tag is not published yet, it arrives in a later run.',
+                'CI runs the Playwright suite in the `e2e` job, so this bump is gated on it - this note said the opposite until 2026-09-01 and was wrong. Confirm both sites in the root package.json moved: the `vite-plus` devDependency and the `overrides.vite` alias. The alias must name the core vite-plus itself depends on (`npm view vite-plus@<version> dependencies.vite`), which since 1.7.0 is a different number (8.x). The devcontainer image in `.devcontainer/Dockerfile` should move in this same PR; if its tag is not published yet, it arrives in a later run.',
             ],
         },
         {

@@ -83,9 +83,15 @@ cannot join one.
 ## Setup and commands
 
 The toolchain is Vite+ with its managed Node/npm. Its version is written in
-exactly one place, `devDependencies.vite-plus` in the root `package.json` (the
-`overrides.vite` alias beside it must carry the same number, because npm
-cannot express one as a reference to the other). The workspace packages carry
+exactly one place, `devDependencies.vite-plus` in the root `package.json`. The
+`overrides.vite` alias beside it must name the exact core that vite-plus
+itself depends on, because npm cannot express one as a reference to the other.
+That is NOT the vite-plus number: on 2026-11-17 upstream renumbered
+`@voidzero-dev/vite-plus-core` to follow Vite (1.6.0 then 8.3.8000), and
+vite-plus 1.7.0 depends on core 8.3.8000. Read it with
+`npm view vite-plus@<version> dependencies.vite`. A wrong alias installs two
+cores, and `vp` refuses to start Vite with "Expected
+@voidzero-dev/vite-plus-core@X, but found ...@Y". The workspace packages carry
 no pin of their own, and `.github/actions/setup-vp/action.yml` reads that
 field with `jq` for both the version it installs and its cache key. Install the
 `vp` CLI once:
