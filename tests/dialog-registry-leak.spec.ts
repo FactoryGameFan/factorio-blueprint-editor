@@ -10,11 +10,16 @@ import { suppressOverlays } from './helpers/overlays'
     The NARROW half is `DisplayPanelEditor`. Every icon it draws is named by the
     blueprint - `control_behavior.parameters` carries an icon per row and a
     signal at each end of that row's condition - and `F.CreateIcon` ends in a
-    bare `throw` for a name FD does not have. `data.json` exports no planet
-    prototype at all, so `nauvis`, `vulcanus`, `fulgora` and `gleba` all reach
-    it (issue #231), and 19 icon references in the committed corpus use one. The
-    throw cost the whole dialog: clicking the panel did nothing at all. The fix
-    is `F.SafeIcon`, so the cost is the one icon and a warning naming it.
+    bare `throw` for a name FD does not have. `data.json` used to export no
+    planet prototype at all, so `nauvis`, `vulcanus`, `fulgora` and `gleba` all
+    reached it (issue #231), and 19 icon references in the committed corpus use
+    one. The throw cost the whole dialog: clicking the panel did nothing at all.
+    The fix is `F.SafeIcon`, so the cost is the one icon and a warning naming it.
+
+    Since #652 those four names draw, so the fixtures below name planets that
+    do not exist (`no-such-planet-*`) - the same case as a planet a mod adds.
+    The MUTATION RECORD further down was measured with the real names, before
+    that change; the failures it lists are the same ones with the new names.
 
     Both cases here set `connect_to_logistic_network: true`, which is what puts
     the editor down its read-only conditions branch - where those two guarded
@@ -142,7 +147,7 @@ function displayPanel(parameters: Record<string, unknown>[]): string {
 /** A planet as the row's own icon - `DisplayPanelEditor`'s parameter loop. */
 const PLANET_ROW_ICON = displayPanel([
     {
-        icon: { type: 'space-location', name: 'nauvis' },
+        icon: { type: 'space-location', name: 'no-such-planet-home' },
         text: 'home',
         condition: {
             first_signal: { type: 'item', name: 'iron-plate' },
@@ -163,9 +168,9 @@ const PLANET_CONDITION = displayPanel([
         icon: { type: 'item', name: 'iron-plate' },
         text: 'away',
         condition: {
-            first_signal: { type: 'space-location', name: 'vulcanus' },
+            first_signal: { type: 'space-location', name: 'no-such-planet-first' },
             comparator: '<',
-            second_signal: { type: 'space-location', name: 'gleba' },
+            second_signal: { type: 'space-location', name: 'no-such-planet-second' },
         },
     },
 ])
@@ -208,7 +213,7 @@ async function clickEntity(page: Page, entityNumber: number): Promise<void> {
 const dialogCount = (page: Page): Promise<number> =>
     page.evaluate(() => window.__fbe_test.openDialogCount())
 
-test('a display panel row icon naming a planet costs the icon, not the dialog', async ({
+test('a display panel row icon naming an unknown planet costs the icon, not the dialog', async ({
     page,
 }) => {
     const errors = await load(page, PLANET_ROW_ICON)
@@ -224,14 +229,16 @@ test('a display panel row icon naming a planet costs the icon, not the dialog', 
         listening on `page.on('console')` would see nothing and read a working
         guard as a silent skip.
     */
-    await expect(page.locator('.toasts-warning', { hasText: 'nauvis' })).toBeVisible()
+    await expect(page.locator('.toasts-warning', { hasText: 'no-such-planet-home' })).toBeVisible()
 
     await page.keyboard.press('Escape')
     expect(await dialogCount(page)).toBe(0)
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })
 
-test('a condition signal naming a planet costs that icon, not the dialog', async ({ page }) => {
+test('a condition signal naming an unknown planet costs that icon, not the dialog', async ({
+    page,
+}) => {
     const errors = await load(page, PLANET_CONDITION)
 
     await clickEntity(page, 1)
@@ -239,8 +246,10 @@ test('a condition signal naming a planet costs that icon, not the dialog', async
     expect(await dialogCount(page)).toBe(1)
 
     // Both ends of the condition are guarded, not just the first.
-    await expect(page.locator('.toasts-warning', { hasText: 'vulcanus' })).toBeVisible()
-    await expect(page.locator('.toasts-warning', { hasText: 'gleba' })).toBeVisible()
+    await expect(page.locator('.toasts-warning', { hasText: 'no-such-planet-first' })).toBeVisible()
+    await expect(
+        page.locator('.toasts-warning', { hasText: 'no-such-planet-second' })
+    ).toBeVisible()
 
     await page.keyboard.press('Escape')
     expect(await dialogCount(page)).toBe(0)

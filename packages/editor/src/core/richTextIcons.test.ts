@@ -43,9 +43,23 @@ describe('splitRichTextIcons', () => {
         expect(splitRichTextIcons('[gps=1,2] [color=red]x[/color]')).toEqual([
             { kind: 'text', text: '[gps=1,2] [color=red]x[/color]' },
         ])
-        // No planet, space-location or quality prototypes in data.json to draw.
-        const noPrototype = '[planet=nauvis] [space-location=solar-system-edge] [quality=rare]'
-        expect(splitRichTextIcons(noPrototype)).toEqual([{ kind: 'text', text: noPrototype }])
+    })
+
+    it('splits planet, space-location and quality tags out as icons (#652)', () => {
+        expect(
+            splitRichTextIcons('[planet=nauvis] [space-location=solar-system-edge] [quality=rare]')
+        ).toEqual([
+            { kind: 'icon', type: 'planet', name: 'nauvis', source: '[planet=nauvis]' },
+            { kind: 'text', text: ' ' },
+            {
+                kind: 'icon',
+                type: 'space-location',
+                name: 'solar-system-edge',
+                source: '[space-location=solar-system-edge]',
+            },
+            { kind: 'text', text: ' ' },
+            { kind: 'icon', type: 'quality', name: 'rare', source: '[quality=rare]' },
+        ])
     })
 })
 
@@ -81,6 +95,15 @@ beforeAll(() => {
                 'straight-rail': { name: 'straight-rail', icon: 'entity/rail.png' },
             },
             tiles: {},
+            spaceLocations: {
+                nauvis: { type: 'planet', name: 'nauvis', icon: 'planet/nauvis.png' },
+                'solar-system-edge': {
+                    type: 'space-location',
+                    name: 'solar-system-edge',
+                    icon: 'location/edge.png',
+                },
+            },
+            qualities: { rare: { type: 'quality', name: 'rare', icon: 'quality/rare.png' } },
             inventoryLayout: [],
             utilitySprites: {},
             utilityConstants: {},
@@ -112,5 +135,21 @@ describe('iconTagSource', () => {
     it("gives a recipe with no icon of its own its product's", () => {
         expect(icon('recipe', 'fluoroketone')).toBe('fluid/hot.png')
         expect(icon('fluid', 'fluoroketone')).toBeUndefined()
+    })
+
+    it('draws a planet, a space location and a quality from their own collections (#652)', () => {
+        expect(icon('planet', 'nauvis')).toBe('planet/nauvis.png')
+        expect(icon('space-location', 'nauvis')).toBe('planet/nauvis.png')
+        expect(icon('space-location', 'solar-system-edge')).toBe('location/edge.png')
+        expect(icon('quality', 'rare')).toBe('quality/rare.png')
+    })
+
+    it('does not cross collections, and a planet tag needs a planet', () => {
+        expect(icon('planet', 'solar-system-edge')).toBeUndefined()
+        expect(icon('quality', 'nauvis')).toBeUndefined()
+        expect(icon('space-location', 'rare')).toBeUndefined()
+        // Unknown names give no icon, so the caller prints the tag as typed.
+        expect(icon('planet', 'no-such-planet')).toBeUndefined()
+        expect(icon('quality', 'no-such-quality')).toBeUndefined()
     })
 })

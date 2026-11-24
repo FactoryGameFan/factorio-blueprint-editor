@@ -706,11 +706,16 @@ against the CSP in `packages/website/public/_headers` that permits them.
   undo step. Nothing else does: the position-grid footprint still follows
   `direction`, so an east-west train keeps its north-south box, and rotating
   or flipping a selection or a paste leaves `orientation` where it was.
-- Planet (`space-location`) icons have no exported prototype, and `F.CreateIcon`
-  ends in a bare `throw` for a name it cannot resolve. Below a `try` (an
-  `OverlayContainer` or `SafeIcon` boundary) that is a missing icon; on a path
-  with none it loses the whole blueprint. Serialization keeps the icon's signal
-  (issue #264); drawing it is still open (issue #231).
+- Planet, space-location and quality icons draw from `FD.spaceLocations` and
+  `FD.qualities` (#652), which the exporter writes with only the fields an icon
+  needs. `F.CreateIcon` looks them up by name alone, which is safe because no
+  planet or quality name is shared with an item, fluid, recipe, signal or
+  entity; recheck that after a data refresh. `F.CreateIcon` still ends in a bare
+  `throw` for a name it cannot resolve, such as a planet from a mod. Below a
+  `try` (an `OverlayContainer` or `SafeIcon` boundary) that is a missing icon;
+  on a path with none it loses the whole blueprint (#231 was this). Rich-text
+  `[planet=...]` and `[quality=...]` tags are not drawn yet (`richTextIcons.ts`).
+  `item-request-proxy`, the root book icon, is still not exported.
 - `getDirName` throws on diagonal directions, so any `draw_*` that calls it
   renders a placeholder for a diagonally-placed entity. Around 20 call sites
   still reach it and have not been audited for which of their entities can face

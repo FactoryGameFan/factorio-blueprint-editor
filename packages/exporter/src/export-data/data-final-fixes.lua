@@ -339,6 +339,62 @@ do
     output.tiles = tiles
 end
 
+-- SPACE LOCATIONS AND QUALITIES
+-- Only what is needed to draw their icons (#652). A blueprint's own icon, or a
+-- book's, can be a planet or a quality, and `[planet=...]` / `[quality=...]`
+-- rich text names the same prototypes. The starmap art, map generation and
+-- every gameplay multiplier are left out on purpose: none of it is drawn.
+do
+    local iconFields = {
+        'type',
+        'name',
+        'icon',
+        'icon_size',
+        'icons',
+        'order',
+        'subgroup',
+        'hidden',
+        'localised_name'
+    }
+
+    -- The engine's own placeholders for a name it cannot resolve. They draw
+    -- the "unknown" icon, which nothing in a blueprint asks for.
+    local placeholders = {
+        'space-location-unknown',
+        'quality-unknown'
+    }
+
+    local function pick(proto, typeArg)
+        local copy = deep_copy(proto)
+        localise(copy, typeArg)
+        local picked = {}
+        for _, field in pairs(iconFields) do
+            picked[field] = copy[field]
+        end
+        return picked
+    end
+
+    -- A signal of type `space-location` names either a planet or a plain
+    -- space location, so both go in one table, told apart by `type`.
+    local spaceLocations = {}
+    for _, protoType in pairs({ 'planet', 'space-location' }) do
+        for _, proto in pairs(data.raw[protoType] or {}) do
+            if not list_includes(placeholders, proto.name) then
+                spaceLocations[proto.name] = pick(proto, 'space-location')
+            end
+        end
+    end
+    output.spaceLocations = spaceLocations
+
+    local qualities = {}
+    for _, proto in pairs(data.raw.quality or {}) do
+        if not list_includes(placeholders, proto.name) then
+            qualities[proto.name] = pick(proto, 'quality')
+        end
+    end
+    output.qualities = qualities
+end
+
 -- INVENTORY LAYOUT
 do
     local inventoryLayout = {}

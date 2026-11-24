@@ -450,11 +450,11 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
             page,
             encodeBlueprintBook(
                 book([
-                    { blueprint: withIcon('A', 'nauvis', 'space-location') },
-                    { blueprint: withIcon('B', 'nauvis', 'space-location') },
-                    { blueprint: withIcon('C', 'vulcanus', 'space-location') },
-                    { blueprint: withIcon('D', 'vulcanus', 'space-location') },
-                    { blueprint: withIcon('E', 'legendary', 'quality') },
+                    { blueprint: withIcon('A', 'no-such-planet-a', 'space-location') },
+                    { blueprint: withIcon('B', 'no-such-planet-a', 'space-location') },
+                    { blueprint: withIcon('C', 'no-such-planet-b', 'space-location') },
+                    { blueprint: withIcon('D', 'no-such-planet-b', 'space-location') },
+                    { blueprint: withIcon('E', 'no-such-quality', 'quality') },
                     { blueprint: withIcon('F', 'iron-plate') },
                 ])
             )
@@ -463,7 +463,7 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
         await openBook(page)
         await settle(page)
         expect(await toastsSoFar(page)).toEqual([
-            'toasts-warning | 3 icons could not be drawn: nauvis, vulcanus, legendary',
+            'toasts-warning | 3 icons could not be drawn: no-such-planet-a, no-such-planet-b, no-such-quality',
         ])
     })
 
@@ -480,9 +480,9 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
             await page.keyboard.press('Escape')
             return toasts
         }
-        expect(await open([{ blueprint: withIcon('Only', 'nauvis', 'space-location') }])).toEqual([
-            'toasts-warning | 1 icon could not be drawn: nauvis',
-        ])
+        expect(
+            await open([{ blueprint: withIcon('Only', 'no-such-planet-a', 'space-location') }])
+        ).toEqual(['toasts-warning | 1 icon could not be drawn: no-such-planet-a'])
         expect(await open(names.map(name => ({ blueprint: withIcon(name, name) })))).toEqual([
             `toasts-warning | 10 icons could not be drawn: ${names.slice(0, 8).join(', ')}, and 2 more`,
         ])
@@ -496,9 +496,20 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
                 book([
                     {
                         blueprint_book: {
-                            ...book([{ blueprint: withIcon('Inside', 'gleba', 'space-location') }]),
+                            ...book([
+                                {
+                                    blueprint: withIcon(
+                                        'Inside',
+                                        'no-such-planet-c',
+                                        'space-location'
+                                    ),
+                                },
+                            ]),
                             icons: [
-                                { index: 1, signal: { type: 'space-location', name: 'aquilo' } },
+                                {
+                                    index: 1,
+                                    signal: { type: 'space-location', name: 'no-such-planet-d' },
+                                },
                             ],
                         },
                     },
@@ -512,8 +523,8 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
         await openBook(page)
         await settle(page)
         expect(await toastsSoFar(page)).toEqual([
-            'toasts-warning | 2 icons could not be drawn: aquilo, gleba',
-            'toasts-warning | 2 icons could not be drawn: aquilo, gleba',
+            'toasts-warning | 2 icons could not be drawn: no-such-planet-d, no-such-planet-c',
+            'toasts-warning | 2 icons could not be drawn: no-such-planet-d, no-such-planet-c',
         ])
     })
 })
@@ -523,6 +534,8 @@ test.describe('rich-text tags in book row labels (#651)', () => {
         '[item=stone-furnace] 15/s',
         'Mix [fluid=water] and [virtual-signal=signal-fuel]',
         '[planet=nauvis] Nauvis',
+        '[quality=legendary] [space-location=solar-system-edge] edge',
+        '[planet=no-such-planet] [quality=no-such-quality] kept',
         '[entity=character] [item=no-such-item] kept',
         '[color=red]Red[/color] plain',
         'Plain label',
@@ -541,7 +554,9 @@ test.describe('rich-text tags in book row labels (#651)', () => {
         expect(await page.evaluate(() => window.__fbe_test.bookRowRuns())).toEqual([
             ['icon:stone-furnace', ' 15/s'],
             ['Mix ', 'icon:water', ' and ', 'icon:signal-fuel'],
-            ['[planet=nauvis] Nauvis'],
+            ['icon:nauvis', ' Nauvis'],
+            ['icon:legendary', ' ', 'icon:solar-system-edge', ' edge'],
+            ['[planet=no-such-planet]', ' ', '[quality=no-such-quality]', ' kept'],
             ['[entity=character]', ' ', '[item=no-such-item]', ' kept'],
             ['[color=red]Red[/color] plain'],
             ['Plain label'],

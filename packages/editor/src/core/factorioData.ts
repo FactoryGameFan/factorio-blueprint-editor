@@ -10,6 +10,9 @@ import {
     FluidPrototype,
     ColorStruct,
     TilePrototype,
+    SpaceLocationPrototype,
+    PlanetPrototype,
+    QualityPrototype,
     EntityWithOwnerPrototype,
     UtilitySprites,
     UtilityConstants,
@@ -1077,6 +1080,14 @@ export interface FactorioData {
     recipes: Record<string, RecipePrototype>
     entities: Record<string, EntityWithOwnerPrototype>
     tiles: Record<string, TilePrototype>
+    /**
+     * Planets and the other space locations, by name, cut down to what draws an
+     * icon (#652): a signal of type `space-location` names either kind. The
+     * `type` field says which.
+     */
+    spaceLocations: Record<string, SpaceLocationPrototype | PlanetPrototype>
+    /** Quality levels by name, cut down to what draws an icon (#652). */
+    qualities: Record<string, QualityPrototype>
     inventoryLayout: InventoryLayoutGroup[]
     utilitySprites: UtilitySprites
     utilityConstants: UtilityConstants
@@ -1088,7 +1099,7 @@ export interface FactorioData {
 }
 
 /*
-    Empty until `loadData` runs, which fills in all twelve properties before
+    Empty until `loadData` runs, which fills in all fourteen properties before
     anything reads one - the same fill-in-later invariant `G` carries in
     common/globals.ts, and asserted the same way it is there.
 
@@ -1117,6 +1128,8 @@ const FD_KEYS: Record<keyof FactorioData, true> = {
     recipes: true,
     entities: true,
     tiles: true,
+    spaceLocations: true,
+    qualities: true,
     inventoryLayout: true,
     utilitySprites: true,
     utilityConstants: true,
@@ -1224,6 +1237,8 @@ export function loadData(str: string): void {
     FD.recipes = withoutPrototype(data.recipes)
     FD.entities = withoutPrototype(data.entities)
     FD.tiles = withoutPrototype(data.tiles)
+    FD.spaceLocations = withoutPrototype(data.spaceLocations)
+    FD.qualities = withoutPrototype(data.qualities)
     FD.inventoryLayout = data.inventoryLayout
     FD.utilitySprites = data.utilitySprites
     FD.utilityConstants = data.utilityConstants

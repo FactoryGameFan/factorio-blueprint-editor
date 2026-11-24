@@ -232,6 +232,16 @@ function CreateIcon(
         FD.fluids[itemName] ||
         FD.recipes[itemName] ||
         FD.signals[itemName] ||
+        /*
+            A planet, another space location, or a quality (#652). Blueprint and
+            book icons of signal type `space-location` or `quality` reach here
+            by name alone. No name is shared with an item, fluid, recipe, signal
+            or entity (checked against the committed data.json), so the order
+            among them is not load-bearing; they sit before the inventory groups
+            only to keep that lookup and the entity fallback last.
+        */
+        FD.spaceLocations[itemName] ||
+        FD.qualities[itemName] ||
         // inventory group icon is not present in FD.items
         FD.inventoryLayout.find(g => g.name === itemName) ||
         /*
@@ -245,11 +255,12 @@ function CreateIcon(
     if (item === undefined) {
         // A bare throw, not a missing-icon fallback. Callers under a try/catch
         // (OverlayContainer, or SafeIcon below) degrade to no icon; a caller
-        // with none - e.g. a blueprint-level planet icon, which resolves to
-        // nothing here because data.json exports no planet prototype - loses
-        // the whole blueprint. Tracked as issue #231.
+        // with none loses the whole blueprint. A planet or quality icon used to
+        // be the usual way to get here, before data.json carried those
+        // prototypes (#652, which closed #231); a name from a mod, or one newer
+        // than the data, still is.
         throw new Error(
-            `No item, fluid, recipe, signal, inventory group or entity named ${itemName}`
+            `No item, fluid, recipe, signal, space location, quality, inventory group or entity named ${itemName}`
         )
     }
 

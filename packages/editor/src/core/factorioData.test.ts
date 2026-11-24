@@ -141,6 +141,8 @@ describe('FD before loadData', () => {
         'recipes',
         'entities',
         'tiles',
+        'spaceLocations',
+        'qualities',
         'inventoryLayout',
         'utilitySprites',
         'utilityConstants',

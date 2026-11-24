@@ -38,9 +38,48 @@ beforeAll(() => {
                 },
             },
             tiles: {},
+            // Cut down to the icon fields, as the real ones are (#652).
+            spaceLocations: {
+                vulcanus: {
+                    type: 'planet',
+                    name: 'vulcanus',
+                    icon: '__space-age__/graphics/icons/vulcanus.png',
+                },
+            },
+            qualities: {
+                legendary: {
+                    type: 'quality',
+                    name: 'legendary',
+                    icon: '__quality__/graphics/icons/quality-legendary.png',
+                },
+            },
             inventoryLayout: [],
         })
     )
+})
+
+it('draws the icon of a planet and of a quality (#652)', () => {
+    expect(F.CreateIcon('vulcanus')).toBeInstanceOf(Sprite)
+    expect(G.getTexture).toHaveBeenLastCalledWith(
+        '__space-age__/graphics/icons/vulcanus.png',
+        0,
+        0,
+        64,
+        64
+    )
+
+    expect(F.CreateIcon('legendary')).toBeInstanceOf(Sprite)
+    expect(G.getTexture).toHaveBeenLastCalledWith(
+        '__quality__/graphics/icons/quality-legendary.png',
+        0,
+        0,
+        64,
+        64
+    )
+})
+
+it('still throws for a planet no collection carries, so SafeIcon can warn', () => {
+    expect(() => F.CreateIcon('a-planet-from-a-mod')).toThrow(/a-planet-from-a-mod/)
 })
 
 it('draws the icon of an entity that no item places', () => {
