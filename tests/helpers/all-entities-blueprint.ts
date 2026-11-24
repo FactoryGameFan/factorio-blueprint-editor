@@ -24,6 +24,7 @@ interface RawEntity {
     name: string
     position: { x: number; y: number }
     direction?: number
+    quality?: string
 }
 
 type BoundingBox = [[number, number], [number, number]]
@@ -49,7 +50,13 @@ export interface AllEntitiesBlueprint {
 export function buildAllEntitiesBlueprint(
     directions: number[] = [0],
     /** Leaves out any entity wider or taller than this many tiles, for a lighter blueprint. */
-    maxTiles = Infinity
+    maxTiles = Infinity,
+    /**
+     * Places one copy of each entity per quality, so a bill of materials counts
+     * each quality as a line of its own. Normal quality is left unwritten, as
+     * the game does.
+     */
+    qualities: string[] = ['normal']
 ): AllEntitiesBlueprint {
     const data = JSON.parse(fs.readFileSync(DATA_JSON, 'utf-8')) as {
         entities: Record<string, Record<string, unknown>>
@@ -66,19 +73,22 @@ export function buildAllEntitiesBlueprint(
     for (const direction of directions) {
         for (const name of names) {
             const size = entitySize(data.entities[name])
-            const col = slot % PER_ROW
-            const row = Math.floor(slot / PER_ROW)
-            slot += 1
-            entities.push({
-                entity_number: entities.length + 1,
-                name,
-                // odd-sized entities sit on tile centres, even-sized on tile corners
-                position: {
-                    x: col * STRIDE + (size.x % 2 === 0 ? 0 : 0.5),
-                    y: row * STRIDE + (size.y % 2 === 0 ? 0 : 0.5),
-                },
-                ...(direction === 0 ? {} : { direction }),
-            })
+            for (const quality of qualities) {
+                const col = slot % PER_ROW
+                const row = Math.floor(slot / PER_ROW)
+                slot += 1
+                entities.push({
+                    entity_number: entities.length + 1,
+                    name,
+                    // odd-sized entities sit on tile centres, even-sized on tile corners
+                    position: {
+                        x: col * STRIDE + (size.x % 2 === 0 ? 0 : 0.5),
+                        y: row * STRIDE + (size.y % 2 === 0 ? 0 : 0.5),
+                    },
+                    ...(direction === 0 ? {} : { direction }),
+                    ...(quality === 'normal' ? {} : { quality }),
+                })
+            }
         }
     }
 

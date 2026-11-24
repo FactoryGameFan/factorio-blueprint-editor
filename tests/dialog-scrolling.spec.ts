@@ -33,9 +33,12 @@ import {
     still gets its own check below, since its 404px layout is where the track
     once lay over the last column of slots.
 
-    The bill of materials needs more than 80 kinds of thing to scroll at all.
-    The all-entities blueprint supplies them, cut to entities of 3 tiles or
-    less: still over 90 kinds, and it loads in a fraction of the time.
+    The bill of materials needs more than 80 lines to scroll at all, and a line
+    is an item at one quality. The all-entities blueprint supplies them, cut to
+    entities of 1 tile and placed at normal and uncommon quality: 56 kinds make
+    112 lines, enough to scroll by 176px. What costs time is drawing the
+    blueprint's own entities, and these are cheap ones. Cut to 3 tiles instead,
+    the same scroll took 8 seconds of frames to settle, per test.
 */
 
 const dialogCount = (page: Page): Promise<number> =>
@@ -71,6 +74,13 @@ async function openInventory(page: Page): Promise<number> {
 }
 
 /**
+ * The picker's longest tab, found by looking at every tab the first time and
+ * remembered for the rest of the file: stepping through all of them costs
+ * about a second per test, and the tabs do not change between tests.
+ */
+let longestTab: number | undefined
+
+/**
  * Opens the icon picker over Blueprint Info and shows its longest tab.
  * Blueprint Info is the dialog under it, so two are open.
  */
@@ -83,13 +93,16 @@ async function openIconPicker(page: Page): Promise<number> {
     await page.mouse.click(info.x + 12 + 18, info.y + 119 + 18)
     await expect.poll(() => dialogCount(page)).toBe(2)
     await settle(page)
-    const maxes = await tabMaxScrolls(page)
-    await clickTab(page, maxes.indexOf(Math.max(...maxes)))
+    if (longestTab === undefined) {
+        const maxes = await tabMaxScrolls(page)
+        longestTab = maxes.indexOf(Math.max(...maxes))
+    }
+    await clickTab(page, longestTab)
     return 2
 }
 
 async function openBillOfMaterials(page: Page): Promise<number> {
-    await loadBlueprint(page, buildAllEntitiesBlueprint([0], 3).source)
+    await loadBlueprint(page, buildAllEntitiesBlueprint([0], 1, ['normal', 'uncommon']).source)
     await page.locator('#editor').focus()
     await page.keyboard.press('KeyB')
     await expect.poll(() => dialogCount(page)).toBe(1)
