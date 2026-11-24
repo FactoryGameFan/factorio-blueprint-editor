@@ -87,7 +87,7 @@ function stationNameRunsIn(root: Container | undefined): string[] | undefined {
 /**
  * The file each icon in the first train stop name label under `root` was drawn
  * from, in order - the label on the drawn icon inside each `icon:<name>` run
- * (see OverlayContainer's createIconTagIcon). Undefined when there is no label.
+ * (see UI/controls/richTextLine's createIconTagIcon). Undefined when there is no label.
  */
 function stationNameIconFilesIn(root: Container | undefined): string[] | undefined {
     if (root === undefined) return undefined
@@ -106,6 +106,24 @@ function stationNameIconFilesIn(root: Container | undefined): string[] | undefin
         if (found !== undefined) return found
     }
     return undefined
+}
+
+/**
+ * The runs of every row label in the book dialog under `root`, one list per
+ * row, in the order stationNameRunsIn reports them: each text run's text, and
+ * each icon as `icon:<name>`.
+ */
+function bookRowRunsIn(root: Container | undefined): string[][] {
+    const out: string[][] = []
+    const walk = (node: Container): void => {
+        if (node.label === 'book-row-label') {
+            out.push(node.children.map(c => (c instanceof Text ? c.text : c.label)))
+            return
+        }
+        for (const child of node.children) walk(child)
+    }
+    if (root !== undefined) walk(root)
+    return out
 }
 
 let t0 = performance.now()
@@ -986,6 +1004,12 @@ const testApi = {
         train stop editor shows the name there as well.
     */
     previewStationNameRuns: () => stationNameRunsIn(editor.topDialog),
+    /*
+        The row labels of the topmost open dialog when it is the book dialog,
+        run by run, in row order - see tests/book-dialog.spec.ts. Empty when no
+        dialog is open.
+    */
+    bookRowRuns: () => bookRowRunsIn(editor.topDialog),
     /*
         How many EntitySprites the preview in the topmost open dialog draws,
         one per sprite layer - so a spec can see the display panel's icon layer

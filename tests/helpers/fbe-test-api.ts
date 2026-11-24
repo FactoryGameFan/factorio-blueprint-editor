@@ -160,6 +160,12 @@ export interface FbeTestApi {
     /** The same, for the preview in the topmost open dialog. */
     previewStationNameRuns: () => string[] | undefined
     /**
+     * The row labels in the topmost open dialog, one list per row in order:
+     * text runs as their text, icons as `icon:<name>`. See
+     * tests/book-dialog.spec.ts.
+     */
+    bookRowRuns: () => string[][]
+    /**
      * How many EntitySprites the preview in the topmost open dialog draws, one
      * per sprite layer; undefined when no dialog is open. See
      * tests/display-panel-editor.spec.ts.

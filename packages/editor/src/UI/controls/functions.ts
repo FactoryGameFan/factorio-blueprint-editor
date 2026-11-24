@@ -426,6 +426,10 @@ function rgbToColorSource(r: number, g: number, b: number): ColorSource {
  * icon would have been. Named in a warning either way rather than silently
  * swallowed - note that reaches the user as a toast, not a console line.
  *
+ * A caller that builds many icons at once passes `onError` to take the failure
+ * itself, and then nothing is logged here: it can name every failed icon in one
+ * warning instead of one toast each (`BookDialog`).
+ *
  * Takes a builder rather than a name, so it covers whatever builds the icon,
  * not only `CreateIcon`. Lives here, beside the builders it guards, rather
  * than in any one caller:
@@ -438,11 +442,21 @@ function rgbToColorSource(r: number, g: number, b: number): ColorSource {
  * see `TileContainer.generateSprite` in CLAUDE.md - the question is what to
  * draw instead, not how to skip one sprite.
  */
-function SafeIcon(name: string, build: () => Container): Container {
+function SafeIcon(
+    name: string,
+    build: () => Container,
+    onError?: (error: unknown) => void
+): Container {
     try {
         return build()
     } catch (error) {
-        G.logger({ text: `Could not build the "${name}" icon: ${String(error)}`, type: 'warning' })
+        if (onError) onError(error)
+        else {
+            G.logger({
+                text: `Could not build the "${name}" icon: ${String(error)}`,
+                type: 'warning',
+            })
+        }
         return new Container()
     }
 }

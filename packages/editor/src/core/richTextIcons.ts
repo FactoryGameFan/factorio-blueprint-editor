@@ -5,7 +5,8 @@ import FD, { hasIcon, IconSource, recipeIconSource } from './factorioData'
     `[virtual-signal=signal-fuel]` - as the icon itself, in line with the text
     around it. Station names are where that matters: 35 of the 36 distinct
     station names in test-blueprints/ carry one, so a label that printed them
-    raw would mostly be tag syntax.
+    raw would mostly be tag syntax. The book dialog's row labels draw them the
+    same way (UI/controls/richTextLine.ts).
 
     Only the tag types naming a prototype data.json exports are split out, and
     each resolves in its own collection (`iconTagSource`): `[recipe=pentapod-egg]`
