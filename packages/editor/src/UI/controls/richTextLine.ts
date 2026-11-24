@@ -25,11 +25,7 @@ import F from './functions'
  * from, and so whether `[recipe=pentapod-egg]` drew the recipe's icon or the
  * item's.
  */
-export function createIconTagIcon(
-    type: IconTagType,
-    name: string,
-    size: number
-): Container | undefined {
+function createIconTagIcon(type: IconTagType, name: string, size: number): Container | undefined {
     const source = iconTagSource(type, name)
     if (source === undefined) return undefined
     let drawn: Container
@@ -45,7 +41,12 @@ export function createIconTagIcon(
 }
 
 /**
- * `text` laid out as one line. The container's origin is the line's left edge
+ * `text` laid out as one line. Its Texts take a copy of `style`, not `style`
+ * itself: pixi's Text listens for changes on its style and never stops, so on
+ * a shared style (the book dialog's) every row ever built would stay
+ * subscribed for good. The copy's listeners go with the line.
+ *
+ * The container's origin is the line's left edge
  * at its bottom: text runs hang from `y = 0` upwards, and each icon is centred
  * half a line above it. Each icon is labelled `icon:<name>`, for the test
  * hooks. `width` and `lineHeight` are the line's measured size.
@@ -55,7 +56,8 @@ export function layoutRichTextLine(
     style: TextStyle,
     iconSize: number
 ): { row: Container; width: number; lineHeight: number } {
-    const lineHeight = new Text({ text: ' ', style }).height
+    const own = style.clone()
+    const lineHeight = new Text({ text: ' ', style: own }).height
     const row = new Container()
     let x = 0
     for (const run of splitRichTextIcons(text)) {
@@ -69,7 +71,7 @@ export function layoutRichTextLine(
                 continue
             }
         }
-        const part = new Text({ text: run.kind === 'text' ? run.text : run.source, style })
+        const part = new Text({ text: run.kind === 'text' ? run.text : run.source, style: own })
         part.anchor.set(0, 1)
         part.position.set(x, 0)
         row.addChild(part)

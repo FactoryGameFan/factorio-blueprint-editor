@@ -417,8 +417,9 @@ const withIcon = (label: string, name: string, type = 'item') => ({
 })
 
 /**
- * Every warning toast the page shows from now on, as its class and text. Only
- * warnings: the welcome tip is an info toast that arrives whenever it likes.
+ * Every warning and error toast the page shows from now on, as its class and
+ * text. Not the info ones: the welcome tip is an info toast that arrives
+ * whenever it likes.
  * A second call replaces the first recording.
  */
 async function recordToasts(page: Page): Promise<void> {
@@ -429,12 +430,11 @@ async function recordToasts(page: Page): Promise<void> {
         w.__toastWatch = new MutationObserver(records => {
             for (const record of records) {
                 for (const node of record.addedNodes) {
-                    if (
-                        !(node instanceof HTMLElement) ||
-                        !node.classList.contains('toasts-warning')
+                    if (!(node instanceof HTMLElement)) continue
+                    const kind = ['toasts-warning', 'toasts-error'].find(c =>
+                        node.classList.contains(c)
                     )
-                        continue
-                    w.__toasts.push(`toasts-warning | ${node.textContent?.trim()}`)
+                    if (kind !== undefined) w.__toasts.push(`${kind} | ${node.textContent?.trim()}`)
                 }
             }
         })
@@ -575,7 +575,7 @@ test.describe('rich-text tags in book row labels (#651)', () => {
         ])
     })
 
-    test('a long tagged label keeps its row 24px tall, and the row still selects', async ({
+    test('every label stays inside its own 24px row, plain, tagged, long or in a header', async ({
         page,
     }) => {
         const long = `${'[item=iron-plate] '.repeat(6)}${'a very long label '.repeat(8)}`
@@ -585,15 +585,26 @@ test.describe('rich-text tags in book row labels (#651)', () => {
                 book([
                     { blueprint: blueprint('First') },
                     { blueprint: blueprint(long, 2) },
-                    { blueprint: blueprint('Third', 3) },
+                    { blueprint: blueprint('[fluid=water] [planet=nauvis] mixed', 3) },
+                    {
+                        blueprint_book: {
+                            ...book([{ blueprint: blueprint('Inner') }]),
+                            label: '[item=copper-plate] Header',
+                        },
+                    },
+                    { upgrade_planner: { item: 'upgrade-planner', version, settings: {} } },
                 ])
             )
         )
         const bounds = await openBook(page)
         await settle(page)
-        // Three rows of 24px fit the 320px viewport: nothing scrolls, so no row grew.
-        expect((await scrollOf(page)).maxScroll).toBe(0)
-        // The far end of the row is clipped, not wrapped: click the row's right edge.
+        const bands = await page.evaluate(() => window.__fbe_test.bookRowBands())
+        expect(bands).toHaveLength(6)
+        for (const band of bands) {
+            expect(band.top).toBeGreaterThanOrEqual(0)
+            expect(band.bottom).toBeLessThanOrEqual(24)
+        }
+        // A row with a long label still selects at its far right edge.
         await page.mouse.click(bounds.x + 300, bounds.y + 40 + 1 * 24 + 12)
         await expect
             .poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount()))

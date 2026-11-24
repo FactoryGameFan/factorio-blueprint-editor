@@ -166,6 +166,12 @@ export interface FbeTestApi {
      */
     bookRowRuns: () => string[][]
     /**
+     * The same labels' vertical extent in their own row's coordinates, the
+     * row's top being 0: where the top and bottom of all the text and icons
+     * sit. See tests/book-dialog.spec.ts.
+     */
+    bookRowBands: () => { top: number; bottom: number }[]
+    /**
      * How many EntitySprites the preview in the topmost open dialog draws, one
      * per sprite layer; undefined when no dialog is open. See
      * tests/display-panel-editor.spec.ts.

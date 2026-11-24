@@ -58,8 +58,10 @@ function tryCreateIcon(
     return F.SafeIcon(
         name,
         () => F.CreateIcon(name, size),
-        () => {
+        error => {
             build.failedIcons.add(name)
+            // The warning names the icon only; the cause stays findable here.
+            console.warn(`Could not build the "${name}" icon:`, error)
         }
     )
 }
@@ -81,8 +83,10 @@ function failedIconsWarning(names: ReadonlySet<string>): string | undefined {
  * `book-row-label` for the `bookRowRuns` test hook.
  *
  * Nothing shortens a long label. The viewport's mask clips it at the row's
- * right edge, as it did when the label was one plain Text, and an icon takes
- * the width of its tag.
+ * right edge, as it did when the label was one plain Text. Each icon is
+ * `ICON_SIZE` wide, whatever its tag said. The label hangs up from its
+ * baseline, so a label with a line break would grow upward out of its row;
+ * real labels are one line.
  */
 function createRowLabel(text: string, x: number): Container {
     const { row, lineHeight } = layoutRichTextLine(text, ROW_LABEL_STYLE, ICON_SIZE)

@@ -126,6 +126,26 @@ function bookRowRunsIn(root: Container | undefined): string[][] {
     return out
 }
 
+/**
+ * Where each row label in the book dialog under `root` sits vertically, in its
+ * own row's coordinates (the row's top is 0): the top and bottom of everything
+ * the label draws, text and icons both. A label that stays in its row has both
+ * inside the row's height.
+ */
+function bookRowBandsIn(root: Container | undefined): { top: number; bottom: number }[] {
+    const out: { top: number; bottom: number }[] = []
+    const walk = (node: Container): void => {
+        if (node.label === 'book-row-label') {
+            const bounds = node.getLocalBounds()
+            out.push({ top: node.y + bounds.minY, bottom: node.y + bounds.maxY })
+            return
+        }
+        for (const child of node.children) walk(child)
+    }
+    if (root !== undefined) walk(root)
+    return out
+}
+
 let t0 = performance.now()
 
 const CANVAS = element<HTMLCanvasElement>('editor')
@@ -1010,6 +1030,8 @@ const testApi = {
         dialog is open.
     */
     bookRowRuns: () => bookRowRunsIn(editor.topDialog),
+    // Each of those labels' vertical extent within its row; see bookRowBandsIn.
+    bookRowBands: () => bookRowBandsIn(editor.topDialog),
     /*
         How many EntitySprites the preview in the topmost open dialog draws,
         one per sprite layer - so a spec can see the display panel's icon layer
