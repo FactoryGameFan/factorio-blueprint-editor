@@ -5,6 +5,7 @@ import {
     packVersion as version,
 } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
+import { focusTextInput } from './helpers/focus-text-input'
 
 /*
     The inserter's stack size override (issue #339).
@@ -149,16 +150,14 @@ const textInputValues = (page: Page): Promise<string[]> =>
             .map(el => el.value)
     )
 
-/** Replaces what the dialog's one box holds by typing, which is what fires its 'changed'. */
+/**
+ * Replaces what the dialog's one box holds by typing, which is what fires its
+ * 'changed'. The box is hidden until a frame has rendered the dialog, and
+ * focusing it before then does nothing, so the keys went to the canvas and the
+ * old size came back (helpers/focus-text-input.ts).
+ */
 async function typeSize(page: Page, text: string): Promise<void> {
-    await page.evaluate(() => {
-        const el = ([...document.querySelectorAll('input')] as HTMLInputElement[]).find(
-            i => i.style.cssText !== ''
-        )
-        if (!el) throw new Error('no TextInput on the page')
-        el.focus()
-        el.select()
-    })
+    await focusTextInput(page, { select: true })
     await page.keyboard.type(text)
 }
 

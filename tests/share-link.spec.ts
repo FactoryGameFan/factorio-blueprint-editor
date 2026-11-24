@@ -65,6 +65,27 @@ async function openFresh(page: Page, path: string): Promise<void> {
     await page.waitForFunction(() => window.__fbe_test !== undefined, { timeout: 60_000 })
 }
 
+/**
+ * Clicks ExportDialog's Copy link button. Two frames have to run first: a dialog
+ * added since the last render is hit-tested at the origin, so a click straight
+ * after `openExportDialog` reaches nothing, no link is ever copied, and the
+ * spec waits out its whole timeout (#502). The no-Clipboard-API test below does
+ * not need it: its `toHaveValue` wait has already let frames run.
+ */
+async function clickCopyLink(page: Page): Promise<void> {
+    await page.evaluate(
+        () =>
+            new Promise<void>(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            )
+    )
+    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
+    await page.mouse.click(
+        dialog.x + PADDING + ROW_BUTTON_WIDTH / 2,
+        dialog.y + LINK_Y + ROW_BUTTON_HEIGHT / 2
+    )
+}
+
 const entityCount = (page: Page) => page.evaluate(() => window.__fbe_test.entityContainerCount())
 
 test.beforeEach(async ({ page }) => {
@@ -145,12 +166,16 @@ test("Export's Copy link button copies a link that loads the blueprint", async (
     await page.evaluate(() => navigator.clipboard.writeText('before'))
 
     await page.evaluate(() => window.__fbe_test.openExportDialog())
-    const dialog = await page.evaluate(() => window.__fbe_test.topDialogBounds())
-    await page.mouse.click(
-        dialog.x + PADDING + ROW_BUTTON_WIDTH / 2,
-        dialog.y + LINK_Y + ROW_BUTTON_HEIGHT / 2
-    )
-    await page.waitForFunction(() => navigator.clipboard.readText().then(t => t !== 'before'))
+    await clickCopyLink(page)
+    /*
+        expect.poll, not waitForFunction. A predicate that returns a Promise is
+        truthy the moment it is created, so `waitForFunction` came back at once
+        (measured: 15 ms against a predicate that resolves false) and the read
+        below raced the copy, which encodes the blueprint first. Whenever the read
+        won, it got 'before' back and `new URL('before')` threw "Invalid URL".
+        clipboard-shortcuts.spec.ts waits on the clipboard this way too.
+    */
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).not.toBe('before')
 
     const link = await page.evaluate(() => navigator.clipboard.readText())
     const url = new URL(link)

@@ -5,6 +5,7 @@ import {
     decodeBlueprintString,
 } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
+import { focusTextInput } from './helpers/focus-text-input'
 
 /*
     The display panel editor.
@@ -112,20 +113,14 @@ const entityInfoVisible = (page: Page, entityNumber: number): Promise<boolean> =
     page.evaluate((n: number) => window.__fbe_test.entityInfoVisible(n), entityNumber)
 
 /*
-    Focuses the DOM input currently holding `value` - DisplayPanelEditor's own
-    text field, told apart from the settings pane's inputs by having an inline
-    style. TextInput writes that, nothing else on the page does. Borrowed from
-    tests/text-input.spec.ts's focusInputWithValue.
+    Focuses DisplayPanelEditor's own text field, the input holding `value`. It
+    waits for the element to be shown first: focus() on its `display: none`
+    start state is a silent no-op, and the old helper here lacked that wait. It
+    came back `display: none` in 3 of 40 idle runs, and the test then read back
+    "Old text". See helpers/focus-text-input.ts.
 */
-async function focusInputWithValue(page: Page, value: string): Promise<void> {
-    await page.evaluate((v: string) => {
-        const el = [...document.querySelectorAll('input, textarea')].find(
-            i => (i as HTMLInputElement).style.cssText !== '' && (i as HTMLInputElement).value === v
-        )
-        if (!el) throw new Error(`no input holding "${v}"`)
-        ;(el as HTMLInputElement).focus()
-    }, value)
-}
+const focusInputWithValue = (page: Page, value: string): Promise<void> =>
+    focusTextInput(page, { value })
 
 async function decodedEntities(page: Page): Promise<Record<string, unknown>[]> {
     const source = await page.evaluate(() => window.__fbe_test.encodeLoaded())
