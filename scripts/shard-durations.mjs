@@ -137,6 +137,14 @@ const round1 = n => Math.round(n * 10) / 10
 /** The object that gets written to tests/shard-durations.json. */
 export function buildDurationsFile({ jobs, source, generated, current }) {
     const { files, tests } = fitDurations(jobs, current)
+    // With nothing timed the fallback would be 0 / 0, which JSON writes as
+    // null, and shard-specs.mjs refuses that file. Stop before anything is
+    // written, so the committed file stays as it was.
+    if (tests === 0) {
+        throw new Error(
+            'no test in the logs is in the current suite; check that the logs are recent and the checkout is current'
+        )
+    }
     let total = 0
     for (const seconds of files.values()) total += seconds
     return {

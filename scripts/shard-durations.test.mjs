@@ -109,6 +109,20 @@ test('a test that no longer exists is not timed, so a rename is not counted twic
     assert.equal(fitDurations(jobs).tests, 3)
 })
 
+test('refuses to build a file when no logged test is in the current suite', () => {
+    const jobs = new Map([['one.log', [{ file: 'tests/a.spec.ts', title: 'old', seconds: 10 }]]])
+    assert.throws(
+        () =>
+            buildDurationsFile({
+                jobs,
+                source: 'x',
+                generated: '2026-11-25',
+                current: new Set(['tests/a.spec.ts\u0000new']),
+            }),
+        /no test in the logs is in the current suite/
+    )
+})
+
 // A small deterministic generator, so the fixture below is the same every run.
 function mulberry32(seed) {
     return () => {
