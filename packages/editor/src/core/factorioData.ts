@@ -10,6 +10,8 @@ import {
     FluidPrototype,
     ColorStruct,
     TilePrototype,
+    SpaceLocationPrototype,
+    QualityPrototype,
     EntityWithOwnerPrototype,
     UtilitySprites,
     UtilityConstants,
@@ -1064,6 +1066,24 @@ export function getColor(
     }
 }
 
+/*
+    What the exporter keeps of a planet, a space location or a quality (#652):
+    the fields that draw an icon and sort an entry, and nothing else. Typed as
+    exactly that rather than as the whole prototype, so a read of `.distance`,
+    `.color` or any other field the exporter drops does not type-check.
+*/
+type IconPrototypeFields<T> = Pick<
+    T,
+    Extract<
+        keyof T,
+        'name' | 'icon' | 'icon_size' | 'icons' | 'order' | 'subgroup' | 'hidden' | 'localised_name'
+    >
+>
+export type SpaceLocationData = IconPrototypeFields<SpaceLocationPrototype> & {
+    type: 'planet' | 'space-location'
+}
+export type QualityData = IconPrototypeFields<QualityPrototype> & { type: 'quality' }
+
 /**
  * Everything `data.json` carries, as the rest of the editor reads it.
  *
@@ -1077,6 +1097,14 @@ export interface FactorioData {
     recipes: Record<string, RecipePrototype>
     entities: Record<string, EntityWithOwnerPrototype>
     tiles: Record<string, TilePrototype>
+    /**
+     * Planets and the other space locations, by name, cut down to what draws an
+     * icon (#652): a signal of type `space-location` names either kind. The
+     * `type` field says which.
+     */
+    spaceLocations: Record<string, SpaceLocationData>
+    /** Quality levels by name, cut down to what draws an icon (#652). */
+    qualities: Record<string, QualityData>
     inventoryLayout: InventoryLayoutGroup[]
     utilitySprites: UtilitySprites
     utilityConstants: UtilityConstants
@@ -1088,7 +1116,7 @@ export interface FactorioData {
 }
 
 /*
-    Empty until `loadData` runs, which fills in all twelve properties before
+    Empty until `loadData` runs, which fills in all fourteen properties before
     anything reads one - the same fill-in-later invariant `G` carries in
     common/globals.ts, and asserted the same way it is there.
 
@@ -1117,6 +1145,8 @@ const FD_KEYS: Record<keyof FactorioData, true> = {
     recipes: true,
     entities: true,
     tiles: true,
+    spaceLocations: true,
+    qualities: true,
     inventoryLayout: true,
     utilitySprites: true,
     utilityConstants: true,
@@ -1224,6 +1254,8 @@ export function loadData(str: string): void {
     FD.recipes = withoutPrototype(data.recipes)
     FD.entities = withoutPrototype(data.entities)
     FD.tiles = withoutPrototype(data.tiles)
+    FD.spaceLocations = withoutPrototype(data.spaceLocations)
+    FD.qualities = withoutPrototype(data.qualities)
     FD.inventoryLayout = data.inventoryLayout
     FD.utilitySprites = data.utilitySprites
     FD.utilityConstants = data.utilityConstants

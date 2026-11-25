@@ -7,6 +7,7 @@ import {
     packVersion,
 } from './helpers/encode-blueprint'
 import { suppressOverlays } from './helpers/overlays'
+import { recordToasts, toastsSoFar } from './helpers/toast-log'
 import {
     centre,
     dragThumb,
@@ -408,41 +409,14 @@ test.describe('scrolling a long book (#643)', () => {
     could not be drawn, and its row labels printed rich-text tags as typed
     (`[item=stone-furnace] 15/s`).
 
-    Planet and quality icons have no data to draw from at all (#652), so the
-    names below fail to draw on purpose: they stand in for what that book held.
+    The names below are made up, so they fail to draw on purpose: they stand in
+    for what that book held before data.json carried planets and qualities
+    (#652). The real names are covered at the end of this file.
 */
 const withIcon = (label: string, name: string, type = 'item') => ({
     ...blueprint(label),
     icons: [{ index: 1, signal: { type, name } }],
 })
-
-/**
- * Every warning and error toast the page shows from now on, as its class and
- * text. Not the info ones: the welcome tip is an info toast that arrives
- * whenever it likes.
- * A second call replaces the first recording.
- */
-async function recordToasts(page: Page): Promise<void> {
-    await page.evaluate(() => {
-        const w = window as unknown as { __toasts: string[]; __toastWatch?: MutationObserver }
-        w.__toastWatch?.disconnect()
-        w.__toasts = []
-        w.__toastWatch = new MutationObserver(records => {
-            for (const record of records) {
-                for (const node of record.addedNodes) {
-                    if (!(node instanceof HTMLElement)) continue
-                    const kind = ['toasts-warning', 'toasts-error'].find(c =>
-                        node.classList.contains(c)
-                    )
-                    if (kind !== undefined) w.__toasts.push(`${kind} | ${node.textContent?.trim()}`)
-                }
-            }
-        })
-        w.__toastWatch.observe(document.body, { childList: true, subtree: true })
-    })
-}
-const toastsSoFar = (page: Page): Promise<string[]> =>
-    page.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts)
 
 test.describe('icons the book dialog cannot draw (#651)', () => {
     test('are named in one warning, however many rows use them', async ({ page }) => {
@@ -450,11 +424,11 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
             page,
             encodeBlueprintBook(
                 book([
-                    { blueprint: withIcon('A', 'nauvis', 'space-location') },
-                    { blueprint: withIcon('B', 'nauvis', 'space-location') },
-                    { blueprint: withIcon('C', 'vulcanus', 'space-location') },
-                    { blueprint: withIcon('D', 'vulcanus', 'space-location') },
-                    { blueprint: withIcon('E', 'legendary', 'quality') },
+                    { blueprint: withIcon('A', 'no-such-planet-a', 'space-location') },
+                    { blueprint: withIcon('B', 'no-such-planet-a', 'space-location') },
+                    { blueprint: withIcon('C', 'no-such-planet-b', 'space-location') },
+                    { blueprint: withIcon('D', 'no-such-planet-b', 'space-location') },
+                    { blueprint: withIcon('E', 'no-such-quality', 'quality') },
                     { blueprint: withIcon('F', 'iron-plate') },
                 ])
             )
@@ -463,7 +437,7 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
         await openBook(page)
         await settle(page)
         expect(await toastsSoFar(page)).toEqual([
-            'toasts-warning | 3 icons could not be drawn: nauvis, vulcanus, legendary',
+            'toasts-warning | 3 icons could not be drawn: no-such-planet-a, no-such-planet-b, no-such-quality',
         ])
     })
 
@@ -480,9 +454,9 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
             await page.keyboard.press('Escape')
             return toasts
         }
-        expect(await open([{ blueprint: withIcon('Only', 'nauvis', 'space-location') }])).toEqual([
-            'toasts-warning | 1 icon could not be drawn: nauvis',
-        ])
+        expect(
+            await open([{ blueprint: withIcon('Only', 'no-such-planet-a', 'space-location') }])
+        ).toEqual(['toasts-warning | 1 icon could not be drawn: no-such-planet-a'])
         expect(await open(names.map(name => ({ blueprint: withIcon(name, name) })))).toEqual([
             `toasts-warning | 10 icons could not be drawn: ${names.slice(0, 8).join(', ')}, and 2 more`,
         ])
@@ -496,9 +470,20 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
                 book([
                     {
                         blueprint_book: {
-                            ...book([{ blueprint: withIcon('Inside', 'gleba', 'space-location') }]),
+                            ...book([
+                                {
+                                    blueprint: withIcon(
+                                        'Inside',
+                                        'no-such-planet-c',
+                                        'space-location'
+                                    ),
+                                },
+                            ]),
                             icons: [
-                                { index: 1, signal: { type: 'space-location', name: 'aquilo' } },
+                                {
+                                    index: 1,
+                                    signal: { type: 'space-location', name: 'no-such-planet-d' },
+                                },
                             ],
                         },
                     },
@@ -512,8 +497,8 @@ test.describe('icons the book dialog cannot draw (#651)', () => {
         await openBook(page)
         await settle(page)
         expect(await toastsSoFar(page)).toEqual([
-            'toasts-warning | 2 icons could not be drawn: aquilo, gleba',
-            'toasts-warning | 2 icons could not be drawn: aquilo, gleba',
+            'toasts-warning | 2 icons could not be drawn: no-such-planet-d, no-such-planet-c',
+            'toasts-warning | 2 icons could not be drawn: no-such-planet-d, no-such-planet-c',
         ])
     })
 })
@@ -523,6 +508,8 @@ test.describe('rich-text tags in book row labels (#651)', () => {
         '[item=stone-furnace] 15/s',
         'Mix [fluid=water] and [virtual-signal=signal-fuel]',
         '[planet=nauvis] Nauvis',
+        '[quality=legendary] [space-location=solar-system-edge] edge',
+        '[planet=no-such-planet] [quality=no-such-quality] kept',
         '[entity=character] [item=no-such-item] kept',
         '[color=red]Red[/color] plain',
         'Plain label',
@@ -541,7 +528,9 @@ test.describe('rich-text tags in book row labels (#651)', () => {
         expect(await page.evaluate(() => window.__fbe_test.bookRowRuns())).toEqual([
             ['icon:stone-furnace', ' 15/s'],
             ['Mix ', 'icon:water', ' and ', 'icon:signal-fuel'],
-            ['[planet=nauvis] Nauvis'],
+            ['icon:nauvis', ' Nauvis'],
+            ['icon:legendary', ' ', 'icon:solar-system-edge', ' edge'],
+            ['[planet=no-such-planet]', ' ', '[quality=no-such-quality]', ' kept'],
             ['[entity=character]', ' ', '[item=no-such-item]', ' kept'],
             ['[color=red]Red[/color] plain'],
             ['Plain label'],
@@ -609,5 +598,62 @@ test.describe('rich-text tags in book row labels (#651)', () => {
         await expect
             .poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount()))
             .toBe(2)
+    })
+})
+
+/*
+    The #651 scenario itself, small: a book whose blueprints take planet and
+    quality icons as their own icons and as tags in their labels, which is what
+    the "Factorio Handbook" book did. Before data.json carried those (#652) the
+    dialog toasted every icon it could not draw and printed the tags raw; now it
+    draws both and says nothing.
+
+    The row's own icons are pixi sprites with no mark in the DOM, so what shows
+    they drew is the silence: any icon that failed would raise the one warning
+    the dialog gives. The label tags are visible, as `icon:<name>` runs.
+*/
+test.describe('planet and quality icons in a book (#651, #652)', () => {
+    test('draw in the row icons and the label tags, with no toast', async ({ page }) => {
+        const errors: string[] = []
+        page.on('pageerror', error => errors.push(error.message))
+        await loadBlueprint(
+            page,
+            encodeBlueprintBook(
+                book([
+                    {
+                        blueprint: {
+                            ...blueprint('[planet=nauvis] Home'),
+                            icons: [
+                                { index: 1, signal: { type: 'space-location', name: 'vulcanus' } },
+                                { index: 2, signal: { type: 'space-location', name: 'nauvis' } },
+                                { index: 3, signal: { type: 'quality', name: 'legendary' } },
+                            ],
+                        },
+                    },
+                    { blueprint: withIcon('[quality=legendary] Gold', 'legendary', 'quality') },
+                    {
+                        blueprint_book: {
+                            ...book([{ blueprint: blueprint('Inside') }]),
+                            label: '[space-location=shattered-planet] Edge',
+                            icons: [
+                                { index: 1, signal: { type: 'space-location', name: 'aquilo' } },
+                            ],
+                        },
+                    },
+                ])
+            )
+        )
+        await recordToasts(page)
+        await openBook(page)
+        await settle(page)
+
+        expect(await toastsSoFar(page)).toEqual([])
+        expect(await page.evaluate(() => window.__fbe_test.bookRowRuns())).toEqual([
+            ['icon:nauvis', ' Home'],
+            ['icon:legendary', ' Gold'],
+            ['icon:shattered-planet', ' Edge'],
+            ['Inside'],
+        ])
+        expect(errors).toEqual([])
     })
 })

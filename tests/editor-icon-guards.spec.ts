@@ -78,6 +78,8 @@ const NO_SUCH_RECIPE = 'totally-not-a-recipe'
 const NO_SUCH_MODULE = 'totally-not-a-module'
 const NO_SUCH_FILTER_ITEM = 'totally-not-a-filter-item'
 const NO_SUCH_SPLITTER_ITEM = 'totally-not-a-splitter-item'
+/** `nauvis` stood here until data.json gained planet prototypes (#652). */
+const NO_SUCH_PLANET = 'totally-not-a-planet'
 
 /** `defines.inventory.crafter_modules`, read off data.json rather than guessed. */
 const MODULE_INVENTORY = 4
@@ -106,7 +108,7 @@ const UNKNOWN_RECIPE = blueprint({
 */
 const UNKNOWN_PANEL_ICON = blueprint({
     name: 'display-panel',
-    icon: { type: 'space-location', name: 'nauvis' },
+    icon: { type: 'space-location', name: NO_SUCH_PLANET },
     text: 'home',
 })
 
@@ -203,8 +205,10 @@ test('a machine naming a recipe the data lacks still opens its editor', async ({
     await expectIconCostsOnlyTheIcon(page, UNKNOWN_RECIPE, NO_SUCH_RECIPE)
 })
 
-test('an unconnected display panel with a planet icon still opens its editor', async ({ page }) => {
-    await expectIconCostsOnlyTheIcon(page, UNKNOWN_PANEL_ICON, 'nauvis')
+test('an unconnected display panel with an unknown planet icon still opens its editor', async ({
+    page,
+}) => {
+    await expectIconCostsOnlyTheIcon(page, UNKNOWN_PANEL_ICON, NO_SUCH_PLANET)
 })
 
 test('a machine holding a module the data lacks still opens its editor', async ({ page }) => {

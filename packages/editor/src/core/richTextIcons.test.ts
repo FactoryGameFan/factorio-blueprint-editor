@@ -43,9 +43,47 @@ describe('splitRichTextIcons', () => {
         expect(splitRichTextIcons('[gps=1,2] [color=red]x[/color]')).toEqual([
             { kind: 'text', text: '[gps=1,2] [color=red]x[/color]' },
         ])
-        // No planet, space-location or quality prototypes in data.json to draw.
-        const noPrototype = '[planet=nauvis] [space-location=solar-system-edge] [quality=rare]'
-        expect(splitRichTextIcons(noPrototype)).toEqual([{ kind: 'text', text: noPrototype }])
+    })
+
+    it('splits planet, space-location and quality tags out as icons (#652)', () => {
+        expect(
+            splitRichTextIcons('[planet=nauvis] [space-location=solar-system-edge] [quality=rare]')
+        ).toEqual([
+            { kind: 'icon', type: 'planet', name: 'nauvis', source: '[planet=nauvis]' },
+            { kind: 'text', text: ' ' },
+            {
+                kind: 'icon',
+                type: 'space-location',
+                name: 'solar-system-edge',
+                source: '[space-location=solar-system-edge]',
+            },
+            { kind: 'text', text: ' ' },
+            { kind: 'icon', type: 'quality', name: 'rare', source: '[quality=rare]' },
+        ])
+    })
+
+    it('leaves an unclosed tag as text', () => {
+        expect(splitRichTextIcons('[item=a,b')).toEqual([{ kind: 'text', text: '[item=a,b' }])
+    })
+
+    it('matches a tag that starts inside an unclosed one', () => {
+        expect(
+            splitRichTextIcons('[item=[item=a]').map(r => (r.kind === 'icon' ? r.source : r.text))
+        ).toEqual(['[item=', '[item=a]'])
+    })
+
+    /*
+        The shapes CodeQL reported (js/polynomial-redos). Under the earlier
+        pattern the first took 27 s at this length; both now take well under a
+        millisecond. The bound is loose so a slow CI runner cannot trip it.
+    */
+    it.each([
+        ['repeated unclosed tags', '[item='.repeat(2000)],
+        ['one unclosed tag with a long name', '[item=' + '+'.repeat(60000)],
+    ])('splits %s in linear time', (_, text) => {
+        const start = performance.now()
+        expect(splitRichTextIcons(text)).toEqual([{ kind: 'text', text }])
+        expect(performance.now() - start).toBeLessThan(250)
     })
 })
 
@@ -81,6 +119,15 @@ beforeAll(() => {
                 'straight-rail': { name: 'straight-rail', icon: 'entity/rail.png' },
             },
             tiles: {},
+            spaceLocations: {
+                nauvis: { type: 'planet', name: 'nauvis', icon: 'planet/nauvis.png' },
+                'solar-system-edge': {
+                    type: 'space-location',
+                    name: 'solar-system-edge',
+                    icon: 'location/edge.png',
+                },
+            },
+            qualities: { rare: { type: 'quality', name: 'rare', icon: 'quality/rare.png' } },
             inventoryLayout: [],
             utilitySprites: {},
             utilityConstants: {},
@@ -112,5 +159,21 @@ describe('iconTagSource', () => {
     it("gives a recipe with no icon of its own its product's", () => {
         expect(icon('recipe', 'fluoroketone')).toBe('fluid/hot.png')
         expect(icon('fluid', 'fluoroketone')).toBeUndefined()
+    })
+
+    it('draws a planet, a space location and a quality from their own collections (#652)', () => {
+        expect(icon('planet', 'nauvis')).toBe('planet/nauvis.png')
+        expect(icon('space-location', 'nauvis')).toBe('planet/nauvis.png')
+        expect(icon('space-location', 'solar-system-edge')).toBe('location/edge.png')
+        expect(icon('quality', 'rare')).toBe('quality/rare.png')
+    })
+
+    it('does not cross collections, and a planet tag needs a planet', () => {
+        expect(icon('planet', 'solar-system-edge')).toBeUndefined()
+        expect(icon('quality', 'nauvis')).toBeUndefined()
+        expect(icon('space-location', 'rare')).toBeUndefined()
+        // Unknown names give no icon, so the caller prints the tag as typed.
+        expect(icon('planet', 'no-such-planet')).toBeUndefined()
+        expect(icon('quality', 'no-such-quality')).toBeUndefined()
     })
 })

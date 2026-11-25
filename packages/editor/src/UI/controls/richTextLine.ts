@@ -8,7 +8,7 @@ import F from './functions'
     draw one: a train stop's name in the info overlay, and a blueprint's label in
     a row of the book dialog.
 
-    A tag whose icon cannot be drawn - a planet, a quality, a colour, a name the
+    A tag whose icon cannot be drawn - a colour, a name the
     data does not have - is printed as typed rather than dropped, so the label
     still says what its author wrote. It is never a warning: a label can hold
     dozens of them, and the author's text is not an error in the editor.

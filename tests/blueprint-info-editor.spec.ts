@@ -83,12 +83,24 @@ test.beforeEach(async ({ page }) => {
     await waitForEditor(page)
 })
 
-test('planet blueprint icons warn without breaking the dialog or keyboard shortcuts (#231)', async ({
+/*
+    Names the data does not have, so the icon slots cannot draw them. This used
+    to use `vulcanus`, `fulgora`, `gleba` and `nauvis` (#231), until data.json
+    gained planet prototypes (#652); those four now draw, which
+    tests/planet-quality-icons.spec.ts covers. A planet a mod adds is the same
+    case as these.
+*/
+test('unknown space-location blueprint icons warn without breaking the dialog or keyboard shortcuts (#231)', async ({
     page,
 }) => {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
-    const icons = ['vulcanus', 'fulgora', 'gleba', 'nauvis'].map((name, i) => ({
+    const icons = [
+        'no-such-planet-a',
+        'no-such-planet-b',
+        'no-such-planet-c',
+        'no-such-planet-d',
+    ].map((name, i) => ({
         index: i + 1,
         signal: { type: 'space-location', name },
     }))
