@@ -19,7 +19,9 @@ import { suppressOverlays } from './helpers/overlays'
     Since #652 those four names draw, so the fixtures below name planets that
     do not exist (`no-such-planet-*`) - the same case as a planet a mod adds.
     The MUTATION RECORD further down was measured with the real names, before
-    that change; the failures it lists are the same ones with the new names.
+    that change, and has not been repeated with the new ones. Read its failure
+    text as it was then: the toast names `nauvis` or `vulcanus` where these
+    specs now see `no-such-planet-*`.
 
     Both cases here set `connect_to_logistic_network: true`, which is what puts
     the editor down its read-only conditions branch - where those two guarded

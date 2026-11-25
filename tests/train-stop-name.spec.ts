@@ -50,6 +50,18 @@ const TRAIN_STOPS = encode({
             direction: 0,
             station: '[entity=straight-rail] [recipe=pentapod-egg]',
         },
+        {
+            entity_number: 5,
+            name: 'train-stop',
+            position: { x: 41, y: 1 },
+            direction: 0,
+            /*
+                Planet, space-location and quality tags (#652). The last one is
+                a planet no collection carries, so it stays as typed.
+            */
+            station:
+                '[planet=vulcanus] [quality=legendary] [space-location=shattered-planet] [planet=no-such-planet]',
+        },
     ],
 })
 
@@ -98,6 +110,26 @@ test('an icon tag draws the icon of the prototype its type names', async ({ page
     expect(await page.evaluate(() => window.__fbe_test.stationNameIconFiles(4))).toEqual([
         '__base__/graphics/icons/rail.png',
         '__space-age__/graphics/icons/pentapod-egg-3.png',
+    ])
+    expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+test('planet, quality and space-location tags draw their icons (#652)', async ({ page }) => {
+    const errors = await load(page)
+
+    expect(await runs(page, 5)).toEqual([
+        'icon:vulcanus',
+        ' ',
+        'icon:legendary',
+        ' ',
+        'icon:shattered-planet',
+        ' ',
+        '[planet=no-such-planet]',
+    ])
+    expect(await page.evaluate(() => window.__fbe_test.stationNameIconFiles(5))).toEqual([
+        '__space-age__/graphics/icons/vulcanus.png',
+        '__quality__/graphics/icons/quality-legendary.png',
+        '__space-age__/graphics/icons/shattered-planet.png',
     ])
     expect(errors, `page errors: ${errors.join(' | ')}`).toEqual([])
 })

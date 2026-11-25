@@ -277,9 +277,8 @@ export class BookDialog extends Dialog {
         /*
             One warning for the whole dialog, each time it opens: a reopened
             dialog builds its rows again and warns again, the same as any other
-            fresh draw of a bad icon. Planet and quality icons have no data to
-            draw from at all (#652), so a book that uses them warns on every
-            open until that is fixed.
+            fresh draw of a bad icon. A book that names an icon the data does
+            not carry, such as a planet from a mod, warns on every open.
         */
         const warning = failedIconsWarning(build.failedIcons)
         if (warning !== undefined) G.logger({ text: warning, type: 'warning' })

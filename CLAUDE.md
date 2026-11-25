@@ -714,7 +714,8 @@ against the CSP in `packages/website/public/_headers` that permits them.
   `throw` for a name it cannot resolve, such as a planet from a mod. Below a
   `try` (an `OverlayContainer` or `SafeIcon` boundary) that is a missing icon;
   on a path with none it loses the whole blueprint (#231 was this). Rich-text
-  `[planet=...]` and `[quality=...]` tags are not drawn yet (`richTextIcons.ts`).
+  `[planet=...]`, `[space-location=...]` and `[quality=...]` tags draw as icons
+  too, through `richTextIcons.ts`; a name the data lacks is printed as typed.
   `item-request-proxy`, the root book icon, is still not exported.
 - `getDirName` throws on diagonal directions, so any `draw_*` that calls it
   renders a placeholder for a diagonally-placed entity. Around 20 call sites

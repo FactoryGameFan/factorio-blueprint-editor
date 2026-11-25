@@ -56,10 +56,11 @@ export interface IOilOutpostSettings extends Record<string, string | boolean | n
  *
  * The 4 it still misses are planets, and they are deliberately not handled here.
  * `computeAutoIcons` only ever passes an item name (from `Entity.getItemName`) or an
- * entity prototype name, and no planet is either - checked against `data.json`, which
- * exports no planet in any of its eleven collections. A planet icon therefore
- * only ever arrives by being parsed, where its type is preserved rather than
- * derived. A `space-location` arm here would be unreachable.
+ * entity prototype name, and no planet is either: planets live in `FD.spaceLocations`
+ * (#652), which nothing here passes a name from, and no item or entity shares a
+ * planet's name. A planet icon therefore only ever arrives by being parsed, where its
+ * type is preserved rather than derived. A `space-location` arm here would be
+ * unreachable.
  */
 function deriveSignalType(name: string): SignalType {
     if (FD.items[name]) return 'item'

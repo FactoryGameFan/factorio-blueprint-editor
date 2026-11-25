@@ -214,9 +214,11 @@ describe('Blueprint icon signal types', () => {
         ])
     })
 
-    it('keeps a `space-location` type for a name no FD collection holds', () => {
-        // Planets are in none of data.json's eleven collections, so a lookup
-        // cannot classify one. Preserving the incoming type is what saves it.
+    it('keeps a `space-location` type for a name deriveSignalType cannot classify', () => {
+        // Planets are in FD.spaceLocations, which deriveSignalType does not
+        // search (it looks in items, signals, fluids, recipes and entities), so
+        // a lookup cannot classify one. Preserving the incoming type is what
+        // saves it.
         expect(withIcon({ type: 'space-location', name: 'nauvis' }).serialize().icons).toEqual([
             { index: 1, signal: { type: 'space-location', name: 'nauvis' } },
         ])

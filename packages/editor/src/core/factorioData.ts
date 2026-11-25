@@ -11,7 +11,6 @@ import {
     ColorStruct,
     TilePrototype,
     SpaceLocationPrototype,
-    PlanetPrototype,
     QualityPrototype,
     EntityWithOwnerPrototype,
     UtilitySprites,
@@ -1067,6 +1066,24 @@ export function getColor(
     }
 }
 
+/*
+    What the exporter keeps of a planet, a space location or a quality (#652):
+    the fields that draw an icon and sort an entry, and nothing else. Typed as
+    exactly that rather than as the whole prototype, so a read of `.distance`,
+    `.color` or any other field the exporter drops does not type-check.
+*/
+type IconPrototypeFields<T> = Pick<
+    T,
+    Extract<
+        keyof T,
+        'name' | 'icon' | 'icon_size' | 'icons' | 'order' | 'subgroup' | 'hidden' | 'localised_name'
+    >
+>
+export type SpaceLocationData = IconPrototypeFields<SpaceLocationPrototype> & {
+    type: 'planet' | 'space-location'
+}
+export type QualityData = IconPrototypeFields<QualityPrototype> & { type: 'quality' }
+
 /**
  * Everything `data.json` carries, as the rest of the editor reads it.
  *
@@ -1085,9 +1102,9 @@ export interface FactorioData {
      * icon (#652): a signal of type `space-location` names either kind. The
      * `type` field says which.
      */
-    spaceLocations: Record<string, SpaceLocationPrototype | PlanetPrototype>
+    spaceLocations: Record<string, SpaceLocationData>
     /** Quality levels by name, cut down to what draws an icon (#652). */
-    qualities: Record<string, QualityPrototype>
+    qualities: Record<string, QualityData>
     inventoryLayout: InventoryLayoutGroup[]
     utilitySprites: UtilitySprites
     utilityConstants: UtilityConstants

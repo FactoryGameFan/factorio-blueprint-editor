@@ -257,8 +257,8 @@ function CreateIcon(
         // (OverlayContainer, or SafeIcon below) degrade to no icon; a caller
         // with none loses the whole blueprint. A planet or quality icon used to
         // be the usual way to get here, before data.json carried those
-        // prototypes (#652, which closed #231); a name from a mod, or one newer
-        // than the data, still is.
+        // prototypes (#652); a name from a mod, or one newer than the data,
+        // still is.
         throw new Error(
             `No item, fluid, recipe, signal, space location, quality, inventory group or entity named ${itemName}`
         )

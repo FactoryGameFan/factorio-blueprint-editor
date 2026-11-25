@@ -3,6 +3,8 @@ import { encodeBlueprint as encode, packVersion as version } from './helpers/enc
 import { waitForEditor, loadBlueprint } from './helpers/fbe-test-api'
 import { suppressOverlays } from './helpers/overlays'
 import { openBlueprintInfo } from './helpers/blueprint-info-dialog'
+import { settle } from './helpers/dialog-scroll'
+import { recordToasts, toastsSoFar } from './helpers/toast-log'
 
 /*
     Planet, space-location and quality icons (#652).
@@ -12,11 +14,17 @@ import { openBlueprintInfo } from './helpers/blueprint-info-dialog'
     toast and a blank slot. They now come from `FD.spaceLocations` and
     `FD.qualities`. A drawn icon leaves no trace in the DOM, because it is a
     pixi sprite on a canvas, so what these tests can see is the absence of the
-    old symptoms: no `.toasts-warning` naming the icon, and no page error.
-    That is a weaker claim than "the right picture is on screen". The other
-    half is the data itself, which the first test reads straight from the dev
-    server so that a regenerated data.json that drops the collections fails here
-    and not only as a missing warning.
+    old symptoms: no warning or error toast, and no page error. That is a
+    weaker claim than "the right picture is on screen". The other half is the
+    data itself, which the first test reads straight from the dev server so
+    that a regenerated data.json that drops the collections fails here and not
+    only as a missing warning.
+
+    The toasts are read from a recording started before the dialog opens, never
+    from a locator that waits. A warning toast closes itself after about five
+    seconds and `toHaveCount(0)` retries for up to sixty, so it would pass
+    whether or not the toast ever appeared. The recording is checked after two
+    animation frames, which is when a dialog's icons have been built.
 
     The names are the ones the "Factorio Handbook" book from #651 failed on, plus
     `aquilo` and `normal` for the two ends of each list.
@@ -93,19 +101,12 @@ test('planet and quality icons in a blueprint draw without a warning (#652)', as
     ]
     await loadBlueprint(page, encode({ item: 'blueprint', version: VERSION, icons }))
 
+    await recordToasts(page)
     await openBlueprintInfo(page)
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
+    await settle(page)
 
-    // Let the dialog's frames run, so a failure has had the chance to toast.
-    await page.evaluate(
-        () =>
-            new Promise<void>(resolve =>
-                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-            )
-    )
-    for (const { signal } of icons) {
-        await expect(page.locator('.toasts-warning', { hasText: signal.name })).toHaveCount(0)
-    }
+    expect(await toastsSoFar(page)).toEqual([])
     expect(errors).toEqual([])
 })
 
@@ -145,6 +146,7 @@ test('a display panel with a planet row and a quality condition opens with no wa
         ],
     })
     await loadBlueprint(page, source)
+    await recordToasts(page)
 
     const at = await page.evaluate(() => window.__fbe_test.entityScreenPosition(1))
     if (!at) throw new Error('no entity 1 in the loaded blueprint')
@@ -155,8 +157,8 @@ test('a display panel with a planet row and a quality condition opens with no wa
     await page.mouse.up()
 
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
-    for (const name of ['fulgora', 'gleba', 'rare']) {
-        await expect(page.locator('.toasts-warning', { hasText: name })).toHaveCount(0)
-    }
+    await settle(page)
+
+    expect(await toastsSoFar(page)).toEqual([])
     expect(errors).toEqual([])
 })
