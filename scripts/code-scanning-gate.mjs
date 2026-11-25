@@ -62,38 +62,52 @@ export function gatingAlerts(alerts) {
         )
 }
 
+/** `path:line`, or `path` when the instance has no line, or a placeholder. */
+function locationOf(alert) {
+    const where = alert.most_recent_instance?.location
+    if (!where?.path) return '(no location)'
+    return `${oneLine(where.path)}${where.start_line ? `:${Number(where.start_line)}` : ''}`
+}
+
 /** `#2 js/request-forgery critical packages/x.ts:516 https://...` */
 export function describeAlert(alert) {
-    const where = alert.most_recent_instance?.location
-    const place = where?.path
-        ? `${oneLine(where.path)}${where.start_line ? `:${Number(where.start_line)}` : ''}`
-        : '(no location)'
     return [
         `#${Number(alert.number)}`,
         oneLine(alert.rule?.id) || '(no rule id)',
         oneLine(alert.rule?.security_severity_level),
-        place,
+        locationOf(alert),
         oneLine(alert.html_url),
     ].join(' ')
 }
 
+/**
+ * Text for a markdown table cell. Flattened to one line, then every character
+ * markdown acts on is backslash-escaped, so data renders as itself: a `|`
+ * cannot open a new cell, a backtick or bracket cannot open a span or a link.
+ */
+export function cell(text) {
+    return oneLine(text).replaceAll(/[\\|`*_[\]()<>!~&]/g, '\\$&')
+}
+
+// The only form a summary link is made from. Anything else is shown as plain
+// escaped text, so a `)` or a space in a hostile URL cannot end the link early.
+const SAFE_URL = /^https:\/\/[^\s()<>|`\\[\]]+$/
+
 /** The step summary: a table, with data kept out of markdown syntax. */
 export function summaryFor(branch, gating) {
     if (gating.length === 0) {
-        return `### Code scanning\n\nNo open high or critical alerts on \`${oneLine(branch)}\`.`
+        return `### Code scanning\n\nNo open high or critical alerts on \`${oneLine(branch).replaceAll('`', "'")}\`.`
     }
-    const cell = text => oneLine(text).replaceAll('|', '\\|').replaceAll('`', "'")
     const rows = gating.map(a => {
-        const where = a.most_recent_instance?.location
-        const place = where?.path ? `${where.path}:${Number(where.start_line ?? 0)}` : '(none)'
-        return `| [#${Number(a.number)}](${cell(a.html_url)}) | ${cell(a.rule?.id)} | ${cell(
-            a.rule?.security_severity_level
-        )} | ${cell(place)} |`
+        const url = oneLine(a.html_url)
+        const label = `#${Number(a.number)}`
+        const link = SAFE_URL.test(url) ? `[${label}](${url})` : `${label} ${cell(url)}`
+        return `| ${link} | ${cell(a.rule?.id)} | ${cell(a.rule?.security_severity_level)} | ${cell(locationOf(a))} |`
     })
     return [
         '### Code scanning',
         '',
-        `${gating.length} open high or critical alert${gating.length === 1 ? '' : 's'} on \`${cell(branch)}\`:`,
+        `${gating.length} open high or critical alert${gating.length === 1 ? '' : 's'} on \`${oneLine(branch).replaceAll('`', "'")}\`:`,
         '',
         '| Alert | Rule | Severity | Location |',
         '| --- | --- | --- | --- |',
@@ -105,6 +119,28 @@ export function summaryFor(branch, gating) {
 export function statusOf(message) {
     const m = /\(HTTP (\d{3})\)/.exec(String(message))
     return m ? Number(m[1]) : undefined
+}
+
+/**
+ * True only when the failure says the token is not allowed to read alerts,
+ * which is the one thing a pull request may skip over. Status alone is not
+ * enough: GitHub answers a rate limit with 403 or 429 too ("API rate limit
+ * exceeded for ...", "You have exceeded a secondary rate limit"), and treating
+ * that as a missing permission would pass the check exactly when GitHub is
+ * unavailable. The permission messages GitHub sends are "Resource not
+ * accessible by integration" (403), "Advanced Security must be enabled for this
+ * repository to use code scanning" (403), "Bad credentials" (401) and "Not
+ * Found" (404).
+ */
+export function isPermissionDenied(message) {
+    const text = String(message)
+    const status = statusOf(text)
+    if (status === undefined || /rate limit|abuse/i.test(text)) return false
+    if (status === 401) return /bad credentials|requires authentication/i.test(text)
+    if (status === 403) {
+        return /not accessible by integration|advanced security|not enabled/i.test(text)
+    }
+    return status === 404 && /not found/i.test(text)
 }
 
 /**
@@ -126,12 +162,16 @@ export function check({ ref, event, api }) {
         alerts = api.alerts(fullRef)
     } catch (e) {
         const status = statusOf(e.message)
-        // A pull request from a fork runs with a read-only GITHUB_TOKEN, and
-        // GitHub documents no promise that `security-events: read` survives
-        // that. The author cannot fix the repository's alerts, so blocking
-        // their pull request on a permission they cannot grant is wrong. The
+        // GitHub's workflow syntax docs say a pull request from a fork has its
+        // write permissions "adjusted to change any write permissions to read
+        // only", and that `permissions` can add or remove read permissions for
+        // forks. So `security-events: read` should survive and this branch
+        // should not fire. It stays as a safety net for the case where it does
+        // not (or the token is otherwise refused): the author cannot grant the
+        // permission, so blocking their pull request on it is wrong, and the
         // push and dispatch runs, which always have the token, still gate.
-        if (event === 'pull_request' && (status === 401 || status === 403 || status === 404)) {
+        // A rate limit is not that case and fails; see isPermissionDenied.
+        if (event === 'pull_request' && isPermissionDenied(e.message)) {
             const note = `The token cannot read code-scanning alerts here (HTTP ${status}), so this pull request is not checked. The run on the default branch is.`
             return {
                 code: 0,
@@ -144,7 +184,7 @@ export function check({ ref, event, api }) {
             lines: [
                 `could not list code-scanning alerts for ${oneLine(fullRef)}: ${oneLine(e.message)}`,
             ],
-            summary: `### Code scanning\n\nCould not list alerts: ${oneLine(e.message).replaceAll('`', "'")}`,
+            summary: `### Code scanning\n\nCould not list alerts: ${cell(e.message)}`,
         }
     }
 
@@ -188,14 +228,35 @@ export function parseArgs(argv, env = {}) {
     return { repo, ref, event }
 }
 
-function ghApi(path) {
+/**
+ * The `gh` arguments for each of the two calls. Exported so a test can pin
+ * them: both are easy to get subtly wrong and neither failure is visible in a
+ * green run.
+ *
+ * `alerts` pages through everything, 100 at a time. `analyses` must be ONE call:
+ * with `--paginate` and `per_page=1` gh follows every next link, one per
+ * analysis ever uploaded, and the repository had 685 pages. That was 690 API
+ * calls and over two minutes per run, against a GITHUB_TOKEN limit of 1,000
+ * requests an hour.
+ */
+export function alertsRequest(repo, ref) {
+    const query = `state=open&per_page=100&ref=${encodeURIComponent(ref)}`
+    return ['api', '--paginate', '--slurp', `repos/${repo}/code-scanning/alerts?${query}`]
+}
+
+export function analysesRequest(repo, ref) {
+    return ['api', `repos/${repo}/code-scanning/analyses?per_page=1&ref=${encodeURIComponent(ref)}`]
+}
+
+// `--slurp` gives an array of pages and a plain call gives the array itself;
+// flat() turns either into one list.
+function gh(args) {
     try {
-        return JSON.parse(
-            execFileSync('gh', ['api', '--paginate', '--slurp', path], {
-                encoding: 'utf8',
-                stdio: ['ignore', 'pipe', 'pipe'],
-            })
-        ).flat()
+        const out = execFileSync('gh', args, {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return JSON.parse(out).flat()
     } catch (e) {
         // gh puts "gh: <message> (HTTP 403)" on stderr.
         throw new Error(String(e.stderr || e.message).trim(), { cause: e })
@@ -206,14 +267,12 @@ const isMain = import.meta.url === pathToFileURL(process.argv[1] ?? '').href
 if (isMain) {
     try {
         const { repo, ref, event } = parseArgs(process.argv.slice(2), process.env)
-        const base = `repos/${repo}/code-scanning`
-        const q = r => encodeURIComponent(r)
         const result = check({
             ref,
             event,
             api: {
-                alerts: r => ghApi(`${base}/alerts?state=open&per_page=100&ref=${q(r)}`),
-                hasAnalysis: r => ghApi(`${base}/analyses?per_page=1&ref=${q(r)}`).length > 0,
+                alerts: r => gh(alertsRequest(repo, r)),
+                hasAnalysis: r => gh(analysesRequest(repo, r)).length > 0,
             },
         })
         for (const line of result.lines) console.log(line)
@@ -222,7 +281,7 @@ if (isMain) {
         }
         process.exit(result.code)
     } catch (e) {
-        console.error(e.message)
+        console.error(oneLine(e.message))
         process.exit(1)
     }
 }

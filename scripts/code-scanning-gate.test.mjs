@@ -1,9 +1,14 @@
 import { test } from 'vite-plus/test'
 import assert from 'node:assert/strict'
+import { URL } from 'node:url'
 import {
+    alertsRequest,
+    analysesRequest,
+    cell,
     check,
     describeAlert,
     gatingAlerts,
+    isPermissionDenied,
     oneLine,
     parseArgs,
     statusOf,
@@ -103,15 +108,45 @@ test('an empty answer for a ref that was never analysed warns instead of passing
 })
 
 test('a pull request whose token cannot read alerts is skipped with a notice', () => {
-    for (const status of [401, 403, 404]) {
-        const r = check({
-            ref: 'main',
-            event: 'pull_request',
-            api: api({ fail: `gh: Resource not accessible by integration (HTTP ${status})` }),
-        })
-        assert.equal(r.code, 0, `HTTP ${status}`)
-        assert.ok(r.lines[0].startsWith('::notice::'))
+    // The messages GitHub sends for a missing permission.
+    for (const message of [
+        'gh: Bad credentials (HTTP 401)',
+        'gh: Resource not accessible by integration (HTTP 403)',
+        'gh: Advanced Security must be enabled for this repository to use code scanning. (HTTP 403)',
+        'gh: Not Found (HTTP 404)',
+    ]) {
+        const r = check({ ref: 'main', event: 'pull_request', api: api({ fail: message }) })
+        assert.equal(r.code, 0, message)
+        assert.ok(r.lines[0].startsWith('::notice::'), message)
     }
+})
+
+test('a rate limit fails a pull request: it is not a missing permission', () => {
+    for (const message of [
+        'gh: API rate limit exceeded for installation ID 1. (HTTP 403)',
+        'gh: You have exceeded a secondary rate limit. Please wait a few minutes (HTTP 403)',
+        'gh: Too Many Requests (HTTP 429)',
+        'gh: API rate limit already exceeded for user ID 1. (HTTP 429)',
+    ]) {
+        assert.equal(isPermissionDenied(message), false, message)
+        const r = check({ ref: 'main', event: 'pull_request', api: api({ fail: message }) })
+        assert.equal(r.code, 1, message)
+    }
+})
+
+test('a rate limit stays a failure even if its text also names a permission phrase', () => {
+    // The explicit rate-limit check is what decides this: the permission phrase
+    // alone would skip.
+    const message =
+        'gh: API rate limit exceeded; advanced security calls are not enabled (HTTP 403)'
+    assert.equal(isPermissionDenied(message), false)
+    assert.equal(isPermissionDenied(message.replace('rate limit', 'quota')), true)
+})
+
+test('an error with no HTTP status, or an unrecognised 403, is not a permission error', () => {
+    assert.equal(isPermissionDenied('gh: connection refused'), false)
+    assert.equal(isPermissionDenied('gh: Forbidden (HTTP 403)'), false)
+    assert.equal(isPermissionDenied('gh: Server Error (HTTP 500)'), false)
 })
 
 test('the same error on a push or dispatch fails: the gate never skips itself there', () => {
@@ -134,6 +169,34 @@ test('a server error fails even on a pull request', () => {
     assert.equal(r.code, 1)
 })
 
+test('the alerts call is open-only, for the ref, 100 a page, and follows every page', () => {
+    const [verb, ...flags] = alertsRequest('o/r', 'refs/heads/main')
+    const url = flags.pop()
+    assert.equal(verb, 'api')
+    assert.deepEqual(flags, ['--paginate', '--slurp'])
+    const u = new URL(url, 'https://api.github.com/')
+    assert.equal(u.pathname, '/repos/o/r/code-scanning/alerts')
+    assert.equal(u.searchParams.get('state'), 'open')
+    assert.equal(u.searchParams.get('ref'), 'refs/heads/main')
+    assert.equal(u.searchParams.get('per_page'), '100')
+})
+
+test('the analyses call is a single request: no --paginate, or it follows 685 pages', () => {
+    const args = analysesRequest('o/r', 'refs/heads/main')
+    assert.equal(args[0], 'api')
+    assert.equal(args.length, 2, `no flags allowed, got ${args.join(' ')}`)
+    const u = new URL(args[1], 'https://api.github.com/')
+    assert.equal(u.pathname, '/repos/o/r/code-scanning/analyses')
+    assert.equal(u.searchParams.get('ref'), 'refs/heads/main')
+    assert.equal(u.searchParams.get('per_page'), '1')
+})
+
+test('a ref is percent-encoded so it cannot add query parameters', () => {
+    const url = new URL(alertsRequest('o/r', 'refs/heads/a&state=closed').at(-1), 'https://x/')
+    assert.equal(url.searchParams.get('ref'), 'refs/heads/a&state=closed')
+    assert.deepEqual(url.searchParams.getAll('state'), ['open'])
+})
+
 test('statusOf reads the HTTP code from gh output', () => {
     assert.equal(statusOf('gh: Bad credentials (HTTP 401)'), 401)
     assert.equal(statusOf('something else'), undefined)
@@ -151,15 +214,47 @@ test('alert text cannot start a workflow command or forge a table row', () => {
     }
     const r = check({ ref: 'main', event: 'push', api: api({ alerts: [hostile] }) })
     for (const line of r.lines) assert.equal(line.includes('\n'), false)
-    // Only the script's own two `::` lines remain at the start of a line.
+    // Only the script's own fixed `::` line remains at the start of a line.
     assert.deepEqual(
         r.lines.filter(l => l.startsWith('::')),
         ['::error::Open high or critical code-scanning alerts on the default branch:']
     )
     assert.equal(/\n::/.test(r.summary), false)
-    // One header, one separator, one row: the `|` in the path is escaped.
-    assert.equal(r.summary.split('\n').filter(l => l.startsWith('|')).length, 3)
+    // One row, with exactly four cells: split on unescaped pipes (4 cells and
+    // the two outer edges make 6 pieces).
+    const rows = r.summary.split('\n').filter(l => l.startsWith('| #'))
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].split(/(?<!\\)\|/).length, 6)
+    assert.ok(rows[0].includes('a\\|b'), 'the pipe in the path is escaped')
+    assert.doesNotMatch(rows[0], /(?<!\\)`/, 'a backtick cannot open a code span')
     assert.doesNotMatch(describeAlert(hostile), /[\n\r]/)
+})
+
+test('a URL that could end a markdown link early is shown as text, not linked', () => {
+    const base = { number: 5, rule: { id: 'r', security_severity_level: 'high' } }
+    for (const url of [
+        'https://x.test/a)(https://evil.test',
+        'https://x.test/a b',
+        'javascript:x',
+    ]) {
+        const summary = summaryFor('main', [{ ...base, html_url: url }])
+        assert.equal(summary.includes(']('), false, url)
+    }
+    const ok = summaryFor('main', [{ ...base, html_url: 'https://x.test/security/2' }])
+    assert.ok(ok.includes('[#5](https://x.test/security/2)'))
+})
+
+test('cell escapes the characters markdown acts on', () => {
+    assert.equal(cell('a|b'), 'a\\|b')
+    assert.equal(cell('[x](y) *z* _w_ <i> `c`'), '\\[x\\]\\(y\\) \\*z\\* \\_w\\_ \\<i\\> \\`c\\`')
+})
+
+test('a missing line number reads the same in the log and the summary', () => {
+    const noLine = { ...REDOS, most_recent_instance: { location: { path: 'src/a.ts' } } }
+    assert.match(describeAlert(noLine), / src\/a\.ts https:/)
+    const summary = summaryFor('main', [noLine])
+    assert.ok(summary.includes('| src/a.ts |'))
+    assert.equal(summary.includes(':0'), false)
 })
 
 test('oneLine flattens control characters and truncates', () => {

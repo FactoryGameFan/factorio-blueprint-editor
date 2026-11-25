@@ -478,24 +478,50 @@ dismissed, including the deploy of its own fix.
 ### Permissions, and fork pull requests
 
 The job declares `security-events: read` and `contents: read`; nothing writes.
-GitHub documents that the token is read-only in pull requests from forks and
-that secrets are not passed. It does not promise that `security-events: read` is
-among the read scopes a fork's token keeps, and a fork run cannot be tested from
-here. So the script does not assume it. On a `pull_request`, a 401, 403 or 404
-from the alerts call prints a `::notice::` and passes: the author cannot grant
-the permission or fix the alert, and the push run on the default branch still
-gates. On any other event the same error fails the job, because a gate that
-skips itself quietly is the failure this exists to end. Other errors, a 503 for
-one, fail on every event.
+GitHub's workflow syntax docs (`permissions`, "Changing the permissions in a
+forked repository") say that for a `pull_request` from a fork "the permissions
+are adjusted to change any write permissions to read only", and that the
+`permissions` key can "add and remove read permissions for forked repositories".
+So `security-events: read` should survive on a fork, and a fork PR should be
+checked like any other. That is documentation, not a measurement: a fork run
+cannot be tested from here. The script therefore keeps a safety net rather than
+relying on it. On a `pull_request`, an error that says the token is not allowed
+to read alerts (401 "Bad credentials", 403 "Resource not accessible by
+integration" or "Advanced Security must be enabled", 404 "Not Found") prints a
+`::notice::` and passes: the author cannot grant the permission, and the push
+run on the default branch still gates.
+
+Anything else fails, on every event. That includes a rate limit, which GitHub
+sends as 403 or 429 ("API rate limit exceeded", "secondary rate limit"):
+status alone cannot tell it from a missing permission, so the message is
+checked too, and a rate limit is never mistaken for one. A 503 fails as well.
+On push and dispatch even the permission errors fail, because a gate that skips
+itself quietly is the failure this exists to end.
+
+### API cost
+
+A green run makes 2 calls: one page of alerts and one analyses lookup. The
+analyses lookup must not paginate. `per_page=1` over `--paginate` follows every
+next link, one per analysis ever uploaded, and measured 2026-11-24 this
+repository had 685 of them: about 690 calls and 2 minutes 22 seconds per run,
+against the 1,000 requests an hour a `GITHUB_TOKEN` gets. `alertsRequest` and
+`analysesRequest` in the script build the two requests, and the tests pin that
+one pages and the other does not.
 
 ### Output
 
 The log lists each alert as `#number rule-id severity path:line html_url`, worst
 first. The step summary holds the same as a table. Every field comes from the
 API, so each goes through `oneLine` (the same flattening as
-`scripts/triage-labels.mjs`) before it is printed: a step's output is parsed for
-workflow commands at the start of a line, and every line here has a prefix. The
-only lines that start with `::` are the script's own fixed messages.
+`scripts/triage-labels.mjs`) before it is printed, and so does the text of a
+failure: a step's output is parsed for workflow commands at the start of a line,
+and every line here has a prefix. The only lines that start with `::` are the
+script's own fixed messages.
+
+In the table, every character markdown acts on is backslash-escaped (`cell`), so
+a `|`, a backtick or a bracket in a path cannot open a cell, span or link. The
+alert number links to its URL only when the URL is plain `https://` with no
+spaces, parentheses or brackets; any other value is shown as escaped text.
 
 ## `deploy`
 
