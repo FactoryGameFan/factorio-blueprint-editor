@@ -31,7 +31,7 @@ jobs:
   # Skips jobs that cannot see the change. A job-level `if:` rather than
   # `on.pull_request.paths` on purpose: a skipped WORKFLOW never reports, a
   # skipped JOB does. But a skipped MATRIX job reports one unexpanded name, so
-  # `Playwright 1/4` must never be marked a required check. See README.md.
+  # `Playwright 1/5` must never be marked a required check. See README.md.
   changes:
     name: Detect changed areas
     runs-on: ubuntu-latest
@@ -222,10 +222,16 @@ jobs:
     # Sharding is the lever, not `workers`. playwright.config.ts pins
     # `workers: 1` because the specs share ports 8080/8081, and that clash is
     # within a machine. See README.md.
+    #
+    # This list is the ONE place the shard count lives: the job name and the
+    # spec picker below both read `strategy.job-total` from it. Files are dealt
+    # out by measured duration (scripts/shard-specs.mjs and
+    # tests/shard-durations.json), not by `--shard=k/n`, which balances test
+    # COUNT and left one shard 1.5x the others. See README.md.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -236,6 +242,27 @@ jobs:
 
       - name: Install dependencies
         run: vp install --frozen-lockfile
+
+      # Placed right after the install, ahead of the browser download and the dev
+      # servers, so a failed pick fails in seconds. `--list` needs neither.
+      #
+      # Written to a file, not read through `< <(...)`: a process substitution
+      # hides the script's exit status, and a failed pick would then hand
+      # Playwright an empty list. `npx playwright test` with NO arguments runs
+      # the whole suite, so an empty list must fail here, never fall through.
+      # The script itself exits 1 for a shard with no files; the `-s` test is
+      # the second lock on the same door. See README.md.
+      - name: Pick this shard's spec files
+        env:
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ strategy.job-total }}
+        run: |
+          node scripts/shard-specs.mjs --shard "$SHARD" --total "$TOTAL" > "$RUNNER_TEMP/shard-specs.txt"
+          if [ ! -s "$RUNNER_TEMP/shard-specs.txt" ]; then
+            echo "::error::shard $SHARD/$TOTAL has no spec files, and an empty list would run the whole suite"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/shard-specs.txt"
 
       - name: Resolve Playwright version
         id: pw
@@ -296,7 +323,9 @@ jobs:
           exit 1
 
       - name: Run Playwright specs
-        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: |
+          mapfile -t specs < "$RUNNER_TEMP/shard-specs.txt"
+          npx playwright test "${specs[@]}"
 
       - name: Upload report
         if: ${{ failure() }}

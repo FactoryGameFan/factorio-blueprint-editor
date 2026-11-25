@@ -116,7 +116,7 @@
     //
     // What CI actually covers: `vp check` (oxfmt + oxlint + tsc), `vp test`
     // (vitest units), the Playwright suite in the `e2e` job
-    // sharded across four runners, and a compile of packages/exporter on ubuntu
+    // sharded across five runners, and a compile of packages/exporter on ubuntu
     // only. That is real coverage, and it is MORE than this paragraph
     // claimed until 2026-09-01 - see the corrections below.
     //
@@ -358,7 +358,7 @@
             matchPackageNames: ['@playwright/test'],
             prBodyNotes: [
                 'Run `npx playwright install` in your own working tree after taking this, or every local spec fails on a missing `chrome-headless-shell` and reads as a suite-wide regression rather than a missing download. CI does not need the same step: the `e2e` job keys its browser cache on the resolved @playwright/test version, so a bump misses the cache and reinstalls by itself.',
-                'CI does run the suite (the `e2e` job, four shards), so a browser-revision problem surfaces there rather than only on your machine. This note claimed the bump got **no** automated verification at all; that was wrong.',
+                'CI does run the suite (the `e2e` job, five shards), so a browser-revision problem surfaces there rather than only on your machine. This note claimed the bump got **no** automated verification at all; that was wrong.',
             ],
         },
         {

@@ -16,7 +16,7 @@ noticing, and both were being quoted as settled fact.
 ```
 changes ──┬── checks ─────────┐
           │                   ├── deploy
-          ├── e2e (4 shards) ─┘
+          ├── e2e (5 shards) ─┘
           └── rust
 
 code-scanning          (no dependencies, and nothing depends on it)
@@ -59,7 +59,8 @@ than missing.
 matrix job never expands its matrix. Measured on PR #315: `e2e` reported as a
 single check under the literal, uninterpolated name
 `Playwright ${{ matrix.shard }}/${{ strategy.job-total }}`, and the names
-`Playwright 1/4` through `4/4` did not appear on the pull request at all.
+`Playwright 1/4` through `4/4` (the suite had four shards then, five now) did
+not appear on the pull request at all.
 
 That is harmless today. This repo has no required checks, `allow_auto_merge` is
 false, and the only ruleset is "No ForcePush" with enforcement `disabled`
@@ -311,9 +312,9 @@ Raising `workers` is the other obvious knob and the wrong one.
 Giving each shard its own runner, and so its own pair of dev servers, sidesteps
 it instead of solving it.
 
-`fail-fast: false` because a red shard should not cancel the other three. The
-point of running the suite is to learn what broke, and three cancelled shards
-answer that much less well than three finished ones.
+`fail-fast: false` because a red shard should not cancel the others. The point
+of running the suite is to learn what broke, and cancelled shards answer that
+much less well than finished ones.
 
 ### The spread is the point
 
@@ -329,9 +330,126 @@ slow run as a regression without at least a second sample.
 Playwright splits shards by test count rather than by duration, and the specs
 here are nowhere near uniform. The corpus-wide ones (`sprite-data`,
 `entity-accessors`, `blueprint-round-trip`) dwarf the rest, so the honest
-prediction was lopsided legs. Measured, they land within 11% of each other.
-Recorded because the prediction was wrong, and the next person sizing a shard
-count should trust the numbers over the reasoning.
+prediction was lopsided legs. Measured on 2026-09-02, they landed within 11% of
+each other. Recorded because the prediction was wrong, and the next person
+sizing a shard count should trust the numbers over the reasoning. That was true
+then and stopped being true as the suite grew: see the next section.
+
+### Balancing the Playwright shards by duration
+
+`--shard=k/n` deals out spec files so each shard gets about the same number of
+tests. By 2026-11-24 that had drifted far from equal work. Measured over nine
+runs of the suite on 2026-11-24 and 2026-11-25 (36 shard jobs, the 535 tests that exist now, every
+test's duration rescaled to a median runner), the four count-balanced shards
+held 8.5, 10.4, 7.7 and 7.5 minutes of tests. Shard 2 owned the slow
+canvas-heavy files, about 4.5 s per test against about 3 s on shards 3 and 4, so
+it was the longest in every run. Its job ranged from 8.1 to 17.1 minutes across
+those nine runs, on the same tests: a GitHub runner's speed varies by about
+2.4x, and a runner 1.85x slower than the median would have hit the 20 minute
+`timeout-minutes`. Moving to five shards by count alone does not fix it: the
+same model predicted 7.7, 7.0, 8.6, 5.3 and 5.6 minutes.
+
+So the job now picks its own files. `scripts/shard-specs.mjs` lists every spec
+file, gives each one a duration from `tests/shard-durations.json`, and deals
+them longest first onto whichever shard is lightest at that moment (the LPT
+rule, within 4/3 of the best possible split and here almost exactly even). Every
+shard job runs the same deterministic script on the same inputs, so they agree on
+the split without sharing anything, and every file lands on exactly one shard.
+The `Pick this shard's spec files` step prints the arguments it will pass to
+Playwright, and the prediction.
+
+Predicted on the committed durations (`node scripts/shard-specs.mjs --plan
+--total 5`, a median runner, minutes of tests): 6.8 on every shard, over 18 to 21
+files and 83 to 130 tests each. A job adds about 0.6 minutes of setup, so about
+7.4 minutes on a median runner and about 11.5 on the slowest runner seen
+(1.6x). Total runner time barely moves, about 37 minutes either way,
+because it is the test minutes plus about 0.6 per runner and balancing does not
+change the sum. The gain is the longest leg, 11.0 to 7.4 minutes on a median
+runner, and the deploy gate that waits on it. These are predictions from
+the model, not a measurement of the new CI. Re-measure after the first runs, and
+refresh the durations if the legs are not within about 15% of each other.
+
+**Where the file list comes from.** `playwright test --list --reporter=json`, so
+the script sees exactly what Playwright would run through the same `testDir`,
+`testMatch` and any `testIgnore`. A glob of its own would drift from
+`playwright.config.ts` the first time someone changed one. It runs Playwright's
+CLI with the node that runs the script, from the repository root, rather than
+through `npx`, so it also works from another directory (`npx` stops with
+`EBADDEVENGINES` there). Measured 2026-11-25 locally: 0.65 to 0.8 s per shard job, and
+the step comes right after the install, before the browser download and the dev
+servers, so a bad pick fails in seconds.
+
+**Files the timing file does not know.** A new spec file is not in
+`tests/shard-durations.json`, and it still gets a shard: it is assumed to cost
+`fallback_seconds_per_test` for each test the listing reports. That figure is
+3.8 s, the mean over all 535 timed tests (the median file is closer to 2.4 s per
+test, but a new file's cost is unknown and the mean is what the suite as a whole
+costs per test, so the total is not underestimated). A file in the JSON that no
+longer exists is ignored. So an old timing file can unbalance the shards a
+little but cannot drop or repeat a spec. Nothing forces a refresh when a spec
+is added.
+
+**An empty shard fails.** If the matrix has more shards than the suite has
+files, the script exits 1 with `shard k/n has no spec files`, and the workflow
+step fails a second time on an empty list file. It does not pass quietly,
+because `npx playwright test` with no file arguments runs the entire suite, so
+an empty list that fell through would make that shard run everything. Nothing
+reaches that today (96 files, 5 shards). If it does, lower the matrix.
+
+**Positional arguments are regular expressions.** Playwright does not read a
+file argument as a path. It compiles it with `new RegExp(arg, 'gi')`, so
+case-insensitive, and tests it against the file's absolute path. Passing the
+plain path would work only by luck. Two ways it does not, both confirmed
+2026-11-25 with temporary spec files: `a+b.spec.ts` and `e[1].spec.ts` match no
+file at all, so Playwright ran nothing for them and the shard stayed green, and
+`Foo.spec.ts` beside `foo.spec.ts` ran both files twice. So the script prints each
+file as an escaped pattern anchored at the end (`tests/a\+b\.spec\.ts$`), and
+before printing it compiles every pattern the way Playwright does and requires
+that each one selects exactly one listed file, its own. It exits 1 otherwise. Two
+spec paths that differ only in case therefore stop the run, because no argument
+can pick one of them alone; rename one. `--paths` prints plain paths for people.
+If Playwright changes how it reads arguments, the check to repeat is
+`npx playwright test --list <the shard's arguments>`, whose test count must match
+the plan.
+
+**A committed `.only` fails CI.** `playwright.config.ts` sets
+`forbidOnly: !!process.env.CI`. The picker's `--list` ignores `.only`, so without
+it the shard that held the `.only` would run one test while the others ran
+everything. Before the shards picked their own files, `--shard` applied a `.only`
+to the whole suite. Locally `.only` still works.
+
+**The shard count lives in one place**, the `shard:` list in the `e2e` matrix in
+`ci.yml`. The job name and the picker read `strategy.job-total` from it, so
+changing the list is the whole change (plus the figures in this document). The
+job names become `Playwright 1/5` through `5/5`. No ruleset requires them (see
+the `changes` section), and `deploy` needs the `e2e` job id, which did not
+change.
+
+**Refreshing the durations.** The numbers go stale as specs change. Download the
+job logs of a few recent runs and refit:
+
+```sh
+gh run list --workflow CI --branch wormeyman-space-age-support --status success --limit 9 \
+  --json databaseId --jq '.[].databaseId'
+# for each run id, and each job whose name starts with "Playwright":
+gh run view <run-id> --json jobs --jq '.jobs[] | select(.name | startswith("Playwright")) | .databaseId'
+gh api --allow-escape-sequences repos/FactoryGameFan/factorio-blueprint-editor/actions/jobs/<job-id>/logs \
+  > logs/<run-id>_<shard>.log
+node scripts/shard-durations.mjs --logs logs \
+  --source "9 CI runs of the e2e job on <dates>, run ids <first> to <last>"
+node scripts/shard-specs.mjs --plan --total 5
+```
+
+The script keeps only tests that exist in the checkout it runs in (it lists them
+with `--list`), so a test renamed since the logs were taken is not timed twice.
+Run it from a checkout of the commit you are balancing. Use runs that finished
+green (a failed test has no usable duration, and the parser keeps only passing
+ones) and at least a handful of them, because the
+fit's job is to cancel out which runners the logs landed on: with one or two
+logs it cannot tell a slow runner from a slow test. The script prints the speed
+factor range it found (0.57 to 1.60 on the committed set; 1.00 is the median
+runner) as a sanity check. Commit the new JSON with the plan output in the
+message.
 
 The 20 minute timeout is a backstop against a hung suite, not an estimate. A
 shard that has genuinely stopped making progress should be killed. One that is
@@ -537,8 +655,10 @@ Without `e2e` here, exactly that could reach fbe.factorygamefan.com.
 
 The price is the deploy's critical path growing by the length of the suite's
 slowest shard, so a deploy that used to start after `checks` alone now waits
-three to four minutes. It was thirteen before the suite was sharded across four
-runners, which is most of why it was sharded. If the wait ever stops being worth
+three to four minutes (the figure when the suite ran on four count-balanced
+shards; the duration-balanced five should shorten it, unmeasured). It was
+thirteen before the suite was sharded across four runners, which is most of why
+it was sharded. If the wait ever stops being worth
 paying, this gate is the thing to reconsider rather than the job.
 
 ## Known flake

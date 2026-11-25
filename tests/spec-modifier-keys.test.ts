@@ -14,10 +14,10 @@ import * as path from 'path'
 
     Why a text scan rather than a test that drives something. The bug **passes
     on Linux**, and every runner this project has is Linux: `vp test` and the
-    four `e2e` shards are all `ubuntu-latest`. When #208 was written the reason
+    five `e2e` shards are all `ubuntu-latest`. When #208 was written the reason
     it reached the default branch was that CI never ran Playwright at all, and
     #223 and #225 have since fixed that half. It does not help here. A browser
-    suite that gates every PR on four sharded runners will go green on this
+    suite that gates every PR on five sharded runners will go green on this
     forever, so the only thing that can see it is something reading the spec
     source, which is what this does.
 
