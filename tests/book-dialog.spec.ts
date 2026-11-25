@@ -402,3 +402,212 @@ test.describe('scrolling a long book (#643)', () => {
             .toBe(3)
     })
 })
+
+/*
+    Issue #651: a big book opened with 16 warning toasts, one per icon that
+    could not be drawn, and its row labels printed rich-text tags as typed
+    (`[item=stone-furnace] 15/s`).
+
+    Planet and quality icons have no data to draw from at all (#652), so the
+    names below fail to draw on purpose: they stand in for what that book held.
+*/
+const withIcon = (label: string, name: string, type = 'item') => ({
+    ...blueprint(label),
+    icons: [{ index: 1, signal: { type, name } }],
+})
+
+/**
+ * Every warning and error toast the page shows from now on, as its class and
+ * text. Not the info ones: the welcome tip is an info toast that arrives
+ * whenever it likes.
+ * A second call replaces the first recording.
+ */
+async function recordToasts(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const w = window as unknown as { __toasts: string[]; __toastWatch?: MutationObserver }
+        w.__toastWatch?.disconnect()
+        w.__toasts = []
+        w.__toastWatch = new MutationObserver(records => {
+            for (const record of records) {
+                for (const node of record.addedNodes) {
+                    if (!(node instanceof HTMLElement)) continue
+                    const kind = ['toasts-warning', 'toasts-error'].find(c =>
+                        node.classList.contains(c)
+                    )
+                    if (kind !== undefined) w.__toasts.push(`${kind} | ${node.textContent?.trim()}`)
+                }
+            }
+        })
+        w.__toastWatch.observe(document.body, { childList: true, subtree: true })
+    })
+}
+const toastsSoFar = (page: Page): Promise<string[]> =>
+    page.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts)
+
+test.describe('icons the book dialog cannot draw (#651)', () => {
+    test('are named in one warning, however many rows use them', async ({ page }) => {
+        await loadBlueprint(
+            page,
+            encodeBlueprintBook(
+                book([
+                    { blueprint: withIcon('A', 'nauvis', 'space-location') },
+                    { blueprint: withIcon('B', 'nauvis', 'space-location') },
+                    { blueprint: withIcon('C', 'vulcanus', 'space-location') },
+                    { blueprint: withIcon('D', 'vulcanus', 'space-location') },
+                    { blueprint: withIcon('E', 'legendary', 'quality') },
+                    { blueprint: withIcon('F', 'iron-plate') },
+                ])
+            )
+        )
+        await recordToasts(page)
+        await openBook(page)
+        await settle(page)
+        expect(await toastsSoFar(page)).toEqual([
+            'toasts-warning | 3 icons could not be drawn: nauvis, vulcanus, legendary',
+        ])
+    })
+
+    test('say "icon" for one, cap the list at eight names, and stay quiet when all draw', async ({
+        page,
+    }) => {
+        const names = Array.from({ length: 10 }, (_, i) => `no-such-icon-${i}`)
+        const open = async (entries: Record<string, unknown>[]) => {
+            await loadBlueprint(page, encodeBlueprintBook(book(entries)))
+            await recordToasts(page)
+            await openBook(page)
+            await settle(page)
+            const toasts = await toastsSoFar(page)
+            await page.keyboard.press('Escape')
+            return toasts
+        }
+        expect(await open([{ blueprint: withIcon('Only', 'nauvis', 'space-location') }])).toEqual([
+            'toasts-warning | 1 icon could not be drawn: nauvis',
+        ])
+        expect(await open(names.map(name => ({ blueprint: withIcon(name, name) })))).toEqual([
+            `toasts-warning | 10 icons could not be drawn: ${names.slice(0, 8).join(', ')}, and 2 more`,
+        ])
+        expect(await open([{ blueprint: withIcon('Fine', 'iron-plate') }])).toEqual([])
+    })
+
+    test('a nested book header counts too, and reopening warns again', async ({ page }) => {
+        await loadBlueprint(
+            page,
+            encodeBlueprintBook(
+                book([
+                    {
+                        blueprint_book: {
+                            ...book([{ blueprint: withIcon('Inside', 'gleba', 'space-location') }]),
+                            icons: [
+                                { index: 1, signal: { type: 'space-location', name: 'aquilo' } },
+                            ],
+                        },
+                    },
+                ])
+            )
+        )
+        await recordToasts(page)
+        await openBook(page)
+        await settle(page)
+        await page.keyboard.press('Escape')
+        await openBook(page)
+        await settle(page)
+        expect(await toastsSoFar(page)).toEqual([
+            'toasts-warning | 2 icons could not be drawn: aquilo, gleba',
+            'toasts-warning | 2 icons could not be drawn: aquilo, gleba',
+        ])
+    })
+})
+
+test.describe('rich-text tags in book row labels (#651)', () => {
+    const LABELS = [
+        '[item=stone-furnace] 15/s',
+        'Mix [fluid=water] and [virtual-signal=signal-fuel]',
+        '[planet=nauvis] Nauvis',
+        '[entity=character] [item=no-such-item] kept',
+        '[color=red]Red[/color] plain',
+        'Plain label',
+    ]
+
+    test('draw as icons in the label, and unresolved tags are kept as typed', async ({ page }) => {
+        const errors: string[] = []
+        page.on('pageerror', error => errors.push(error.message))
+        await loadBlueprint(
+            page,
+            encodeBlueprintBook(book(LABELS.map(label => ({ blueprint: blueprint(label) }))))
+        )
+        await recordToasts(page)
+        await openBook(page)
+        await settle(page)
+        expect(await page.evaluate(() => window.__fbe_test.bookRowRuns())).toEqual([
+            ['icon:stone-furnace', ' 15/s'],
+            ['Mix ', 'icon:water', ' and ', 'icon:signal-fuel'],
+            ['[planet=nauvis] Nauvis'],
+            ['[entity=character]', ' ', '[item=no-such-item]', ' kept'],
+            ['[color=red]Red[/color] plain'],
+            ['Plain label'],
+        ])
+        // Nothing here is the editor's fault, so nothing is warned about.
+        expect(await toastsSoFar(page)).toEqual([])
+        expect(errors).toEqual([])
+    })
+
+    test('a nested book header and the planner rows use the same label', async ({ page }) => {
+        await loadBlueprint(
+            page,
+            encodeBlueprintBook(
+                book([
+                    {
+                        blueprint_book: {
+                            ...book([{ blueprint: blueprint('[item=iron-plate] Inner') }]),
+                            label: '[item=copper-plate] Header',
+                        },
+                    },
+                    { upgrade_planner: { item: 'upgrade-planner', version, settings: {} } },
+                ])
+            )
+        )
+        await openBook(page)
+        await settle(page)
+        expect(await page.evaluate(() => window.__fbe_test.bookRowRuns())).toEqual([
+            ['icon:copper-plate', ' Header'],
+            ['icon:iron-plate', ' Inner'],
+            ['Upgrade planner'],
+        ])
+    })
+
+    test('every label stays inside its own 24px row, plain, tagged, long or in a header', async ({
+        page,
+    }) => {
+        const long = `${'[item=iron-plate] '.repeat(6)}${'a very long label '.repeat(8)}`
+        await loadBlueprint(
+            page,
+            encodeBlueprintBook(
+                book([
+                    { blueprint: blueprint('First') },
+                    { blueprint: blueprint(long, 2) },
+                    { blueprint: blueprint('[fluid=water] [planet=nauvis] mixed', 3) },
+                    {
+                        blueprint_book: {
+                            ...book([{ blueprint: blueprint('Inner') }]),
+                            label: '[item=copper-plate] Header',
+                        },
+                    },
+                    { upgrade_planner: { item: 'upgrade-planner', version, settings: {} } },
+                ])
+            )
+        )
+        const bounds = await openBook(page)
+        await settle(page)
+        const bands = await page.evaluate(() => window.__fbe_test.bookRowBands())
+        expect(bands).toHaveLength(6)
+        for (const band of bands) {
+            expect(band.top).toBeGreaterThanOrEqual(0)
+            expect(band.bottom).toBeLessThanOrEqual(24)
+        }
+        // A row with a long label still selects at its far right edge.
+        await page.mouse.click(bounds.x + 300, bounds.y + 40 + 1 * 24 + 12)
+        await expect
+            .poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount()))
+            .toBe(2)
+    })
+})
