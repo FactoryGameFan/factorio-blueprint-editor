@@ -7,9 +7,12 @@ import {
     ambiguousPatterns,
     assignShards,
     comparePaths,
+    escapeRegExp,
     estimateSeconds,
+    playwrightArg,
     selectShard,
     specFilesFromReport,
+    testKeysFromReport,
 } from './shard-specs.mjs'
 
 const spec = (file, tests = 1) => ({ file, tests })
@@ -152,11 +155,86 @@ test('a shard index outside 1..n is an error', () => {
     }
 })
 
-test('a path that would also match another path as a regex is refused', () => {
-    assert.deepEqual(ambiguousPatterns(KNOWN_SPECS), [])
-    assert.deepEqual(ambiguousPatterns([spec('tests/a.spec.ts'), spec('tests/aXspec.ts')]), [
-        'tests/a.spec.ts also matches tests/aXspec.ts',
-    ])
+// What Playwright does with a positional argument, written out independently of
+// the module under test: a case-insensitive regular expression, tested against
+// the ABSOLUTE path of every file (playwright/lib/common/index.js, forceRegExp).
+const selectedBy = (arg, files, root = '/repo') =>
+    files.filter(file => new RegExp(arg, 'gi').test(`${root}/${file}`))
+
+test('each file gets an argument that selects that file and nothing else', () => {
+    const files = [
+        'tests/a.spec.ts',
+        'tests/a.spec.ts.bak',
+        'tests/ab.spec.ts',
+        'tests/a+b.spec.ts',
+        'tests/e[1].spec.ts',
+        'tests/e1.spec.ts',
+        'tests/(x).spec.ts',
+        'tests/$dollar.spec.ts',
+        'tests/caret^.spec.ts',
+        'tests/a|b.spec.ts',
+        'tests/sub dir/deep/a b.spec.ts',
+        'tests/Mixed-Case.spec.ts',
+    ]
+    for (const file of files) {
+        assert.deepEqual(selectedBy(playwrightArg(file), files), [file], playwrightArg(file))
+    }
+    assert.deepEqual(ambiguousPatterns(files.map(file => spec(file))), [])
+})
+
+test('the bare path was the bug: characters that are regex syntax', () => {
+    const files = [
+        'tests/a+b.spec.ts',
+        'tests/e[1].spec.ts',
+        'tests/ab.spec.ts',
+        'tests/e1.spec.ts',
+    ]
+    // Unescaped, `a+b` means "one or more a, then b", so it misses its own file
+    // and picks a neighbour, and `e[1]` means "e then 1".
+    assert.deepEqual(selectedBy('tests/a+b.spec.ts', files), ['tests/ab.spec.ts'])
+    assert.deepEqual(selectedBy('tests/e[1].spec.ts', files), ['tests/e1.spec.ts'])
+    assert.equal(escapeRegExp('a+b[1](2).*$^|\\'), 'a\\+b\\[1\\]\\(2\\)\\.\\*\\$\\^\\|\\\\')
+})
+
+test('the guard refuses files that one argument cannot tell apart', () => {
+    // Case-insensitive, so no argument can pick one of these two alone.
+    const problems = ambiguousPatterns([spec('tests/Foo.spec.ts'), spec('tests/foo.spec.ts')])
+    assert.equal(problems.length, 2)
+    assert.match(problems[0], /Foo\.spec\.ts.*selects tests\/Foo\.spec\.ts, tests\/foo\.spec\.ts/)
+    // Anchored at the end only, so an argument also reaches a nested copy.
+    const nested = ambiguousPatterns([spec('tests/a.spec.ts'), spec('tests/sub/tests/a.spec.ts')])
+    assert.equal(nested.length, 1)
+    assert.match(nested[0], /^tests\/a\.spec\.ts: .*tests\/sub\/tests\/a\.spec\.ts/)
+})
+
+test('lists every test in a --list report as file and title, repeats numbered', () => {
+    const report = {
+        config: { rootDir: '/repo/tests' },
+        suites: [
+            {
+                file: 'a.spec.ts',
+                title: 'a.spec.ts',
+                specs: [{ title: 'top' }, { title: 'same' }, { title: 'same' }],
+                suites: [
+                    {
+                        title: 'group',
+                        specs: [{ title: 'inner' }],
+                        suites: [{ title: 'deeper', specs: [{ title: 'leaf' }] }],
+                    },
+                ],
+            },
+        ],
+    }
+    assert.deepEqual(
+        [...testKeysFromReport(report, '/repo')],
+        [
+            'tests/a.spec.ts\u0000top',
+            'tests/a.spec.ts\u0000same',
+            'tests/a.spec.ts\u0000same#2',
+            'tests/a.spec.ts\u0000group › inner',
+            'tests/a.spec.ts\u0000group › deeper › leaf',
+        ]
+    )
 })
 
 test('reads files and test counts out of a --list JSON report', () => {
@@ -194,7 +272,7 @@ test('the committed durations file is well formed', () => {
     assert.ok(data.fallback_seconds_per_test > 0)
     assert.ok(Object.keys(data.files).length > 0)
     for (const [file, seconds] of Object.entries(data.files)) {
-        assert.match(file, /^tests\/[^/]+\.spec\.ts$/)
+        assert.match(file, /^tests\/.+\.spec\.ts$/)
         assert.ok(seconds >= 0, file)
     }
 })

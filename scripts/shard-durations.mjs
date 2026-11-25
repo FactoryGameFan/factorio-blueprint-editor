@@ -28,7 +28,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { comparePaths } from './shard-specs.mjs'
+import { comparePaths, listReport, testKey, testKeysFromReport } from './shard-specs.mjs'
 
 const ITERATIONS = 8
 const MIN_VOTING_SECONDS = 3
@@ -36,7 +36,7 @@ const MIN_VOTING_SECONDS = 3
 // `2026-11-25T04:39:28.0533130Z   ✓    1 tests/foo.spec.ts:37:1 › title (829ms)`
 // Only a pass counts. A failure's duration is a timeout or a truncated run and
 // a skipped test has none.
-const TEST_LINE = /^\S+Z\s+✓\s+\d+ (tests\/\S+?\.spec\.ts):\d+:\d+ › (.*) \(([\d.]+)(ms|s|m)\)\s*$/
+const TEST_LINE = /^\S+Z\s+✓\s+\d+ (tests\/.+?\.spec\.ts):\d+:\d+ › (.*) \(([\d.]+)(ms|s|m)\)\s*$/
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;]*m/g
@@ -69,12 +69,10 @@ export function parseJobLog(text) {
         const match = TEST_LINE.exec(line)
         if (!match) continue
         const [, file, title, amount, unit] = match
-        const key = `${file}\u0000${title}`
-        const count = (seen.get(key) ?? 0) + 1
-        seen.set(key, count)
+        const key = testKey(seen, file, title)
         tests.push({
             file,
-            title: count === 1 ? title : `${title}#${count}`,
+            title: key.slice(file.length + 1),
             seconds: toSeconds(amount, unit),
         })
     }
@@ -86,15 +84,19 @@ export function parseJobLog(text) {
  *
  * @param {Map<string, {file: string, title: string, seconds: number}[]>} jobs
  *   job name -> that job's passing tests
+ * @param {Set<string> | undefined} current keys (`testKey`) of the tests that
+ *   exist now. A test in the logs but not in it was renamed or deleted since the
+ *   run, and counting it too would price one test twice. Omitted: keep all.
  * @returns {{ factors: Map<string, number>, files: Map<string, number>,
  *             tests: number }} `files` is file -> seconds on a median runner
  */
-export function fitDurations(jobs) {
+export function fitDurations(jobs, current) {
     // test key -> job -> seconds
     const observed = new Map()
     for (const [job, tests] of jobs) {
         for (const t of tests) {
             const key = `${t.file}\u0000${t.title}`
+            if (current && !current.has(key)) continue
             if (!observed.has(key)) observed.set(key, new Map())
             observed.get(key).set(job, t.seconds)
         }
@@ -133,8 +135,8 @@ export function fitDurations(jobs) {
 const round1 = n => Math.round(n * 10) / 10
 
 /** The object that gets written to tests/shard-durations.json. */
-export function buildDurationsFile({ jobs, source, generated }) {
-    const { files, tests } = fitDurations(jobs)
+export function buildDurationsFile({ jobs, source, generated, current }) {
+    const { files, tests } = fitDurations(jobs, current)
     let total = 0
     for (const seconds of files.values()) total += seconds
     return {
@@ -149,7 +151,7 @@ export function buildDurationsFile({ jobs, source, generated }) {
             generated: 'Date the file was fitted, YYYY-MM-DD.',
             fallback_seconds_per_test:
                 'Cost assumed per test for a spec file missing from "files". ' +
-                `The mean over all ${tests} timed tests, so a new file is expected ` +
+                `The mean over all ${tests} timed tests currently in the suite, so a new file is expected ` +
                 'to cost what an average test costs.',
             files:
                 'Repo-relative spec path -> seconds on a median runner. A path that ' +
@@ -189,18 +191,27 @@ function main() {
         if (tests.length > 0) jobs.set(name, tests)
     }
     if (jobs.size === 0) throw new Error(`no Playwright test lines found in ${args.logs}/*.log`)
+    // Only tests that exist now, from the checkout this runs in. Logs come from
+    // older commits, and a test renamed since would otherwise be timed twice.
+    const current = testKeysFromReport(listReport())
     const result = buildDurationsFile({
         jobs,
         source: args.source ?? `${jobs.size} logs`,
         generated: new Date().toISOString().slice(0, 10),
+        current,
     })
-    writeFileSync(args.out, JSON.stringify(result, null, 2) + '\n')
-    const { factors } = fitDurations(jobs)
+    writeFileSync(args.out, JSON.stringify(result, null, 4) + '\n')
+    const { factors } = fitDurations(jobs, current)
     const speeds = [...factors.values()].sort((a, b) => a - b)
+    const timed = new Set(
+        [...jobs.values()].flatMap(tests => tests.map(t => `${t.file}\u0000${t.title}`))
+    )
+    const untimed = [...current].filter(key => !timed.has(key)).length
     console.log(
         `wrote ${args.out}: ${Object.keys(result.files).length} files from ${jobs.size} jobs; ` +
             `runner speed factor ${speeds[0].toFixed(2)} to ${speeds.at(-1).toFixed(2)} ` +
-            `(1.00 = median runner)`
+            `(1.00 = median runner); ${current.size} tests exist now, ` +
+            `${untimed} of them in no log`
     )
 }
 

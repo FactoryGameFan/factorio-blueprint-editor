@@ -31,7 +31,7 @@ jobs:
   # Skips jobs that cannot see the change. A job-level `if:` rather than
   # `on.pull_request.paths` on purpose: a skipped WORKFLOW never reports, a
   # skipped JOB does. But a skipped MATRIX job reports one unexpanded name, so
-  # `Playwright 1/4` must never be marked a required check. See README.md.
+  # `Playwright 1/5` must never be marked a required check. See README.md.
   changes:
     name: Detect changed areas
     runs-on: ubuntu-latest
@@ -243,6 +243,27 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
+      # Placed right after the install, ahead of the browser download and the dev
+      # servers, so a failed pick fails in seconds. `--list` needs neither.
+      #
+      # Written to a file, not read through `< <(...)`: a process substitution
+      # hides the script's exit status, and a failed pick would then hand
+      # Playwright an empty list. `npx playwright test` with NO arguments runs
+      # the whole suite, so an empty list must fail here, never fall through.
+      # The script itself exits 1 for a shard with no files; the `-s` test is
+      # the second lock on the same door. See README.md.
+      - name: Pick this shard's spec files
+        env:
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ strategy.job-total }}
+        run: |
+          node scripts/shard-specs.mjs --shard "$SHARD" --total "$TOTAL" > "$RUNNER_TEMP/shard-specs.txt"
+          if [ ! -s "$RUNNER_TEMP/shard-specs.txt" ]; then
+            echo "::error::shard $SHARD/$TOTAL has no spec files, and an empty list would run the whole suite"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/shard-specs.txt"
+
       - name: Resolve Playwright version
         id: pw
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -300,24 +321,6 @@ jobs:
           echo "--- localpreview log ---" >&2
           cat /tmp/localpreview.log >&2 || true
           exit 1
-
-      # Written to a file, not read through `< <(...)`: a process substitution
-      # hides the script's exit status, and a failed pick would then hand
-      # Playwright an empty list. `npx playwright test` with NO arguments runs
-      # the whole suite, so an empty list must fail here, never fall through.
-      # The script itself exits 1 for a shard with no files; the `-s` test is
-      # the second lock on the same door. See README.md.
-      - name: Pick this shard's spec files
-        env:
-          SHARD: ${{ matrix.shard }}
-          TOTAL: ${{ strategy.job-total }}
-        run: |
-          node scripts/shard-specs.mjs --shard "$SHARD" --total "$TOTAL" > "$RUNNER_TEMP/shard-specs.txt"
-          if [ ! -s "$RUNNER_TEMP/shard-specs.txt" ]; then
-            echo "::error::shard $SHARD/$TOTAL has no spec files, and an empty list would run the whole suite"
-            exit 1
-          fi
-          cat "$RUNNER_TEMP/shard-specs.txt"
 
       - name: Run Playwright specs
         run: |

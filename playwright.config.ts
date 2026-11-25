@@ -30,6 +30,15 @@ export default defineConfig({
         baseURL,
         headless: true,
     },
+    /*
+        A committed `.only` fails the run in CI. It has to: scripts/shard-specs.mjs
+        picks each shard's files with `--list`, which ignores `.only`, so every
+        shard would be handed its files and the one holding the `.only` would run
+        that single test while the others ran everything. Before the shards
+        picked their own files, `--shard` applied the `.only` to the whole suite.
+        Locally `.only` still works, which is what it is for.
+    */
+    forbidOnly: !!process.env.CI,
     retries: 0,
     workers: 1,
     reporter: [['list']],

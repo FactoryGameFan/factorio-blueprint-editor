@@ -469,10 +469,9 @@ deployment after both checks and browser tests pass. The shards split spec files
 by measured duration, not test count: `scripts/shard-specs.mjs` reads
 `tests/shard-durations.json`. A new spec file needs no entry (it is estimated),
 but refresh the durations now and then; the workflows README has the command.
-Every job is on
-`ubuntu-latest`. Linux type-checks both extractors, because `download()` hides
-neither behind a `#[cfg(target_os)]`. `.github/workflows/README.md` records
-what Linux-only CI does not cover.
+Every job is on `ubuntu-latest`. Linux type-checks both extractors, because
+`download()` hides neither behind a `#[cfg(target_os)]`.
+`.github/workflows/README.md` records what Linux-only CI does not cover.
 
 ### Running the browser suite under WSL2
 

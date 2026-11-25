@@ -2,7 +2,7 @@
     "about": "Seconds each Playwright spec file takes on a median GitHub runner, used by scripts/shard-specs.mjs to balance the CI shards by duration. Fitted from 36 Playwright job logs (9 CI runs of the e2e job on 2026-11-24 and 2026-11-25, 4 shards each, run ids 45481525174 to 45548171605) on 2026-11-25: each test's median duration after rescaling every job to a common runner speed, summed per file. Regenerate with: node scripts/shard-durations.mjs --logs <dir of job logs>. See .github/workflows/README.md.",
     "field_notes": {
         "generated": "Date the file was fitted, YYYY-MM-DD.",
-        "fallback_seconds_per_test": "Cost assumed per test for a spec file missing from \"files\". The mean over all 539 timed tests, so a new file is expected to cost what an average test costs.",
+        "fallback_seconds_per_test": "Cost assumed per test for a spec file missing from \"files\". The mean over all 535 timed tests currently in the suite, so a new file is expected to cost what an average test costs.",
         "files": "Repo-relative spec path -> seconds on a median runner. A path that no longer exists is ignored."
     },
     "generated": "2026-11-25",
@@ -10,9 +10,9 @@
     "files": {
         "tests/agricultural-tower-crane.spec.ts": 2.1,
         "tests/append-wires.spec.ts": 14.2,
-        "tests/bill-of-materials.spec.ts": 35.6,
+        "tests/bill-of-materials.spec.ts": 35.5,
         "tests/blueprint-grid-position.spec.ts": 42.8,
-        "tests/blueprint-info-editor.spec.ts": 53.1,
+        "tests/blueprint-info-editor.spec.ts": 49.6,
         "tests/blueprint-loading.spec.ts": 95.9,
         "tests/blueprint-round-trip.spec.ts": 10.4,
         "tests/blueprint-snapping.spec.ts": 5,
@@ -30,10 +30,10 @@
         "tests/clipboard-shortcuts.spec.ts": 17.1,
         "tests/cryogenic-plant-glass.spec.ts": 2,
         "tests/dangling-wires.spec.ts": 6.2,
-        "tests/dialog-registry-leak.spec.ts": 12.1,
+        "tests/dialog-registry-leak.spec.ts": 6.7,
         "tests/dialog-scrolling.spec.ts": 175.4,
         "tests/display-panel-editor.spec.ts": 35.3,
-        "tests/editor-icon-guards.spec.ts": 12.7,
+        "tests/editor-icon-guards.spec.ts": 10.6,
         "tests/editor-mode-input.spec.ts": 35.2,
         "tests/elevated-rail-placement.spec.ts": 9.2,
         "tests/empty-source.spec.ts": 5.4,
