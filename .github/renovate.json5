@@ -101,7 +101,7 @@
     // NEW SIDE EFFECT OF THE PRESET: action bumps are now GROUPED into one PR
     // instead of arriving one per action. Nothing here automerges, so this only
     // changes how many PRs there are to read.
-    extends: ['local>FactoryGameFan/.github:renovate-config'],
+    extends: ['local>FactoryGameFan/.github:renovate-config', 'group:vitePlus'],
 
     // A judgement call, not a constraint inherited from the package manager (see
     // the npm-not-pnpm note above). Three days is enough for a compromised or
