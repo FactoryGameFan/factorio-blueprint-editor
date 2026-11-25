@@ -18,6 +18,8 @@ changes ──┬── checks ─────────┐
           │                   ├── deploy
           ├── e2e (4 shards) ─┘
           └── rust
+
+code-scanning          (no dependencies, and nothing depends on it)
 ```
 
 Every job runs on `ubuntu-latest`. There is no Windows or macOS runner here,
@@ -405,6 +407,96 @@ Playwright output alone.
 readiness has to be polled rather than awaited. Both ports, since Vite comes up
 first and the specs need the sprite server too.
 
+## `code-scanning`: fail on open high or critical alerts
+
+A CodeQL `js/polynomial-redos` alert (high) sat open on the default branch for a
+month, from 2026-10-25. Alerts appear in the Security tab and nowhere else, and
+a pull request's annotations cover only the lines it changes, so nothing in CI
+or in a review ever showed it. This job turns an open, severe alert into a red
+check. `scripts/code-scanning-gate.mjs` does the work and has unit tests
+(`scripts/code-scanning-gate.test.mjs`, run by `vp test`).
+
+### What it asks
+
+`GET /repos/{repo}/code-scanning/alerts?state=open&ref=refs/heads/<default>`,
+every page, then keeps alerts whose `rule.security_severity_level` is `high` or
+`critical`.
+
+- **`security_severity_level`, not `severity`.** Per the REST docs for listing
+  code scanning alerts, `severity` is `none`/`note`/`warning`/`error`, and
+  `security_severity_level` is `low`/`medium`/`high`/`critical` (null for a rule
+  that is not a security rule). The alert this exists for is `severity: warning`
+  and `security_severity_level: high`, so reading `severity` would have passed it.
+- **The API's own `severity` query parameter is not used.** The docs describe
+  one value. Measured 2026-11-24: `severity=critical,high` happened to return
+  both open alerts, but `severity=critical&severity=high` returned only the
+  last. Filtering on our side avoids depending on either.
+- **The branch name is `github.event.repository.default_branch`**, so a rename
+  of the default branch needs no edit here. An unknown ref is not an error to
+  the API: `ref=refs/heads/nonexistent` answers `[]` with status 200. So when
+  there are no alerts the script also asks `code-scanning/analyses` for that
+  ref, and prints a `::warning::` if there is none. It is a warning, not a
+  failure, so a repository whose first scan has not finished is not "broken".
+
+### It judges the default branch, on every event
+
+Pull requests are judged on the default branch's alerts too, not on their own
+`refs/pull/N/merge`. CodeQL here is the **default setup** (measured 2026-11-24
+with the `code-scanning/default-setup` endpoint: `configured`, `schedule:
+weekly`, javascript-typescript among its languages), a separate run with no
+ordering against `ci.yml`. A pull request's analysis may not exist when this job
+starts, and a check that waited for it would be a polling loop with a timeout.
+The default branch's alerts are always settled.
+
+The price, stated plainly: **every pull request is red while the default branch
+has a severe alert open, including the pull request that fixes it.** The fix
+turns the check green only after it merges and CodeQL re-analyses the branch.
+There are no required checks (see `changes`), so nothing is blocked from
+merging. If that noise ever outweighs the signal, the one-line change is
+`if: github.event_name != 'pull_request'` on the job, which leaves push and
+manual runs red and pull requests silent.
+
+It does not run behind `changes`. An alert has nothing to do with which files a
+pull request touches.
+
+A run happens only when something triggers `ci.yml`: a push, a pull request or a
+dispatch. An alert that appears while the repository is quiet (CodeQL's weekly
+scan finds it on unchanged code) goes red at the next trigger, not at once. A
+`schedule:` trigger on `ci.yml` would run every job daily, `e2e` included, so
+it is not here. Run `gh workflow run CI` for an on-demand check.
+
+### Deploy is not gated on it
+
+`deploy` needs `checks` and `e2e` only. A red `code-scanning` on a push to the
+default branch shows as a red X on that commit but does not stop the release.
+That was chosen on purpose: a pending alert is not a reason to hold back an
+unrelated fix, and the thing that is, a broken build, is already held by the
+other two jobs. To make it block, add `code-scanning` to `deploy`'s `needs`; the
+cost is that a standing alert then blocks every deploy until it is fixed or
+dismissed, including the deploy of its own fix.
+
+### Permissions, and fork pull requests
+
+The job declares `security-events: read` and `contents: read`; nothing writes.
+GitHub documents that the token is read-only in pull requests from forks and
+that secrets are not passed. It does not promise that `security-events: read` is
+among the read scopes a fork's token keeps, and a fork run cannot be tested from
+here. So the script does not assume it. On a `pull_request`, a 401, 403 or 404
+from the alerts call prints a `::notice::` and passes: the author cannot grant
+the permission or fix the alert, and the push run on the default branch still
+gates. On any other event the same error fails the job, because a gate that
+skips itself quietly is the failure this exists to end. Other errors, a 503 for
+one, fail on every event.
+
+### Output
+
+The log lists each alert as `#number rule-id severity path:line html_url`, worst
+first. The step summary holds the same as a table. Every field comes from the
+API, so each goes through `oneLine` (the same flattening as
+`scripts/triage-labels.mjs`) before it is printed: a step's output is parsed for
+workflow commands at the start of a line, and every line here has a prefix. The
+only lines that start with `::` are the script's own fixed messages.
+
 ## `deploy`
 
 Gated on both `checks` and `e2e`, not just `checks`. The class of bug this covers
@@ -412,6 +504,8 @@ is the one that motivated `e2e`: a change that type-checks, lints and passes
 every unit test while breaking the editor in a browser. PR #222 dropping
 `position-relative-to-grid` is the worked example, and `checks` was green on it.
 Without `e2e` here, exactly that could reach fbe.factorygamefan.com.
+
+`code-scanning` is not in that list on purpose. See its section above.
 
 The price is the deploy's critical path growing by the length of the suite's
 slowest shard, so a deploy that used to start after `checks` alone now waits
