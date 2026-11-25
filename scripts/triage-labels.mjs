@@ -137,10 +137,11 @@ export function labelMenu(ghLabels) {
  * Flattens text that reached us from the model, and so at one remove from a
  * stranger's issue, to a single line of printable characters.
  *
- * A step's stdout is parsed by the runner for workflow commands, and those are
- * recognised only at the start of a line. Every line below is prefixed, so
- * removing the newlines is what keeps injected text on the prefix's line where
- * it can only be data. The same flattening stops an escape sequence reaching a
+ * A step's stdout is parsed by the runner for workflow commands. The
+ * `::command::` form is recognised only at the start of a line, and every line
+ * below is prefixed, so removing the newlines keeps injected text on the
+ * prefix's line where it can only be data. The legacy `##[command]` form works
+ * anywhere in a line, so it is broken up as well. The same flattening stops an escape sequence reaching a
  * terminal reading the log, and stops a heading forging one in the summary.
  */
 export function oneLine(text, limit = 300) {
@@ -148,8 +149,13 @@ export function oneLine(text, limit = 300) {
     // terminal or the runner would act on rather than print. Written this way
     // there is no control character in this file for a reader or a linter to
     // trip over, and it covers the C1 range an explicit \u0000-\u001f misses.
+    // The runner also acts on the legacy `##[command]` form anywhere in a
+    // line, not just at its start (actions/runner ActionCommand.TryParse uses
+    // IndexOf("##[")), so a prefix does not protect it. A zero-width space
+    // between `##` and `[` breaks the match and reads the same.
     const flat = String(text)
         .replaceAll(/\p{Cc}+/gu, ' ')
+        .replaceAll('##[', '##\u200b[')
         .trim()
     return flat.length > limit ? `${flat.slice(0, limit)}...` : flat
 }

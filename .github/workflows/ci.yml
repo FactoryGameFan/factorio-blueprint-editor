@@ -135,6 +135,32 @@ jobs:
         if: ${{ !cancelled() }}
         run: vp test
 
+  # Fails while the default branch has an open high or critical code-scanning
+  # alert. Judges the default branch on every event, pull requests included, so
+  # it never races CodeQL's own run on the pull request. Deliberately NOT in
+  # `deploy`'s `needs`, so a red result never holds back a release. Not behind
+  # `changes` either: an alert does not care which files a pull request touches.
+  # See README.md.
+  code-scanning:
+    name: Code scanning alerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Fail on open high or critical alerts
+        run: node scripts/code-scanning-gate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
   rust:
     name: Rust exporter
     needs: changes
@@ -286,7 +312,8 @@ jobs:
   deploy:
     name: Deploy to Cloudflare
     # Both gates, not just `checks`. Merging to this branch deploys to
-    # fbe.factorygamefan.com, so treat it as a release. See README.md.
+    # fbe.factorygamefan.com, so treat it as a release. `code-scanning` is left
+    # out on purpose. See README.md.
     needs: [checks, e2e]
     if: >-
       github.event_name == 'push' ||

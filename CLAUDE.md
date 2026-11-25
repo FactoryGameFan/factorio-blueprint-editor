@@ -588,8 +588,10 @@ because the model's `Write` tool reaches the whole checkout and the last step
 executes that file with a token that can write to issues. A `git diff` there
 would not do: `.git/config` is untracked, and `diff.external` in it names a
 program `git diff` itself runs. Anything logged or put in the job summary goes
-through `oneLine` first - a step's stdout is parsed for workflow commands,
-which are recognised only at the start of a line.
+through `oneLine` first - a step's stdout is parsed for workflow commands.
+The `::command::` form counts only at the start of a line, but the runner
+finds the legacy `##[command]` form anywhere in one (`IndexOf("##[")` in
+actions/runner's `ActionCommand.cs`), so `oneLine` also breaks up `##[`.
 
 Re-run it on any issue with
 `gh workflow run 'Issue triage' --field issue=<number>`. That is also the only
