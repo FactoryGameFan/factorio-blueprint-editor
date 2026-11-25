@@ -37,8 +37,16 @@ export type RichTextRun =
     /** `source` is the whole tag as typed, for a caller that cannot draw it. */
     | { kind: 'icon'; type: IconTagType; name: string; source: string }
 
+/*
+    The name stops at `,`, `[` or `]`, and anything after it must start with a
+    comma. The earlier `=([^,\]]+)[^\]]*\]` let the name and the tail split the
+    same characters every possible way, and let `[` into both, so a label of
+    repeated `[item=` with no `]` backtracked: 6,000 characters took 3.5 s and
+    12,000 took 27 s, from a pasted blueprint or a share link. No prototype
+    name holds a `,`, `[` or `]`, so every real tag matches as before.
+*/
 const ICON_TAG =
-    /\[(item|fluid|recipe|virtual-signal|entity|planet|space-location|quality)=([^,\]]+)[^\]]*\]/g
+    /\[(item|fluid|recipe|virtual-signal|entity|planet|space-location|quality)=([^,[\]]+)(?:,[^[\]]*)?\]/g
 
 /** Splits `text` into plain runs and icon tags, in order. Empty runs are omitted. */
 export function splitRichTextIcons(text: string): RichTextRun[] {

@@ -61,6 +61,30 @@ describe('splitRichTextIcons', () => {
             { kind: 'icon', type: 'quality', name: 'rare', source: '[quality=rare]' },
         ])
     })
+
+    it('leaves an unclosed tag as text', () => {
+        expect(splitRichTextIcons('[item=a,b')).toEqual([{ kind: 'text', text: '[item=a,b' }])
+    })
+
+    it('matches a tag that starts inside an unclosed one', () => {
+        expect(
+            splitRichTextIcons('[item=[item=a]').map(r => (r.kind === 'icon' ? r.source : r.text))
+        ).toEqual(['[item=', '[item=a]'])
+    })
+
+    /*
+        The shapes CodeQL reported (js/polynomial-redos). Under the earlier
+        pattern the first took 27 s at this length; both now take well under a
+        millisecond. The bound is loose so a slow CI runner cannot trip it.
+    */
+    it.each([
+        ['repeated unclosed tags', '[item='.repeat(2000)],
+        ['one unclosed tag with a long name', '[item=' + '+'.repeat(60000)],
+    ])('splits %s in linear time', (_, text) => {
+        const start = performance.now()
+        expect(splitRichTextIcons(text)).toEqual([{ kind: 'text', text }])
+        expect(performance.now() - start).toBeLessThan(250)
+    })
 })
 
 /*
