@@ -230,6 +230,21 @@ test('alert text cannot start a workflow command or forge a table row', () => {
     assert.doesNotMatch(describeAlert(hostile), /[\n\r]/)
 })
 
+test('alert text cannot carry a legacy ##[ command, which works anywhere in a line', () => {
+    // The runner finds `##[command]` with IndexOf, so the `  #9 ...` prefix on
+    // each logged line does not protect it.
+    const hostile = {
+        number: 9,
+        html_url: 'https://x.test/##[warning]forged',
+        rule: { id: 'js/##[add-mask]x', security_severity_level: 'high' },
+        most_recent_instance: { location: { path: 'src/##[error]forged.ts', start_line: 1 } },
+    }
+    const r = check({ ref: 'main', event: 'push', api: api({ alerts: [hostile] }) })
+    for (const line of r.lines) assert.doesNotMatch(line, /##\[/)
+    assert.doesNotMatch(describeAlert(hostile), /##\[/)
+    assert.equal(oneLine('src/##[error]x.ts'), 'src/##​[error]x.ts')
+})
+
 test('a URL that could end a markdown link early is shown as text, not linked', () => {
     const base = { number: 5, rule: { id: 'r', security_severity_level: 'high' } }
     for (const url of [

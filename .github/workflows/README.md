@@ -514,9 +514,11 @@ The log lists each alert as `#number rule-id severity path:line html_url`, worst
 first. The step summary holds the same as a table. Every field comes from the
 API, so each goes through `oneLine` (the same flattening as
 `scripts/triage-labels.mjs`) before it is printed, and so does the text of a
-failure: a step's output is parsed for workflow commands at the start of a line,
-and every line here has a prefix. The only lines that start with `::` are the
-script's own fixed messages.
+failure: a step's output is parsed for `::command::` workflow commands at the
+start of a line, and every line here has a prefix. The only lines that start
+with `::` are the script's own fixed messages. The runner also acts on the
+legacy `##[command]` form anywhere in a line, so `oneLine` breaks up `##[` with
+a zero-width space.
 
 In the table, every character markdown acts on is backslash-escaped (`cell`), so
 a `|`, a backtick or a bracket in a path cannot open a cell, span or link. The

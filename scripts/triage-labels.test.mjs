@@ -148,12 +148,23 @@ test('summaryFor leaves the dropped line out when nothing was dropped', () => {
 })
 
 test('oneLine keeps text a stranger wrote on one line', () => {
-    // A step's stdout is parsed by the runner for workflow commands, and those
-    // are recognised only at the start of a line. Every line logged here is
+    // A step's stdout is parsed by the runner for workflow commands, and the
+    // `::` form is recognised only at the start of a line. Every line logged here is
     // prefixed, so flattening the newlines is what keeps injected text on the
     // prefix's line, where it can only ever be data.
     assert.equal(oneLine('one\n::error::forged'), 'one ::error::forged')
     assert.equal(oneLine('a\r\n\r\nb'), 'a b')
+})
+
+test('oneLine breaks up legacy ##[ commands, which work anywhere in a line', () => {
+    // The `##[command]` form is found by IndexOf, not at the line's start, so
+    // the prefix on each logged line does not protect it. The reasoning comes
+    // from a model reading a stranger's issue.
+    for (const text of ['label it ##[stop-commands]tok', 'x ##[error]forged', '##[warning]x']) {
+        assert.doesNotMatch(oneLine(text), /##\[/)
+        assert.doesNotMatch(logLines([], [], [], text).join('\n'), /##\[/)
+    }
+    assert.equal(oneLine('a ##[error]b'), 'a ##​[error]b')
 })
 
 test('oneLine strips the control characters a terminal would act on', () => {

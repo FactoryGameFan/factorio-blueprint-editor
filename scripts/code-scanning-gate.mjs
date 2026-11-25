@@ -39,14 +39,21 @@ const RANK = new Map(GATING_LEVELS.map((level, i) => [level, i]))
 
 /**
  * Flattens text that came from the API to one line of printable characters.
- * A step's stdout is parsed for workflow commands, recognised only at the
- * start of a line, and every line this script prints has a prefix, so removing
- * newlines is what keeps an alert's text on that prefix's line as plain data.
+ * A step's stdout is parsed for workflow commands. The `::command::` form is
+ * recognised only at the start of a line, and every line this script prints
+ * has a prefix, so removing newlines keeps an alert's text on that prefix's
+ * line as plain data. The legacy `##[command]` form works anywhere in a line,
+ * so it is broken up as well.
  * Same approach as oneLine in scripts/triage-labels.mjs.
  */
 export function oneLine(text, limit = 300) {
+    // The runner also acts on the legacy `##[command]` form anywhere in a
+    // line, not just at its start (actions/runner ActionCommand.TryParse uses
+    // IndexOf("##[")), so a prefix does not protect it. A zero-width space
+    // between `##` and `[` breaks the match and reads the same.
     const flat = String(text ?? '')
         .replaceAll(/\p{Cc}+/gu, ' ')
+        .replaceAll('##[', '##\u200b[')
         .trim()
     return flat.length > limit ? `${flat.slice(0, limit)}...` : flat
 }
