@@ -8,9 +8,9 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     handing back undefined when they disagree, so it is worth proving the
     invariant holds against a real blueprint.
 
-    The blueprint-loading suite already covers decode and render. This covers the
-    serialize direction and the create/remove cycle, neither of which that suite
-    reaches. The static (de)serialize functions are unit tested in
+    blueprint-round-trip and overlay-container already cover decode and render
+    over the corpus. This covers the WireConnections index on the serialize
+    direction and the create/remove cycle, which neither checks. The static (de)serialize functions are unit tested in
     packages/editor/src/core/WireConnections.test.ts instead - they need no FD data.
 
     Not covered: the loose connection point, which only exists while a wire is

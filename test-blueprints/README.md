@@ -252,9 +252,12 @@ Re-derive these rather than trusting them. The first line was re-measured on
   such by any spec. Before UPSTREAM-277 the figures were 12 files, 367
   blueprints, 347,725 entities, 48,869 wires, 956 icons.
 - **Zero unknown prototypes.** Every entity name and tile name resolves against
-  `packages/exporter/data/output/data.json`. Adding a file that does not hold
-  this breaks `blueprint-loading.spec.ts` and `tests/unknown-prototypes.spec.ts`
-  at once. One name needs a migration to get there: the four
+  `packages/exporter/data/output/data.json`. No spec enforces this: a load
+  drops an unknown name with a warning, and the pins in
+  `tests/blueprint-round-trip.spec.ts` would be recorded after the drop.
+  (`blueprint-loading.spec.ts` was said to, but it had no assertions and was
+  removed.) Check a new file for a "Skipped ... unknown" load warning by hand.
+  One name needs a migration to get there: the four
   `logistic-chest-storage` in `UPSTREAM-277/combat-robot-capsules-1-1-69.txt`
   resolve only because `nameMigrations.ts` renames them to `storage-chest`
   under its pre-2.0 gate. That is the point of the file, and it also means a

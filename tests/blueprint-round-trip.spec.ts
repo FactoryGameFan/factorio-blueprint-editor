@@ -5,9 +5,8 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
     Characterization test for Blueprint's decode -> model -> serialize path,
     ahead of clearing its 22 strictNullChecks errors (issue #22).
 
-    Nothing covers this today. blueprint-loading.spec.ts checks that a blueprint
-    loads without console noise, and entity-accessors.spec.ts checks what the
-    Entity getters return, but neither looks at what comes back out of
+    Nothing else covers this. entity-accessors.spec.ts checks what the
+    Entity getters return, but it does not look at what comes back out of
     Blueprint.serialize(), and none of them would notice if entities moved.
 
     Moving is the specific risk. getOffset() decides where the whole blueprint

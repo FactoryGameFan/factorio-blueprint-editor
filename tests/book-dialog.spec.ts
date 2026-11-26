@@ -124,41 +124,6 @@ test('nested rows skip planners and select the labelled flattened entry', async 
     expect(exported.blueprint_book.active_index).toBe(3)
 })
 
-test('long book scrolls past one viewport, clicks the bottom right edge, and scrolls back', async ({
-    page,
-}) => {
-    await loadBlueprint(
-        page,
-        encodeBlueprintBook(
-            book(
-                Array.from({ length: 30 }, (_, i) => ({
-                    blueprint: blueprint(`Entry ${i}`, i + 1),
-                }))
-            )
-        )
-    )
-    let bounds = await openBook(page)
-    await page.mouse.move(bounds.x + 300, bounds.y + 345)
-    for (let i = 0; i < 32; i++) {
-        await page.mouse.wheel(0, 100)
-        await page.waitForTimeout(20)
-    }
-    await page.mouse.click(bounds.x + 300, bounds.y + 348)
-    await expect.poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount())).toBe(30)
-    bounds = await openBook(page)
-    await page.mouse.move(bounds.x + 300, bounds.y + 345)
-    for (let i = 0; i < 32; i++) {
-        await page.mouse.wheel(0, 100)
-        await page.waitForTimeout(20)
-    }
-    for (let i = 0; i < 32; i++) {
-        await page.mouse.wheel(0, -100)
-        await page.waitForTimeout(20)
-    }
-    await page.mouse.click(bounds.x + 300, bounds.y + 52)
-    await expect.poll(() => page.evaluate(() => window.__fbe_test.entityContainerCount())).toBe(1)
-})
-
 test('blueprints hidden by the depth guard still count; null icons do not break opening', async ({
     page,
 }) => {

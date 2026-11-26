@@ -275,25 +275,11 @@ test('the editor offers the paste only for the pairs it can act on', async ({ pa
     }
 
     expect(await offered(MACHINE_TO_REQUESTER)).toBe(true)
+    // Where the gate stays closed: a steel chest holds no requests, and the
+    // game leaves it untouched. Opening it here would be the editor inventing
+    // behaviour. Proved by adding 'container' to CROSS_TYPE_PASTE's machine
+    // set, which fails this line; a paste test on the chest stayed green.
     expect(await offered(MACHINE_TO_PLAIN_CHEST)).toBe(false)
-})
-
-test('an assembling machine does nothing to a plain container', async ({ page }) => {
-    /*
-        The gate has to stay closed somewhere, and this is where: a steel chest
-        holds no requests, and the game leaves it untouched. A paste that reached
-        it would be the editor inventing behaviour.
-    */
-    const errors: string[] = []
-    page.on('pageerror', e => errors.push(String(e)))
-
-    await openEditor(page, MACHINE_TO_PLAIN_CHEST)
-    await pasteSettings(page, 1, 2)
-    expect(errors).toEqual([])
-
-    const target = await serialized(page, 2)
-    expect(target.request_filters).toBeUndefined()
-    expect(target.filters).toBeUndefined()
 })
 
 test('a train stop and a locomotive trade colour, and nothing else', async ({ page }) => {

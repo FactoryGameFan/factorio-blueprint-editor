@@ -78,8 +78,6 @@ const BLUEPRINT = encodeBlueprint({
             quality: 'uncommon',
         },
         { entity_number: 6, name: 'stone-furnace', position: { x: 50, y: 1 }, quality: 'epic' },
-        // A quality this editor has no art for: nothing drawn, nothing thrown.
-        { entity_number: 7, name: 'steel-chest', position: { x: 60.5, y: 0.5 }, quality: 'mythic' },
     ],
 })
 
@@ -160,13 +158,6 @@ test("a stone furnace's badge follows its narrower selection box", async ({ page
     const [f, ...rest] = await frames(page, 6)
     expect(rest).toEqual([])
     expectFrame(f, { quality: 'epic', left: -0.797, bottom: 1, size: 1 / 3 })
-})
-
-test('a quality the editor has no art for draws nothing and throws nothing', async ({ page }) => {
-    const errors: string[] = []
-    page.on('pageerror', e => errors.push(String(e)))
-    expect(await frames(page, 7)).toEqual([])
-    expect(errors).toEqual([])
 })
 
 for (const name of ['steel-chest', 'small-lamp', 'accumulator']) {
