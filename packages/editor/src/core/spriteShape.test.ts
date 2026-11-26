@@ -82,9 +82,13 @@ describe('baseVisualisationLayers', () => {
     })
 
     it('handles the array form by taking the first element', () => {
-        expect(baseVisualisationLayers([{ animation: { layers: [layer] } }] as never)).toEqual([
-            layer,
-        ])
+        // Two entries, as tesla-turret has three: the later ones are effect sheets.
+        expect(
+            baseVisualisationLayers([
+                { animation: { layers: [layer] } },
+                { animation: { layers: [{ filename: 'other.png' }] } },
+            ] as never)
+        ).toEqual([layer])
     })
 
     it('handles the directional form when dir is provided', () => {

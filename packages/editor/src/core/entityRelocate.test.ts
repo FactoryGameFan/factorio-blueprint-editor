@@ -131,7 +131,8 @@ describe('relocate with a direction keeps the grid in step with the footprint', 
         const start = { ...pump.position }
         const revision = bp.history.revision
 
-        bp.history.transaction('turn', () => pump.relocate({ x: start.x + 1, y: start.y - 1 }, 4))
+        // No wrapping transaction here: relocate itself must make the one step.
+        pump.relocate({ x: start.x + 1, y: start.y - 1 }, 4)
         expect(bp.history.revision).toBe(revision + 1)
 
         bp.history.undo()
