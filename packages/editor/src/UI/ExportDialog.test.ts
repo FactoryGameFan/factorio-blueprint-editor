@@ -90,10 +90,13 @@ it('shows the share link in the field only when the clipboard refused it', async
     await flush()
     expect(input.text).toBe('string')
 
+    // A failed encode resolves undefined. Without the guard, reading the link
+    // throws, the catch shows it as an error toast, and the field looks the same.
     vi.mocked(G.quickActions.copyShareLink).mockResolvedValueOnce(undefined)
     dialog.copyShareLink()
     await flush()
     expect(input.text).toBe('string')
+    expect(G.logger).not.toHaveBeenCalled()
 
     // An encode still in flight from before the click must not overwrite the link.
     let finishEncode: (source: string) => void = () => {}

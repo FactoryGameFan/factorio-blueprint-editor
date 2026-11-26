@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import worker from '../packages/worker/src/index'
 import {
     dedupeKey,
     isPageView,
@@ -17,7 +18,8 @@ import {
     Uncovered, and it is the half that touches the network: the Cache API
     lookup, the writeDataPoint call and ctx.waitUntil all live in index.ts and
     run nowhere but production. A green run here says the rules below hold, not
-    that a visit was counted.
+    that a visit was counted. The deep-link test is the one exception: it drives
+    the handler far enough to see ctx.waitUntil start a visit.
 
     Same path convention as corsproxy.test.ts, for the reason written there.
 */
@@ -35,9 +37,22 @@ describe('isPageView - what counts as one visit', () => {
         query string. The Worker sees the same path either way, and a visitor
         who arrives on a shared blueprint is as much a visitor as one who typed
         the domain.
+
+        Driven through the real handler, because what isPageView is given is
+        decided there. recordVisit swallows its own errors and `caches` is
+        undefined under Node, so the visit it starts is harmless here; the
+        test only asks that one was started.
     */
-    it('counts a deep link, which is still the root path', () => {
-        expect(pageView({ pathname: '/' })).toBe(true)
+    it('counts a deep link, which is still the root path', async () => {
+        const waitUntil = vi.fn()
+        await worker.fetch(
+            new Request('https://fbe.factorygamefan.com/?source=0eNq', {
+                headers: { accept: 'text/html' },
+            }),
+            { ASSETS: { fetch: async () => new Response('') } } as never,
+            { waitUntil } as never
+        )
+        expect(waitUntil).toHaveBeenCalledOnce()
     })
 
     it('ignores HEAD, which uptime checks and unfurlers send', () => {
@@ -205,15 +220,21 @@ describe('the Web Analytics beacon is permitted by the CSP that ships with it', 
     const headers = read('packages/website/public/_headers')
     const viteConfig = read('packages/website/vite.config.js')
 
+    // The host must be in that directive's own source list, not merely
+    // somewhere in the file, the way corsproxy.test.ts reads connect-src.
+    const directive = (name: string): string[] => {
+        const found = headers.match(new RegExp(`[:;]\\s*${name} ([^;]*);`))
+        if (found === null) throw new Error(`no ${name} directive in _headers`)
+        return found[1].split(/\s+/)
+    }
+
     it('serves the beacon script from a host script-src allows', () => {
         expect(viteConfig).toContain('https://static.cloudflareinsights.com/beacon.min.js')
-        expect(headers).toContain('script-src')
-        expect(headers).toContain('https://static.cloudflareinsights.com')
+        expect(directive('script-src')).toContain('https://static.cloudflareinsights.com')
     })
 
     it('lets the beacon report back through connect-src', () => {
-        expect(headers).toContain('connect-src')
-        expect(headers).toContain('https://cloudflareinsights.com')
+        expect(directive('connect-src')).toContain('https://cloudflareinsights.com')
     })
 
     /*

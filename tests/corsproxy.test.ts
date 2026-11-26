@@ -235,12 +235,16 @@ describe('checkProxyTarget - refusals', () => {
     })
 
     // The arrival hostname comes from the client's Host header, so the trailing
-    // dot can be on that side of the comparison too.
+    // dot can be on that side of the comparison too. A name on no list, as a
+    // domain attached in the dashboard would be, so that only the arrival
+    // comparison can refuse it: SELF is refused by name whatever it arrived on.
     it('refuses this deployment when the arrival hostname carries the dot', () => {
-        expect(checkProxyTarget(`https://${SELF}/corsproxy?url=x`, `${SELF}.`)).toMatchObject({
-            ok: false,
-            status: 403,
-        })
+        expect(
+            checkProxyTarget(
+                'https://blueprints.example.org/corsproxy?url=x',
+                'blueprints.example.org.'
+            )
+        ).toMatchObject({ ok: false, status: 403 })
     })
 
     // `wrangler dev` arrives on localhost, so the refusal cannot depend on
