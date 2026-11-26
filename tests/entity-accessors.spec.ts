@@ -291,8 +291,10 @@ const EXPECTED: {
     entityCount: 350862,
     blueprintCount: 372,
     shape: {
-        // Factorio 2.1 dropped the infinity chest's max_logistic_slots of 1 - all
-        // 151 in the corpus - for a logistic mode the editor does not model (#611).
+        // The 2.1 data gives the infinity chest no max_logistic_slots, so all 151
+        // in the corpus accept no filter. Its 2.0 value of 1 was inherited from
+        // the storage chest it copies and never used: the chest had no logistic
+        // mode. 2.1 added one, which the editor keeps but cannot edit (#611).
         acceptedFilters: { value: 54345, empty: 296517, nothing: 0, threw: 0 },
         acceptedModules: { value: 19175, empty: 331687, nothing: 0, threw: 0 },
         acceptedRecipes: { value: 14452, empty: 336410, nothing: 0, threw: 0 },
@@ -310,7 +312,7 @@ const EXPECTED: {
         canBeRotated: { false: 103908, true: 246954 },
         directionType: { input: 14389, output: 14406, undefined: 322067 },
         filterMode: { blacklist: 139, whitelist: 350723 },
-        // The same 151 infinity chests as acceptedFilters (#611).
+        // The same 151 infinity chests as acceptedFilters.
         filterSlots: { '0': 296517, '1': 5815, '5': 45297, '30': 3233 },
         generateConnector: { false: 317796, true: 33066 },
         inserterStackSize: {

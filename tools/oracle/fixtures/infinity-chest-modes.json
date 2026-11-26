@@ -1,0 +1,937 @@
+{
+    "captured_on": "Version: 2.1.25 (build 88022, linux64, headless)",
+    "modes": {
+        "none": 0,
+        "active_provider": 1,
+        "storage": 2,
+        "requester": 3,
+        "passive_provider": 4,
+        "buffer": 5
+    },
+    "exports": [
+        {
+            "label": "left alone",
+            "exported": "0eNp1UMtuwyAQ/Jc944i4oQ9+JaosYm/SlWCJYB3Fsvj3gq0qpx6ZmZ0HK1z8jPdELGBXoDFyBnteIdONnW8Yu4BggfhKTLJ04w9mgaIqMuET7LF8K0AWEsL9dnssA8/hgqkK1D8eCu4x17PILadavR2MggWsPpjNf1cPGUWIb7mpEob4wGGunBdMOA0kGCp1dT6jgh3ee/ylpshdTFjzxji3oUYrCHFqpJPOo9vKvPaUNqn5VsHrfxQ8qvPW1rz3X+bUG637D338LOUXB0Nu+A==",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 3.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "no mode, settings attempted",
+            "writes": {
+                "requests": "ERR: __bp_infinity_chest_modes__/control.lua:62: get_logistic_sections returned nil",
+                "trash_not_requested": "ERR: __bp_infinity_chest_modes__/control.lua:72: no requester point",
+                "request_from_buffers": "ERR: Callable only on entities that have request slots.",
+                "storage_filter": "ERR: Entity is not a logistic storage container."
+            },
+            "exported": "0eNp1UMtuwyAQ/Jc944hYJW35lSqyiL1JV4IlgnVUy+LfA7ainHpkZnYerHDxM94TsYBdgcbIGezPCplu7HzD2AUEC8RXYpKlG38xCxRVkQn/wB7LWQGykBDut9tjGXgOF0xVoP7xUHCPuZ5FbjnV6nQwChaw+mA2/109ZBQhvuWmShjiA4e5cl4w4TSQYKjU1fmMCnZ47/FKTZG7mLDmjXFuQ41WEOLUSCedR7eVee8pbVLzrYL3/yh4VOetrTn13+ajN1r3n/r4VcoTCXFu+w==",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 6.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "mode none",
+            "writes": {
+                "set_mode": "ok",
+                "requests": "ERR: __bp_infinity_chest_modes__/control.lua:62: get_logistic_sections returned nil",
+                "trash_not_requested": "ERR: __bp_infinity_chest_modes__/control.lua:72: no requester point",
+                "request_from_buffers": "ERR: Callable only on entities that have request slots.",
+                "storage_filter": "ERR: Entity is not a logistic storage container."
+            },
+            "mode_read_back": "none",
+            "exported": "0eNp1UMtuwyAQ/Jc944hYJW34lSqyiL1JV4IlgnVUy+LfA7aqnHpkZnYerHD1Mz4SsYBdgcbIGez3Cpnu7HzD2AUEC8Q3YpKlG38wCxRVkQl/wR7LRQGykBDut9tjGXgOV0xVoP7xUPCIuZ5FbjnV6nwwChaw+mA2/109ZBQhvuemShjiE4e5cl4w4TSQYKjUzfmMCnZ47/GXmiJ3MWHNG+PchhqtIMSpkU46j24r895T2qTmWwXv/1HwrM5bW3Pqz+ajN1r3n/r4VcoLC59u/g==",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 9.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "mode active_provider",
+            "writes": {
+                "set_mode": "ok",
+                "requests": "ERR: __bp_infinity_chest_modes__/control.lua:62: get_logistic_sections returned nil",
+                "trash_not_requested": "ERR: __bp_infinity_chest_modes__/control.lua:72: no requester point",
+                "request_from_buffers": "ERR: Callable only on entities that have request slots.",
+                "storage_filter": "ERR: Entity is not a logistic storage container."
+            },
+            "mode_read_back": "active_provider",
+            "exported": "0eNp1UMtugzAQ/Jc9m4igug9+pYosYjZ0JbNG9oKKEP/eNSjKqUfPY2fGG9zDjFMiFmg3IB85Q/u9QaaBu1Aw7kaEFogfxCRr5X8wC+xGkR5/ob3uNwPIQkJ4eo/H6nge75hUYP65YWCKWW2RS0451VysgRXa+mKPgFPuMooQD7nIEo5xQTcrFwQT9o4ER6UeXcho4ITPIs/YFLmKCTXQx7kstbWBMfaF7KQK2B1tXoM0XENSoh5diANlIe+eBi+0YDWluCidoMwvFZR6/aUBtedjmX1vvuxbY+u6+aivn/v+B/5Mf0s=",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 12.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "active-provider"
+            }
+        },
+        {
+            "label": "mode passive_provider",
+            "writes": {
+                "set_mode": "ok",
+                "requests": "ERR: __bp_infinity_chest_modes__/control.lua:62: get_logistic_sections returned nil",
+                "trash_not_requested": "ERR: __bp_infinity_chest_modes__/control.lua:72: no requester point",
+                "request_from_buffers": "ERR: Callable only on entities that have request slots.",
+                "storage_filter": "ERR: Entity is not a logistic storage container."
+            },
+            "mode_read_back": "passive_provider",
+            "exported": "0eNp1UMtuhDAM/Befw4pFTR/8SrWKsuClloKD4oCKEP9eB1rtqcfMwzOTDe5hxikRZ2g3oC6yQPu5gdDAPhSM/YjQAvGDmPJadV8oGXajSI/f0F73mwHkTJnw9B6P1fE83jGpwPxzw8AURW2RS045ZS/WwAptfbFHwCl3gjkTD1JkCce4oJuVCxkT9o4yjko9fBA0cMJnkb/YFLmKCTWwi3NZamsDY+wL6XMV0B9tnoM0XENSoh5diANJps79GiYvQgtWU4qL8gnK/tJBuednGlC/HNPsa/NhXxpb181bfX3f9x+LxX/N",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 15.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "passive-provider"
+            }
+        },
+        {
+            "label": "mode storage",
+            "writes": {
+                "set_mode": "ok",
+                "requests": "ERR: __bp_infinity_chest_modes__/control.lua:62: get_logistic_sections returned nil",
+                "trash_not_requested": "ERR: __bp_infinity_chest_modes__/control.lua:72: no requester point",
+                "request_from_buffers": "ERR: Callable only on entities that have request slots.",
+                "storage_filter": "ERR: Callable only on entities that have filters."
+            },
+            "mode_read_back": "storage",
+            "exported": "0eNp1UNtugzAM/Rc/h4pWy9bxK9UUpWCYpeB0sZmGEP++BKahPezRx+dmL3APEz4SsUKzALWRBZrbAkID+1Aw9iNCA8Q9Melcte8oCqvJSIdf0JzXNwPISkq4a7dhdjyNd0yZYP7xMPCIkmWRS06xup6sgRma+mRzQMKPKfNcT0ExSSEJtoW/5xwFtja7txNUJR42esIxfqKbeLfAzpHimFe9D4IGfp1vx50pchUT5nZtnMpbbG1gjF1Zeq0C+q36n/AckhJ16EIcSJRa9yMQjckPCOVHJTpDx8MNZJls59vny6t9uti6vrzU5+u6fgMHP4yS",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 18.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "storage"
+            }
+        },
+        {
+            "label": "mode requester",
+            "writes": {
+                "set_mode": "ok",
+                "requests": "ok",
+                "trash_not_requested": "ok",
+                "request_from_buffers": "ok",
+                "storage_filter": "ERR: Entity is not a logistic storage container."
+            },
+            "mode_read_back": "requester",
+            "sections_count": 2,
+            "exported": "0eNqdUttuwjAM/Rc/B5R26y6V+JIJRaF1WaRcSi4TCPXf56RQ4GGTtsec2Odi+ww7nXD0ykZoz6A6ZwO0H2cIam+lzpiVBqEFZQdlVTytuk8MESZGSI9HaKtpywBtVFHh3FseJ2GT2aGnAvYDB4PRBWpzNusQVV2tGwYnaPm6IQGPh0R1YlA6og+5KGCX62edqwEGS8UDelX1zq5GLSOS4iFJTQ4Its4bSsigc2aUXkZHXmFTgJTHUfGJLXT1Qte5cUT/H0LKZuRRLPR82j4q/Bqjc4X8D3pPxL+9G6N3RuzSMBSJ6BOWJc4rEQFjVHZfpuzRuC8Uyc6GsBcqoqGvQeqAjz7vh+w83qXlFNf1+VPGlUZZNn47GhInEe9Vj0K7vQpRdeLScLFM15MDZHECb5fKgBpDuZvmpX5vnuuG8/qVV2/T9A0ctPRc",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 21.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                },
+                                {
+                                    "index": 2,
+                                    "name": "copper-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 5,
+                                    "max_count": 100
+                                }
+                            ]
+                        },
+                        {
+                            "index": 2,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "coal",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 3
+                                }
+                            ]
+                        }
+                    ],
+                    "request_from_buffers": true
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "requester"
+            }
+        },
+        {
+            "label": "mode buffer",
+            "writes": {
+                "set_mode": "ok",
+                "requests": "ok",
+                "trash_not_requested": "ok",
+                "request_from_buffers": "ok",
+                "storage_filter": "ERR: Entity is not a logistic storage container."
+            },
+            "mode_read_back": "buffer",
+            "sections_count": 2,
+            "exported": "0eNqdktluwjAQRf9lng0yKekSqV9SIcs4E2rJS/BSgVD+vWOnpPDQSu2jr2fume0Ce5NxDNol6C6glXcRurcLRH1w0hTNSYvQgXaDdjqdV+odY4KJkdLjCbrNtGOALumkcc6tj7Nw2e4xUAD7wYPB6COleVc4ZNVs1y2DM3R83RIg4DFTnBi0SRhiCYqoSvzMuRbAYIm4U6/U4N1qNDIhEY9ZGqqAZOeDpQ4ZKG9HGWTyVCu8ViGXcWz4xBa7ZrFTfhwx/MeQerPyJBZ7Pu3uCb+2oXw1/wPvgfx3dVHz2EXElLQ71EkGtP4DRXYzFHuhE1r6GqSJeF/L7SB9wJuOOLXk+/Ip08qgrFv9PgyCEyQE3aMw/qBj0kp8JezzMNB5lOsp5KIsp8iAsmI9jPaxeWm3Tct588Q3z9P0CTKn6Cc=",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 24.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                },
+                                {
+                                    "index": 2,
+                                    "name": "copper-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 5,
+                                    "max_count": 100
+                                }
+                            ]
+                        },
+                        {
+                            "index": 2,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "coal",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 3
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "buffer"
+            }
+        },
+        {
+            "label": "requester, slot cap",
+            "writes": {
+                "slot 1000": "ok",
+                "slot 1001": "ERR: Index out of bounds: 1001 > 1000 (max)"
+            }
+        },
+        {
+            "label": "requester switched to passive_provider",
+            "writes": {
+                "requests": "ok",
+                "trash_not_requested": "ok",
+                "request_from_buffers": "ok",
+                "storage_filter": "ERR: Entity is not a logistic storage container.",
+                "to passive_provider": "ok",
+                "back to requester": "ok"
+            },
+            "exported": "0eNqdUulqwzAMfhf9dkaaLjsCe5JRjJsonSE+KtuhpeTdJydrszE22H4Z6/gOSRfYDwk9aRuhuYBunQ3QvF4g6INVQ45ZZRAa0LbXVsdz0b5hiDAJjnR4gmYz7QSgjTpqXHrnz1naZPZIXCB+wBDgXeA2ZzMPQ23Lu1rAGRp+Z4KlXAaMUdtDyGWExo0oE+eGiISd1BENp3o1BBSwhBchV1pytnCETNi6lJ3WpQDjupxUsRhQzWpWQ0zOJES6Qzm4gw5Rt/KjwasQ9IiFJzdynrgxqJF1EB4T25I9OSP3qe9nGZESfqu4auQ5Y5sHsOi9CvjqYo1+9uMHFbOjY1IDz4jD1pHhlWWTxitS0fHw4WV1vSkncYOrbnCt8x7pP4C8LKNO8gZf5sl9ZvjVRutm8D/wbRl/N+V7yzvn3Hq8AnhfYT6l+qF6ru+ruiyrx3LzNE3vTcr78w==",
+            "reimport_code": 0,
+            "sections_count_after_switch_back": 2,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 30.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "passive-provider",
+                "saved_request_from_buffers": true,
+                "saved_request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                },
+                                {
+                                    "index": 2,
+                                    "name": "copper-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 5,
+                                    "max_count": 100
+                                }
+                            ]
+                        },
+                        {
+                            "index": 2,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "coal",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 3
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "requester, mode cleared to nil",
+            "writes": {
+                "set nil": "ok"
+            },
+            "exported": "0eNp1kN1ugzAMhd/F16GidOk2XmWaogBOF4k4bX7QEOLd68CqTpN2afv4fMdeoBszXoOlBO0CtvcUof1YINoL6bH0SDuEFiwZSzbNVf+FMcEquDPgN7TH9VMAUrLJ4r67FbOi7DoMLBD/eAi4+shrngqHrU6ngxQwQ1sf5AbY5SpiSpYuscgCOj+hyjwbEwYclE3oeGT0GFHA3t6DPLDBU+UDMrD3uVwqawHOD2WoUzWi3tI8D2J41BN7B7xljqpM8E512ZjN+gf1R/IA8/OwL1ftIX65lk+VtIx9vl3AxGvbE+S5eZcvjazr5rU+vq3rHXerj4w=",
+            "reimport_code": 0,
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 33.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "saved_request_from_buffers": false,
+                "saved_request_filters": {
+                    "sections": [
+                        {
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "imports": [
+        {
+            "label": "2.0, corpus shape",
+            "import_code": 0,
+            "exported": "0eNp1UNFuwyAM/Bc/k4lGZd3yK1MV0cTtLIGpwKkaRfz7gGjqU58Qd+c7nze4uAXvkVhg2ICmwAmGnw0S3di6irH1CAMQX4lJ1m76xSSQVUFmfMJwyGcFyEJCuM+2zzry4i8Yi0C98VBwD6mMBa45xUp/GAVre5v/rh4TihDfUlVF9OGB41I4JxhxHknQF+pqXUIFO7zv8Z8aA3chYsmbwlKLGq3Ah7mSVjqHti3z6pNrpepbBK/7KHgU57at+ey/zbE3WvcnffjK+Q8FFW71",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "2.0, requests and no mode",
+            "import_code": 0,
+            "exported": "0eNp1UNFuwyAM/Bc/k4lGZd3yK1MV0cTtLIGpwKkaRfz7gGjqU58Qd+c7nze4uAXvkVhg2ICmwAmGnw0S3di6irH1CAMQX4lJ1m76xSSQVUFmfMJwyGcFyEJCuM+2zzry4i8Yi0C98VBwD6mMBa45xUp/GAVre5v/rh4TihDfUlVF9OGB41I4JxhxHknQF+pqXUIFO7zv8Z8aA3chYsmbwlKLGq3Ah7mSVjqHti3z6pNrpepbBK/7KHgU57at+ey/zbE3WvcnffjK+Q8FFW71",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "2.0, requester mode",
+            "import_code": 0,
+            "exported": "0eNp1kd1ugzAMhd/F1+lEq7EfpD3JVEUpmM5S4tDETKsQ7z4H+rNeTFwgTo79nRwmOPgRh0Qs0ExAbeQMzecEmY7sfNHYBYQGiHtikvOm/cIsMBtVOvyBZjvvDSALCeE6u3ycLY/hgEkN5p8dBoaYdSxy4eiq6qk2cF7euj/haVSb7ckLplw8GdtiXzFXvoGb40G9QlPkzeCdoAJPo/MaQGWOKegFDbQxDC45iRoVPhZhLG1sq3mvj7mlthlFiI9LkoQhfqMdeWVjZ0kw6FHvfMbHSH+DxIR3RF0ZCLErh042Ht1Syr1XhSskJerQ+nikLNTay8ClHS249F/gKt5/pgEdzEu19cvuvX7e1VW1e622b/P8C+zsqv8=",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "requester"
+            }
+        },
+        {
+            "label": "requests and no mode",
+            "import_code": 0,
+            "exported": "0eNp1UNFuwyAM/Bc/k4lGZd3yK1MV0cTtLIGpwKkaRfz7gGjqU58Qd+c7nze4uAXvkVhg2ICmwAmGnw0S3di6irH1CAMQX4lJ1m76xSSQVUFmfMJwyGcFyEJCuM+2zzry4i8Yi0C98VBwD6mMBa45xUp/GAVre5v/rh4TihDfUlVF9OGB41I4JxhxHknQF+pqXUIFO7zv8Z8aA3chYsmbwlKLGq3Ah7mSVjqHti3z6pNrpepbBK/7KHgU57at+ey/zbE3WvcnffjK+Q8FFW71",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "requester",
+            "import_code": 0,
+            "exported": "0eNp1kd1ugzAMhd/F1+lEq7EfpD3JVEUpmM5S4tDETKsQ7z4H+rNeTFwgTo79nRwmOPgRh0Qs0ExAbeQMzecEmY7sfNHYBYQGiHtikvOm/cIsMBtVOvyBZjvvDSALCeE6u3ycLY/hgEkN5p8dBoaYdSxy4eiq6qk2cF7euj/haVSb7ckLplw8GdtiXzFXvoGb40G9QlPkzeCdoAJPo/MaQGWOKegFDbQxDC45iRoVPhZhLG1sq3mvj7mlthlFiI9LkoQhfqMdeWVjZ0kw6FHvfMbHSH+DxIR3RF0ZCLErh042Ht1Syr1XhSskJerQ+nikLNTay8ClHS249F/gKt5/pgEdzEu19cvuvX7e1VW1e622b/P8C+zsqv8=",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "requester"
+            }
+        },
+        {
+            "label": "requester, two sections",
+            "import_code": 0,
+            "exported": "0eNqVkttuwyAMht/F13RKs2WHSH2SqUI0cTpLYFIg06oq7z5DelgvpmlXiB/7/3zgBDs74RiIE7QnoM5zhPb9BJH2bGzW2DiEFogHYkrHVfeBMcGsROnxC9r1vFWAnCgRLrnlctQ8uR0GCVC/eCgYfZQ0z5kjVtVDo+BYTvEPeJgkTA9kE4aYYyJ2OXzBXPgKrhF36gUaPK9GaxIK8DAZKwWIzD44aVBB591ogkleSoVNEaY8jXU1b2d1Naz/wHS+uP0D8Cj+2zLHZSo6YkrE+9JpQOc/UU+8QLHXlNDJ02BsxPtafjbqA94ITaXA+T4/mrSyaMrQb3sTuEBCoB619XuKiTp9TjhPXxaY95vhIt4+iwJJjGV1zXP91jzVTVXVL9X6dZ6/ATzpyhw=",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        },
+                        {
+                            "index": 2,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "coal",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 3
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "requester"
+            }
+        },
+        {
+            "label": "requester, trash_not_requested",
+            "import_code": 0,
+            "exported": "0eNp1kd1ugzAMhd/F1+lEq7EfpD3JVEUpmM5S4tDETKsQ7z4H+rNeTFwgTo79nRwmOPgRh0Qs0ExAbeQMzecEmY7sfNHYBYQGiHtikvOm/cIsMBtVOvyBZjvvDSALCeE6u3ycLY/hgEkN5p8dBoaYdSxy4eiq6qk2cF7euj/haVSb7ckLplw8GdtiXzFXvoGb40G9QlPkzeCdoAJPo/MaQGWOKegFDbQxDC45iRoVPhZhLG1sq3mvj7mlthlFiI9LkoQhfqMdeWVjZ0kw6FHvfMbHSH+DxIR3RF0ZCLErh042Ht1Syr1XhSskJerQ+nikLNTay8ClHS249F/gKt5/pgEdzEu19cvuvX7e1VW1e622b/P8C+zsqv8=",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "requester"
+            }
+        },
+        {
+            "label": "buffer, request_from_buffers",
+            "import_code": 0,
+            "exported": "0eNp1kd1qwzAMhd9F1+5Iy7KfwJ6kFOMmSifwT2rLY6Xk3Sc7a7pe7Mr4WNJ3dHyFo804RfIM3RWoDz5Bt79CopM3tmjeOIQOyI/kiS+b/hMTw6xEGfAbuu18UICeiQmX3nq5aJ/dEaMUqH9mKJhCkrbgC0dGNU+tgks9ZX7Ec5YyPZJljKnUJOxL+YK58RWsFQ/qDRqD30zWMArwnI0VAyL7EJ0sqKAPbjLRcBCr8FGFXNLYNvOhrLbaiMHpYx7HSuKYsWawbKQTMpM/VZcRXfhCnf3iCwdNjE6eRmMTPtr9azJEvOPbRoELQ3k0vLFoamD3zAUukBhpQG3DiRJTr38bFpdQ3BdyUdZfViBdqWbevuze2+dd2zS712b7Ns8/+BK0aw==",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        }
+                    ],
+                    "request_from_buffers": true
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "buffer"
+            }
+        },
+        {
+            "label": "storage, one filter",
+            "import_code": 0,
+            "exported": "0eNp1kd1ugzAMhd/F1+lEq7EfpD1JVUUpuMxS4tDETKsQ7z6HrmW9mLhAnBz7OzlMcPQjDolYoJmA2sgZmv0EmXp2vmjsAkIDxCdiksum/cQsMBtVOvyGZjsfDCALCeF1dvm4WB7DEZMazD87DAwx61jkwtFV1VNt4LK8dX/C86g2eyIvmHLxZGyL/Yq58Q3cHQ/qDZoibwbvBBV4Hp3XACpzTEEvaKCNYXDJSdSo8LEIY2mjmg/6mHtom1GEuF+CJAzxC+3IVzR2lgSDHp2cz/iY6G+OmHAl1JWBELty6GTj0S2drLUqXCEpUYfWx56yUGt/B7LmdT1CKb+gVVr/pAEdy0uv9cvuvX7e1VW1e622b/P8A/6bqeM=",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "storage"
+            }
+        },
+        {
+            "label": "passive-provider with requests",
+            "import_code": 0,
+            "exported": "0eNp1UMtuhDAM/BefQ8WuSh/8SlVFWfBSS8FBsUFFiH+vA6321FOUGc+Mxxvc4oxTJlZoN6AusUD7sYHQwCEWjMOI0ALxnZh0rbovFIXdGdLjN7SX/dMBspISntrjs3qexxtmG3D/eDiYkpgscckxq/qpcbAe7+F/TntBVeJBylTGMS3oZ+OiYsbek+Jo1D1EQQcnfO7xl5oTVymj5XVpLkWb2sGY+kIGrSKGY5lHHwu3kJypRx/TQKLU+V/BFERowWrKaTE+Q6lfdjDucUsHppejWfNyfW+er01dX1/ry9u+/wApnn+X",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "override_logistic_mode": "passive-provider"
+            }
+        },
+        {
+            "label": "explicit none",
+            "import_code": -1
+        },
+        {
+            "label": "unknown mode",
+            "import_code": -1
+        },
+        {
+            "label": "saved fields only",
+            "import_code": 0,
+            "exported": "0eNp1UdtqhDAQ/Zd5zhaV2ovQL1mWEHXcBnJxk4lUxH/vRBFbSp9Czsycy8wCrUk4Bu0ImgV0512E5rpA1HenTMacsggNaDdop2m+dJ8YCVbBSI9f0JTrTQA60qRxn90+s3TJthi4QfzDIWD0kce8yzpMVTzVAubt3fj3bhmRSLt7zF0BrZ9QJq4ZwoC91ISWS4MyEQXs8O7jUA3eXXxA1ut8ykHrQoD1fS4quhhUm5kzD4tHNTF3wEdip3II3so2DcNGTSHhn45Dl1eHXc60ezhIfzs70Z8eR6Mou3wkZTg3w84Hy1fIxu2ogiLP+4SPM0lZsNvbmk+Q98DF854CJtbbtlu/VO/1c1UXRfValG/r+g39eazG",
+            "entity": {
+                "entity_number": 1,
+                "name": "infinity-chest",
+                "position": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "infinity_settings": {
+                    "remove_unfiltered_items": false,
+                    "filters": [
+                        {
+                            "name": "iron-ore",
+                            "count": 50,
+                            "mode": "at-least",
+                            "index": 1
+                        }
+                    ]
+                },
+                "saved_request_from_buffers": true,
+                "saved_request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "label": "requester, 1000 filters",
+            "import_code": 0,
+            "filters_read_back": 2
+        },
+        {
+            "label": "requester, 1001 filters",
+            "import_code": -1,
+            "filters_read_back": 0
+        }
+    ],
+    "controls": [
+        {
+            "label": "requester-chest, trash_not_requested",
+            "exported": "0eNp1UMtuwyAQ/Jc9kwpbdR9I/ZIosoizbZBgcWCpGln8exc7adVDT8AwszOzCxx9wTk5YjALuClSBrNfILsPsr5hZAOCgYSXgpkx7aaznFAVODrhF5iuHhQgsWOHm3h9XEcq4YhJCOq/IQrmmEUXqTm1WfphUHDdLmJxE4zvzosqN1bGqQk2p3sEBT+MP+jN16VIu9lbRrG8FOslnsAUU5CSCqYYZpssR0kLbytQ2kY6XQ+tHSebzyNFHu8NTmA4Fazt1zEG0f1uUsGnRFlbDU/96/DYD1r3z7p7qfUb87N9DA==",
+            "entity": {
+                "entity_number": 1,
+                "name": "requester-chest",
+                "position": {
+                    "x": 10.5,
+                    "y": 10.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 10
+                                }
+                            ]
+                        }
+                    ],
+                    "trash_not_requested": true
+                }
+            }
+        },
+        {
+            "label": "storage-chest, storage_filter",
+            "exported": "0eNptUO1qAyEQfJf9bYK51n4c5ElKCOayTQVdzaqh4fDds176QaH4Zx1mdmZ2hoOvmNhRgXEGN0XKML7NkN2JrO8Y2YAwQi6R7QlX0wfmAk2BoyN+wrhpOwVIxRWHd+nyue6phgOyENT/KxSkmEUVqbv0TQ9ro+Aqg14bMWA8VyHu350vyLmzMk5dcPf5DqDgh/EH/XJ1HGmVvC0oludqvYQTmCIHKahgiiFZtpJN0O0C1H4NLRVDiiwBOIausPXiMrSdvF7aFezw7wEVXCTFUsg8Da/mcTBaD89689LaDd6geM0=",
+            "entity": {
+                "entity_number": 1,
+                "name": "storage-chest",
+                "position": {
+                    "x": 13.5,
+                    "y": 10.5
+                },
+                "request_filters": {
+                    "sections": [
+                        {
+                            "index": 1,
+                            "filters": [
+                                {
+                                    "index": 1,
+                                    "name": "iron-plate",
+                                    "quality": "normal",
+                                    "comparator": "=",
+                                    "count": 0,
+                                    "import_from": "nauvis"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "prototype_logistic_mode": "none"
+}
