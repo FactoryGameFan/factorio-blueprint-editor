@@ -69,6 +69,12 @@ import { openBlueprintInfo, enableSnapToGrid } from './helpers/blueprint-info-di
     change there cannot silently desync what this file clicks - since there
     is no test hook for a control buried this deep in a dialog, the same
     shape tests/chest-editor.spec.ts uses for ChestEditor's filter grid.
+
+    Which tile an entity's footprint edge sits on - a multi-tile machine read
+    by its edge rather than its centre (#243 review), and the rails whose
+    grid size differs from their occupancy size (#393) - is pinned per
+    entity, against the game's fixture, in tests/blueprint-grid-footprints.test.ts.
+    This file covers the dialog and the commit.
 */
 
 type Page = import('@playwright/test').Page
@@ -84,39 +90,7 @@ const TWO_CHESTS = encode({
     ],
 })
 
-const ONE_ASSEMBLER = encode({
-    item: 'blueprint',
-    version: VERSION,
-    entities: [{ entity_number: 1, name: 'assembling-machine-1', position: { x: 10.5, y: 10.5 } }],
-})
-
 const EMPTY_BLUEPRINT = encode({ item: 'blueprint', version: VERSION })
-
-test('rail Grid position exports the measured tile edge at the typed target (#393)', async ({
-    page,
-}) => {
-    await loadBlueprint(
-        page,
-        encode({
-            item: 'blueprint',
-            version: VERSION,
-            entities: [
-                { entity_number: 1, name: 'curved-rail-b', position: { x: 4, y: 4 } },
-                { entity_number: 2, name: 'wooden-chest', position: { x: 10.5, y: 20.5 } },
-            ],
-        })
-    )
-    const align = await openBlueprintInfo(page)
-    await enableSnapToGrid(page, align)
-    await fillGridPositionField(page, align, 'x', '0')
-    await fillGridPositionField(page, align, 'y', '0')
-
-    // The game fixture gives curved-rail-b a 2x2 tile size. Read the floored
-    // tile edge from the export, independently of the editor's display helper.
-    const [rail, chest] = await exportedPositionsOf(page)
-    expect({ x: Math.floor(rail.x - 1), y: Math.floor(rail.y - 1) }).toEqual({ x: 0, y: 0 })
-    expect({ x: chest.x - rail.x, y: chest.y - rail.y }).toEqual({ x: 6.5, y: 16.5 })
-})
 
 /**
  * Types into one of "Grid position"'s two fields and commits on blur (Tab
@@ -326,31 +300,6 @@ test('undo reverts the exported shift one commit at a time, X and Y separately',
     await page.keyboard.press('Control+KeyZ')
     const exportedAfterTwoUndos = await exportedPositionsOf(page)
     expect(exportedAfterTwoUndos).toEqual(exportedBefore)
-})
-
-test('Grid position reads a multi-tile entity by its footprint edge, not its centre', async ({
-    page,
-}) => {
-    /*
-        #243 review: getGridPositionDisplay() read e.position.x directly -
-        the entity's own centre - rather than the edge of its tile
-        footprint. Every blueprint this spec used before was 1x1 entities on
-        a half-integer centre, where centre-floor and edge-floor land on the
-        same tile and so agree by construction; a single 3x3
-        assembling-machine-1 is what separates them. At (10.5, 10.5), the
-        edge sits at 9 (10.5 - 3/2) and the centre at 10.5 - measured
-        against the game (`tools/oracle/fixtures/blueprint-grid-position-gui.json`,
-        `entityEdgesAndTiles` is the only surviving reading), the edge is
-        the one the game reads. getCenter() rounds this single entity's own
-        3x3 bounding box (9..12) to a centre of 11, so the two formulas
-        predict different displayed values - edge-based gives 2, a
-        centre-based reading would give 1.
-    */
-    await loadBlueprint(page, ONE_ASSEMBLER)
-    const align = await openBlueprintInfo(page)
-    await enableSnapToGrid(page, align)
-
-    expect(await gridPositionFields(page)).toEqual({ x: '2', y: '2' })
 })
 
 test('Grid position clears when Snap to grid is turned off, rather than silently shifting every future export', async ({

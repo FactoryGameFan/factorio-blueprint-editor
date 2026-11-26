@@ -439,6 +439,16 @@ migration in `Blueprint.ts`, but no committed blueprint holds an array-shaped
 `request_filters`. For that branch, and for any version you need exactly,
 create a synthetic blueprint with `tests/helpers/encode-blueprint.ts`.
 
+Only one spec loads every corpus file all the way into the editor:
+`overlay-container.spec.ts`'s "real blueprints draw the same info overlays
+they drew before". `sprite-data`, `blueprint-round-trip` and the Vitest corpus
+walks decode the files without calling `Editor.loadBlueprint`. Measured on
+2026-11-25: making that method throw on every blueprint over 1,000 entities
+failed that test, while the corpus tests in `blueprint-round-trip` and
+`sprite-data` stayed green. Do not cut it without a replacement. It is also one of the
+two specs that fail under WSL's software rendering (see below), so trust its
+result only from CI or the devcontainer.
+
 Browser tests use `window.__fbe_test` to load sources without URL-length
 limits. That hook is assigned only under `import.meta.env.DEV` (#292), so the
 specs need the dev server `npm run localpreview` starts. Run against

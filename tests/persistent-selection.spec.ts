@@ -387,11 +387,20 @@ test('Shift+F mirrors the selection in place, in one undo step', async ({ page }
     expect(await revision(page)).toBe(rev + 1)
 })
 
+/*
+    The per-direction swap rule (#387) is a pure function of getFlippedCopy and
+    is pinned for all four directions on both axes in
+    packages/editor/src/core/entityFlip.test.ts. These two rows are for what
+    only the editor can show: the keypress reaching mirrorSelection, and
+    mirrorSelection writing the copy's priorities back onto the live entity.
+    Direction 8 is the one the pre-#387 guard got wrong on both axes.
+*/
 for (const [key, directions] of [
     ['KeyG', [8, 4, 0, 12]],
     ['KeyF', [0, 12, 8, 4]],
 ] as const) {
     for (const [index, direction] of [0, 4, 8, 12].entries()) {
+        if (direction !== 8) continue
         test(`${key} mirrors splitter priorities at direction ${direction} and restores them on a second flip`, async ({
             page,
         }) => {

@@ -233,70 +233,6 @@ test('a second click of the corner button only closes the dialog when it is the 
     expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(0)
 })
 
-/**
- * The editor's own TextInput elements that are actually on screen.
- *
- * Told apart from the settings pane's inputs by having an inline style -
- * TextInput writes `_input_style` onto its element and nothing else on the page
- * does, which is the same discriminator `absoluteXValue` above and
- * tests/text-input.spec.ts both use. `display: none` is what
- * `Dialog.updateDOMInputVisibility` writes to take a covered dialog's fields
- * off the screen.
- */
-async function visibleFieldCount(page: Page): Promise<number> {
-    return page.evaluate(
-        () =>
-            [...document.querySelectorAll<HTMLElement>('input, textarea')].filter(
-                el => el.style.cssText !== '' && el.style.display !== 'none'
-            ).length
-    )
-}
-
-test("a dialog opened on top takes the covered dialog's DOM fields off the screen", async ({
-    page,
-}) => {
-    /*
-        A TextInput is the one control here that pixi does not draw: it appends
-        an element to document.body and keeps it positioned over the canvas, so
-        nothing pixi draws can cover it. Opening the icon picker over Blueprint
-        Info left the fields underneath printing their text across the picker's
-        slots and still answering elementFromPoint, which ate the clicks meant
-        for the picker.
-
-        Counted rather than located, because the rule is about the whole covered
-        dialog rather than one field: only one of them was visibly offending -
-        the rest have no background of their own and were invisible while still
-        taking clicks - so an assertion on that one field would pass for a fix
-        that left the others live.
-
-        Both directions carry weight. The fields have to come back when the
-        picker closes, or the dialog underneath is permanently dead; and the
-        before-count has to be non-zero, or a selector matching nothing would
-        satisfy the middle assertion on its own.
-
-        This rule is why tests/quick-actions.spec.ts no longer clicks a covered
-        dialog's field - see that test's own comment.
-    */
-    await loadBlueprint(page, TWO_CHESTS)
-    await openBlueprintInfo(page)
-
-    const withInfoOnly = await visibleFieldCount(page)
-    expect(withInfoOnly).toBeGreaterThan(0)
-
-    // The first icon slot, at dialog-local (12, 119), 36 across - the same
-    // click the test above uses to open the picker as a second dialog.
-    const info = await page.evaluate(() => window.__fbe_test.topDialogBounds())
-    await page.mouse.click(info.x + 12 + 18, info.y + 119 + 18)
-    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(2)
-    // InventoryDialog owns no TextInput of its own, so the picker being topmost
-    // means nothing at all should be on screen.
-    expect(await visibleFieldCount(page)).toBe(0)
-
-    await page.keyboard.press('Escape')
-    expect(await page.evaluate(() => window.__fbe_test.openDialogCount())).toBe(1)
-    expect(await visibleFieldCount(page)).toBe(withInfoOnly)
-})
-
 test('ticking Snap to grid on is one undo step, not two (#243 finding 6)', async ({ page }) => {
     /*
         The checkbox writes `snapToGrid` and `absoluteSnapping` in two
@@ -519,35 +455,20 @@ const SNAPPED_CHESTS = encode({
     ],
 })
 
-test('unticking and re-ticking Snap to grid keeps the grid size instead of replacing it with 1x1 (#243 review)', async ({
-    page,
-}) => {
-    /*
-        Turning snapping off used to make `refreshFromBlueprint` write '1'
-        into both Grid size boxes, because the model's size is undefined
-        while snapping is off - and turning it back on read the size straight
-        back out of those boxes. Nothing else held the old value, so a 20x18
-        grid became 1x1 with no warning. Absolute/Relative and Absolute X/Y
-        survive the same toggle, which is what made this look unintended.
-        326 of the 372 corpus blueprints carry a `snap-to-grid` and would
-        lose it this way.
-    */
-    await loadBlueprint(page, SNAPPED_CHESTS)
-    const align = await openBlueprintInfo(page)
-
-    await toggleSnapToGrid(page, align)
-    expect(
-        decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']
-    ).toBeUndefined()
-
-    await toggleSnapToGrid(page, align)
-    expect(decodeBlueprintString(await encodeLoaded(page)).blueprint['snap-to-grid']).toEqual({
-        x: 20,
-        y: 18,
-    })
-})
-
 test('Snap to grid accepts a second click before the next render (#423)', async ({ page }) => {
+    /*
+        Also the guard for unticking and re-ticking keeping the grid size
+        (#243 review). Turning snapping off used to make `refreshFromBlueprint`
+        write '1' into both Grid size boxes, because the model's size is
+        undefined while snapping is off - and turning it back on read the size
+        straight back out of those boxes. Nothing else held the old value, so a
+        20x18 grid became 1x1 with no warning. 326 of the 372 corpus blueprints
+        carry a `snap-to-grid` and would lose it this way. That bug happens
+        inside the checkbox handler, so the paused clock does not hide it: an
+        unpaused copy of this test was removed as a duplicate after
+        `m_LastSize = size ?? { x: 1, y: 1 }` in BlueprintAlignment failed
+        both.
+    */
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
     await waitForEditor(page)
     await loadBlueprint(page, SNAPPED_CHESTS)

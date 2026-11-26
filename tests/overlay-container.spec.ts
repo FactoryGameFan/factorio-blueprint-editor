@@ -73,7 +73,7 @@ test('every entity draws the same info overlay it drew before', async ({ page })
     modules, no filters, no splitter priority - so it only reaches the branches
     that depend on the prototype alone. The real bases are the only place the
     recipe, module, filter and combinator branches run at all, which is why both
-    halves are needed here for the same reason they are in sprite-generation.
+    halves are needed here, as they are in sprite-data.spec.ts.
 */
 test('real blueprints draw the same info overlays they drew before', async ({ page }) => {
     const files = discoverBlueprintFiles()

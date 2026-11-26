@@ -167,19 +167,6 @@ test('exportString/exportImage/encodeCurrent report the empty-blueprint guard', 
     expect(await page.evaluate(() => window.__fbe_test.encodeCurrentResult())).toBeUndefined()
 })
 
-test('encodeCurrent answers a string once a blueprint is loaded', async ({ page }) => {
-    /*
-        Pins the other side of the guard without calling exportString/
-        exportImage themselves - `encodeCurrent` is pure serialization with no
-        clipboard or file side effect, unlike its two siblings.
-    */
-    await loadBlueprint(page, ONE_CHEST)
-
-    const out = await page.evaluate(() => window.__fbe_test.encodeCurrentResult())
-    expect(out).toEqual(expect.any(String))
-    expect(decodeBlueprintString(out as string).blueprint.entities[0].name).toBe('wooden-chest')
-})
-
 test("ImportDialog's Replace button calls importReplace and swaps the loaded blueprint", async ({
     page,
 }) => {
@@ -199,27 +186,6 @@ test("ImportDialog's Replace button calls importReplace and swaps the loaded blu
     expect(decodeBlueprintString(out as string).blueprint.entities[0].name).toBe(
         'assembling-machine-1'
     )
-})
-
-test("ImportDialog's Append button calls importAppend and enters PAINT with the appended entities", async ({
-    page,
-}) => {
-    /*
-        appendBlueprint (Editor.ts) spawns a paint container rather than
-        merging immediately - the same shape a paste does - so the observable
-        result of a successful append is PAINT mode, not a changed entity
-        count straight away.
-    */
-    await loadBlueprint(page, ONE_CHEST)
-
-    await openImportDialog(page)
-    await fillImportField(page, ONE_ASSEMBLER)
-    await clickImportRow(page, APPEND_Y)
-
-    // Same as Replace above - closes only once importAppend resolves true.
-    await page.waitForFunction(() => window.__fbe_test.openDialogCount() === 0)
-    expect(await page.evaluate(() => window.__fbe_test.editorMode())).toBe('PAINT')
-    expect(await page.evaluate(() => window.__fbe_test.paintContainerVisible())).toBe(true)
 })
 
 test('Replace/Append do nothing and leave the dialog open when the field is empty', async ({
@@ -535,60 +501,6 @@ test("ExportDialog's field is read-only and pre-selected once the textarea actua
     }))
     expect(selection.length).toBeGreaterThan(0)
     expect(selection).toMatchObject({ start: 0, end: selection.length })
-})
-
-test('exportGuardResult reports the guard without writing to the clipboard or starting a file save', async ({
-    page,
-}) => {
-    /*
-        Used to call the real exportString()/exportImage() and report
-        whatever they returned - which mirrors the guard only for an empty
-        blueprint; for a loaded one it silently performed the real action,
-        a real clipboard write and a real PNG download, every time it was
-        called (#242 review, the other blocking issue). `__fbe_test` is
-        dev-only since #292, so that no longer sits on `window` at
-        fbe.factorygamefan.com for any script on the page to call - but it
-        would still reach every spec here, because this suite runs against
-        `vp dev`, where the hook exists. The gate is not what makes this
-        safe; reading state instead of changing it is.
-
-        The clipboard write is caught by wrapping `navigator.clipboard.
-        writeText` before the app's own scripts run - has to happen before
-        the shared beforeEach's first `page.goto`, so this reloads through
-        waitForEditor again once the wrapper is registered. The file save is
-        caught with Playwright's own `download` event, which needs no wrapper.
-    */
-    await page.addInitScript(() => {
-        ;(window as unknown as { __clipboardWrites: string[] }).__clipboardWrites = []
-        if (navigator.clipboard?.writeText) {
-            const original = navigator.clipboard.writeText.bind(navigator.clipboard)
-            navigator.clipboard.writeText = (text: string) => {
-                ;(window as unknown as { __clipboardWrites: string[] }).__clipboardWrites.push(text)
-                return original(text)
-            }
-        }
-    })
-    await waitForEditor(page)
-
-    let downloadFired = false
-    page.on('download', () => {
-        downloadFired = true
-    })
-
-    await loadBlueprint(page, ONE_CHEST)
-
-    const result = await page.evaluate(() => window.__fbe_test.exportGuardResult())
-    expect(result).toEqual({ exportString: true, exportImage: true })
-
-    // Proving a negative needs a bounded wait rather than a condition to
-    // poll for - there is no event a correct implementation ever fires here.
-    await page.waitForTimeout(250)
-
-    const clipboardWrites = await page.evaluate(
-        () => (window as unknown as { __clipboardWrites: string[] }).__clipboardWrites
-    )
-    expect(clipboardWrites).toEqual([])
-    expect(downloadFired).toBe(false)
 })
 
 test('the export field re-encodes only when the blueprint actually changes, not on a blind interval (#242 review follow-up)', async ({

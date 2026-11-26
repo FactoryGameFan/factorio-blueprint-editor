@@ -3,8 +3,9 @@ import { discoverBlueprintFiles, readBlueprintString } from './helpers/blueprint
 
 /*
     PositionGrid is the spatial index behind entity placement, overlap rules and
-    the neighbour lookups the sprite builder uses, and nothing exercised it. The
-    blueprint-loading suite covers decode and render; this covers the query and
+    the neighbour lookups the sprite builder uses, and nothing exercised it.
+    blueprint-round-trip and overlay-container cover decode and render over the
+    corpus; this covers the query and
     mutation surface, against a real blueprint rather than a hand-built fixture,
     because the interesting invariant is one that only holds in a real one: the
     grid stores entity numbers and trusts every one of them to still resolve

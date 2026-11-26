@@ -203,7 +203,7 @@ test('the paint preview generates the sprite data it generated before', async ({
     reaches the branches that read neighbours - pipe junctions, belt corners,
     underground pairs, heat pipe and wall connection sprites, gate rail bases.
     Those are a large part of the file, which is why the real bases carry the
-    other half of the coverage here, same as in sprite-generation.spec.ts.
+    other half of the coverage here.
 */
 test('real blueprints generate the sprite data they generated before', async ({ page }) => {
     const files = discoverBlueprintFiles()
