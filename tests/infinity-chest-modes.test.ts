@@ -81,6 +81,15 @@ describe(`infinity chests as ${fixture.captured_on} writes them`, () => {
         const keys = new Set(rows.flatMap(r => Object.keys(r.entity)))
         expect(keys).toContain('saved_request_filters')
         expect(keys).toContain('saved_request_from_buffers')
+        // The switch a mode editor has to copy: requests parked in saved_* while
+        // the chest provides. Rows with no mode carry saved_* too, so check the pair.
+        expect(
+            rows.some(
+                r =>
+                    r.entity.override_logistic_mode === 'passive-provider' &&
+                    'saved_request_filters' in r.entity
+            )
+        ).toBe(true)
     })
 
     for (const row of rows) {
