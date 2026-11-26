@@ -145,13 +145,21 @@ describe('inserterThroughput', () => {
     it('applies both limits with a belt at each end', () => {
         // Belt to belt was covered by neither branch before. Placing onto the
         // destination bounds it, and the source belt bounds it again.
-        const both = inserterThroughput({
+        // Each order makes a different end the one that binds, so each limit is
+        // checked on its own.
+        const slowSource = inserterThroughput({
             rotationSpeed: BULK,
             stackSize: 12,
             sourceBeltSpeed: YELLOW,
             destBeltSpeed: TURBO,
         })
-        expect(both).toBeLessThanOrEqual(containerToBelt(BULK, TURBO, 12))
-        expect(both).toBeLessThanOrEqual(beltThroughput(YELLOW))
+        expect(slowSource).toBe(beltThroughput(YELLOW))
+        const slowDest = inserterThroughput({
+            rotationSpeed: BULK,
+            stackSize: 12,
+            sourceBeltSpeed: TURBO,
+            destBeltSpeed: YELLOW,
+        })
+        expect(slowDest).toBeCloseTo(containerToBelt(BULK, YELLOW, 12), 10)
     })
 })

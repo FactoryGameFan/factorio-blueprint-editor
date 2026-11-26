@@ -70,7 +70,11 @@ describe('cursor box colours', () => {
     it("draws the pair's one-tile box in copy's green, as the game data does", () => {
         const pair = cursorBoxFull('pair')
         const copy = cursorBoxFull('copy')
-        expect(pair.map(s => s.color)).toEqual(copy.map(s => s.color))
+        // copy's own colours, pinned above, so a box that ignores its type fails.
+        const green = CURSOR_BOX_TYPES.copy.colors
+        expect(pair.map(s => s.color)).toEqual(
+            Array.from({ length: 4 }, () => [green.edge, green.core]).flat()
+        )
         expect(pair.map(s => s.path)).toEqual(copy.map(s => s.path))
     })
 })
@@ -121,7 +125,19 @@ describe('overlay arrows', () => {
         name => {
             const { frame } = OVERLAY_ARROWS[name]
             const shapes = overlayArrow(name)
+            expect(shapes.length).toBeGreaterThan(0)
             expect(shapes.length % 2).toBe(0)
+            // Each pair is an edge with a differently coloured core inside it.
+            for (let i = 0; i < shapes.length; i += 2) {
+                const [edge, core] = [shapes[i], shapes[i + 1]]
+                expect(edge.color).not.toBe(core.color)
+                const [ex0, ey0, ex1, ey1] = bounds([edge.path])
+                const [cx0, cy0, cx1, cy1] = bounds([core.path])
+                expect(cx0).toBeGreaterThan(ex0)
+                expect(cy0).toBeGreaterThan(ey0)
+                expect(cx1).toBeLessThan(ex1)
+                expect(cy1).toBeLessThan(ey1)
+            }
             const [x0, y0, x1, y1] = bounds(shapes.map(s => s.path))
             // The widest arrow's base corners round off inside a frame edge.
             expect(x0).toBeGreaterThanOrEqual(-0.5)

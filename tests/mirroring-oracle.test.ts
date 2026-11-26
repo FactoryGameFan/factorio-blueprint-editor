@@ -64,6 +64,12 @@ for (const fixture of fixtures) {
                     continue
                 const a = plain.got
                 const b = mirrored.got
+                // Nor does one with no connection, drop or pickup on either side
+                // (the recycler in both fixtures): its row would compare nothing
+                // and still count towards `compared`.
+                const empty = (s: Snapshot) =>
+                    list(s.fluidboxes).every(box => list(box).length === 0) && !s.drop && !s.pickup
+                if (empty(a) && empty(b)) continue
 
                 it(`${entity.name} facing ${dir}`, () => {
                     const boxesA = list(a.fluidboxes)

@@ -146,11 +146,20 @@ describe('fluid turret at the eight 2.1 facings', () => {
         vi.restoreAllMocks()
     })
 
-    it('draws each cardinal exactly as the 2.0 prototype does', () => {
+    /*
+        Against the prototype's own key for each facing, not a second draw: the
+        committed data is 2.1 now, so the original turret already carries the
+        same cardinal keys and a second draw would be wrong in the same way.
+    */
+    it('draws each cardinal from its own key', () => {
         for (const i of [0, 2, 4, 6]) {
             const sprites = draw(turret.name, i * 2)
             expect(Array.isArray(sprites)).toBe(true)
-            expect(sprites).toEqual(draw(original.name, i * 2))
+            const expected = [
+                ...original.graphics_set.base_visualisation.animation[NAMES[i]].layers,
+                ...original.folded_animation[NAMES[i]].layers,
+            ]
+            expect((sprites as unknown[]).slice(0, expected.length)).toEqual(expected)
         }
     })
 
