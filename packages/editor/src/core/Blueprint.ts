@@ -1,5 +1,4 @@
 import EventEmitter from 'eventemitter3'
-import { Sprite, Texture } from 'pixi.js'
 import {
     BlueprintInsertPlan,
     IBlueprint,
@@ -25,21 +24,10 @@ import FD, {
 import { Entity } from './Entity'
 import { IConnection, WireConnections } from './WireConnections'
 import { PositionGrid } from './PositionGrid'
-import * as generators from './generators'
-import { IVisualization } from './generators'
 import { History } from './History'
 import { Tile } from './Tile'
 import { need } from './need'
 import { getFactorioVersion } from './factorioVersion'
-
-export interface IOilOutpostSettings extends Record<string, string | boolean | number> {
-    DEBUG: boolean
-    PUMPJACK_MODULE: string
-    MIN_GAP_BETWEEN_UNDERGROUNDS: number
-    BEACONS: boolean
-    MIN_AFFECTED_ENTITIES: number
-    BEACON_MODULE: string
-}
 
 /**
  * The signal type for a name the editor picked itself, in `computeAutoIcons`.
@@ -69,15 +57,6 @@ function deriveSignalType(name: string): SignalType {
     if (FD.recipes[name]) return 'recipe'
     if (FD.entities[name]) return 'entity'
     return 'item'
-}
-
-const oilOutpostSettings: IOilOutpostSettings = {
-    DEBUG: false,
-    PUMPJACK_MODULE: 'productivity-module-3',
-    MIN_GAP_BETWEEN_UNDERGROUNDS: 1,
-    BEACONS: true,
-    MIN_AFFECTED_ENTITIES: 1,
-    BEACON_MODULE: 'speed-module-3',
 }
 
 class OurMap<K, V> extends Map<K, V> {
@@ -932,191 +911,6 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
         }
     }
 
-    public generatePipes(): string | undefined {
-        const {
-            DEBUG,
-            PUMPJACK_MODULE,
-            MIN_GAP_BETWEEN_UNDERGROUNDS,
-            MIN_AFFECTED_ENTITIES,
-            BEACON_MODULE,
-            BEACONS,
-        } = oilOutpostSettings
-
-        const pumpjacks = this.entities
-            .filter(v => v.name === 'pumpjack')
-            .map(p => ({ entity_number: p.entityNumber, name: p.name, position: p.position }))
-
-        if (pumpjacks.length < 2 || pumpjacks.length > 200) {
-            return 'There should be between 2 and 200 pumpjacks in the blueprint area!'
-        }
-
-        if (pumpjacks.length !== this.entities.size) {
-            return 'Blueprint area should only contain pumpjacks!'
-        }
-
-        const tooLarge = generators.pipeGridTooLarge(pumpjacks)
-        if (tooLarge !== undefined) {
-            return tooLarge
-        }
-
-        const visualizations: IVisualization[][] = []
-
-        console.log('Generating pipes...')
-
-        const T = util.timer('Total generation')
-
-        // Generate pipes
-        const GPT = util.timer('Pipe generation')
-
-        // I wrapped generatePipes into a Web Worker but for some reason it sometimes takes x2 time to run the function
-        // Usualy when there are more than 100 pumpjacks the function will block the main thread
-        // which is not great but the user should wait for the generated entities anyway
-        const GP = generators.generatePipes(pumpjacks, MIN_GAP_BETWEEN_UNDERGROUNDS)
-        visualizations.push(GP.visualizations)
-
-        console.log('Pipes:', GP.info.nrOfPipes)
-        console.log('Underground Pipes:', GP.info.nrOfUPipes)
-        console.log('Pipes replaced by underground pipes:', GP.info.nrOfPipesReplacedByUPipes)
-        console.log(
-            'Ratio (pipes replaced/underground pipes):',
-            GP.info.nrOfPipesReplacedByUPipes / GP.info.nrOfUPipes
-        )
-        GPT.stop()
-
-        // Generate beacons
-        let beacons: {
-            name: string
-            position: IPoint
-        }[] = []
-        if (BEACONS) {
-            const GBT = util.timer('Beacon generation')
-
-            const entitiesForBeaconGen = [
-                ...pumpjacks.map(p => ({ ...p, size: 3, effect: true })),
-                ...GP.pipes.map(p => ({ ...p, size: 1, effect: false })),
-            ]
-
-            const GB = generators.generateBeacons(entitiesForBeaconGen, MIN_AFFECTED_ENTITIES)
-            beacons = GB.beacons
-            visualizations.push(GB.visualizations)
-
-            if (BEACONS) {
-                console.log('Beacons:', GB.info.totalBeacons)
-                console.log('Effects given by beacons:', GB.info.effectsGiven)
-            }
-
-            GBT.stop()
-        }
-
-        // Generate poles
-        const GPOT = util.timer('Pole generation')
-
-        const entitiesForPoleGen = [
-            ...pumpjacks.map(p => ({ ...p, size: 3, power: true })),
-            ...GP.pipes.map(p => ({ ...p, size: 1, power: false })),
-            ...beacons.map(p => ({ ...p, size: 3, power: true })),
-        ]
-
-        const GPO = generators.generatePoles(entitiesForPoleGen)
-        visualizations.push(GPO.visualizations)
-
-        console.log('Power Poles:', GPO.info.totalPoles)
-        GPOT.stop()
-
-        T.stop()
-
-        // Apply Changes
-        this.history.logging = false
-        try {
-            this.history.transaction('Generate Oil Outpost', () => {
-                for (const pipe of GP.pipes) {
-                    this.createEntity(pipe)
-                }
-                const e = FD.entities['beacon']
-                const inventory = getModuleInventoryIndex(e)
-                if (inventory === null) {
-                    throw new Error('beacon has no module inventory')
-                }
-                const beacon_module_slots = (hasModuleFunctionality(e) && e.module_slots) || 0
-                const items: BlueprintInsertPlan[] = []
-                const in_inventory: InventoryPosition[] = []
-                for (let i = 0; i < beacon_module_slots; i++) {
-                    in_inventory.push({
-                        inventory,
-                        stack: i,
-                    })
-                }
-                items.push({
-                    id: { name: BEACON_MODULE },
-                    items: { in_inventory },
-                })
-                for (const beacon of beacons) {
-                    this.createEntity({
-                        ...beacon,
-                        items,
-                    })
-                }
-                for (const pole of GPO.poles) {
-                    this.createEntity(pole)
-                }
-
-                this.wireConnections.generatePowerPoleWires()
-
-                for (const p of GP.pumpjacksToRotate) {
-                    // Created by this same method a few lines up, so its absence would
-                    // mean the generator returned a number we never placed.
-                    const entity = this.entities.get(p.entity_number)
-                    if (entity === undefined) {
-                        throw new Error(`generator returned unknown entity ${p.entity_number}`)
-                    }
-                    entity.direction = p.direction
-                    if (PUMPJACK_MODULE !== 'none') {
-                        entity.modules = Array.from<string>({ length: entity.moduleSlots }).fill(
-                            PUMPJACK_MODULE
-                        )
-                    }
-                }
-            })
-        } finally {
-            this.history.logging = true
-        }
-
-        // Create visualizations
-        if (!DEBUG) return
-
-        // TODO: make a container special for debugging purposes
-        G.BPC.wiresContainer.removeChildren()
-
-        const timePerVis = 1000
-        visualizations
-            .filter(vis => vis.length)
-            .forEach((vis, i) => {
-                vis.forEach((v, j, arr) => {
-                    setTimeout(
-                        () => {
-                            const tint = v.color ? v.color : 0xffffff * Math.random()
-                            v.path.forEach((p, k) => {
-                                setTimeout(
-                                    () => {
-                                        const s = new Sprite(Texture.WHITE)
-                                        s.tint = tint
-                                        s.anchor.set(0.5)
-                                        s.alpha = v.alpha
-                                        s.width = v.size
-                                        s.height = v.size
-                                        s.position.set(p.x * 32, p.y * 32)
-                                        G.BPC.wiresContainer.addChild(s)
-                                    },
-                                    k * (timePerVis / arr.length / v.path.length)
-                                )
-                            })
-                        },
-                        j * (timePerVis / arr.length) + i * timePerVis
-                    )
-                })
-            })
-    }
-
     /** behaves like in Factorio 0.17.14 */
     /**
      * The icons `serialize()` exports for a blueprint carrying none of its
@@ -1502,4 +1296,4 @@ function getOffset(data: Partial<IBlueprint>): IPoint {
     }
 }
 
-export { Blueprint, oilOutpostSettings, getFactorioVersion }
+export { Blueprint, getFactorioVersion }

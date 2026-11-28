@@ -39,7 +39,8 @@ link has a `?source=` too, that one wins.
   (direct bp string, pastebin, hastebin, gist, gitlab, factorioprints,
   factorio.school, factoriobin, google docs)
 - generating blueprint images
-- oil outpost generator
+- oil outpost planning: G opens the blueprint in the
+  [oil field planner](https://oilfieldplanner.factorygamefan.com/oil-field)
 - customizable keybinds
 - "creative" entities
 - read-only viewer on mobile, with pan and pinch-to-zoom

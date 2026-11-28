@@ -362,19 +362,6 @@
             ],
         },
         {
-            // Last published in 2016, so realistically nothing will ever be proposed
-            // here - but if something is, it must not be read as routine. This is a
-            // settled KEEP rather than a hold: no CVE, no network or parsing surface,
-            // and the risk is bus-factor. What makes a bump non-routine is that its
-            // output is pinned: generators.test.ts asserts the oil outpost generator's
-            // layouts against a committed fixture, so a version change is a "did the
-            // generated layout move?" question rather than a dependency change.
-            matchPackageNames: ['pathfinding', '@types/pathfinding'],
-            prBodyNotes: [
-                '`packages/editor/src/core/generators/` output is pinned by `generators.test.ts` against a committed fixture. A diff there means this bump changed generated layouts - do not refresh the fixture to make it pass. If this ever needs to move, vendor the BFS and prove it against the existing fixture instead.',
-            ],
-        },
-        {
             // packages/exporter is a Rust crate with a committed Cargo.lock, and until
             // now it had NO version automation at all - .github/dependabot.yml had no
             // cargo entry, so the exporter got security alerts and nothing else, and it

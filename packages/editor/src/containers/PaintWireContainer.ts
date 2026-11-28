@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js'
 import G from '../common/globals'
-import U from '../core/generators/util'
+import U from '../core/geometry'
 import { IConnection, IDrawableConnection, IEntityConnectionPoint } from '../core/WireConnections'
 import { Entity } from '../core/Entity'
 import { EntityContainer } from './EntityContainer'

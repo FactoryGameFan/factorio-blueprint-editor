@@ -292,6 +292,50 @@ function importAppend(source?: string): Promise<boolean> {
         })
 }
 
+/*
+    G used to run an oil outpost generator of FBE's own. It now hands the
+    blueprint to the oil field planner (FactorioTools), which plans better
+    layouts, runs in a background worker so the tab never freezes, and links
+    back here with "View in FBE". FBE's generator ran on the main thread with
+    no limit on how far apart the pumpjacks were (GHSA-9w8p-4q25-qv54).
+
+    The blueprint goes in the URL fragment, `#source=`, which a browser never
+    sends to a server: it travels from this tab to the planner's tab and nowhere
+    else, and no server-side URL length limit applies. A `?source=` query would
+    send it to Cloudflare with the page request. The planner reads the fragment
+    since FactorioTools#226.
+
+    The tab is opened during the key press and pointed at the planner once the
+    string is encoded, because encoding is async and a browser blocks a tab
+    opened after an await. Its `opener` is cut first, so the planner page gets
+    no handle on this one.
+*/
+const OIL_FIELD_PLANNER = 'https://oilfieldplanner.factorygamefan.com/oil-field'
+
+function openOilFieldPlanner(): void {
+    if (bp.entities.find(e => e.name === 'pumpjack') === undefined) {
+        createToast({
+            text: 'Place pumpjacks first: G opens them in the oil field planner.',
+            type: 'warning',
+        })
+        return
+    }
+    const tab = window.open('', '_blank')
+    if (tab === null) {
+        createToast({ text: 'The browser blocked the oil field planner tab.', type: 'warning' })
+        return
+    }
+    tab.opener = null
+    encode(bp)
+        .then(source =>
+            tab.location.replace(`${OIL_FIELD_PLANNER}#source=${encodeURIComponent(source)}`)
+        )
+        .catch((error: unknown) => {
+            tab.close()
+            createErrorMessage('Could not open the oil field planner.', error)
+        })
+}
+
 function exportString(): boolean {
     if (bp.isEmpty()) return false
 
@@ -1315,14 +1359,11 @@ function registerActions(): void {
         },
     })
 
-    EDITOR.registerAction('generateOilOutpost', {
+    EDITOR.registerAction('openOilFieldPlanner', {
         trigger: { code: 'KeyG' },
         callbacks: {
             onPress: () => {
-                const errorMessage = bp.generatePipes()
-                if (errorMessage) {
-                    createToast({ text: errorMessage, type: 'warning' })
-                }
+                openOilFieldPlanner()
                 return true
             },
         },
