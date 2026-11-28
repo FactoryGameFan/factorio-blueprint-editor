@@ -839,6 +839,15 @@ against the CSP in `packages/website/public/_headers` that permits them.
   prototypes or icons. Requester and buffer chests get none, because the game
   draws no request icons on them in alt mode. No editor has a quality picker,
   so each setter keeps the quality its dialog cannot show.
+- An infinity chest's 2.1 logistic mode is kept but not editable (#611). The
+  mode is `override_logistic_mode`, and its requests use the ordinary
+  `request_filters` sections; `tools/oracle/fixtures/infinity-chest-modes.json`
+  has every shape the game writes. Two of its import results bind any editor
+  for it: the game refuses the whole string if the mode is written as `none`
+  (no mode means no key), and it silently drops requests on a chest with no
+  mode or a provider mode, so switching modes must move them to `saved_*` the
+  way the game does. `tests/infinity-chest-modes.test.ts` pins that every key
+  survives a round trip.
 - Keybind labels in the shortcut bar's hover text name each key by its place on
   a US QWERTY keyboard, because actions match `KeyboardEvent.code`. On other
   layouts the printed letter differs: German Undo shows Z but works on the key
