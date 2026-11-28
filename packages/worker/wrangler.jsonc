@@ -77,10 +77,13 @@
         deploy on 2026-09-02: 199 in the minute before it landed, 21 in the
         minute after. Counted exactly one day at a time, Workers Logs gave
         8,677 to 14,692 invocations a day over 2026-09-12 to 17, or 6.0 to
-        10.2 a minute, about half of them /corsproxy. That is roughly 350,000
-        log events a month against 20 million included. Count one day at a
-        time: a query over the whole 7-day log comes back sampled at about 1
-        in 10, and it was once read as a single day's total, 7 times too high.
+        10.2 a minute, about half of them /corsproxy. By 2026-11-22 to 27 it
+        was 16,068 to 21,923 a day (#312), still under half /corsproxy, for
+        roughly 570,000 log events a month against 20 million included. Each
+        event is one invocation log, so the two counts move together. Count
+        one day at a time: a query over the whole 7-day log comes back sampled
+        at about 1 in 10, and it was once read as a single day's total, 7
+        times too high.
 
         The number to watch is invocations, not this rate. Log events bill at
         $0.60 per million past the included 20 million, so this stays free
