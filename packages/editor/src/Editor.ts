@@ -12,7 +12,7 @@ import basisTranscoderJS from './basis/transcoder.1.16.4.js?url'
 import basisTranscoderWASM from './basis/transcoder.1.16.4.wasm?url'
 import { loadData } from './core/factorioData'
 import G, { Logger, QuickActions } from './common/globals'
-import { Blueprint, oilOutpostSettings, IOilOutpostSettings } from './core/Blueprint'
+import { Blueprint } from './core/Blueprint'
 import { BlueprintContainer, EditorMode, GridPattern } from './containers/BlueprintContainer'
 import { EntityContainer } from './containers/EntityContainer'
 import { PaintTileContainer } from './containers/PaintTileContainer'
@@ -190,17 +190,6 @@ export class Editor {
     }
     public set pictureResolution(resolution: number) {
         G.BPC.pictureResolution = resolution
-    }
-
-    public get oilOutpostSettings(): IOilOutpostSettings {
-        return oilOutpostSettings
-    }
-    public set oilOutpostSettings(settings: IOilOutpostSettings) {
-        for (const key in oilOutpostSettings) {
-            if (settings[key]) {
-                oilOutpostSettings[key] = settings[key]
-            }
-        }
     }
 
     /**

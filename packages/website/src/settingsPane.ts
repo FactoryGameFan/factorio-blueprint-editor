@@ -1,6 +1,5 @@
 import { GUI } from 'dat.gui'
-import EDITOR, { Blueprint, Book, GridPattern, Editor, FD, localisedName } from '@fbe/editor'
-import { storedJson } from './storage'
+import EDITOR, { Blueprint, Book, GridPattern, Editor } from '@fbe/editor'
 
 GUI.TEXT_CLOSED = 'Close Settings'
 GUI.TEXT_OPEN = 'Open Settings'
@@ -164,55 +163,9 @@ export function initSettingsPane(
             editor.pictureResolution = Number(value)
         })
 
-    const oilOutpostStored = storedJson<typeof editor.oilOutpostSettings>('oilOutpostSettings')
-    if (oilOutpostStored) {
-        editor.oilOutpostSettings = oilOutpostStored
-    }
-    window.addEventListener('visibilitychange', () =>
-        localStorage.setItem('oilOutpostSettings', JSON.stringify(editor.oilOutpostSettings))
-    )
-
-    const oilOutpostSettings = new Proxy(editor.oilOutpostSettings, {
-        set: (settings, key, value) => {
-            settings[key as string] = value
-            editor.oilOutpostSettings = settings
-            return true
-        },
-    })
-
-    function getModulesObjFor(entityName: string): Record<string, string> {
-        return (
-            FD.getModulesFor(entityName)
-                // `order` is optional on ItemPrototype and 7 of the 340 items in
-                // data.json omit it - no module does today, but a comparator that
-                // can throw would take the whole settings pane with it, and there
-                // is nothing catching above this. Unordered sorts first.
-                .sort((a, b) => (a.order ?? '').localeCompare(b.order ?? ''))
-                .reduce<Record<string, string>>(
-                    (obj, item) => {
-                        obj[localisedName(item)] = item.name
-                        return obj
-                    },
-                    { None: 'none' }
-                )
-        )
-    }
-
-    const oilOutpostFolder = gui.addFolder('Oil Outpost Generator Settings')
-    oilOutpostFolder.add(oilOutpostSettings, 'DEBUG').name('Debug')
-    oilOutpostFolder
-        .add(oilOutpostSettings, 'PUMPJACK_MODULE', getModulesObjFor('pumpjack'))
-        .name('Pumpjack Modules')
-    oilOutpostFolder
-        .add(oilOutpostSettings, 'MIN_GAP_BETWEEN_UNDERGROUNDS', 1, 9, 1)
-        .name('Min Gap > < UPipes')
-    oilOutpostFolder.add(oilOutpostSettings, 'BEACONS').name('Beacons')
-    oilOutpostFolder
-        .add(oilOutpostSettings, 'MIN_AFFECTED_ENTITIES', 1, 12, 1)
-        .name('Min Affect. Pumpjacks')
-    oilOutpostFolder
-        .add(oilOutpostSettings, 'BEACON_MODULE', getModulesObjFor('beacon'))
-        .name('Beacon Modules')
+    // The G key's own generator and its settings folder were removed when G
+    // moved to the oil field planner; drop what it saved.
+    localStorage.removeItem('oilOutpostSettings')
 
     // Keybinds folder
     const keybindsFolder = gui.addFolder('Keybinds')

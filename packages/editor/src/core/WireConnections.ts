@@ -1,7 +1,7 @@
 import EventEmitter from 'eventemitter3'
 import { IBPConnection, IConnSide, IPoint, IWireColor, BlueprintWire, WireColor } from '../types'
 import FD, { getMaxWireDistance } from './factorioData'
-import U from './generators/util'
+import U from './geometry'
 import { Blueprint } from './Blueprint'
 import { WireConnectionMap } from './WireConnectionMap'
 // Type-only: a value-level import here would cycle back through Blueprint,

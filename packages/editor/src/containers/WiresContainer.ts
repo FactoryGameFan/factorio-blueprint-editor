@@ -6,7 +6,7 @@ import {
     IDrawableConnection,
     IEntityConnectionPoint,
 } from '../core/WireConnections'
-import U from '../core/generators/util'
+import U from '../core/geometry'
 import { Entity } from '../core/Entity'
 import { IPoint, WireColor } from '../types'
 import { EntityContainer } from './EntityContainer'
