@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vite-plus/test'
 import { IPoint } from '../../types'
-import { generatePipes } from './pipe'
+import { generatePipes, pipeGridTooLarge } from './pipe'
 import { generateBeacons } from './beacon'
 import { generatePoles } from './pole'
 import EXPECTED from './__fixtures__/expected-output.json'
@@ -103,5 +103,55 @@ describe('oil outpost generators', () => {
         const first = JSON.stringify(runGenerators(LAYOUTS.scattered))
         const second = JSON.stringify(runGenerators(LAYOUTS.scattered))
         expect(second).toBe(first)
+    })
+})
+
+/*
+    The grid size limit (GHSA-9w8p-4q25-qv54). A pumpjack at tile (x, y) covers
+    x - 1 to x + 1, and the grid adds a 2-tile margin on every side, so two
+    pumpjacks D tiles apart span a grid of D + 7 tiles on that axis.
+*/
+describe('pipe grid size limit', () => {
+    const at = (n: number, x: number, y: number) => ({
+        entity_number: n,
+        position: { x: x + 0.5, y: y + 0.5 },
+    })
+
+    it('accepts every characterization layout', () => {
+        for (const pumpjacks of Object.values(LAYOUTS)) {
+            expect(pipeGridTooLarge(pumpjacks)).toBeUndefined()
+        }
+    })
+
+    it('accepts a 500 x 500 grid and refuses 501 x 501, the area limit', () => {
+        expect(pipeGridTooLarge([at(1, 0, 0), at(2, 493, 493)])).toBeUndefined()
+        expect(pipeGridTooLarge([at(1, 0, 0), at(2, 494, 494)])).toBe(
+            'The pumpjacks are too far apart! The pipe grid would be 501 x 501 tiles; ' +
+                'it can be at most 1000 x 1000 and 250,000 tiles in area.'
+        )
+    })
+
+    it('accepts a row 1000 wide and refuses 1001, the side limit', () => {
+        // 7 tall, so the area stays far under its limit and only the side can refuse it
+        expect(pipeGridTooLarge([at(1, 0, 0), at(2, 993, 0)])).toBeUndefined()
+        expect(pipeGridTooLarge([at(1, 0, 0), at(2, 994, 0)])).toContain('1001 x 7')
+        expect(pipeGridTooLarge([at(1, 0, 0), at(2, 0, 994)])).toContain('7 x 1001')
+    })
+
+    it('refuses positions that are not finite numbers', () => {
+        for (const bad of [NaN, Infinity, -Infinity]) {
+            expect(pipeGridTooLarge([at(1, 0, 0), at(2, bad, 0)])).toContain('unbounded')
+        }
+        // finite, so the message can still give the size
+        expect(pipeGridTooLarge([at(1, 0, 0), at(2, 1e300, 0)])).toContain('1e+300 x 7')
+    })
+
+    it('makes generatePipes throw before it builds the grid', () => {
+        /*
+            A row just past the side limit, chosen because without the guard it
+            plans in milliseconds: removing the guard fails this test rather
+            than hanging or crashing the run.
+        */
+        expect(() => generatePipes([at(1, 0, 0), at(2, 994, 0)], 1)).toThrow('1001 x 7')
     })
 })

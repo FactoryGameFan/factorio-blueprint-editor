@@ -954,6 +954,11 @@ class Blueprint extends EventEmitter<BlueprintEvents> {
             return 'Blueprint area should only contain pumpjacks!'
         }
 
+        const tooLarge = generators.pipeGridTooLarge(pumpjacks)
+        if (tooLarge !== undefined) {
+            return tooLarge
+        }
+
         const visualizations: IVisualization[][] = []
 
         console.log('Generating pipes...')

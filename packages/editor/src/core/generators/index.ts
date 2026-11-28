@@ -1,5 +1,5 @@
 import { IPoint } from '../../types'
-import { generatePipes } from './pipe'
+import { generatePipes, pipeGridTooLarge } from './pipe'
 import { generateBeacons } from './beacon'
 import { generatePoles } from './pole'
 
@@ -10,4 +10,4 @@ export interface IVisualization {
     color?: number
 }
 
-export { generatePipes, generateBeacons, generatePoles }
+export { generatePipes, pipeGridTooLarge, generateBeacons, generatePoles }

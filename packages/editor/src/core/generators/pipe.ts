@@ -58,6 +58,71 @@ interface IGroup extends IPoint {
 }
 
 /*
+    The pipe grid covers every tile between the outermost pumpjacks, so its size
+    follows how far apart they are, not how many there are. Pathfinding then
+    copies the whole grid for each path it tries (`new PF.Grid(grid)`). With no
+    limit, a few pumpjacks far apart froze or crashed the tab. Measured in
+    Chromium 158 on 2026-11-28, two pumpjacks at opposite corners of a square
+    froze it for 4.6 s at 1,000 tiles and 48 s at 3,000, and at 10,000 tiles the
+    renderer crashed after 71 s.
+
+    These limits are the oil field planner's (FactorioTools, `MAX_WIDTH`,
+    `MAX_HEIGHT` and `MAX_AREA` in rust/planner/src/steps/initialize_context.rs),
+    so a field one tool plans the other does not refuse. A large field is slow
+    even inside them: 200 pumpjacks scattered over 300 x 300 tiles take 3.3 s,
+    and over 500 x 500, just past the area limit, 11 s.
+*/
+const MAX_GRID_WIDTH = 1000
+const MAX_GRID_HEIGHT = 1000
+const MAX_GRID_AREA = 500 * 500
+
+function pipeGridBounds(pumpjacks: { position: IPoint }[]): {
+    globalCoords: IPoint[]
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+} {
+    const globalCoords = pumpjacks
+        .map(e => [Math.floor(e.position.x), Math.floor(e.position.y)])
+        .flatMap(pos =>
+            U.range(0, 9)
+                .map(i => [(i % 3) - 1, Math.floor(i / 3) - 1])
+                .map<IPoint>(offset => ({
+                    x: pos[0] + offset[0],
+                    y: pos[1] + offset[1],
+                }))
+        )
+
+    const minX = globalCoords.reduce((pV, cV) => Math.min(pV, cV.x), Infinity)
+    const minY = globalCoords.reduce((pV, cV) => Math.min(pV, cV.y), Infinity)
+    const maxX = globalCoords.reduce((pV, cV) => Math.max(pV, cV.x), -Infinity) + 1
+    const maxY = globalCoords.reduce((pV, cV) => Math.max(pV, cV.y), -Infinity) + 1
+    return { globalCoords, minX, minY, maxX, maxY }
+}
+
+/**
+ * The message to show when the pumpjacks are too far apart to plan, or undefined
+ * when the grid fits. Reads the same bounds `generatePipes` builds its grid from.
+ */
+function pipeGridTooLarge(pumpjacks: { position: IPoint }[]): string | undefined {
+    const { minX, minY, maxX, maxY } = pipeGridBounds(pumpjacks)
+    const width = maxX - minX + GRID_MARGIN * 2
+    const height = maxY - minY + GRID_MARGIN * 2
+    const area = width * height
+    // Written so a NaN position fails the check rather than slipping past it.
+    if (width <= MAX_GRID_WIDTH && height <= MAX_GRID_HEIGHT && area <= MAX_GRID_AREA) {
+        return undefined
+    }
+    const size = Number.isFinite(area) ? `${width} x ${height}` : 'unbounded'
+    return (
+        `The pumpjacks are too far apart! The pipe grid would be ${size} tiles; ` +
+        `it can be at most ${MAX_GRID_WIDTH} x ${MAX_GRID_HEIGHT} and ` +
+        `${MAX_GRID_AREA.toLocaleString('en-US')} tiles in area.`
+    )
+}
+
+/*
     How the algorithm works:
 
     1. form lines between pumpjacks (DT)
@@ -106,21 +171,12 @@ function generatePipes(
         visualizations.push({ path: path.map(localToGlobal), size, alpha, color })
     }
 
-    const globalCoords = pumpjacks
-        .map(e => [Math.floor(e.position.x), Math.floor(e.position.y)])
-        .flatMap(pos =>
-            U.range(0, 9)
-                .map(i => [(i % 3) - 1, Math.floor(i / 3) - 1])
-                .map<IPoint>(offset => ({
-                    x: pos[0] + offset[0],
-                    y: pos[1] + offset[1],
-                }))
-        )
+    const tooLarge = pipeGridTooLarge(pumpjacks)
+    if (tooLarge !== undefined) {
+        throw new Error(tooLarge)
+    }
 
-    const minX = globalCoords.reduce((pV, cV) => Math.min(pV, cV.x), Infinity)
-    const minY = globalCoords.reduce((pV, cV) => Math.min(pV, cV.y), Infinity)
-    const maxX = globalCoords.reduce((pV, cV) => Math.max(pV, cV.x), -Infinity) + 1
-    const maxY = globalCoords.reduce((pV, cV) => Math.max(pV, cV.y), -Infinity) + 1
+    const { globalCoords, minX, minY, maxX, maxY } = pipeGridBounds(pumpjacks)
     const middle = { x: (maxX - minX) / 2, y: (maxY - minY) / 2 }
 
     const isPumpjackAtPos = new Set(globalCoords.map(globalToLocal).map(U.hashPoint))
@@ -639,4 +695,4 @@ function getPathBetweenGroups(
     }
 }
 
-export { generatePipes }
+export { generatePipes, pipeGridTooLarge }
